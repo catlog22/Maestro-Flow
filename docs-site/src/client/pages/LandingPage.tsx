@@ -18,7 +18,7 @@ export default function LandingPage({ categories }: LandingPageProps) {
       {/* Hero section */}
       <div className="mb-[var(--spacing-8)]">
         <h1 className="text-[length:28px] font-[var(--font-weight-bold)] text-text-primary mb-[var(--spacing-2)] leading-[1.3]">
-          Maestro Documentation
+          {t('landing.title')}
         </h1>
         <p className="text-[length:var(--font-size-md)] text-text-secondary leading-[var(--line-height-relaxed)] max-w-[520px]">
           {t('landing.description')}

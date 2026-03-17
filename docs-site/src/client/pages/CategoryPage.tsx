@@ -1,5 +1,6 @@
 import { useI18n } from '@/client/i18n/index.js';
 import type { Category, Command, Skill } from '@/client/routes/route-config.js';
+import { getCommandMetadata, getSkillMetadata } from '@/client/data/commandMetadata.js';
 import { Link } from 'react-router-dom';
 import { getCategoryIcon } from '@/client/utils/categoryIcons.js';
 
@@ -31,11 +32,11 @@ export default function CategoryPage({
         <div className="flex items-center gap-[var(--spacing-3)] mb-[var(--spacing-2)]">
           <span className="text-[length:24px]">{getCategoryIcon(categoryId)}</span>
           <h1 className="text-[length:28px] font-[var(--font-weight-bold)] text-text-primary leading-[1.3]">
-            {category.name}
+            {t(`categories.${categoryId}`) !== `categories.${categoryId}` ? t(`categories.${categoryId}`) : category.name}
           </h1>
         </div>
         <p className="text-[length:var(--font-size-md)] text-text-secondary">
-          {category.description}
+          {t(`category_descriptions.${categoryId}`) !== `category_descriptions.${categoryId}` ? t(`category_descriptions.${categoryId}`) : category.description}
         </p>
       </div>
 
@@ -89,7 +90,14 @@ export default function CategoryPage({
 // ---------------------------------------------------------------------------
 
 function CommandCard({ command, categoryId }: { command: Command; categoryId: string }) {
+  const { locale } = useI18n();
   const slug = getCommandSlug(command.name);
+  const meta = getCommandMetadata(command.name);
+  const isZh = locale === 'zh-CN';
+
+  const displayDescription = isZh && meta?.description_zh ? meta.description_zh : command.description;
+  const nameZhBadge = isZh && meta?.name_zh ? meta.name_zh : null;
+
   return (
     <Link
       to={`/${categoryId}/${slug}`}
@@ -97,11 +105,16 @@ function CommandCard({ command, categoryId }: { command: Command; categoryId: st
     >
       <div className="flex items-start justify-between gap-[var(--spacing-3)]">
         <div className="min-w-0 flex-1">
-          <h3 className="text-[length:var(--font-size-base)] font-[var(--font-weight-semibold)] text-text-primary mb-[var(--spacing-1)]">
-            {command.name}
-          </h3>
+          <div className="flex items-center gap-[var(--spacing-2)] mb-[var(--spacing-1)]">
+            <h3 className="text-[length:var(--font-size-base)] font-[var(--font-weight-semibold)] text-text-primary">
+              {command.name}
+            </h3>
+            {nameZhBadge && (
+              <span className="text-[length:11px] text-text-tertiary">{nameZhBadge}</span>
+            )}
+          </div>
           <p className="text-[length:12px] text-text-secondary line-clamp-2">
-            {command.description}
+            {displayDescription}
           </p>
         </div>
         <svg className="w-4 h-4 text-text-placeholder shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round">
@@ -117,7 +130,14 @@ function CommandCard({ command, categoryId }: { command: Command; categoryId: st
 // ---------------------------------------------------------------------------
 
 function SkillCard({ skill, skillType }: { skill: Skill; skillType: 'claude' | 'codex' }) {
+  const { locale } = useI18n();
   const href = skillType === 'claude' ? `/skills/${skill.name}` : `/codex/${skill.name}`;
+  const meta = getSkillMetadata(skill.name);
+  const isZh = locale === 'zh-CN';
+
+  const displayDescription = isZh && meta?.description_zh ? meta.description_zh : skill.description;
+  const nameZhBadge = isZh && meta?.name_zh ? meta.name_zh : null;
+
   return (
     <Link
       to={href}
@@ -129,6 +149,9 @@ function SkillCard({ skill, skillType }: { skill: Skill; skillType: 'claude' | '
             <h3 className="text-[length:var(--font-size-base)] font-[var(--font-weight-semibold)] text-text-primary">
               {skill.name}
             </h3>
+            {nameZhBadge && (
+              <span className="text-[length:11px] text-text-tertiary">{nameZhBadge}</span>
+            )}
             <span
               className={[
                 'px-[var(--spacing-2)] py-[1px] text-[length:10px] rounded-full font-[var(--font-weight-semibold)]',
@@ -139,7 +162,7 @@ function SkillCard({ skill, skillType }: { skill: Skill; skillType: 'claude' | '
             </span>
           </div>
           <p className="text-[length:12px] text-text-secondary line-clamp-2">
-            {skill.description}
+            {displayDescription}
           </p>
         </div>
         <svg className="w-4 h-4 text-text-placeholder shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round">

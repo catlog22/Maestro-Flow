@@ -1,12 +1,14 @@
 import { useI18n } from '@/client/i18n/index.js';
 import { MarkdownRenderer } from '@/client/components/content/MarkdownRenderer.js';
 import { loadCommand, type CommandContent } from '@/client/data/index.js';
+import { getCommandMetadata, type CommandMetadata } from '@/client/data/commandMetadata.js';
 import { getCategoryIcon } from '@/client/utils/categoryIcons.js';
 import type { Category, Command } from '@/client/routes/route-config.js';
+import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 
 // ---------------------------------------------------------------------------
-// CommandDetailPage — warm minimal command documentation
+// CommandDetailPage — bilingual command documentation with structured intro
 // ---------------------------------------------------------------------------
 
 interface CommandDetailPageProps {
@@ -16,10 +18,13 @@ interface CommandDetailPageProps {
 }
 
 export default function CommandDetailPage({ commandName, category, command }: CommandDetailPageProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [content, setContent] = useState<CommandContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const meta = getCommandMetadata(commandName);
+  const isZh = locale === 'zh-CN';
 
   useEffect(() => {
     async function fetchContent() {
@@ -54,6 +59,10 @@ export default function CommandDetailPage({ commandName, category, command }: Co
     );
   }
 
+  // Resolve display name and description based on locale
+  const displayName = isZh && meta?.name_zh ? `${content?.name || command.name} · ${meta.name_zh}` : (content?.name || command.name);
+  const displayDescription = isZh && meta?.description_zh ? meta.description_zh : (content?.description || command.description);
+
   return (
     <div>
       {/* Header */}
@@ -62,13 +71,13 @@ export default function CommandDetailPage({ commandName, category, command }: Co
           <span className="text-[length:24px]">{getCategoryIcon(category.id)}</span>
           <div>
             <h1 className="text-[length:28px] font-[var(--font-weight-bold)] text-text-primary leading-[1.3]">
-              {content?.name || command.name}
+              {displayName}
             </h1>
-            <p className="text-[length:12px] text-text-tertiary">{category.name}</p>
+            <p className="text-[length:12px] text-text-tertiary">{t(`categories.${category.id}`) !== `categories.${category.id}` ? t(`categories.${category.id}`) : category.name}</p>
           </div>
         </div>
         <p className="text-[length:var(--font-size-md)] text-text-secondary leading-[var(--line-height-relaxed)]">
-          {content?.description || command.description}
+          {displayDescription}
         </p>
       </div>
 
@@ -81,44 +90,64 @@ export default function CommandDetailPage({ commandName, category, command }: Co
         </Section>
       )}
 
+      {/* Workflow Connections — shown when metadata available */}
+      {meta && (meta.workflow || meta.workflow_zh || (meta.prev_commands?.length ?? 0) > 0 || (meta.next_commands?.length ?? 0) > 0) && (
+        <Section title={t('content.section_workflow')}>
+          <WorkflowSection meta={meta} isZh={isZh} commandName={commandName} />
+        </Section>
+      )}
+
+      {/* Flags / Key Options — shown when in zh-CN and flags available */}
+      {isZh && meta?.flags && meta.flags.length > 0 && (
+        <Section title="主要参数">
+          <div className="flex flex-col gap-[var(--spacing-1-5)]">
+            {meta.flags.map((flag, i) => (
+              <div key={i} className="flex items-start gap-[var(--spacing-3)] px-[var(--spacing-3)] py-[var(--spacing-2)] bg-bg-secondary rounded-[var(--radius-default)]">
+                <span className="text-[length:var(--font-size-sm)] text-text-secondary leading-relaxed">{flag}</span>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
       {/* Purpose */}
       {content?.purpose && (
-        <Section title="Purpose">
+        <Section title={t('content.section_purpose')}>
           <div className="text-text-secondary"><MarkdownRenderer content={content.purpose} /></div>
         </Section>
       )}
 
       {/* Required Reading */}
       {content?.requiredReading && (
-        <Section title="Required Reading">
+        <Section title={t('content.section_required_reading')}>
           <div className="text-text-secondary"><MarkdownRenderer content={content.requiredReading} /></div>
         </Section>
       )}
 
       {/* Context */}
       {content?.context && (
-        <Section title="Context">
+        <Section title={t('content.section_context')}>
           <div className="text-text-secondary"><MarkdownRenderer content={content.context} /></div>
         </Section>
       )}
 
       {/* Execution */}
       {content?.execution && (
-        <Section title="Execution">
+        <Section title={t('content.section_execution')}>
           <div className="text-text-secondary"><MarkdownRenderer content={content.execution} /></div>
         </Section>
       )}
 
       {/* Error Codes */}
       {content?.errorCodes && (
-        <Section title="Error Codes">
+        <Section title={t('content.section_error_codes')}>
           <div className="text-text-secondary"><MarkdownRenderer content={content.errorCodes} /></div>
         </Section>
       )}
 
       {/* Success Criteria */}
       {content?.successCriteria && (
-        <Section title="Success Criteria">
+        <Section title={t('content.section_success_criteria')}>
           <div className="text-text-secondary"><MarkdownRenderer content={content.successCriteria} /></div>
         </Section>
       )}
@@ -147,7 +176,7 @@ export default function CommandDetailPage({ commandName, category, command }: Co
 
       {/* Full documentation fallback */}
       {content?.rawContent && !content.purpose && (
-        <Section title="Documentation">
+        <Section title={t('content.section_documentation')}>
           <div className="text-text-secondary"><MarkdownRenderer content={content.rawContent} /></div>
         </Section>
       )}
@@ -156,7 +185,98 @@ export default function CommandDetailPage({ commandName, category, command }: Co
 }
 
 // ---------------------------------------------------------------------------
-// Section — warm minimal section with h2 border-bottom
+// WorkflowSection — visual workflow position with prev/next links
+// ---------------------------------------------------------------------------
+
+function WorkflowSection({ meta, isZh, commandName }: { meta: CommandMetadata; isZh: boolean; commandName: string }) {
+  const workflowText = isZh ? (meta.workflow_zh || meta.workflow) : meta.workflow;
+  const hasPrev = (meta.prev_commands?.length ?? 0) > 0;
+  const hasNext = (meta.next_commands?.length ?? 0) > 0;
+
+  return (
+    <div className="flex flex-col gap-[var(--spacing-4)]">
+      {/* Workflow position string */}
+      {workflowText && (
+        <div className="px-[var(--spacing-4)] py-[var(--spacing-3)] bg-bg-secondary rounded-[var(--radius-lg)] border border-border-divider">
+          <p className="text-[length:var(--font-size-sm)] text-text-secondary font-mono leading-relaxed">
+            {workflowText}
+          </p>
+        </div>
+      )}
+
+      {/* Prev / Next command links */}
+      {(hasPrev || hasNext) && (
+        <div className="flex flex-col sm:flex-row gap-[var(--spacing-4)]">
+          {hasPrev && (
+            <div className="flex-1">
+              <p className="text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[var(--letter-spacing-wide)] text-text-tertiary mb-[var(--spacing-2)]">
+                {isZh ? '前置命令' : 'Previous'}
+              </p>
+              <div className="flex flex-wrap gap-[var(--spacing-2)]">
+                {meta.prev_commands!.map((cmd) => (
+                  <CommandChip key={cmd} name={cmd} commandName={commandName} />
+                ))}
+              </div>
+            </div>
+          )}
+          {hasNext && (
+            <div className="flex-1">
+              <p className="text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[var(--letter-spacing-wide)] text-text-tertiary mb-[var(--spacing-2)]">
+                {isZh ? '后继命令' : 'Next'}
+              </p>
+              <div className="flex flex-wrap gap-[var(--spacing-2)]">
+                {meta.next_commands!.map((cmd) => (
+                  <CommandChip key={cmd} name={cmd} commandName={commandName} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CommandChip — clickable chip linking to a related command
+// ---------------------------------------------------------------------------
+
+function CommandChip({ name, commandName }: { name: string; commandName: string }) {
+  // Derive category and slug from command name
+  const parts = name.split('-');
+  const category = parts[0];
+  const slug = parts.length > 1 ? parts.slice(1).join('-') : name;
+
+  // Map known prefixes to categories
+  const categoryMap: Record<string, string> = {
+    maestro: 'maestro',
+    spec: 'spec',
+    quality: 'quality',
+    manage: 'manage',
+    team: 'team',
+  };
+  const resolvedCategory = categoryMap[category] || category;
+  const href = `/${resolvedCategory}/${slug}`;
+
+  const isCurrent = name === commandName;
+
+  return (
+    <Link
+      to={href}
+      className={[
+        'px-[var(--spacing-3)] py-[var(--spacing-1)] rounded-full text-[length:var(--font-size-sm)] font-mono transition-colors duration-[var(--duration-fast)]',
+        isCurrent
+          ? 'bg-accent-blue/10 text-accent-blue cursor-default pointer-events-none'
+          : 'bg-bg-secondary border border-border text-text-secondary hover:border-text-placeholder hover:text-text-primary',
+      ].join(' ')}
+    >
+      /{name}
+    </Link>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section — section with h2 border-bottom
 // ---------------------------------------------------------------------------
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

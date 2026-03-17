@@ -44,7 +44,7 @@ export function Sidebar() {
       commands: getCommandsByCategory(cat.id),
       claudeSkills: inventoryData.claude_skills.filter((s) => s.category === cat.id),
       codexSkills: inventoryData.codex_skills.filter((s) => s.category === cat.id),
-      isOpen: ['pipeline', 'spec', 'quality'].includes(cat.id),
+      isOpen: ['maestro', 'spec', 'quality'].includes(cat.id),
     }));
   }, []);
 

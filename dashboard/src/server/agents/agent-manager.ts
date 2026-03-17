@@ -50,6 +50,14 @@ export class AgentManager {
         }
       }
       this.eventBus.emit('agent:entry', entry);
+
+      // --- Lifecycle bridge: Detect agent completion from entries ---
+      if (
+        entry.type === 'status_change' &&
+        (entry.status === 'stopped' || entry.status === 'error')
+      ) {
+        this.handleAutoStop(process.id, entry.reason);
+      }
     });
     unsubs.push(unsubEntry);
 
@@ -76,6 +84,12 @@ export class AgentManager {
 
     await adapter.stop(processId);
 
+    // If the process was already cleaned up (e.g. by handleAutoStop triggered 
+    // by a status_change entry during shutdown), we're done.
+    if (!this.processToAdapter.has(processId)) {
+      return;
+    }
+
     // Clean up subscriptions
     const unsubs = this.unsubscribers.get(processId);
     if (unsubs) {
@@ -85,9 +99,29 @@ export class AgentManager {
       this.unsubscribers.delete(processId);
     }
 
+    this.eventBus.emit('agent:stopped', { processId });
+
     this.processToAdapter.delete(processId);
     this.entryHistory.delete(processId);
-    this.eventBus.emit('agent:stopped', { processId });
+  }
+
+  /** Handle agent process that stopped on its own */
+  private handleAutoStop(processId: string, reason?: string): void {
+    if (!this.processToAdapter.has(processId)) return;
+
+    // Clean up subscriptions
+    const unsubs = this.unsubscribers.get(processId);
+    if (unsubs) {
+      for (const unsub of unsubs) {
+        unsub();
+      }
+      this.unsubscribers.delete(processId);
+    }
+
+    this.eventBus.emit('agent:stopped', { processId, reason });
+
+    this.processToAdapter.delete(processId);
+    this.entryHistory.delete(processId);
   }
 
   /** Send a message to a running agent process */

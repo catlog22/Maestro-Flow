@@ -1,6 +1,7 @@
 import { useI18n } from '@/client/i18n/index.js';
 import { MarkdownRenderer } from '@/client/components/content/MarkdownRenderer.js';
 import { loadSkill, type SkillContent } from '@/client/data/index.js';
+import { getSkillMetadata } from '@/client/data/commandMetadata.js';
 import type { Category, Skill } from '@/client/routes/route-config.js';
 import { useEffect, useState } from 'react';
 
@@ -16,7 +17,7 @@ interface SkillDetailPageProps {
 }
 
 export default function SkillDetailPage({ skillName, skillType, skill, category }: SkillDetailPageProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [content, setContent] = useState<SkillContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,8 +55,12 @@ export default function SkillDetailPage({ skillName, skillType, skill, category 
     );
   }
 
-  const allRoles = content?.roles || skill.roles || [];
-  const allPhases = content?.phases || skill.phases || [];
+  const meta = getSkillMetadata(skillName);
+  const isZh = locale === 'zh-CN';
+  const allRoles = (isZh && meta?.roles) ? meta.roles : (content?.roles || skill.roles || []);
+  const allPhases = (isZh && meta?.phases_zh) ? meta.phases_zh : (content?.phases || skill.phases || []);
+  const displayDescription = isZh && meta?.description_zh ? meta.description_zh : (content?.description || skill.description);
+  const categoryName = t(`categories.${category.id}`) !== `categories.${category.id}` ? t(`categories.${category.id}`) : category.name;
 
   return (
     <div>
@@ -67,6 +72,7 @@ export default function SkillDetailPage({ skillName, skillType, skill, category 
             <div className="flex items-center gap-[var(--spacing-2)]">
               <h1 className="text-[length:28px] font-[var(--font-weight-bold)] text-text-primary leading-[1.3]">
                 {content?.name || skill.name}
+                {isZh && meta?.name_zh && <span className="text-[length:18px] font-[var(--font-weight-normal)] text-text-secondary ml-[var(--spacing-2)]">· {meta.name_zh}</span>}
               </h1>
               <span
                 className={[
@@ -77,11 +83,11 @@ export default function SkillDetailPage({ skillName, skillType, skill, category 
                 {skillType === 'claude' ? 'Claude Skill' : 'Codex Skill'}
               </span>
             </div>
-            <p className="text-[length:12px] text-text-tertiary">{category.name}</p>
+            <p className="text-[length:12px] text-text-tertiary">{categoryName}</p>
           </div>
         </div>
         <p className="text-[length:var(--font-size-md)] text-text-secondary leading-[var(--line-height-relaxed)]">
-          {content?.description || skill.description}
+          {displayDescription}
         </p>
       </div>
 
@@ -91,6 +97,17 @@ export default function SkillDetailPage({ skillName, skillType, skill, category 
           <code className="block px-[var(--spacing-4)] py-[var(--spacing-3)] bg-bg-code text-text-code rounded-[var(--radius-lg)] text-[length:var(--font-size-sm)] font-mono overflow-x-auto">
             {`Skill({ skill: "${skillName}" }${content.argumentHint !== 'true' ? `, args: "${content.argumentHint}"` : ''})`}
           </code>
+        </Section>
+      )}
+
+      {/* Workflow position */}
+      {meta && (meta.workflow_zh || meta.workflow) && (
+        <Section title={t('content.section_workflow')}>
+          <div className="px-[var(--spacing-4)] py-[var(--spacing-3)] bg-bg-secondary rounded-[var(--radius-lg)] border border-border-divider">
+            <p className="text-[length:var(--font-size-sm)] text-text-secondary leading-relaxed">
+              {isZh ? (meta.workflow_zh || meta.workflow) : meta.workflow}
+            </p>
+          </div>
         </Section>
       )}
 
@@ -147,7 +164,7 @@ export default function SkillDetailPage({ skillName, skillType, skill, category 
 
       {/* Full documentation */}
       {content?.rawContent && (
-        <Section title="Documentation">
+        <Section title={t('content.section_documentation')}>
           <div className="text-text-secondary"><MarkdownRenderer content={content.rawContent} /></div>
         </Section>
       )}

@@ -68,7 +68,15 @@
     "ui_design": "UI Design",
     "session": "Session"
   },
+  "category_descriptions": {
+    "maestro": "Intelligent coordinator and core workflow commands — init, plan, execute, verify, and lifecycle management",
+    "spec": "Project specifications, conventions, and codebase knowledge management",
+    "quality": "Testing, debugging, code review, refactoring, and quality assurance",
+    "manage": "Project status, memory management, codebase documentation, and issue tracking",
+    "team": "Multi-agent team collaboration skills for orchestrated parallel workflows"
+  },
   "landing": {
+    "title": "Maestro Documentation",
     "description": "Complete documentation for Maestro commands, skills, and workflows."
   },
   "content": {
@@ -90,6 +98,14 @@
     "skill_count": "{{count}} skills",
     "usage": "Usage",
     "allowed_tools": "Allowed Tools",
-    "file_reference": "File Reference"
+    "file_reference": "File Reference",
+    "section_purpose": "Purpose",
+    "section_required_reading": "Required Reading",
+    "section_context": "Context",
+    "section_execution": "Execution",
+    "section_error_codes": "Error Codes",
+    "section_success_criteria": "Success Criteria",
+    "section_documentation": "Documentation",
+    "section_workflow": "Workflow Connections"
   }
 }

@@ -68,7 +68,15 @@
     "ui_design": "UI 设计",
     "session": "会话"
   },
+  "category_descriptions": {
+    "maestro": "智能协调器与核心工作流命令 — 初始化、规划、执行、验证和生命周期管理",
+    "spec": "项目规格、代码约定和代码库知识管理",
+    "quality": "测试、调试、代码审查、重构和质量保证",
+    "manage": "项目状态、记忆管理、代码库文档和问题跟踪",
+    "team": "多智能体协作技能，用于编排并行工作流"
+  },
   "landing": {
+    "title": "Maestro 文档",
     "description": "Maestro 命令、技能和工作流的完整文档。"
   },
   "content": {
@@ -90,6 +98,14 @@
     "skill_count": "{{count}} 个技能",
     "usage": "用法",
     "allowed_tools": "允许的工具",
-    "file_reference": "文件引用"
+    "file_reference": "文件引用",
+    "section_purpose": "用途",
+    "section_required_reading": "必读文档",
+    "section_context": "上下文",
+    "section_execution": "执行步骤",
+    "section_error_codes": "错误代码",
+    "section_success_criteria": "成功标准",
+    "section_documentation": "文档",
+    "section_workflow": "工作流衔接"
   }
 }
