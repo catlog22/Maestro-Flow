@@ -6,6 +6,10 @@ import { Hono } from 'hono';
 import type { ExecutionScheduler } from '../execution/execution-scheduler.js';
 import type { AgentType } from '../../shared/agent-types.js';
 
+const VALID_EXECUTORS = new Set<string>([
+  'claude-code', 'codex', 'gemini', 'qwen', 'opencode',
+]);
+
 /**
  * Execution routes following the Hono factory pattern.
  *
@@ -22,12 +26,15 @@ export function createExecutionRoutes(scheduler: ExecutionScheduler): Hono {
   app.post('/api/execution/dispatch', async (c) => {
     try {
       const body = await c.req.json<Record<string, unknown>>();
-      const issueId = body.issueId as string;
-      if (!issueId) {
-        return c.json({ error: 'Missing "issueId"' }, 400);
+      const issueId = body.issueId;
+      if (!issueId || typeof issueId !== 'string') {
+        return c.json({ error: 'Missing or invalid "issueId" (must be string)' }, 400);
       }
-      const executor = body.executor as AgentType | undefined;
-      await scheduler.executeIssue(issueId, executor);
+      const executor = body.executor as string | undefined;
+      if (executor !== undefined && !VALID_EXECUTORS.has(executor)) {
+        return c.json({ error: `Invalid "executor": ${executor}` }, 400);
+      }
+      await scheduler.executeIssue(issueId, executor as AgentType | undefined);
       return c.json({ ok: true, issueId });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -39,13 +46,19 @@ export function createExecutionRoutes(scheduler: ExecutionScheduler): Hono {
   app.post('/api/execution/batch', async (c) => {
     try {
       const body = await c.req.json<Record<string, unknown>>();
-      const issueIds = body.issueIds as string[];
-      if (!Array.isArray(issueIds) || issueIds.length === 0) {
-        return c.json({ error: 'Missing or empty "issueIds"' }, 400);
+      const issueIds = body.issueIds;
+      if (!Array.isArray(issueIds) || issueIds.length === 0 || !issueIds.every((id) => typeof id === 'string')) {
+        return c.json({ error: 'Missing or invalid "issueIds" (must be non-empty string array)' }, 400);
       }
-      const executor = body.executor as AgentType | undefined;
+      const executor = body.executor as string | undefined;
+      if (executor !== undefined && !VALID_EXECUTORS.has(executor)) {
+        return c.json({ error: `Invalid "executor": ${executor}` }, 400);
+      }
       const maxConcurrency = body.maxConcurrency as number | undefined;
-      await scheduler.executeBatch(issueIds, executor, maxConcurrency);
+      if (maxConcurrency !== undefined && (typeof maxConcurrency !== 'number' || maxConcurrency < 1)) {
+        return c.json({ error: '"maxConcurrency" must be a positive number' }, 400);
+      }
+      await scheduler.executeBatch(issueIds as string[], executor as AgentType | undefined, maxConcurrency);
       return c.json({ ok: true, count: issueIds.length });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -74,7 +87,7 @@ export function createExecutionRoutes(scheduler: ExecutionScheduler): Hono {
   app.put('/api/execution/supervisor', async (c) => {
     try {
       const body = await c.req.json<Record<string, unknown>>();
-      const enabled = body.enabled as boolean | undefined;
+      const enabled = body.enabled;
       const config = body.config as Record<string, unknown> | undefined;
 
       if (config) {

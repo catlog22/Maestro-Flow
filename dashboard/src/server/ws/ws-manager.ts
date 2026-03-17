@@ -203,9 +203,9 @@ export class WebSocketManager {
           if (msg.config) {
             this.executionScheduler.updateConfig(msg.config);
           }
-          if (msg.enabled) {
+          if (msg.enabled === true) {
             this.executionScheduler.startSupervisor();
-          } else {
+          } else if (msg.enabled === false) {
             this.executionScheduler.stopSupervisor();
           }
         }

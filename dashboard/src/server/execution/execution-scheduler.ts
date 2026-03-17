@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 
 import type { AgentType, AgentProcess } from '../../shared/agent-types.js';
 import type { Issue, IssueStatus } from '../../shared/issue-types.js';
@@ -12,14 +12,13 @@ import type {
   IssueExecution,
   SupervisorConfig,
   SupervisorStatus,
-  PromptMode,
 } from '../../shared/execution-types.js';
 import { DEFAULT_SUPERVISOR_CONFIG } from '../../shared/execution-types.js';
 import type { AgentManager } from '../agents/agent-manager.js';
 import type { DashboardEventBus } from '../state/event-bus.js';
 
 // ---------------------------------------------------------------------------
-// JSONL helpers (duplicated from issues.ts to avoid cross-import)
+// JSONL helpers
 // ---------------------------------------------------------------------------
 
 async function readIssuesJsonl(filePath: string): Promise<Issue[]> {
@@ -36,7 +35,7 @@ async function readIssuesJsonl(filePath: string): Promise<Issue[]> {
     try {
       issues.push(JSON.parse(trimmed) as Issue);
     } catch {
-      // skip
+      // skip malformed lines
     }
   }
   return issues;
@@ -47,6 +46,27 @@ async function writeIssuesJsonl(filePath: string, issues: Issue[]): Promise<void
   const content = issues.map((i) => JSON.stringify(i)).join('\n') + '\n';
   await writeFile(filePath, content, 'utf-8');
 }
+
+// ---------------------------------------------------------------------------
+// Write lock — serialize all JSONL file operations to prevent data races
+// ---------------------------------------------------------------------------
+
+let writeLock: Promise<void> = Promise.resolve();
+
+function withWriteLock<T>(fn: () => Promise<T>): Promise<T> {
+  const prev = writeLock;
+  let resolve!: () => void;
+  writeLock = new Promise<void>((r) => { resolve = r; });
+  return prev.then(fn).finally(resolve);
+}
+
+// ---------------------------------------------------------------------------
+// Valid agent types for input validation
+// ---------------------------------------------------------------------------
+
+const VALID_EXECUTORS = new Set<string>([
+  'claude-code', 'codex', 'gemini', 'qwen', 'opencode',
+]);
 
 // ---------------------------------------------------------------------------
 // ExecutionScheduler
@@ -70,6 +90,8 @@ export class ExecutionScheduler {
   ) {
     this.config = { ...DEFAULT_SUPERVISOR_CONFIG, ...config };
     this.subscribeToAgentEvents();
+    // Recover state from persisted issues on startup
+    void this.recoverState();
   }
 
   // -------------------------------------------------------------------------
@@ -78,8 +100,12 @@ export class ExecutionScheduler {
 
   /** Dispatch a single issue for execution */
   async executeIssue(issueId: string, executor?: AgentType): Promise<void> {
-    if (this.claimed.has(issueId)) return;
-    this.claimed.add(issueId);
+    if (!this.claim(issueId)) return;
+
+    if (executor && !VALID_EXECUTORS.has(executor)) {
+      this.claimed.delete(issueId);
+      throw new Error(`Invalid executor: ${executor}`);
+    }
 
     const issue = await this.findIssue(issueId);
     if (!issue) {
@@ -97,12 +123,12 @@ export class ExecutionScheduler {
     executor?: AgentType,
     maxConcurrency?: number,
   ): Promise<void> {
-    const concurrency = maxConcurrency ?? this.config.maxConcurrentAgents;
-    const unclaimed = issueIds.filter((id) => !this.claimed.has(id));
-
-    for (const id of unclaimed) {
-      this.claimed.add(id);
+    if (executor && !VALID_EXECUTORS.has(executor)) {
+      throw new Error(`Invalid executor: ${executor}`);
     }
+
+    const concurrency = maxConcurrency ?? this.config.maxConcurrentAgents;
+    const unclaimed = issueIds.filter((id) => this.claim(id));
 
     // Fill available slots immediately, rest goes to queue
     const availableSlots = concurrency - this.runningSlots.size;
@@ -113,7 +139,9 @@ export class ExecutionScheduler {
 
     // Update queued issues' execution state
     for (const id of queued) {
-      await this.updateIssueExecution(id, { status: 'queued', retryCount: 0 });
+      await this.updateIssueFields(id, {
+        execution: { status: 'queued', retryCount: 0 },
+      });
     }
 
     // Dispatch immediate batch
@@ -138,14 +166,18 @@ export class ExecutionScheduler {
     // Stop running agent
     for (const [processId, slot] of this.runningSlots) {
       if (slot.issueId === issueId) {
-        await this.agentManager.stop(processId).catch(() => {});
+        await this.agentManager.stop(processId).catch((err: unknown) => {
+          console.warn(`[Execution] Failed to stop agent ${processId}:`, err);
+        });
         this.runningSlots.delete(processId);
         break;
       }
     }
 
     this.claimed.delete(issueId);
-    await this.updateIssueExecution(issueId, { status: 'idle', retryCount: 0 });
+    await this.updateIssueFields(issueId, {
+      execution: { status: 'idle', retryCount: 0 },
+    });
   }
 
   /** Start the supervisor tick loop */
@@ -220,22 +252,90 @@ export class ExecutionScheduler {
   }
 
   // -------------------------------------------------------------------------
+  // Private: Atomic claim
+  // -------------------------------------------------------------------------
+
+  /** Atomically claim an issue. Returns true if successfully claimed. */
+  private claim(issueId: string): boolean {
+    if (this.claimed.has(issueId)) return false;
+    this.claimed.add(issueId);
+    return true;
+  }
+
+  // -------------------------------------------------------------------------
+  // Private: State recovery on startup
+  // -------------------------------------------------------------------------
+
+  /** Recover in-memory state from persisted JSONL on startup */
+  private async recoverState(): Promise<void> {
+    const issues = await readIssuesJsonl(this.jsonlPath);
+
+    for (const issue of issues) {
+      if (!issue.execution) continue;
+
+      switch (issue.execution.status) {
+        case 'running':
+          // Agent process is gone after restart — mark as failed for retry
+          this.claimed.add(issue.id);
+          await this.updateIssueFields(issue.id, {
+            execution: {
+              ...issue.execution,
+              status: 'retrying',
+              lastError: 'Server restarted while executing',
+            },
+          });
+          this.retryQueue.set(issue.id, {
+            retryAt: Date.now() + this.config.retryBackoffMs,
+            count: (issue.execution.retryCount ?? 0) + 1,
+          });
+          break;
+
+        case 'queued':
+          // Re-enqueue
+          this.claimed.add(issue.id);
+          this.queue.push(issue.id);
+          break;
+
+        case 'retrying': {
+          // Re-add to retry queue
+          this.claimed.add(issue.id);
+          const count = issue.execution.retryCount ?? 1;
+          const backoff = this.config.retryBackoffMs * Math.pow(2, count - 1);
+          this.retryQueue.set(issue.id, {
+            retryAt: Date.now() + backoff,
+            count,
+          });
+          break;
+        }
+
+        // idle, completed, failed — no recovery needed
+      }
+    }
+
+    if (this.queue.length > 0 || this.retryQueue.size > 0) {
+      console.log(`[Execution] Recovered state: ${this.queue.length} queued, ${this.retryQueue.size} retrying`);
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Private: Dispatch
   // -------------------------------------------------------------------------
 
   private async dispatch(issue: Issue, executor: AgentType): Promise<void> {
     const prompt = this.buildPrompt(issue);
     const workDir = process.cwd();
+    const now = new Date().toISOString();
+    const retryCount = issue.execution?.retryCount ?? 0;
 
-    // Update issue execution state
-    await this.updateIssueExecution(issue.id, {
-      status: 'running',
-      retryCount: issue.execution?.retryCount ?? 0,
-      startedAt: new Date().toISOString(),
+    // Update issue: execution state + status in a single write
+    await this.updateIssueFields(issue.id, {
+      status: 'in_progress',
+      execution: {
+        status: 'running',
+        retryCount,
+        startedAt: now,
+      },
     });
-
-    // Update issue status to in_progress
-    await this.updateIssueStatus(issue.id, 'in_progress');
 
     let proc: AgentProcess;
     try {
@@ -251,7 +351,6 @@ export class ExecutionScheduler {
       return;
     }
 
-    const now = new Date().toISOString();
     const slot: ExecutionSlot = {
       issueId: issue.id,
       processId: proc.id,
@@ -263,11 +362,13 @@ export class ExecutionScheduler {
     this.runningSlots.set(proc.id, slot);
 
     // Update processId on issue
-    await this.updateIssueExecution(issue.id, {
-      status: 'running',
-      processId: proc.id,
-      retryCount: issue.execution?.retryCount ?? 0,
-      startedAt: now,
+    await this.updateIssueFields(issue.id, {
+      execution: {
+        status: 'running',
+        processId: proc.id,
+        retryCount,
+        startedAt: now,
+      },
     });
 
     this.stats.totalDispatched++;
@@ -346,12 +447,14 @@ export class ExecutionScheduler {
   }
 
   private async handleCompletion(issueId: string, processId: string): Promise<void> {
-    await this.updateIssueExecution(issueId, {
-      status: 'completed',
-      retryCount: 0,
-      completedAt: new Date().toISOString(),
+    await this.updateIssueFields(issueId, {
+      status: 'resolved',
+      execution: {
+        status: 'completed',
+        retryCount: 0,
+        completedAt: new Date().toISOString(),
+      },
     });
-    await this.updateIssueStatus(issueId, 'resolved');
     this.claimed.delete(issueId);
     this.stats.totalCompleted++;
 
@@ -369,22 +472,26 @@ export class ExecutionScheduler {
         retryAt: Date.now() + backoff,
         count: currentRetry + 1,
       });
-      await this.updateIssueExecution(issueId, {
-        status: 'retrying',
-        retryCount: currentRetry + 1,
-        lastError: error,
+      await this.updateIssueFields(issueId, {
+        execution: {
+          status: 'retrying',
+          retryCount: currentRetry + 1,
+          lastError: error,
+        },
       });
     } else {
-      await this.updateIssueExecution(issueId, {
-        status: 'failed',
-        retryCount: currentRetry,
-        lastError: error,
+      await this.updateIssueFields(issueId, {
+        execution: {
+          status: 'failed',
+          retryCount: currentRetry,
+          lastError: error,
+        },
       });
       this.claimed.delete(issueId);
       this.stats.totalFailed++;
     }
 
-    // Find processId for the failed issue
+    // Find processId for the failed issue (may already be removed from runningSlots)
     let processId = '';
     for (const [pid, slot] of this.runningSlots) {
       if (slot.issueId === issueId) {
@@ -425,7 +532,9 @@ export class ExecutionScheduler {
       const lastActivity = new Date(slot.lastActivityAt).getTime();
       if (now - lastActivity > this.config.stallTimeoutMs) {
         console.warn(`[Execution] Stall detected for issue ${slot.issueId} (process ${processId})`);
-        await this.agentManager.stop(processId).catch(() => {});
+        await this.agentManager.stop(processId).catch((err: unknown) => {
+          console.warn(`[Execution] Failed to stop stalled agent ${processId}:`, err);
+        });
         // handleAgentStopped will clean up
       }
     }
@@ -462,10 +571,11 @@ export class ExecutionScheduler {
         .sort((a, b) => (priorityOrder[a.priority] ?? 3) - (priorityOrder[b.priority] ?? 3));
 
       for (const issue of candidates) {
-        if (!this.claimed.has(issue.id)) {
+        if (this.claim(issue.id)) {
           this.queue.push(issue.id);
-          this.claimed.add(issue.id);
-          await this.updateIssueExecution(issue.id, { status: 'queued', retryCount: 0 });
+          await this.updateIssueFields(issue.id, {
+            execution: { status: 'queued', retryCount: 0 },
+          });
         }
       }
     }
@@ -490,7 +600,7 @@ export class ExecutionScheduler {
   }
 
   // -------------------------------------------------------------------------
-  // Private: JSONL operations
+  // Private: JSONL operations (all serialized via writeLock)
   // -------------------------------------------------------------------------
 
   private async findIssue(issueId: string): Promise<Issue | null> {
@@ -498,40 +608,39 @@ export class ExecutionScheduler {
     return issues.find((i) => i.id === issueId) ?? null;
   }
 
-  private async updateIssueExecution(
+  /** Atomically update multiple fields on an issue in a single read-modify-write */
+  private async updateIssueFields(
     issueId: string,
-    execution: Partial<IssueExecution>,
+    fields: {
+      status?: IssueStatus;
+      execution?: Partial<IssueExecution>;
+    },
   ): Promise<void> {
-    const issues = await readIssuesJsonl(this.jsonlPath);
-    const idx = issues.findIndex((i) => i.id === issueId);
-    if (idx === -1) return;
+    await withWriteLock(async () => {
+      const issues = await readIssuesJsonl(this.jsonlPath);
+      const idx = issues.findIndex((i) => i.id === issueId);
+      if (idx === -1) return;
 
-    issues[idx] = {
-      ...issues[idx],
-      execution: {
-        status: 'idle',
-        retryCount: 0,
-        ...issues[idx].execution,
-        ...execution,
-      },
-      updated_at: new Date().toISOString(),
-    };
+      const issue = issues[idx];
 
-    await writeIssuesJsonl(this.jsonlPath, issues);
-  }
+      if (fields.status !== undefined) {
+        issue.status = fields.status;
+      }
 
-  private async updateIssueStatus(issueId: string, status: IssueStatus): Promise<void> {
-    const issues = await readIssuesJsonl(this.jsonlPath);
-    const idx = issues.findIndex((i) => i.id === issueId);
-    if (idx === -1) return;
+      if (fields.execution !== undefined) {
+        issue.execution = {
+          status: 'idle',
+          retryCount: 0,
+          ...issue.execution,
+          ...fields.execution,
+        };
+      }
 
-    issues[idx] = {
-      ...issues[idx],
-      status,
-      updated_at: new Date().toISOString(),
-    };
+      issue.updated_at = new Date().toISOString();
+      issues[idx] = issue;
 
-    await writeIssuesJsonl(this.jsonlPath, issues);
+      await writeIssuesJsonl(this.jsonlPath, issues);
+    });
   }
 
   private emitStatus(): void {

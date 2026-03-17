@@ -57,6 +57,8 @@ export function IssueCard({ issue, selected, onSelect, batchMode, isChecked, onT
   const typeColor = TYPE_COLORS[issue.type] ?? '#A09D97';
   const priorityColor = PRIORITY_COLORS[issue.priority] ?? '#A09D97';
   const [hovered, setHovered] = useState(false);
+  // Local executor state to avoid race condition between dropdown change and execute click
+  const [localExecutor, setLocalExecutor] = useState<AgentType>(issue.executor ?? 'claude-code');
 
   const isRunning = useExecutionStore((s) => s.isIssueRunning(issue.id));
   const openCliPanel = useExecutionStore((s) => s.openCliPanel);
@@ -67,17 +69,18 @@ export function IssueCard({ issue, selected, onSelect, batchMode, isChecked, onT
 
   const handleExecute = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    const executor = issue.executor ?? 'claude-code';
     sendWsMessage({
       action: 'execute:issue',
       issueId: issue.id,
-      executor,
+      executor: localExecutor,
     });
-  }, [issue.id, issue.executor]);
+  }, [issue.id, localExecutor]);
 
   const handleExecutorChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     e.stopPropagation();
-    void updateIssue(issue.id, { executor: e.target.value as AgentType });
+    const newExecutor = e.target.value as AgentType;
+    setLocalExecutor(newExecutor);
+    void updateIssue(issue.id, { executor: newExecutor });
   }, [issue.id, updateIssue]);
 
   const handleCheckToggle = useCallback((e: React.MouseEvent) => {
@@ -183,7 +186,7 @@ export function IssueCard({ issue, selected, onSelect, batchMode, isChecked, onT
           <div className="flex items-center gap-[var(--spacing-1)]">
             {/* Executor selector (compact) */}
             <select
-              value={issue.executor ?? 'claude-code'}
+              value={localExecutor}
               onChange={handleExecutorChange}
               onClick={(e) => e.stopPropagation()}
               className={[
