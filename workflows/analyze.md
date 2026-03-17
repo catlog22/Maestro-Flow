@@ -156,6 +156,9 @@ Skip if `-c` (resuming) or `-y` (auto mode uses defaults).
    | concept | Foundation, Core Mechanisms, Patterns, Trade-offs |
    | comparison | Solution Comparison, Pros/Cons, Technology Evaluation |
    | decision | Criteria, Trade-off Analysis, Risk Assessment, Impact |
+   | external_research | Standard Stack, Architecture Patterns, Don't Hand-Roll, Common Pitfalls (external web search) |
+
+   **Auto-suggest `external_research`** when phase goal contains unfamiliar technology keywords or when no codebase patterns exist for the domain (codebase exploration in Step 4.1 returns empty relevant_files).
 
 2. **Perspectives** (multiSelect, header: "分析视角"): Up to 4:
 
@@ -183,7 +186,58 @@ Write initial `discussion.md` to output directory:
 
 ### Step 4: CLI Exploration
 
-Codebase exploration FIRST, then CLI analysis.
+Codebase exploration FIRST, then (optionally) external research, then CLI analysis.
+
+**Step 4.0: External Research** (only if `external_research` dimension selected)
+
+Orchestrator performs targeted web searches, then hands results to `workflow-phase-researcher` agent for synthesis.
+
+```
+// Step 4.0.1: Orchestrator web searches (2-3 focused queries)
+queries = [
+  "{phase_goal} standard library stack {current_year}",
+  "{phase_goal} architecture patterns best practices",
+  "{phase_goal} common pitfalls mistakes"
+]
+
+For each query:
+  results = WebSearch(query)
+  // For top 1-2 results: WebFetch(url) to get official docs / README
+
+// Step 4.0.2: Hand raw search output to researcher agent
+Agent(
+  subagent_type="workflow-phase-researcher",
+  prompt="""
+<objective>
+Synthesize the following web search results for Phase {PHASE_NUM}: {phase_name}.
+Goal: {phase_goal}
+</objective>
+
+<search_results>
+{raw_search_output}
+</search_results>
+
+<task>
+From the search results above, extract and structure:
+- ## Standard Stack: concrete library recommendations with versions
+- ## Architecture Patterns: recommended patterns for this type of work
+- ## Don't Hand-Roll: problems with existing solutions (don't build custom)
+- ## Common Pitfalls: mistakes to avoid
+
+Be prescriptive ("use X") not exploratory ("consider X or Y").
+Cite sources. Assign confidence levels (HIGH/MEDIUM/LOW).
+Do NOT write any files — return structured markdown only.
+</task>
+  """,
+  run_in_background=false
+)
+
+// Step 4.0.3: Store as researchContext (in-memory, no file written)
+researchContext = agent_output
+```
+
+`researchContext` is passed into Step 4.2 CLI Analysis and Step 8 Decision Extraction.
+If `external_research` not selected: `researchContext = null`.
 
 **Step 4.1: Codebase Exploration** (cli-explore-agent)
 
@@ -199,7 +253,15 @@ Output: `exploration-codebase.json` (single) or `explorations/{perspective}.json
 
 **Step 4.2: CLI Analysis** (AFTER exploration)
 
-Build exploration context from Step 4.1 findings, then spawn CLI analysis:
+Build exploration context from Step 4.1 findings, then spawn CLI analysis.
+If `researchContext` is set (from Step 4.0), include it as additional context in each CLI call:
+
+```
+// Append to CLI prompt when researchContext exists:
+"External research findings (treat as strong recommendations, not laws):
+{researchContext}"
+```
+
 - **Single perspective**: one comprehensive CLI call with exploration context
 - **Multi-perspective** (up to 4): parallel CLI calls per perspective, each with perspective-specific focus
 
@@ -407,6 +469,16 @@ After questions per area: "More questions about {area}, or move to next?"
 - **Locked**: firm decisions that cannot be changed during implementation
 - **Free**: open for implementation discretion (implementer can choose)
 - **Deferred**: postponed to a later phase (captured but not acted on)
+
+**If `researchContext` is set**: for each Free decision area, append a research-backed recommendation:
+
+```
+### Free — {area}
+Implementer's choice. Research suggests: {relevant finding from researchContext}.
+(e.g., "Standard Stack recommends React Query for server state. Common pitfall: avoid mixing with Redux for async.")
+```
+
+This makes research findings visible to the planner through context.md without imposing hard constraints.
 
 **8.5: Write context.md**
 

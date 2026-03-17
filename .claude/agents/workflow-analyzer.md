@@ -7,6 +7,8 @@ allowed-tools:
   - Glob
   - Grep
   - Bash
+  - WebSearch
+  - WebFetch
 ---
 
 # Workflow Analyzer
