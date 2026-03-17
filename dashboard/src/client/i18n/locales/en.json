@@ -1,0 +1,83 @@
+{
+  "nav": {
+    "kanban": "Kanban Board",
+    "artifacts": "Artifacts",
+    "chat": "Chat",
+    "workflow": "Workflow Viewer",
+    "mcp": "MCP Manager",
+    "specs": "Specs Manager",
+    "views": "Views"
+  },
+  "sidebar": {
+    "phases": "Phases",
+    "no_phases_loaded": "No phases loaded"
+  },
+  "dock": {
+    "toggle_sidebar": "Toggle sidebar",
+    "kanban_tooltip": "Kanban",
+    "artifacts_tooltip": "Artifacts",
+    "chat_tooltip": "Chat",
+    "workflow_tooltip": "Workflow",
+    "mcp_tooltip": "MCP Manager",
+    "specs_tooltip": "Specs Manager",
+    "views_label": "Views",
+    "phases_label": "Phases",
+    "phase_dot_aria": "Phase {{phase}}: {{title}} — {{status}}"
+  },
+  "accessibility": {
+    "main_content": "Main content area"
+  },
+  "topbar": {
+    "phase": "Phase",
+    "of": "/",
+    "connection": {
+      "connected": "Live",
+      "disconnected": "Offline",
+      "aria_connected": "Connected",
+      "aria_disconnected": "Disconnected"
+    }
+  },
+  "status": {
+    "pending": "Pending",
+    "exploring": "Exploring",
+    "planning": "Planning",
+    "executing": "Executing",
+    "verifying": "Verifying",
+    "testing": "Testing",
+    "completed": "Completed",
+    "blocked": "Blocked"
+  },
+  "taskStatus": {
+    "pending": "Pending",
+    "in_progress": "In Progress",
+    "completed": "Done",
+    "failed": "Failed"
+  },
+  "columns": {
+    "backlog": "Backlog",
+    "in_progress": "In Progress",
+    "review": "Review",
+    "done": "Done"
+  },
+  "kanban": {
+    "wave": "Wave",
+    "phase_aria": "Phase {{phase}}: {{title}}. Status: {{status}}. {{completed}} of {{total}} tasks completed.",
+    "task_aria": "{{type}}: {{title}}. Status: {{status}}",
+    "no_phases": "No phases",
+    "loading": "Loading board data..."
+  },
+  "artifacts": {
+    "empty_title": "No file selected",
+    "empty_desc": "Select a file from the tree to view its contents",
+    "loading": "Loading...",
+    "breadcrumb_root": ".workflow/",
+    "aria_viewer": "Artifact viewer",
+    "aria_breadcrumb": "Breadcrumb"
+  },
+  "connection_error": "Cannot connect to dashboard server. Make sure it is running on port 3001.",
+  "language_switcher": {
+    "en": "English",
+    "zh": "中文",
+    "aria_label": "Language switcher"
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "team_name": "tech-debt",
+  "version": "1.0.0",
+  "description": "Tech debt identification and remediation team - combines debt scanning, quantitative assessment, remediation planning, cleanup execution, and regression validation into a closed-loop pipeline",
+  "skill_entry": "team-tech-debt",
+  "invocation": "Skill(skill=\"team-tech-debt\", args=\"--role=coordinator ...\")",
+
+  "roles": {
+    "coordinator": {
+      "name": "coordinator",
+      "responsibility": "Orchestration",
+      "task_prefix": null,
+      "description": "Tech debt governance coordinator. Orchestrate pipeline: requirement clarification -> mode selection -> team creation -> task dispatch -> monitoring -> quality gates -> result reporting",
+      "message_types_sent": ["mode_selected", "quality_gate", "task_unblocked", "error", "shutdown"],
+      "message_types_received": ["scan_complete", "assessment_complete", "plan_ready", "fix_complete", "validation_complete", "regression_found", "error"],
+      "commands": ["dispatch", "monitor"]
+    },
+    "scanner": {
+      "name": "scanner",
+      "responsibility": "Multi-dimension debt scanning",
+      "task_prefix": "TDSCAN",
+      "description": "Tech debt scanner. Multi-dimension codebase scan across code, architecture, testing, dependency, and documentation dimensions to produce debt inventory",
+      "message_types_sent": ["scan_complete", "debt_items_found", "error"],
+      "message_types_received": [],
+      "commands": ["scan-debt"],
+      "cli_tools": ["gemini"]
+    },
+    "assessor": {
+      "name": "assessor",
+      "responsibility": "Quantitative assessment",
+      "task_prefix": "TDEVAL",
+      "description": "Tech debt assessor. Quantitative evaluation of debt items by business impact and fix cost, priority quadrant classification, assessment report generation",
+      "message_types_sent": ["assessment_complete", "error"],
+      "message_types_received": [],
+      "commands": ["evaluate"],
+      "cli_tools": ["gemini"]
+    },
+    "planner": {
+      "name": "planner",
+      "responsibility": "Remediation planning",
+      "task_prefix": "TDPLAN",
+      "description": "Tech debt planner. Phased remediation plan design: quick-wins, systematic refactoring, long-term prevention mechanisms",
+      "message_types_sent": ["plan_ready", "plan_revision", "error"],
+      "message_types_received": [],
+      "commands": ["create-plan"],
+      "cli_tools": ["gemini"]
+    },
+    "executor": {
+      "name": "executor",
+      "responsibility": "Debt cleanup execution",
+      "task_prefix": "TDFIX",
+      "description": "Tech debt executor. Execute refactoring, dependency updates, code cleanup, test additions per remediation plan priorities",
+      "message_types_sent": ["fix_complete", "fix_progress", "error"],
+      "message_types_received": [],
+      "commands": ["remediate"],
+      "cli_tools": [{"tool": "gemini", "mode": "write"}]
+    },
+    "validator": {
+      "name": "validator",
+      "responsibility": "Cleanup validation",
+      "task_prefix": "TDVAL",
+      "description": "Tech debt validator. Verify cleanup introduced no regressions, quality metrics improved, debt actually eliminated",
+      "message_types_sent": ["validation_complete", "regression_found", "error"],
+      "message_types_received": [],
+      "commands": ["verify"],
+      "cli_tools": [{"tool": "gemini", "mode": "write"}]
+    }
+  },
+
+  "pipeline_modes": {
+    "scan": {
+      "description": "Scan and assess only, no fixes (audit mode)",
+      "stages": ["TDSCAN", "TDEVAL"],
+      "entry_role": "scanner"
+    },
+    "remediate": {
+      "description": "Full closed-loop: scan -> assess -> plan -> fix -> validate",
+      "stages": ["TDSCAN", "TDEVAL", "TDPLAN", "TDFIX", "TDVAL"],
+      "entry_role": "scanner"
+    },
+    "targeted": {
+      "description": "Targeted fix: user-specified debt items, direct plan and execute",
+      "stages": ["TDPLAN", "TDFIX", "TDVAL"],
+      "entry_role": "planner"
+    }
+  },
+
+  "fix_verify_loop": {
+    "max_iterations": 3,
+    "trigger": "validation fails or regression found",
+    "participants": ["executor", "validator"],
+    "flow": "TDFIX-fix -> TDVAL-verify -> evaluate"
+  },
+
+  "shared_memory": {
+    "file": ".msg/meta.json",
+    "fields": {
+      "debt_inventory": { "owner": "scanner", "type": "array" },
+      "assessment_matrix": { "owner": "assessor", "type": "object" },
+      "remediation_plan": { "owner": "planner", "type": "object" },
+      "fix_results": { "owner": "executor", "type": "object" },
+      "validation_results": { "owner": "validator", "type": "object" },
+      "debt_score_before": { "owner": "assessor", "type": "number" },
+      "debt_score_after": { "owner": "validator", "type": "number" }
+    }
+  },
+
+  "collaboration_patterns": [
+    "CP-1: Linear Pipeline (scan/remediate/targeted mode)",
+    "CP-2: Review-Fix Cycle (Executor <-> Validator loop)",
+    "CP-3: Fan-out (Scanner multi-dimension scan)",
+    "CP-5: Escalation (Worker -> Coordinator -> User)",
+    "CP-6: Incremental Delivery (batch remediation)",
+    "CP-10: Post-Mortem (debt reduction report)"
+  ],
+
+  "debt_dimensions": {
+    "code": { "name": "Code Debt", "tools": ["static-analysis", "complexity-metrics"] },
+    "architecture": { "name": "Architecture Debt", "tools": ["dependency-graph", "coupling-analysis"] },
+    "testing": { "name": "Testing Debt", "tools": ["coverage-analysis", "test-quality"] },
+    "dependency": { "name": "Dependency Debt", "tools": ["outdated-check", "vulnerability-scan"] },
+    "documentation": { "name": "Documentation Debt", "tools": ["doc-coverage", "api-doc-check"] }
+  },
+
+  "session_directory": {
+    "pattern": ".workflow/.team/TD-{slug}-{date}",
+    "subdirectories": ["scan", "assessment", "plan", "fixes", "validation"]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "claude_dms3-chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@latest"
+      ]
+    }
+  }
+}

@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCP Cross-CLI Sync — Maestro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; line-height: 1.5; background: #FAF8F5; color: #2D2A26; -webkit-font-smoothing: antialiased; }
+
+    :root {
+      --bg: #FAF8F5; --bg2: #F3F0EA; --bg3: #EBE8E1; --card: #FFFFFF;
+      --hover: rgba(45,42,38,0.04); --active: rgba(45,42,38,0.07);
+      --t1: #2D2A26; --t2: #78756F; --t3: #A09D97; --t4: #D1CEC8;
+      --bdr: #E8E5DE; --bdr2: #ECEAE4;
+      --blue: #5B8DB8; --green: #5A9E78; --orange: #C8863A; --yellow: #B89540;
+      --purple: #9178B5; --red: #C46555; --gray: #A09D97;
+      --tint-green: #EEF5F0; --tint-yellow: #FBF5E2; --tint-orange: #FAF0E3;
+      --tint-purple: #F2EDF8; --tint-gray: #F2F1EE; --tint-blue: #EDF2F8; --tint-red: #F8EDEC;
+      --rail-w: 48px; --mono: 'JetBrains Mono', monospace;
+      --spring: cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .shell { display: flex; flex-direction: column; height: 100vh; }
+
+    /* TopBar */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 48px; padding: 0 20px; background: var(--bg2);
+      border-bottom: 1px solid var(--bdr); flex-shrink: 0; z-index: 100;
+    }
+    .topbar-l { display: flex; align-items: center; gap: 12px; }
+    .brand { font-weight: 800; font-size: 15px; color: var(--t1); letter-spacing: -0.02em; }
+    .breadcrumb { font-size: 12px; color: var(--t3); display: flex; align-items: center; gap: 6px; }
+    .breadcrumb span { color: var(--t1); font-weight: 600; }
+    .topbar-r { display: flex; align-items: center; gap: 10px; }
+    .icon-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms;
+    }
+    .icon-btn:hover { background: var(--hover); color: var(--t1); }
+    .icon-btn svg { width: 16px; height: 16px; stroke-width: 1.8; }
+    .pill { font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 100px; display: flex; align-items: center; gap: 5px; }
+    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .pill-green { background: rgba(90,158,120,0.12); color: var(--green); }
+    .pill-orange { background: rgba(200,134,58,0.12); color: var(--orange); }
+
+    .body { display: flex; flex: 1; overflow: hidden; }
+
+    /* Rail */
+    .rail {
+      width: var(--rail-w); background: var(--bg2); border-right: 1px solid var(--bdr);
+      flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+      padding-top: 8px; gap: 2px;
+    }
+    .rail-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms; position: relative;
+    }
+    .rail-btn:hover { background: var(--hover); color: var(--t1); }
+    .rail-btn.active { background: var(--active); color: var(--t1); }
+    .rail-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
+    .rail-btn .tip {
+      position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+      background: var(--t1); color: #fff; font-size: 11px; font-weight: 500;
+      padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+      opacity: 0; pointer-events: none; transition: opacity 150ms; z-index: 200;
+    }
+    .rail-btn:hover .tip { opacity: 1; }
+    .rail-sep { width: 24px; height: 1px; background: var(--bdr2); margin: 6px 0; }
+
+    /* Main */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Info banner */
+    .info-banner {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 20px; background: var(--tint-blue); border-bottom: 1px solid rgba(91,141,184,0.2);
+      flex-shrink: 0;
+    }
+    .info-banner svg { width: 16px; height: 16px; stroke-width: 1.8; color: var(--blue); flex-shrink: 0; }
+    .info-banner p { font-size: 12px; color: var(--t2); }
+    .info-banner strong { color: var(--t1); }
+
+    /* Sync container */
+    .sync-container { flex: 1; display: flex; overflow: hidden; }
+
+    /* CLI Column */
+    .cli-col {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+      min-width: 0;
+    }
+    .cli-col + .cli-col { border-left: 1px solid var(--bdr); }
+
+    .cli-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 20px; border-bottom: 1px solid var(--bdr2);
+      flex-shrink: 0;
+    }
+    .cli-logo {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 14px;
+    }
+    .cli-logo-claude { background: var(--tint-orange); color: var(--orange); }
+    .cli-logo-codex { background: var(--tint-green); color: var(--green); }
+    .cli-info { flex: 1; }
+    .cli-name { font-size: 14px; font-weight: 700; color: var(--t1); }
+    .cli-path { font-size: 10px; font-family: var(--mono); color: var(--t3); }
+    .cli-count {
+      font-size: 10px; font-weight: 700; font-family: var(--mono);
+      padding: 2px 8px; border-radius: 100px; background: var(--bg2); color: var(--t2);
+    }
+
+    .cli-body { flex: 1; overflow-y: auto; padding: 8px 0; }
+
+    /* Sync row */
+    .sync-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 16px; transition: background 100ms;
+    }
+    .sync-row:hover { background: var(--hover); }
+
+    .sr-icon {
+      width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sr-icon svg { width: 14px; height: 14px; stroke-width: 1.8; }
+    .sr-icon-stdio { background: var(--tint-blue); color: var(--blue); }
+    .sr-icon-http { background: var(--tint-purple); color: var(--purple); }
+
+    .sr-info { flex: 1; min-width: 0; }
+    .sr-name { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .sr-detail { font-size: 10px; font-family: var(--mono); color: var(--t3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .sr-status { flex-shrink: 0; }
+    .sr-badge {
+      font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 100px;
+      text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .sr-badge-synced { background: var(--tint-green); color: var(--green); }
+    .sr-badge-only { background: var(--tint-yellow); color: var(--yellow); }
+    .sr-badge-conflict { background: var(--tint-red); color: var(--red); }
+    .sr-badge-missing { background: var(--tint-gray); color: var(--gray); }
+
+    /* Center action column */
+    .sync-actions {
+      width: 80px; flex-shrink: 0;
+      display: flex; flex-direction: column; align-items: center;
+      border-left: 1px solid var(--bdr); border-right: 1px solid var(--bdr);
+      background: var(--bg2); padding-top: 60px; gap: 0;
+    }
+
+    .sync-action-row {
+      display: flex; align-items: center; justify-content: center;
+      height: 44px; width: 100%;
+    }
+
+    .sync-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--bdr);
+      background: var(--card); cursor: pointer; color: var(--t3);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 150ms;
+    }
+    .sync-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--tint-blue); }
+    .sync-btn svg { width: 14px; height: 14px; stroke-width: 2; }
+    .sync-btn-left svg { transform: rotate(180deg); }
+    .sync-btn-both { width: auto; padding: 0 8px; gap: 2px; }
+    .sync-btn-done { border-color: var(--green); color: var(--green); background: var(--tint-green); cursor: default; }
+
+    /* Conflict detail panel */
+    .conflict-panel {
+      padding: 12px 16px; margin: 0 12px 8px; border-radius: 8px;
+      background: var(--tint-red); border: 1px solid rgba(196,101,85,0.2);
+    }
+    .conflict-title {
+      font-size: 11px; font-weight: 700; color: var(--red); margin-bottom: 6px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .conflict-title svg { width: 12px; height: 12px; stroke-width: 2.5; }
+    .conflict-diff {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .conflict-side {
+      font-family: var(--mono); font-size: 10px; padding: 6px 8px;
+      border-radius: 6px; background: rgba(255,255,255,0.6);
+      color: var(--t2); white-space: pre-wrap; line-height: 1.6;
+    }
+    .conflict-side-label {
+      font-family: 'Inter', sans-serif; font-weight: 700; font-size: 9px;
+      text-transform: uppercase; letter-spacing: 0.05em; color: var(--t3);
+      margin-bottom: 4px; display: block;
+    }
+
+    /* Summary footer */
+    .sync-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 20px; border-top: 1px solid var(--bdr2);
+      background: var(--bg); flex-shrink: 0;
+    }
+    .sf-stats { display: flex; gap: 16px; }
+    .sf-stat { display: flex; align-items: center; gap: 5px; font-size: 11px; }
+    .sf-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .sf-label { font-weight: 600; color: var(--t2); }
+    .sf-num { font-weight: 800; font-family: var(--mono); color: var(--t1); }
+
+    .btn-primary {
+      padding: 6px 14px; border-radius: 8px; border: none;
+      background: var(--t1); color: white; font-size: 12px; font-weight: 600;
+      cursor: pointer; font-family: inherit; transition: all 150ms;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+    .btn-primary svg { width: 14px; height: 14px; stroke-width: 2; }
+    .btn-secondary {
+      padding: 6px 14px; border-radius: 8px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 12px; font-weight: 600; color: var(--t2);
+      cursor: pointer; font-family: inherit; transition: all 150ms;
+    }
+    .btn-secondary:hover { border-color: var(--t4); color: var(--t1); }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <!-- TopBar -->
+  <header class="topbar">
+    <div class="topbar-l">
+      <div class="brand">Maestro</div>
+      <div class="breadcrumb">/ Settings / <span>Cross-CLI Sync</span></div>
+    </div>
+    <div class="topbar-r">
+      <div class="pill pill-green"><div class="pill-dot"></div>5 Synced</div>
+      <div class="pill pill-orange"><div class="pill-dot"></div>1 Conflict</div>
+      <button class="icon-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+      </button>
+      <button class="icon-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- Rail -->
+    <nav class="rail">
+      <button class="rail-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span class="tip">Dashboard</span>
+      </button>
+      <button class="rail-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        <span class="tip">Servers</span>
+      </button>
+      <button class="rail-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        <span class="tip">Templates</span>
+      </button>
+      <div class="rail-sep"></div>
+      <button class="rail-btn active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+        <span class="tip">CLI Sync</span>
+      </button>
+    </nav>
+
+    <!-- Main -->
+    <div class="main">
+      <!-- Info banner -->
+      <div class="info-banner">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <p>Sync MCP servers between <strong>Claude Code</strong> (~/.claude.json) and <strong>Codex CLI</strong> (~/.codex/config.toml). Servers are matched by name. Format conversion happens automatically.</p>
+      </div>
+
+      <!-- Sync layout: Claude | Actions | Codex -->
+      <div class="sync-container">
+        <!-- Claude column -->
+        <div class="cli-col">
+          <div class="cli-header">
+            <div class="cli-logo cli-logo-claude">C</div>
+            <div class="cli-info">
+              <div class="cli-name">Claude Code</div>
+              <div class="cli-path">~/.claude.json</div>
+            </div>
+            <div class="cli-count">8</div>
+          </div>
+          <div class="cli-body">
+            <!-- Synced -->
+            <div class="sync-row">
+              <div class="sr-icon sr-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name">maestro-tools</div>
+                <div class="sr-detail">npx -y maestro-mcp</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-synced">synced</span></div>
+            </div>
+
+            <div class="sync-row">
+              <div class="sr-icon sr-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name">ace-tool</div>
+                <div class="sr-detail">npx -y @anthropic/ace-mcp</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-synced">synced</span></div>
+            </div>
+
+            <div class="sync-row">
+              <div class="sr-icon sr-icon-http">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name">context7</div>
+                <div class="sr-detail">https://mcp.context7.com/mcp</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-synced">synced</span></div>
+            </div>
+
+            <!-- Conflict -->
+            <div class="sync-row" style="background: rgba(196,101,85,0.04);">
+              <div class="sr-icon sr-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name">github</div>
+                <div class="sr-detail">npx -y @modelcontextprotocol/server-github</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-conflict">conflict</span></div>
+            </div>
+
+            <!-- Conflict detail -->
+            <div class="conflict-panel">
+              <div class="conflict-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                Config mismatch — different args
+              </div>
+              <div class="conflict-diff">
+                <div class="conflict-side">
+                  <span class="conflict-side-label">Claude</span>
+args: ["--owner", "anthropics"]
+env.GITHUB_TOKEN: "ghp_****"</div>
+                <div class="conflict-side">
+                  <span class="conflict-side-label">Codex</span>
+args: ["--owner", "openai"]
+env.GITHUB_TOKEN: "ghp_****"</div>
+              </div>
+            </div>
+
+            <!-- Claude only -->
+            <div class="sync-row">
+              <div class="sr-icon sr-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name">filesystem</div>
+                <div class="sr-detail">npx -y @anthropic/fs-mcp -- /home</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-only">claude only</span></div>
+            </div>
+
+            <div class="sync-row">
+              <div class="sr-icon sr-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name">postgres</div>
+                <div class="sr-detail">npx -y @modelcontextprotocol/server-postgres</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-only">claude only</span></div>
+            </div>
+
+            <!-- Missing from Claude -->
+            <div class="sync-row" style="opacity:0.5;">
+              <div class="sr-icon" style="background:var(--tint-gray); color:var(--t4);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name" style="color:var(--t3);">puppeteer</div>
+                <div class="sr-detail">not configured</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-missing">missing</span></div>
+            </div>
+
+            <div class="sync-row" style="opacity:0.5;">
+              <div class="sr-icon" style="background:var(--tint-gray); color:var(--t4);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name" style="color:var(--t3);">brave-search</div>
+                <div class="sr-detail">not configured</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-missing">missing</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Center action strip -->
+        <div class="sync-actions">
+          <!-- Row 1: synced = check -->
+          <div class="sync-action-row"><button class="sync-btn sync-btn-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg></button></div>
+          <!-- Row 2: synced = check -->
+          <div class="sync-action-row"><button class="sync-btn sync-btn-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg></button></div>
+          <!-- Row 3: synced = check -->
+          <div class="sync-action-row"><button class="sync-btn sync-btn-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg></button></div>
+          <!-- Row 4: conflict - bidirectional -->
+          <div class="sync-action-row" style="height:auto; padding:26px 0;">
+            <div style="display:flex; flex-direction:column; gap:4px; align-items:center;">
+              <button class="sync-btn sync-btn-left" title="Use Claude config"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></button>
+              <button class="sync-btn" title="Use Codex config"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></button>
+            </div>
+          </div>
+          <!-- Row 5: copy right -->
+          <div class="sync-action-row"><button class="sync-btn" title="Copy to Codex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></button></div>
+          <!-- Row 6: copy right -->
+          <div class="sync-action-row"><button class="sync-btn" title="Copy to Codex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></button></div>
+          <!-- Row 7: copy left -->
+          <div class="sync-action-row"><button class="sync-btn sync-btn-left" title="Copy to Claude"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></button></div>
+          <!-- Row 8: copy left -->
+          <div class="sync-action-row"><button class="sync-btn sync-btn-left" title="Copy to Claude"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></button></div>
+        </div>
+
+        <!-- Codex column -->
+        <div class="cli-col">
+          <div class="cli-header">
+            <div class="cli-logo cli-logo-codex">X</div>
+            <div class="cli-info">
+              <div class="cli-name">Codex CLI</div>
+              <div class="cli-path">~/.codex/config.toml</div>
+            </div>
+            <div class="cli-count">7</div>
+          </div>
+          <div class="cli-body">
+            <!-- Synced -->
+            <div class="sync-row">
+              <div class="sr-icon sr-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name">maestro-tools</div>
+                <div class="sr-detail">npx -y maestro-mcp</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-synced">synced</span></div>
+            </div>
+
+            <div class="sync-row">
+              <div class="sr-icon sr-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name">ace-tool</div>
+                <div class="sr-detail">npx -y @anthropic/ace-mcp</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-synced">synced</span></div>
+            </div>
+
+            <div class="sync-row">
+              <div class="sr-icon sr-icon-http">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name">context7</div>
+                <div class="sr-detail">url = "https://mcp.context7.com/mcp"</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-synced">synced</span></div>
+            </div>
+
+            <!-- Conflict -->
+            <div class="sync-row" style="background:rgba(196,101,85,0.04);">
+              <div class="sr-icon sr-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name">github</div>
+                <div class="sr-detail">npx -y @modelcontextprotocol/server-github</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-conflict">conflict</span></div>
+            </div>
+            <!-- spacer for conflict panel -->
+            <div style="height:92px;"></div>
+
+            <!-- Missing from Codex -->
+            <div class="sync-row" style="opacity:0.5;">
+              <div class="sr-icon" style="background:var(--tint-gray); color:var(--t4);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name" style="color:var(--t3);">filesystem</div>
+                <div class="sr-detail">not configured</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-missing">missing</span></div>
+            </div>
+
+            <div class="sync-row" style="opacity:0.5;">
+              <div class="sr-icon" style="background:var(--tint-gray); color:var(--t4);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name" style="color:var(--t3);">postgres</div>
+                <div class="sr-detail">not configured</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-missing">missing</span></div>
+            </div>
+
+            <!-- Codex only -->
+            <div class="sync-row">
+              <div class="sr-icon sr-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name">puppeteer</div>
+                <div class="sr-detail">npx -y @anthropic/puppeteer-mcp</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-only">codex only</span></div>
+            </div>
+
+            <div class="sync-row">
+              <div class="sr-icon sr-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="sr-info">
+                <div class="sr-name">brave-search</div>
+                <div class="sr-detail">npx -y brave-search-mcp</div>
+              </div>
+              <div class="sr-status"><span class="sr-badge sr-badge-only">codex only</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="sync-footer">
+        <div class="sf-stats">
+          <div class="sf-stat">
+            <div class="sf-dot" style="background:var(--green);"></div>
+            <span class="sf-num">5</span>
+            <span class="sf-label">Synced</span>
+          </div>
+          <div class="sf-stat">
+            <div class="sf-dot" style="background:var(--red);"></div>
+            <span class="sf-num">1</span>
+            <span class="sf-label">Conflict</span>
+          </div>
+          <div class="sf-stat">
+            <div class="sf-dot" style="background:var(--yellow);"></div>
+            <span class="sf-num">4</span>
+            <span class="sf-label">One-sided</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-secondary">Sync All to Claude</button>
+          <button class="btn-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+            Sync All to Codex
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

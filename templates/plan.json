@@ -1,0 +1,37 @@
+{
+  "summary": "{{PLAN_SUMMARY}}",
+  "approach": "{{APPROACH}}",
+  "task_ids": [],
+  "task_count": 0,
+  "complexity": null,
+  "estimated_time": null,
+  "recommended_execution": "Agent",
+
+  "waves": [
+    {
+      "wave": 1,
+      "tasks": []
+    }
+  ],
+
+  "data_flow": {
+    "diagram": null,
+    "stages": []
+  },
+
+  "design_decisions": [],
+
+  "shared_context": {
+    "patterns": [],
+    "conventions": [],
+    "dependencies": []
+  },
+
+  "_metadata": {
+    "timestamp": "{{ISO_8601}}",
+    "source": "workflow-planner",
+    "planning_mode": "full",
+    "plan_type": "feature",
+    "schema_version": "2.0"
+  }
+}

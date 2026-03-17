@@ -1,0 +1,122 @@
+# Rule Template: API Rules (Backend/Fullstack Only)
+
+## Variables
+- {TECH_STACK_NAME}: Tech stack display name
+- {FILE_EXT}: File extension pattern
+- {API_FRAMEWORK}: API framework (Express, FastAPI, etc)
+
+## Output Format
+
+```markdown
+---
+paths:
+  - "**/api/**/*.{FILE_EXT}"
+  - "**/routes/**/*.{FILE_EXT}"
+  - "**/endpoints/**/*.{FILE_EXT}"
+  - "**/controllers/**/*.{FILE_EXT}"
+  - "**/handlers/**/*.{FILE_EXT}"
+---
+
+# {TECH_STACK_NAME} API Rules
+
+## Endpoint Design
+
+[REST/GraphQL conventions from Exa research]
+
+### URL Structure
+- Resource naming (plural nouns)
+- Nesting depth limits
+- Query parameter conventions
+- Version prefixing
+
+### HTTP Methods
+- GET: Read operations
+- POST: Create operations
+- PUT/PATCH: Update operations
+- DELETE: Remove operations
+
+### Status Codes
+- 2xx: Success responses
+- 4xx: Client errors
+- 5xx: Server errors
+
+## Request Validation
+
+[Input validation patterns]
+
+### Schema Validation
+```{lang}
+// Example validation schema
+```
+
+### Required Fields
+- Validation approach
+- Error messages format
+- Sanitization rules
+
+## Response Format
+
+[Standard response structures]
+
+### Success Response
+```json
+{
+  "data": {},
+  "meta": {}
+}
+```
+
+### Pagination
+```json
+{
+  "data": [],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 100
+  }
+}
+```
+
+## Error Responses
+
+[Error handling for APIs]
+
+### Error Format
+```json
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human readable message",
+    "details": {}
+  }
+}
+```
+
+### Common Error Codes
+- VALIDATION_ERROR
+- NOT_FOUND
+- UNAUTHORIZED
+- FORBIDDEN
+
+## Authentication & Authorization
+
+[Auth patterns]
+- Token handling
+- Permission checks
+- Rate limiting
+
+## Documentation
+
+[API documentation standards]
+- OpenAPI/Swagger
+- Inline documentation
+- Example requests/responses
+```
+
+## Content Guidelines
+
+- Focus on API-specific patterns
+- Include request/response examples
+- Cover security considerations
+- Reference framework conventions

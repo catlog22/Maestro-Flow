@@ -1,0 +1,89 @@
+# Tech Stack Rules Generation Agent Prompt
+
+## Context Variables
+- {TECH_STACK_NAME}: Normalized tech stack name (e.g., "typescript-react")
+- {PRIMARY_LANG}: Primary language (e.g., "typescript")
+- {FILE_EXT}: File extension pattern (e.g., "{ts,tsx}")
+- {FRAMEWORK_TYPE}: frontend | backend | fullstack | library
+- {COMPONENTS}: Array of tech components
+- {OUTPUT_DIR}: .claude/rules/tech/{TECH_STACK_NAME}/
+
+## Agent Instructions
+
+Generate path-conditional rules for Claude Code automatic loading.
+
+### Step 1: Execute Exa Research
+
+Run 4-6 parallel queries based on tech stack:
+
+**Base Queries** (always execute):
+```
+mcp__exa__get_code_context_exa(query: "{PRIMARY_LANG} best practices principles 2025", tokensNum: 8000)
+mcp__exa__get_code_context_exa(query: "{PRIMARY_LANG} implementation patterns examples", tokensNum: 7000)
+mcp__exa__get_code_context_exa(query: "{PRIMARY_LANG} testing strategies conventions", tokensNum: 5000)
+mcp__exa__web_search_exa(query: "{PRIMARY_LANG} configuration setup 2025", numResults: 5)
+```
+
+**Component Queries** (for each framework in COMPONENTS):
+```
+mcp__exa__get_code_context_exa(query: "{PRIMARY_LANG} {component} integration patterns", tokensNum: 5000)
+```
+
+### Step 2: Read Rule Templates
+
+Read each template file before generating content:
+```
+Read(~/.ccw/workflows/cli-templates/prompts/rules/rule-core.txt)
+Read(~/.ccw/workflows/cli-templates/prompts/rules/rule-patterns.txt)
+Read(~/.ccw/workflows/cli-templates/prompts/rules/rule-testing.txt)
+Read(~/.ccw/workflows/cli-templates/prompts/rules/rule-config.txt)
+Read(~/.ccw/workflows/cli-templates/prompts/rules/rule-api.txt)       # Only if backend/fullstack
+Read(~/.ccw/workflows/cli-templates/prompts/rules/rule-components.txt) # Only if frontend/fullstack
+```
+
+### Step 3: Generate Rule Files
+
+Create directory and write files:
+```bash
+mkdir -p "{OUTPUT_DIR}"
+```
+
+**Always Generate**:
+- core.md (from rule-core.txt template)
+- patterns.md (from rule-patterns.txt template)
+- testing.md (from rule-testing.txt template)
+- config.md (from rule-config.txt template)
+
+**Conditional**:
+- api.md: Only if FRAMEWORK_TYPE == 'backend' or 'fullstack'
+- components.md: Only if FRAMEWORK_TYPE == 'frontend' or 'fullstack'
+
+### Step 4: Write Metadata
+
+```json
+{
+  "tech_stack": "{TECH_STACK_NAME}",
+  "primary_lang": "{PRIMARY_LANG}",
+  "file_ext": "{FILE_EXT}",
+  "framework_type": "{FRAMEWORK_TYPE}",
+  "components": ["{COMPONENTS}"],
+  "generated_at": "{ISO_TIMESTAMP}",
+  "source": "exa-research",
+  "files_generated": ["core.md", "patterns.md", "testing.md", "config.md", ...]
+}
+```
+
+### Step 5: Report Completion
+
+Provide summary:
+- Files created with their path patterns
+- Exa queries executed (count)
+- Sources consulted (count)
+
+## Critical Requirements
+
+1. Every .md file MUST start with `paths` YAML frontmatter
+2. Use {FILE_EXT} consistently across all rule files
+3. Synthesize Exa research into actionable rules
+4. Include code examples from Exa sources
+5. Keep each file focused on its specific domain

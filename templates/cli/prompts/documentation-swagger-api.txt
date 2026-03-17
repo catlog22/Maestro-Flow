@@ -1,0 +1,266 @@
+生成符合 RESTful 规范的完整 Swagger/OpenAPI API 文档。
+
+## 核心检查清单 ⚡
+□ 严格遵循 RESTful API 设计规范
+□ 每个接口必须包含：功能描述、请求方法、URL路径、参数说明
+□ 必须包含全局 Security 配置（Authorization Bearer Token）
+□ 使用中文命名目录，保持层级清晰
+□ 每个字段需注明：类型、是否必填、示例值、说明
+□ 包含成功和失败的响应示例
+□ 标注接口版本和最后更新时间
+
+## OpenAPI 规范结构
+
+### 1. 文档信息 (info)
+```yaml
+openapi: 3.0.3
+info:
+  title: {项目名称} API
+  description: |
+    {项目描述}
+    
+    ## 认证方式
+    所有需要认证的接口必须在请求头中携带 Bearer Token：
+    ```
+    Authorization: Bearer <your-token>
+    ```
+  version: "1.0.0"
+  contact:
+    name: API 支持
+    email: api-support@example.com
+  license:
+    name: MIT
+```
+
+### 2. 服务器配置 (servers)
+```yaml
+servers:
+  - url: https://api.example.com/v1
+    description: 生产环境
+  - url: https://staging-api.example.com/v1
+    description: 测试环境
+  - url: http://localhost:3000/v1
+    description: 开发环境
+```
+
+### 3. 全局安全配置 (security)
+```yaml
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Token 认证
+        
+        获取方式：调用 POST /auth/login 接口
+        有效期：24小时
+        刷新：调用 POST /auth/refresh 接口
+
+security:
+  - bearerAuth: []
+```
+
+### 4. 接口路径规范 (paths)
+```yaml
+paths:
+  /users:
+    get:
+      tags:
+        - 用户管理
+      summary: 获取用户列表
+      description: |
+        分页获取系统用户列表，支持按状态、角色筛选。
+        
+        **适用环境**: 开发、测试、生产
+        **前置条件**: 需要管理员权限
+      operationId: listUsers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: 页码（从1开始）
+          example: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          description: 每页数量
+          example: 20
+      responses:
+        '200':
+          description: 成功获取用户列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+              example:
+                code: 0
+                message: success
+                data:
+                  items:
+                    - id: "usr_123"
+                      email: "user@example.com"
+                      name: "张三"
+                  total: 100
+                  page: 1
+                  limit: 20
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+```
+
+### 5. 数据模型规范 (schemas)
+```yaml
+components:
+  schemas:
+    # 基础响应结构
+    BaseResponse:
+      type: object
+      required:
+        - code
+        - message
+        - timestamp
+      properties:
+        code:
+          type: integer
+          description: 业务状态码，0表示成功
+          example: 0
+        message:
+          type: string
+          description: 响应消息
+          example: success
+        timestamp:
+          type: string
+          format: date-time
+          description: 响应时间戳
+          example: "2025-01-01T12:00:00Z"
+    
+    # 错误响应
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: 错误码
+          example: "AUTH_001"
+        message:
+          type: string
+          description: 错误信息
+          example: "Token 无效或已过期"
+        details:
+          type: object
+          description: 错误详情
+          additionalProperties: true
+```
+
+### 6. 统一响应定义 (responses)
+```yaml
+components:
+  responses:
+    UnauthorizedError:
+      description: 认证失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: "AUTH_001"
+            message: "Token 无效或已过期"
+    ForbiddenError:
+      description: 权限不足
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: "AUTH_003"
+            message: "权限不足，需要管理员角色"
+    NotFoundError:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: "BIZ_002"
+            message: "资源不存在"
+    ValidationError:
+      description: 参数验证失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: "PARAM_001"
+            message: "参数格式错误"
+            details:
+              field: "email"
+              reason: "邮箱格式不正确"
+```
+
+## 接口文档必填项
+
+每个接口必须包含：
+
+1. **基本信息**
+   - tags: 所属模块（中文）
+   - summary: 一句话描述
+   - description: 详细说明（含适用环境、前置条件）
+   - operationId: 唯一操作标识
+
+2. **安全配置**
+   - security: 认证要求
+
+3. **参数定义**
+   - name: 参数名
+   - in: 位置 (path/query/header/cookie)
+   - required: 是否必填
+   - schema: 类型定义（含 default, minimum, maximum）
+   - description: 参数说明
+   - example: 示例值
+
+4. **响应定义**
+   - 200: 成功响应（含完整示例）
+   - 400: 参数错误
+   - 401: 认证失败
+   - 403: 权限不足
+   - 404: 资源不存在（如适用）
+   - 500: 服务器错误
+
+5. **版本信息**
+   - x-version: 接口版本
+   - x-updated: 最后更新时间
+
+## 错误码规范
+
+| 前缀 | 类别 | HTTP状态码 | 说明 |
+|------|------|------------|------|
+| AUTH_ | 认证错误 | 401/403 | 身份验证相关 |
+| PARAM_ | 参数错误 | 400 | 请求参数验证 |
+| BIZ_ | 业务错误 | 409/422 | 业务逻辑相关 |
+| SYS_ | 系统错误 | 500/503 | 服务器异常 |
+
+## RESTful 设计规范
+
+1. **URL 命名**: 使用复数名词，小写，连字符分隔
+2. **HTTP 方法**: GET(查询)、POST(创建)、PUT(更新)、DELETE(删除)、PATCH(部分更新)
+3. **状态码**: 正确使用 2xx/3xx/4xx/5xx
+4. **分页**: 使用 page/limit 或 offset/limit
+5. **筛选**: 使用查询参数
+6. **版本**: URL 路径 (/v1/) 或 请求头

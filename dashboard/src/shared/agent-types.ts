@@ -1,0 +1,188 @@
+// ---------------------------------------------------------------------------
+// Agent type system — protocol abstraction for CLI agent processes
+// ---------------------------------------------------------------------------
+
+/** Supported agent CLI types */
+export type AgentType = 'claude-code' | 'codex' | 'gemini' | 'qwen' | 'opencode';
+
+/** Agent process lifecycle status */
+export type AgentProcessStatus =
+  | 'spawning'
+  | 'running'
+  | 'paused'
+  | 'stopping'
+  | 'stopped'
+  | 'error';
+
+// ---------------------------------------------------------------------------
+// Agent configuration & process
+// ---------------------------------------------------------------------------
+
+/** Configuration for spawning an agent process */
+export interface AgentConfig {
+  type: AgentType;
+  prompt: string;
+  workDir: string;
+  env?: Record<string, string>;
+  model?: string;
+  approvalMode?: 'suggest' | 'auto';
+}
+
+/** Runtime state of a spawned agent process */
+export interface AgentProcess {
+  id: string;
+  type: AgentType;
+  status: AgentProcessStatus;
+  config: AgentConfig;
+  startedAt: string;
+  pid?: number;
+}
+
+// ---------------------------------------------------------------------------
+// NormalizedEntry — 11-type discriminated union for unified agent output
+// ---------------------------------------------------------------------------
+
+/** Base fields shared by all normalized entries */
+export interface NormalizedEntryBase {
+  id: string;
+  processId: string;
+  timestamp: string;
+}
+
+/** All possible entry type discriminators */
+export type EntryType =
+  | 'user_message'
+  | 'assistant_message'
+  | 'thinking'
+  | 'tool_use'
+  | 'file_change'
+  | 'command_exec'
+  | 'approval_request'
+  | 'approval_response'
+  | 'error'
+  | 'status_change'
+  | 'token_usage';
+
+// --- Individual entry types ------------------------------------------------
+
+export interface UserMessageEntry extends NormalizedEntryBase {
+  type: 'user_message';
+  content: string;
+}
+
+export interface AssistantMessageEntry extends NormalizedEntryBase {
+  type: 'assistant_message';
+  content: string;
+  partial: boolean;
+}
+
+export interface ThinkingEntry extends NormalizedEntryBase {
+  type: 'thinking';
+  content: string;
+}
+
+export interface ToolUseEntry extends NormalizedEntryBase {
+  type: 'tool_use';
+  name: string;
+  input: Record<string, unknown>;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  result?: string;
+}
+
+export interface FileChangeEntry extends NormalizedEntryBase {
+  type: 'file_change';
+  path: string;
+  action: 'create' | 'modify' | 'delete';
+  diff?: string;
+}
+
+export interface CommandExecEntry extends NormalizedEntryBase {
+  type: 'command_exec';
+  command: string;
+  exitCode?: number;
+  output?: string;
+}
+
+export interface ApprovalRequestEntry extends NormalizedEntryBase {
+  type: 'approval_request';
+  toolName: string;
+  toolInput: Record<string, unknown>;
+  requestId: string;
+}
+
+export interface ApprovalResponseEntry extends NormalizedEntryBase {
+  type: 'approval_response';
+  requestId: string;
+  allowed: boolean;
+}
+
+export interface ErrorEntry extends NormalizedEntryBase {
+  type: 'error';
+  message: string;
+  code?: string;
+}
+
+export interface StatusChangeEntry extends NormalizedEntryBase {
+  type: 'status_change';
+  status: AgentProcessStatus;
+  reason?: string;
+}
+
+export interface TokenUsageEntry extends NormalizedEntryBase {
+  type: 'token_usage';
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+}
+
+/** Discriminated union of all 11 normalized entry types */
+export type NormalizedEntry =
+  | UserMessageEntry
+  | AssistantMessageEntry
+  | ThinkingEntry
+  | ToolUseEntry
+  | FileChangeEntry
+  | CommandExecEntry
+  | ApprovalRequestEntry
+  | ApprovalResponseEntry
+  | ErrorEntry
+  | StatusChangeEntry
+  | TokenUsageEntry;
+
+// ---------------------------------------------------------------------------
+// Agent event payload types (used in WS/SSE event envelopes)
+// ---------------------------------------------------------------------------
+
+/** Payload for agent:status events */
+export interface AgentStatusPayload {
+  processId: string;
+  status: AgentProcessStatus;
+  reason?: string;
+}
+
+/** Payload for agent:stopped events */
+export interface AgentStoppedPayload {
+  processId: string;
+  reason?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Approval workflow types
+// ---------------------------------------------------------------------------
+
+/** Server-side approval request (sent to client for user decision) */
+export interface ApprovalRequest {
+  id: string;
+  processId: string;
+  toolName: string;
+  toolInput: Record<string, unknown>;
+  timestamp: string;
+}
+
+/** Client-side approval decision (sent back to server) */
+export interface ApprovalDecision {
+  id: string;
+  allow: boolean;
+  processId: string;
+}

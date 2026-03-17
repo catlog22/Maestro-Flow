@@ -1,0 +1,386 @@
+{
+  "categories": [
+    "maestro",
+    "spec",
+    "quality",
+    "manage",
+    "maestro",
+    "cli",
+    "brainstorm",
+    "workflow",
+    "ddd",
+    "issue",
+    "paper",
+    "context",
+    "data",
+    "experiment",
+    "figure",
+    "ui-design",
+    "session",
+    "idaw",
+    "memory",
+    "pdf",
+    "shared",
+    "meta-skill",
+    "personal",
+    "team-lifecycle",
+    "team-coordinate",
+    "team-executor",
+    "team-testing",
+    "team-review",
+    "team-quality-assurance",
+    "team-tech-debt"
+  ],
+  "commands": [
+    {
+      "name": "maestro",
+      "description": "Intelligent coordinator - analyze intent + read project state -> select optimal command chain -> execute via Skill()",
+      "category": "maestro",
+      "parameters": "\"intent text\" [-y] [-c] [--dry-run] [--chain <name>]"
+    },
+    {
+      "name": "maestro-init",
+      "description": "Initialize project with auto state detection (empty/code/existing)",
+      "category": "maestro",
+      "parameters": "[--auto] [--from-brainstorm SESSION-ID]"
+    },
+    {
+      "name": "maestro-plan",
+      "description": "Explore, clarify, plan, check, and confirm a phase execution plan",
+      "category": "maestro",
+      "parameters": "<phase> [--collab] [--spec SPEC-xxx] [--auto] [--gaps] [--dir <path>]"
+    },
+    {
+      "name": "maestro-execute",
+      "description": "Execute phase plan with wave-based parallel execution and atomic commits",
+      "category": "maestro",
+      "parameters": "<phase> [--auto-commit] [--method agent|cli] [--dir <path>]"
+    },
+    {
+      "name": "maestro-verify",
+      "description": "Goal-Backward verification with 3-layer must-have checks, anti-pattern scan, Nyquist test coverage validation",
+      "category": "maestro",
+      "parameters": "<phase> [--skip-tests] [--skip-antipattern]"
+    },
+    {
+      "name": "maestro-brainstorm",
+      "description": "Unified brainstorming with dual-mode operation - auto pipeline and single role analysis",
+      "category": "maestro",
+      "parameters": "[topic|role-name] [--yes] [--count N] [--session ID]"
+    },
+    {
+      "name": "maestro-analyze",
+      "description": "Multi-dimensional analysis with CLI exploration, decision extraction, and intent tracking",
+      "category": "maestro",
+      "parameters": "<phase|topic> [-y] [-c] [-q]"
+    },
+    {
+      "name": "maestro-quick",
+      "description": "Execute a quick task with workflow guarantees but skip optional agents",
+      "category": "maestro",
+      "parameters": "[description] [--full] [--discuss]"
+    },
+    {
+      "name": "maestro-spec-generate",
+      "description": "Generate specification package from idea/requirements through 7-phase document chain",
+      "category": "maestro",
+      "parameters": "<idea or @file> [-y] [-c] [--count N]"
+    },
+    {
+      "name": "maestro-phase-transition",
+      "description": "Coordinate phase transition with validation and artifact handoff",
+      "category": "maestro",
+      "parameters": "<from-phase> <to-phase> [--force]"
+    },
+    {
+      "name": "maestro-phase-add",
+      "description": "Add new phase to project roadmap",
+      "category": "maestro",
+      "parameters": "<phase-name> [--before <phase>] [--after <phase>]"
+    },
+    {
+      "name": "maestro-milestone-audit",
+      "description": "Audit milestone completion against roadmap criteria",
+      "category": "maestro",
+      "parameters": "<milestone-id>"
+    },
+    {
+      "name": "maestro-roadmap",
+      "description": "Interactive roadmap creation with iterative refinement — lightweight alternative to spec-generate",
+      "category": "maestro",
+      "parameters": "<requirement> [-y] [-c] [-m progressive|direct|auto] [--from-brainstorm SESSION-ID]"
+    },
+    {
+      "name": "maestro-milestone-complete",
+      "description": "Mark milestone as complete with artifact validation",
+      "category": "maestro",
+      "parameters": "<milestone-id> [--force]"
+    },
+    {
+      "name": "spec-setup",
+      "description": "Initialize project specs from codebase scan",
+      "category": "spec",
+      "parameters": ""
+    },
+    {
+      "name": "spec-add",
+      "description": "Add knowledge entry to project specs",
+      "category": "spec",
+      "parameters": "<type> <content>"
+    },
+    {
+      "name": "spec-load",
+      "description": "Load specs by keyword search",
+      "category": "spec",
+      "parameters": "<keyword>"
+    },
+    {
+      "name": "spec-map",
+      "description": "Scan and map codebase structure",
+      "category": "spec",
+      "parameters": "[--depth N]"
+    },
+    {
+      "name": "quality-test",
+      "description": "User Acceptance Testing with conversational protocol",
+      "category": "quality",
+      "parameters": "<phase-number>"
+    },
+    {
+      "name": "quality-debug",
+      "description": "Hypothesis-driven debugging with evidence logging",
+      "category": "quality",
+      "parameters": "<phase-number|bug-description> [-c]"
+    },
+    {
+      "name": "quality-refactor",
+      "description": "Tech debt reflection iteration",
+      "category": "quality",
+      "parameters": "<phase-number|scope>"
+    },
+    {
+      "name": "quality-sync",
+      "description": "Change-impact-doc synchronization pipeline",
+      "category": "quality",
+      "parameters": "[-y summary]"
+    },
+    {
+      "name": "quality-test-gen",
+      "description": "Generate tests to fill coverage gaps",
+      "category": "quality",
+      "parameters": "[--layer L1|L2|L3] [--coverage N]"
+    },
+    {
+      "name": "quality-integration-test",
+      "description": "Self-iterating integration test cycle",
+      "category": "quality",
+      "parameters": "[--strategy conservative|aggressive|surgical|reflective]"
+    },
+    {
+      "name": "manage-status",
+      "description": "Display project status dashboard and route to next action",
+      "category": "manage",
+      "parameters": ""
+    },
+    {
+      "name": "manage-memory",
+      "description": "Manage project memory (view, search, update)",
+      "category": "manage",
+      "parameters": "<view|search|update> [query]"
+    },
+    {
+      "name": "manage-memory-capture",
+      "description": "Capture working context to memory",
+      "category": "manage",
+      "parameters": "[--scope full|current]"
+    },
+    {
+      "name": "manage-codebase-rebuild",
+      "description": "Full codebase documentation index rebuild",
+      "category": "manage",
+      "parameters": ""
+    },
+    {
+      "name": "manage-codebase-refresh",
+      "description": "Incremental documentation refresh",
+      "category": "manage",
+      "parameters": "<component-id|feature-id>"
+    },
+    {
+      "name": "manage-issue",
+      "description": "Interactive issue management -- create, query, update, close, link, and discover issues",
+      "category": "manage",
+      "parameters": "<subcommand> [options]"
+    }
+  ],
+  "skills": [
+    {
+      "name": "team-lifecycle-v4",
+      "category": "team-lifecycle",
+      "description": "Full lifecycle team skill with clean architecture",
+      "roles": ["coordinator", "analyst", "writer", "planner", "executor", "tester", "reviewer", "supervisor"],
+      "session_prefix": "TLV4",
+      "specs": ["pipelines", "quality-gates", "knowledge-transfer"]
+    },
+    {
+      "name": "team-coordinate",
+      "category": "team-coordinate",
+      "description": "Universal team coordination skill with dynamic role generation",
+      "roles": ["coordinator"],
+      "session_prefix": "TC",
+      "specs": ["dynamic-role-generation", "role-registry"]
+    },
+    {
+      "name": "team-executor",
+      "category": "team-executor",
+      "description": "Lightweight session execution skill",
+      "roles": [],
+      "session_prefix": null,
+      "specs": ["session-resume", "execution-only"]
+    },
+    {
+      "name": "team-testing",
+      "category": "team-testing",
+      "description": "Unified team skill for testing team",
+      "roles": ["coordinator", "strategist", "generator", "executor", "analyst"],
+      "session_prefix": "TST",
+      "specs": ["pipelines", "team-config", "gc-loop"]
+    },
+    {
+      "name": "team-review",
+      "category": "team-review",
+      "description": "Unified team skill for code review",
+      "roles": ["coordinator", "scanner", "reviewer", "fixer"],
+      "session_prefix": "RV",
+      "specs": ["pipelines", "dimensions", "finding-schema", "team-config"]
+    },
+    {
+      "name": "team-quality-assurance",
+      "category": "team-quality-assurance",
+      "description": "Unified team skill for quality assurance",
+      "roles": ["coordinator", "scout", "strategist", "generator", "executor", "analyst"],
+      "session_prefix": "QA",
+      "specs": ["pipelines", "team-config", "gc-loop"]
+    },
+    {
+      "name": "team-tech-debt",
+      "category": "team-tech-debt",
+      "description": "Unified team skill for tech debt identification and remediation",
+      "roles": ["coordinator", "scanner", "assessor", "planner", "executor", "validator"],
+      "session_prefix": "TD",
+      "specs": ["pipelines", "team-config"]
+    },
+    {
+      "name": "spec-setup",
+      "category": "spec",
+      "description": "Initialize project specs from codebase scan",
+      "roles": [],
+      "session_prefix": null,
+      "specs": ["project-tech", "coding-conventions", "architecture-constraints", "learnings", "quality-rules"]
+    },
+    {
+      "name": "spec-add",
+      "category": "spec",
+      "description": "Add knowledge entry to project specs",
+      "roles": [],
+      "session_prefix": null,
+      "specs": ["knowledge-entry"]
+    },
+    {
+      "name": "spec-load",
+      "category": "spec",
+      "description": "Load specs by keyword search",
+      "roles": [],
+      "session_prefix": null,
+      "specs": ["keyword-search"]
+    },
+    {
+      "name": "spec-map",
+      "category": "spec",
+      "description": "Scan and map codebase structure",
+      "roles": [],
+      "session_prefix": null,
+      "specs": ["codebase-mapping", "parallel-mapper-agents"]
+    },
+    {
+      "name": "quality-test",
+      "category": "quality",
+      "description": "User Acceptance Testing with conversational protocol",
+      "roles": [],
+      "session_prefix": null,
+      "specs": ["uat-protocol"]
+    },
+    {
+      "name": "quality-debug",
+      "category": "quality",
+      "description": "Hypothesis-driven debugging with evidence logging",
+      "roles": [],
+      "session_prefix": null,
+      "specs": ["hypothesis-driven-debugging", "evidence-logging"]
+    },
+    {
+      "name": "quality-refactor",
+      "category": "quality",
+      "description": "Tech debt reflection iteration",
+      "roles": [],
+      "session_prefix": null,
+      "specs": ["tech-debt-reflection"]
+    },
+    {
+      "name": "quality-sync",
+      "category": "quality",
+      "description": "Change-impact-doc synchronization pipeline",
+      "roles": [],
+      "session_prefix": null,
+      "specs": ["change-impact-sync"]
+    },
+    {
+      "name": "manage-status",
+      "category": "manage",
+      "description": "Display project status dashboard and route to next action",
+      "roles": [],
+      "session_prefix": null,
+      "specs": ["status-dashboard"]
+    },
+    {
+      "name": "manage-codebase-rebuild",
+      "category": "manage",
+      "description": "Full codebase documentation index rebuild",
+      "roles": [],
+      "session_prefix": null,
+      "specs": ["codebase-indexing"]
+    },
+    {
+      "name": "manage-codebase-refresh",
+      "category": "manage",
+      "description": "Incremental documentation refresh",
+      "roles": [],
+      "session_prefix": null,
+      "specs": ["incremental-refresh"]
+    },
+    {
+      "name": "manage-issue",
+      "category": "manage",
+      "description": "Interactive issue management",
+      "roles": [],
+      "session_prefix": null,
+      "specs": ["issue-lifecycle", "unified-issue-system"]
+    }
+  ],
+  "total_counts": {
+    "commands": 29,
+    "skills": 19
+  },
+  "metadata": {
+    "generated_at": "2026-03-15",
+    "source_directories": [
+      "D:/maestro2/.claude/commands/",
+      "D:/maestro2/.claude/skills/",
+      "D:/maestro2/.codex/skills/"
+    ],
+    "skill_types": {
+      "claude_code_skills": 7,
+      "codex_skills": 12
+    }
+  }
+}

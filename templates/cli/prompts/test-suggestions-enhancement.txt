@@ -1,0 +1,38 @@
+PURPOSE: Generate comprehensive multi-layer test enhancement suggestions
+  - Success: Cover L0-L3 layers with focus on API, integration, and error scenarios
+  - Scope: Files with coverage gaps identified in TEST_ANALYSIS_RESULTS.md
+  - Goal: Provide specific, actionable test case suggestions that increase coverage completeness
+
+TASK:
+  • L1 (Unit Tests): Suggest edge cases, boundary conditions, error paths, state transitions
+  • L2.1 (Integration): Suggest module interaction patterns, dependency injection scenarios
+  • L2.2 (API Contracts): Suggest request/response test cases, validation, status codes, error responses
+  • L2.4 (External APIs): Suggest mock strategies, failure scenarios, timeout handling, retry logic
+  • L2.5 (Failure Modes): Suggest exception hierarchies, error propagation, recovery strategies
+  • Cross-cutting: Suggest performance test cases, security considerations
+
+MODE: analysis
+
+CONTEXT: @.workflow/active/{test-session-id}/.process/TEST_ANALYSIS_RESULTS.md
+  Memory: Project type, test framework, existing test patterns, coverage gaps
+
+EXPECTED: Markdown report with structured test enhancement suggestions organized by:
+  1. File-level test requirements (per file needing tests)
+  2. Layer-specific test cases (L1, L2.1, L2.2, L2.4, L2.5)
+  3. Each suggestion includes:
+     - Test type and layer (e.g., "L2.2 API Contract Test")
+     - Specific test case description (e.g., "POST /api/users - Invalid email format")
+     - Expected behavior (e.g., "Returns 400 with validation error message")
+     - Dependencies/mocks needed (e.g., "Mock email service")
+     - Success criteria (e.g., "Status 400, error.field === 'email'")
+  4. Test ordering/dependencies (which tests should run first)
+  5. Integration test strategies (how components interact)
+  6. Error scenario matrix (all failure modes covered)
+
+CONSTRAINTS:
+  - Focus on identified coverage gaps from TEST_ANALYSIS_RESULTS.md
+  - Prioritize API tests, integration tests, and error scenarios
+  - No code generation - suggestions only with sufficient detail for implementation
+  - Consider project conventions and existing test patterns
+  - Each suggestion should be actionable and specific (not generic)
+  - Output format: Markdown with clear section headers

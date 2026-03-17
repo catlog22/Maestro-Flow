@@ -1,0 +1,87 @@
+{
+  "id": "TASK-{{NNN}}",
+  "title": "{{TITLE}}",
+  "description": "{{DESCRIPTION}}",
+
+  "issue_id": null,
+  "issue_refs": [],
+  "type": "feature",
+  "priority": "medium",
+  "effort": "medium",
+  "action": "{{CONCRETE_ACTION_WITH_EXACT_VALUES}}",
+  "status": "pending",
+
+  "scope": "{{MODULE_PATH}}",
+  "focus_paths": [],
+
+  "read_first": [
+    "{{FILE_BEING_MODIFIED}}",
+    "{{SOURCE_OF_TRUTH_OR_PATTERN_FILE}}"
+  ],
+
+  "depends_on": [],
+  "wave": 1,
+  "parallel_group": null,
+  "execution_group": null,
+  "executor": "agent",
+
+  "convergence": {
+    "criteria": [
+      "{{FILE_PATH}} contains '{{EXACT_STRING_OR_PATTERN}}'",
+      "{{TEST_COMMAND}} exits 0"
+    ],
+    "verification": "{{VERIFICATION_COMMAND_OR_STEPS}}",
+    "definition_of_done": "{{BUSINESS_LANGUAGE_COMPLETION}}"
+  },
+
+  "files": [
+    {
+      "path": "{{FILE_PATH}}",
+      "action": "modify",
+      "target": "{{FUNCTION_OR_CLASS}}",
+      "change": "{{CONCRETE_CHANGE_WITH_EXACT_VALUES}}"
+    }
+  ],
+
+  "implementation": [
+    "{{STEP_1_WITH_CONCRETE_VALUES}}",
+    "{{STEP_2_WITH_CONCRETE_VALUES}}"
+  ],
+
+  "test": {
+    "commands": [],
+    "unit": [],
+    "integration": [],
+    "success_metrics": []
+  },
+
+  "reference": {
+    "pattern": "{{EXISTING_PATTERN}}",
+    "files": [],
+    "examples": null
+  },
+
+  "rationale": {
+    "chosen_approach": "{{WHY_THIS_APPROACH}}",
+    "decision_factors": [],
+    "tradeoffs": null
+  },
+
+  "risks": [],
+
+  "code_skeleton": null,
+
+  "doc_context": {
+    "affected_features": [],
+    "affected_components": [],
+    "affected_requirements": [],
+    "adr_ids": []
+  },
+
+  "meta": {
+    "estimated_time": null,
+    "risk": "low",
+    "autonomous": true,
+    "checkpoint": false
+  }
+}

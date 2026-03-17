@@ -1,0 +1,49 @@
+{
+  "name": "maestro-flow",
+  "version": "0.1.0",
+  "description": "Workflow orchestration CLI with MCP endpoint support and extensible architecture",
+  "type": "module",
+  "bin": {
+    "maestro": "bin/maestro.js",
+    "maestro-statusline": "bin/maestro-statusline.js",
+    "maestro-context-monitor": "bin/maestro-context-monitor.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "bin",
+    "dist",
+    "commands",
+    "agents",
+    "templates",
+    "workflows",
+    "dashboard/dist",
+    "dashboard/dist-server",
+    "dashboard/package.json"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node bin/maestro.js",
+    "mcp": "node bin/maestro-mcp.js",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.14.0",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "chokidar": "^4.0.0",
+    "commander": "^13.1.0",
+    "hono": "^4.7.0",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.7.0"
+  },
+  "license": "MIT"
+}

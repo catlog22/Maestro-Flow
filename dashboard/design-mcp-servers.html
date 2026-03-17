@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCP Servers — Maestro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; line-height: 1.5; background: #FAF8F5; color: #2D2A26; -webkit-font-smoothing: antialiased; }
+
+    :root {
+      --bg: #FAF8F5; --bg2: #F3F0EA; --bg3: #EBE8E1; --card: #FFFFFF;
+      --hover: rgba(45,42,38,0.04); --active: rgba(45,42,38,0.07);
+      --t1: #2D2A26; --t2: #78756F; --t3: #A09D97; --t4: #D1CEC8;
+      --bdr: #E8E5DE; --bdr2: #ECEAE4;
+      --blue: #5B8DB8; --green: #5A9E78; --orange: #C8863A; --yellow: #B89540;
+      --purple: #9178B5; --red: #C46555; --gray: #A09D97;
+      --tint-green: #EEF5F0; --tint-yellow: #FBF5E2; --tint-orange: #FAF0E3;
+      --tint-purple: #F2EDF8; --tint-gray: #F2F1EE; --tint-blue: #EDF2F8; --tint-red: #F8EDEC;
+      --rail-w: 48px; --mono: 'JetBrains Mono', monospace;
+      --spring: cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .shell { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ====== TopBar ====== */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 48px; padding: 0 20px; background: var(--bg2);
+      border-bottom: 1px solid var(--bdr); flex-shrink: 0; z-index: 100;
+    }
+    .topbar-l { display: flex; align-items: center; gap: 12px; }
+    .brand { font-weight: 800; font-size: 15px; color: var(--t1); letter-spacing: -0.02em; }
+    .breadcrumb { font-size: 12px; color: var(--t3); display: flex; align-items: center; gap: 6px; }
+    .breadcrumb span { color: var(--t1); font-weight: 600; }
+    .topbar-r { display: flex; align-items: center; gap: 10px; }
+    .pill { font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 100px; display: flex; align-items: center; gap: 5px; }
+    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .pill-green { background: rgba(90,158,120,0.12); color: var(--green); }
+    .pill-blue { background: rgba(91,141,184,0.12); color: var(--blue); }
+    .icon-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms;
+    }
+    .icon-btn:hover { background: var(--hover); color: var(--t1); }
+    .icon-btn svg { width: 16px; height: 16px; stroke-width: 1.8; }
+
+    .body { display: flex; flex: 1; overflow: hidden; }
+
+    /* ====== Rail ====== */
+    .rail {
+      width: var(--rail-w); background: var(--bg2); border-right: 1px solid var(--bdr);
+      flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+      padding-top: 8px; gap: 2px; z-index: 50;
+    }
+    .rail-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms; position: relative;
+    }
+    .rail-btn:hover { background: var(--hover); color: var(--t1); }
+    .rail-btn.active { background: var(--active); color: var(--t1); }
+    .rail-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
+    .rail-btn .tip {
+      position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+      background: var(--t1); color: #fff; font-size: 11px; font-weight: 500;
+      padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+      opacity: 0; pointer-events: none; transition: opacity 150ms; z-index: 200;
+    }
+    .rail-btn:hover .tip { opacity: 1; }
+    .rail-sep { width: 24px; height: 1px; background: var(--bdr2); margin: 6px 0; }
+
+    /* ====== Main ====== */
+    .main { flex: 1; display: flex; overflow: hidden; }
+
+    /* ====== Server List Panel ====== */
+    .server-list {
+      width: 340px; background: var(--bg); border-right: 1px solid var(--bdr);
+      display: flex; flex-direction: column; flex-shrink: 0;
+    }
+    .sl-head {
+      display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+      border-bottom: 1px solid var(--bdr2);
+    }
+    .sl-title { font-size: 13px; font-weight: 700; color: var(--t1); flex: 1; }
+    .sl-count { font-size: 10px; color: var(--t3); font-family: var(--mono); }
+    .sl-search {
+      display: flex; align-items: center; gap: 6px; margin: 8px 12px;
+      padding: 6px 10px; border-radius: 8px; background: var(--bg2);
+      border: 1px solid var(--bdr2); transition: border-color 150ms;
+    }
+    .sl-search:focus-within { border-color: var(--purple); }
+    .sl-search svg { width: 13px; height: 13px; stroke-width: 2; flex-shrink: 0; color: var(--t4); }
+    .sl-search input {
+      border: none; background: none; outline: none; font-size: 12px;
+      color: var(--t1); font-family: inherit; width: 100%;
+    }
+    .sl-search input::placeholder { color: var(--t4); }
+
+    .sl-body { flex: 1; overflow-y: auto; padding: 4px 0; }
+
+    /* Scope group */
+    .scope-group { margin-bottom: 4px; }
+    .scope-label {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 16px; font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em; color: var(--t3);
+    }
+    .scope-badge {
+      font-size: 9px; font-weight: 600; padding: 1px 6px; border-radius: 100px;
+      font-family: var(--mono);
+    }
+    .scope-badge-global { background: rgba(91,141,184,0.12); color: var(--blue); }
+    .scope-badge-project { background: rgba(145,120,181,0.12); color: var(--purple); }
+    .scope-badge-enterprise { background: rgba(200,134,58,0.12); color: var(--orange); }
+
+    /* Server item */
+    .server-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 16px; cursor: pointer; transition: background 100ms;
+      border: none; background: none; width: 100%; text-align: left; font-family: inherit;
+    }
+    .server-item:hover { background: var(--hover); }
+    .server-item.selected { background: var(--active); }
+
+    .si-icon {
+      width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .si-icon svg { width: 16px; height: 16px; stroke-width: 1.8; }
+    .si-icon-stdio { background: var(--tint-blue); color: var(--blue); }
+    .si-icon-http { background: var(--tint-purple); color: var(--purple); }
+
+    .si-info { flex: 1; min-width: 0; }
+    .si-name { font-size: 12px; font-weight: 600; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .si-cmd { font-size: 10px; font-family: var(--mono); color: var(--t3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .si-toggle { position: relative; width: 32px; height: 18px; flex-shrink: 0; }
+    .si-toggle input { display: none; }
+    .si-toggle-track {
+      width: 32px; height: 18px; border-radius: 100px; background: var(--bdr);
+      cursor: pointer; transition: background 200ms; position: relative;
+    }
+    .si-toggle-track::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 14px; height: 14px; border-radius: 50%; background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: transform 200ms var(--spring);
+    }
+    .si-toggle input:checked + .si-toggle-track { background: var(--green); }
+    .si-toggle input:checked + .si-toggle-track::after { transform: translateX(14px); }
+
+    /* ====== Detail Panel ====== */
+    .detail {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
+    }
+    .detail-head {
+      display: flex; align-items: center; gap: 12px; padding: 14px 24px;
+      border-bottom: 1px solid var(--bdr2); flex-shrink: 0;
+    }
+    .dh-icon {
+      width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .dh-icon svg { width: 20px; height: 20px; stroke-width: 1.8; }
+    .dh-info { flex: 1; }
+    .dh-name { font-size: 16px; font-weight: 700; color: var(--t1); }
+    .dh-meta { display: flex; gap: 8px; margin-top: 2px; }
+    .dh-tag {
+      font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 100px;
+    }
+    .dh-actions { display: flex; gap: 6px; }
+    .btn-sm {
+      padding: 5px 12px; border-radius: 6px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 11px; font-weight: 600; color: var(--t2);
+      cursor: pointer; font-family: inherit; transition: all 150ms;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .btn-sm:hover { border-color: var(--t4); color: var(--t1); }
+    .btn-sm svg { width: 12px; height: 12px; stroke-width: 2; }
+    .btn-danger { color: var(--red); }
+    .btn-danger:hover { border-color: var(--red); background: var(--tint-red); }
+
+    .detail-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+    /* Config sections */
+    .cfg-section { margin-bottom: 20px; }
+    .cfg-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--t3); margin-bottom: 8px; }
+    .cfg-block {
+      background: var(--bg2); border: 1px solid var(--bdr2); border-radius: 8px;
+      padding: 12px 14px; font-family: var(--mono); font-size: 12px; color: var(--t1);
+      line-height: 1.7; white-space: pre-wrap; word-break: break-all;
+    }
+    .cfg-row { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; }
+    .cfg-key { font-size: 11px; font-weight: 600; color: var(--t2); min-width: 80px; flex-shrink: 0; }
+    .cfg-val { font-family: var(--mono); font-size: 12px; color: var(--t1); word-break: break-all; }
+    .cfg-val-masked { color: var(--t4); }
+
+    /* Env vars table */
+    .env-table { width: 100%; border-collapse: collapse; }
+    .env-table th {
+      text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--t3); padding: 6px 10px;
+      border-bottom: 1px solid var(--bdr2);
+    }
+    .env-table td {
+      padding: 6px 10px; font-size: 12px; border-bottom: 1px solid var(--bdr2);
+    }
+    .env-table td:first-child { font-family: var(--mono); font-weight: 500; color: var(--blue); }
+    .env-table td:last-child { font-family: var(--mono); color: var(--t2); word-break: break-all; }
+
+    /* Status indicator */
+    .status-row { display: flex; align-items: center; gap: 8px; padding: 10px 0; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-dot-on { background: var(--green); box-shadow: 0 0 0 3px rgba(90,158,120,0.2); }
+    .status-dot-off { background: var(--t4); }
+    .status-text { font-size: 12px; font-weight: 600; }
+    .status-text-on { color: var(--green); }
+    .status-text-off { color: var(--t3); }
+
+    /* ====== Add Button (FAB) ====== */
+    .fab {
+      position: absolute; bottom: 20px; right: 20px;
+      width: 44px; height: 44px; border-radius: 12px; border: none;
+      background: var(--t1); color: white; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      transition: transform 200ms var(--spring), box-shadow 200ms;
+    }
+    .fab:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
+    .fab svg { width: 20px; height: 20px; stroke-width: 2; }
+
+    /* ====== Empty state ====== */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      flex: 1; gap: 12px; color: var(--t3);
+    }
+    .empty-state svg { width: 40px; height: 40px; stroke-width: 1.2; opacity: 0.4; }
+    .empty-state p { font-size: 13px; font-weight: 500; }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <!-- TopBar -->
+  <header class="topbar">
+    <div class="topbar-l">
+      <div class="brand">Maestro</div>
+      <div class="breadcrumb">
+        / Settings / <span>MCP Servers</span>
+      </div>
+    </div>
+    <div class="topbar-r">
+      <div class="pill pill-green"><div class="pill-dot"></div>12 Active</div>
+      <div class="pill pill-blue"><div class="pill-dot"></div>3 Global</div>
+      <button class="icon-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v18m9-9H3"/></svg>
+      </button>
+      <button class="icon-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- Rail -->
+    <nav class="rail">
+      <button class="rail-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span class="tip">Dashboard</span>
+      </button>
+      <button class="rail-btn active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        <span class="tip">MCP Servers</span>
+      </button>
+      <button class="rail-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        <span class="tip">Templates</span>
+      </button>
+      <div class="rail-sep"></div>
+      <button class="rail-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+        <span class="tip">CLI Sync</span>
+      </button>
+    </nav>
+
+    <!-- Main -->
+    <div class="main">
+      <!-- Server List -->
+      <div class="server-list">
+        <div class="sl-head">
+          <div class="sl-title">MCP Servers</div>
+          <div class="sl-count">15</div>
+        </div>
+        <div class="sl-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" placeholder="Search servers..." />
+        </div>
+        <div class="sl-body">
+          <!-- Global Scope -->
+          <div class="scope-group">
+            <div class="scope-label">
+              Global <span class="scope-badge scope-badge-global">3</span>
+            </div>
+            <button class="server-item selected">
+              <div class="si-icon si-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="si-info">
+                <div class="si-name">maestro-tools</div>
+                <div class="si-cmd">npx -y maestro-mcp</div>
+              </div>
+              <label class="si-toggle">
+                <input type="checkbox" checked />
+                <div class="si-toggle-track"></div>
+              </label>
+            </button>
+            <button class="server-item">
+              <div class="si-icon si-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="si-info">
+                <div class="si-name">ace-tool</div>
+                <div class="si-cmd">npx -y @anthropic/ace-mcp</div>
+              </div>
+              <label class="si-toggle">
+                <input type="checkbox" checked />
+                <div class="si-toggle-track"></div>
+              </label>
+            </button>
+            <button class="server-item">
+              <div class="si-icon si-icon-http">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+              </div>
+              <div class="si-info">
+                <div class="si-name">context7</div>
+                <div class="si-cmd">https://mcp.context7.com/mcp</div>
+              </div>
+              <label class="si-toggle">
+                <input type="checkbox" checked />
+                <div class="si-toggle-track"></div>
+              </label>
+            </button>
+          </div>
+
+          <!-- Project Scope -->
+          <div class="scope-group">
+            <div class="scope-label">
+              Project <span class="scope-badge scope-badge-project">4</span>
+            </div>
+            <button class="server-item">
+              <div class="si-icon si-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="si-info">
+                <div class="si-name">filesystem</div>
+                <div class="si-cmd">npx -y @anthropic/fs-mcp</div>
+              </div>
+              <label class="si-toggle">
+                <input type="checkbox" checked />
+                <div class="si-toggle-track"></div>
+              </label>
+            </button>
+            <button class="server-item">
+              <div class="si-icon si-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="si-info">
+                <div class="si-name">github</div>
+                <div class="si-cmd">npx -y @modelcontextprotocol/…</div>
+              </div>
+              <label class="si-toggle">
+                <input type="checkbox" />
+                <div class="si-toggle-track"></div>
+              </label>
+            </button>
+            <button class="server-item">
+              <div class="si-icon si-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="si-info">
+                <div class="si-name">postgres</div>
+                <div class="si-cmd">npx -y @modelcontextprotocol/…</div>
+              </div>
+              <label class="si-toggle">
+                <input type="checkbox" checked />
+                <div class="si-toggle-track"></div>
+              </label>
+            </button>
+            <button class="server-item">
+              <div class="si-icon si-icon-http">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+              </div>
+              <div class="si-info">
+                <div class="si-name">brave-search</div>
+                <div class="si-cmd">https://mcp.brave.com/search</div>
+              </div>
+              <label class="si-toggle">
+                <input type="checkbox" checked />
+                <div class="si-toggle-track"></div>
+              </label>
+            </button>
+          </div>
+
+          <!-- Enterprise Scope -->
+          <div class="scope-group">
+            <div class="scope-label">
+              Enterprise <span class="scope-badge scope-badge-enterprise">1</span>
+            </div>
+            <button class="server-item">
+              <div class="si-icon si-icon-stdio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="si-info">
+                <div class="si-name">corporate-tools</div>
+                <div class="si-cmd">managed (read-only)</div>
+              </div>
+              <label class="si-toggle">
+                <input type="checkbox" checked disabled />
+                <div class="si-toggle-track" style="opacity:0.5; cursor:default;"></div>
+              </label>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detail Panel -->
+      <div class="detail" style="position:relative;">
+        <div class="detail-head">
+          <div class="dh-icon si-icon-stdio" style="width:40px;height:40px;border-radius:10px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          </div>
+          <div class="dh-info">
+            <div class="dh-name">maestro-tools</div>
+            <div class="dh-meta">
+              <span class="dh-tag scope-badge-global" style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:100px;">GLOBAL</span>
+              <span class="dh-tag" style="background:var(--tint-blue);color:var(--blue);">STDIO</span>
+            </div>
+          </div>
+          <div class="dh-actions">
+            <button class="btn-sm">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit
+            </button>
+            <button class="btn-sm">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              Duplicate
+            </button>
+            <button class="btn-sm btn-danger">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+              Remove
+            </button>
+          </div>
+        </div>
+
+        <div class="detail-body">
+          <!-- Status -->
+          <div class="cfg-section">
+            <div class="cfg-label">Status</div>
+            <div class="status-row">
+              <div class="status-dot status-dot-on"></div>
+              <div class="status-text status-text-on">Enabled</div>
+            </div>
+          </div>
+
+          <!-- Command -->
+          <div class="cfg-section">
+            <div class="cfg-label">Command</div>
+            <div class="cfg-block">npx -y maestro-mcp</div>
+          </div>
+
+          <!-- Arguments -->
+          <div class="cfg-section">
+            <div class="cfg-label">Arguments</div>
+            <div class="cfg-block">-y, maestro-mcp</div>
+          </div>
+
+          <!-- Environment Variables -->
+          <div class="cfg-section">
+            <div class="cfg-label">Environment Variables</div>
+            <div style="background:var(--bg2); border:1px solid var(--bdr2); border-radius:8px; overflow:hidden;">
+              <table class="env-table">
+                <thead>
+                  <tr><th>Key</th><th>Value</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>MAESTRO_ENABLED_TOOLS</td>
+                    <td>write_file,edit_file,read_file,core_memory,smart_search</td>
+                  </tr>
+                  <tr>
+                    <td>MAESTRO_PROJECT_ROOT</td>
+                    <td>D:/maestro2</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Source -->
+          <div class="cfg-section">
+            <div class="cfg-label">Configuration Source</div>
+            <div class="cfg-row">
+              <span class="cfg-key">File</span>
+              <span class="cfg-val">~/.claude.json</span>
+            </div>
+            <div class="cfg-row">
+              <span class="cfg-key">Scope</span>
+              <span class="cfg-val">Global (user-level)</span>
+            </div>
+            <div class="cfg-row">
+              <span class="cfg-key">Priority</span>
+              <span class="cfg-val">User &lt; Enterprise</span>
+            </div>
+          </div>
+
+          <!-- Raw JSON -->
+          <div class="cfg-section">
+            <div class="cfg-label">Raw Configuration</div>
+            <div class="cfg-block" style="background:var(--code-bg); color:var(--code-t1); border-color:var(--code-border);">{
+  "command": "npx",
+  "args": ["-y", "maestro-mcp"],
+  "env": {
+    "MAESTRO_ENABLED_TOOLS": "write_file,edit_file,read_file,core_memory,smart_search",
+    "MAESTRO_PROJECT_ROOT": "D:/maestro2"
+  }
+}</div>
+          </div>
+        </div>
+
+        <!-- FAB -->
+        <button class="fab">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14m-7-7h14"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

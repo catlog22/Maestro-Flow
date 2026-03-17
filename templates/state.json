@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "project_name": "{{PROJECT_NAME}}",
+  "current_milestone": "v1.0",
+  "current_phase": 1,
+  "status": "idle",
+  "phases_summary": {
+    "total": 0,
+    "completed": 0,
+    "in_progress": 0,
+    "pending": 0
+  },
+  "last_updated": "{{TIMESTAMP}}",
+  "accumulated_context": {
+    "key_decisions": [],
+    "blockers": [],
+    "deferred": []
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "{{TYPE}}-{{SLUG}}-{{DATE}}",
+  "type": "quick",
+  "title": "{{TITLE}}",
+  "status": "active",
+  "created_at": "{{TIMESTAMP}}",
+  "updated_at": "{{TIMESTAMP}}",
+
+  "plan": {
+    "task_ids": [],
+    "task_count": 0
+  },
+
+  "execution": {
+    "method": "agent",
+    "tasks_completed": 0,
+    "tasks_total": 0
+  }
+}

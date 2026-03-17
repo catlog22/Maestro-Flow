@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Maestro — Workflow Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; line-height: 1.5; background: #FAF8F5; color: #2D2A26; -webkit-font-smoothing: antialiased; }
+
+    :root {
+      --bg: #FAF8F5; --bg2: #F3F0EA; --bg3: #EBE8E1; --card: #FFFFFF;
+      --hover: rgba(45,42,38,0.04); --active: rgba(45,42,38,0.07);
+      --t1: #2D2A26; --t2: #78756F; --t3: #A09D97; --t4: #D1CEC8;
+      --bdr: #E8E5DE; --bdr2: #ECEAE4;
+      --blue: #5B8DB8; --green: #5A9E78; --orange: #C8863A; --yellow: #B89540;
+      --purple: #9178B5; --red: #C46555; --gray: #A09D97;
+      --tint-green: #EEF5F0; --tint-yellow: #FBF5E2; --tint-orange: #FAF0E3;
+      --tint-purple: #F2EDF8; --tint-gray: #F2F1EE; --tint-blue: #EDF2F8; --tint-red: #F8EDEC;
+      --rail-w: 48px; --mono: 'JetBrains Mono', monospace;
+      --spring: cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .shell { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ====== TopBar ====== */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 48px; padding: 0 20px; background: var(--bg2);
+      border-bottom: 1px solid var(--bdr); flex-shrink: 0; z-index: 100;
+    }
+    .topbar-l { display: flex; align-items: center; gap: 12px; }
+    .brand { font-weight: 800; font-size: 15px; color: var(--t1); letter-spacing: -0.02em; }
+    .topbar-c { display: flex; align-items: center; gap: 0; }
+    .topbar-r { display: flex; align-items: center; gap: 12px; }
+    .pill { font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 100px; display: flex; align-items: center; gap: 5px; }
+    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .pill-yellow { background: rgba(184,149,64,0.12); color: var(--yellow); }
+    .phase-num { font-size: 12px; color: var(--t3); }
+    .icon-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms;
+    }
+    .icon-btn:hover { background: var(--hover); color: var(--t1); }
+    .icon-btn svg { width: 16px; height: 16px; stroke-width: 1.8; }
+
+    /* ====== View Switcher ====== */
+    .view-switcher {
+      display: flex; align-items: center; gap: 2px;
+      background: var(--bg3); border-radius: 10px; padding: 3px;
+      position: relative;
+    }
+    .view-switcher::before {
+      content: ''; position: absolute; top: 3px; left: 3px;
+      width: calc((100% - 6px) / 3); height: calc(100% - 6px);
+      background: var(--card); border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      transition: transform 300ms var(--spring);
+    }
+    .view-switcher[data-active="1"]::before { transform: translateX(0); }
+    .view-switcher[data-active="2"]::before { transform: translateX(100%); }
+    .view-switcher[data-active="3"]::before { transform: translateX(200%); }
+    .vs-btn {
+      display: flex; align-items: center; gap: 6px; padding: 5px 14px;
+      border: none; background: none; cursor: pointer;
+      font-size: 11px; font-weight: 600; color: var(--t3);
+      border-radius: 8px; transition: color 200ms; position: relative; z-index: 1;
+      white-space: nowrap;
+    }
+    .vs-btn.active { color: var(--t1); }
+    .vs-btn:hover { color: var(--t1); }
+    .vs-btn svg { width: 14px; height: 14px; stroke-width: 2; }
+    .vs-btn .vs-key {
+      font-size: 9px; font-family: var(--mono); padding: 0 4px;
+      border-radius: 4px; background: rgba(0,0,0,0.06); color: var(--t4);
+      line-height: 16px;
+    }
+    .vs-btn.active .vs-key { background: rgba(0,0,0,0.08); color: var(--t3); }
+
+    .body { display: flex; flex: 1; overflow: hidden; position: relative; }
+
+    /* ====== DockRail ====== */
+    .rail {
+      width: var(--rail-w); background: var(--bg2); border-right: 1px solid var(--bdr);
+      flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+      padding-top: 8px; gap: 2px; z-index: 50;
+    }
+    .rail-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms; position: relative;
+    }
+    .rail-btn:hover { background: var(--hover); color: var(--t1); }
+    .rail-btn.active { background: var(--active); color: var(--t1); }
+    .rail-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
+    .rail-btn .tip {
+      position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+      background: var(--t1); color: #fff; font-size: 11px; font-weight: 500;
+      padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+      opacity: 0; pointer-events: none; transition: opacity 150ms; z-index: 200;
+    }
+    .rail-btn:hover .tip { opacity: 1; }
+    .rail-sep { width: 24px; height: 1px; background: var(--bdr2); margin: 6px 0; }
+    .rail-phases { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0; }
+    .rail-pdot { width: 8px; height: 8px; border-radius: 50%; cursor: pointer; transition: transform 150ms; }
+    .rail-pdot:hover { transform: scale(1.4); }
+
+    /* ====== View Container ====== */
+    .view-container { flex: 1; overflow: hidden; position: relative; min-width: 0; }
+    .view-panel {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      opacity: 0; transform: scale(0.97) translateY(8px);
+      transition: opacity 350ms ease, transform 350ms var(--spring);
+      pointer-events: none; overflow: hidden;
+    }
+    .view-panel.active {
+      opacity: 1; transform: scale(1) translateY(0);
+      pointer-events: auto;
+    }
+
+    /* ================================================
+       VIEW 1: Pipeline Board
+       ================================================ */
+    .pipeline-header {
+      display: flex; align-items: center; padding: 12px 16px;
+      border-bottom: 1px solid var(--bdr2); gap: 0; background: var(--bg); flex-shrink: 0;
+    }
+    .pipe-stage {
+      display: flex; align-items: center; gap: 8px; padding: 6px 14px;
+      font-size: 11px; font-weight: 600; color: var(--t3); position: relative;
+    }
+    .pipe-stage .ps-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .pipe-stage .ps-count {
+      font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 100px;
+      background: var(--bg2); color: var(--t3); font-family: var(--mono);
+    }
+    .pipe-arrow { width: 20px; height: 1px; background: var(--bdr); position: relative; flex-shrink: 0; }
+    .pipe-arrow::after { content: ''; position: absolute; right: -1px; top: -3px; border: 3px solid transparent; border-left: 4px solid var(--bdr); }
+    .pipe-filter { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+    .filter-chip {
+      font-size: 11px; font-weight: 500; padding: 4px 12px; border-radius: 100px;
+      border: 1px solid var(--bdr); background: var(--card); color: var(--t2);
+      cursor: pointer; transition: all 150ms;
+    }
+    .filter-chip:hover { border-color: var(--t3); color: var(--t1); }
+    .filter-chip.active { background: var(--t1); color: #fff; border-color: var(--t1); }
+    .pipeline-board { display: flex; gap: 10px; flex: 1; overflow-x: auto; padding: 12px; }
+    .pipe-col { display: flex; flex-direction: column; min-width: 220px; flex: 1; background: var(--bg2); border-radius: 12px; overflow: hidden; }
+    .pipe-col-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; }
+    .pipe-col-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .pipe-col-name { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .pipe-col-cnt { font-size: 11px; color: var(--t3); background: var(--card); padding: 0 6px; border-radius: 100px; }
+    .pipe-col-body { flex: 1; overflow-y: auto; padding: 0 8px 8px; display: flex; flex-direction: column; gap: 8px; }
+    .wf-card {
+      border-radius: 10px; padding: 12px 14px; border: none;
+      cursor: pointer; transition: all 180ms var(--spring);
+    }
+    .wf-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .wf-card.st-pending { background: var(--tint-gray); }
+    .wf-card.st-exploring { background: var(--tint-blue); }
+    .wf-card.st-planning { background: var(--tint-purple); }
+    .wf-card.st-executing { background: var(--tint-yellow); }
+    .wf-card.st-verifying { background: var(--tint-orange); }
+    .wf-card.st-completed { background: var(--tint-green); }
+    .wf-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .wf-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 100px; }
+    .wf-badge.b-pending { background: rgba(160,157,151,0.15); color: var(--gray); }
+    .wf-badge.b-exploring { background: rgba(91,141,184,0.15); color: var(--blue); }
+    .wf-badge.b-planning { background: rgba(145,120,181,0.15); color: var(--purple); }
+    .wf-badge.b-executing { background: rgba(184,149,64,0.15); color: var(--yellow); }
+    .wf-badge.b-verifying { background: rgba(200,134,58,0.15); color: var(--orange); }
+    .wf-badge.b-completed { background: rgba(90,158,120,0.15); color: var(--green); }
+    .wf-id { font-size: 10px; font-family: var(--mono); color: var(--t3); }
+    .wf-title { font-size: 14px; font-weight: 600; color: var(--t1); margin-bottom: 3px; }
+    .wf-goal { font-size: 12px; color: var(--t2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 8px; line-height: 1.5; }
+    .prog { display: flex; align-items: center; gap: 8px; }
+    .prog-track { flex: 1; height: 5px; background: rgba(0,0,0,0.06); border-radius: 100px; overflow: hidden; }
+    .prog-fill { height: 100%; border-radius: 100px; transition: width 400ms var(--spring); }
+    .prog-text { font-size: 11px; font-weight: 500; color: var(--t3); white-space: nowrap; font-family: var(--mono); }
+    .wave { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--yellow); margin-top: 6px; font-weight: 500; }
+    .wave-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: pulse 2s ease infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
+    .wf-tasks { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+    .wf-task { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px; font-size: 11px; background: rgba(255,255,255,0.5); }
+    .wf-task-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .wf-task-name { flex: 1; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .wf-task-st { font-size: 10px; font-weight: 600; }
+    .veri-badge { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 100px; }
+    .veri-badge svg { width: 10px; height: 10px; stroke-width: 2.5; }
+    .veri-badge.gaps { background: rgba(196,101,85,0.1); color: var(--red); }
+    .issue-cnt { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 600; color: var(--red); margin-top: 4px; margin-left: 8px; }
+    .issue-cnt svg { width: 10px; height: 10px; stroke-width: 2; }
+    .brainstorm-ind { display: flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 11px; color: var(--blue); font-weight: 500; }
+    .brainstorm-ind svg { width: 12px; height: 12px; stroke-width: 1.8; }
+
+    /* Summary bar */
+    .summary-bar {
+      display: flex; align-items: center; gap: 20px; padding: 8px 20px;
+      border-top: 1px solid var(--bdr); background: var(--bg2); font-size: 12px; flex-shrink: 0;
+    }
+    .summary-stat { display: flex; align-items: center; gap: 6px; color: var(--t2); }
+    .summary-stat strong { font-weight: 600; color: var(--t1); }
+
+    /* ================================================
+       VIEW 2: Phase Timeline
+       ================================================ */
+    .proj-strip {
+      display: flex; align-items: center; gap: 16px; padding: 10px 24px;
+      border-bottom: 1px solid var(--bdr2); background: var(--bg); flex-shrink: 0;
+    }
+    .proj-name { font-size: 13px; font-weight: 600; color: var(--t1); }
+    .proj-mile { font-size: 11px; color: var(--t3); font-family: var(--mono); }
+    .proj-prog { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .prog-ring { width: 28px; height: 28px; position: relative; }
+    .prog-ring svg { width: 28px; height: 28px; transform: rotate(-90deg); }
+    .prog-ring .ring-bg { fill: none; stroke: var(--bdr); stroke-width: 3; }
+    .prog-ring .ring-fill { fill: none; stroke: var(--green); stroke-width: 3; stroke-linecap: round; }
+    .prog-ring .ring-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: var(--t1); }
+    .proj-stat { font-size: 11px; color: var(--t2); }
+    .proj-stat strong { font-weight: 600; color: var(--t1); }
+    .proj-issue { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--red); padding: 2px 8px; border-radius: 100px; background: rgba(196,101,85,0.08); }
+    .proj-issue svg { width: 11px; height: 11px; stroke-width: 2; }
+    .phase-list-wrap { flex: 1; overflow-y: auto; min-width: 0; }
+    .phase-list { max-width: 800px; margin: 0 auto; padding: 12px 24px; }
+    .pl-header { display: grid; grid-template-columns: 200px 1fr 80px 40px; align-items: center; padding: 6px 12px; margin-bottom: 4px; }
+    .pl-header span { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t4); }
+    .pl-header .stage-labels { display: flex; justify-content: space-between; padding: 0 4px; }
+    .pl-row {
+      display: grid; grid-template-columns: 200px 1fr 80px 40px; align-items: center;
+      padding: 10px 12px; border-radius: 10px; cursor: pointer; transition: all 150ms;
+      border: 1px solid transparent;
+    }
+    .pl-row:hover { background: var(--card); border-color: var(--bdr); }
+    .pl-row.selected { background: var(--card); border-color: var(--purple); box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    .pl-row + .pl-row { margin-top: 2px; }
+    .pl-info { display: flex; align-items: center; gap: 10px; }
+    .pl-num { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .pl-name { font-size: 13px; font-weight: 600; color: var(--t1); }
+    .pl-sub { font-size: 11px; color: var(--t3); margin-top: 1px; }
+    .pl-pipeline { display: flex; align-items: center; gap: 0; padding: 0 8px; }
+    .pl-stage { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--bdr); background: var(--bg); flex-shrink: 0; transition: all 200ms; }
+    .pl-stage.done { background: var(--green); border-color: var(--green); }
+    .pl-stage.current { border-width: 3px; transform: scale(1.2); }
+    .pl-stage.current.st-exploring { border-color: var(--blue); background: var(--tint-blue); }
+    .pl-stage.current.st-planning { border-color: var(--purple); background: var(--tint-purple); }
+    .pl-stage.current.st-executing { border-color: var(--yellow); background: var(--tint-yellow); }
+    .pl-stage.current.st-verifying { border-color: var(--orange); background: var(--tint-orange); }
+    .pl-stage-line { flex: 1; height: 2px; background: var(--bdr); min-width: 6px; }
+    .pl-stage-line.done { background: var(--green); }
+    .pl-prog { display: flex; flex-direction: column; gap: 2px; align-items: flex-end; }
+    .pl-prog-text { font-size: 11px; font-weight: 600; color: var(--t2); font-family: var(--mono); }
+    .pl-prog-bar { width: 60px; height: 4px; background: var(--bdr); border-radius: 100px; overflow: hidden; }
+    .pl-prog-fill { height: 100%; border-radius: 100px; }
+    .pl-status { display: flex; align-items: center; justify-content: center; }
+    .pl-status-icon { width: 16px; height: 16px; stroke-width: 1.8; }
+
+    /* ================================================
+       VIEW 3: Command Center
+       ================================================ */
+    .pipeline-flow {
+      display: flex; align-items: center; gap: 0; padding: 16px 24px;
+      border-bottom: 1px solid var(--bdr); background: var(--bg); overflow-x: auto; flex-shrink: 0;
+    }
+    .pf-node { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; transition: all 150ms; flex-shrink: 0; }
+    .pf-node:hover .pf-circle { transform: scale(1.1); }
+    .pf-circle {
+      width: 42px; height: 42px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff; transition: all 200ms; position: relative;
+    }
+    .pf-circle .pf-ring { position: absolute; inset: -4px; border-radius: 14px; border: 2px solid transparent; transition: all 200ms; }
+    .pf-node.current .pf-ring { border-color: currentColor; opacity: 0.3; animation: pf-pulse 2s ease infinite; }
+    @keyframes pf-pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.1; } }
+    .pf-label { font-size: 10px; font-weight: 600; color: var(--t3); max-width: 80px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pf-stage { font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 5px; border-radius: 100px; }
+    .pf-connector { width: 40px; height: 2px; flex-shrink: 0; position: relative; margin-bottom: 22px; }
+    .pf-connector-line { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--bdr); }
+    .pf-connector-fill { position: absolute; top: 0; left: 0; height: 2px; background: var(--green); border-radius: 1px; }
+    .pf-connector-arrow { position: absolute; right: -1px; top: -3px; border: 3px solid transparent; border-left: 5px solid var(--bdr); }
+    .grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr 320px; grid-template-rows: 1fr auto; gap: 0; overflow: hidden; }
+    .panel { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--bdr2); border-bottom: 1px solid var(--bdr2); }
+    .panel:last-child { border-right: none; }
+    .panel-head { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--bdr2); flex-shrink: 0; }
+    .panel-icon { width: 14px; height: 14px; stroke-width: 2; color: var(--t3); }
+    .panel-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t3); }
+    .panel-badge { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 100px; margin-left: auto; }
+    .panel-body { flex: 1; overflow-y: auto; padding: 12px 16px; }
+    .exec-phase { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .exec-phase-num { width: 32px; height: 32px; border-radius: 10px; background: var(--yellow); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; }
+    .exec-phase-name { font-size: 14px; font-weight: 700; color: var(--t1); }
+    .exec-phase-sub { font-size: 11px; color: var(--t3); }
+    .exec-prog { margin-bottom: 14px; }
+    .exec-prog-bar { height: 6px; background: var(--bdr); border-radius: 100px; overflow: hidden; margin-bottom: 4px; }
+    .exec-prog-fill { height: 100%; border-radius: 100px; background: var(--green); }
+    .exec-prog-meta { display: flex; justify-content: space-between; font-size: 10px; color: var(--t3); }
+    .v3-wave-section { margin-bottom: 12px; }
+    .v3-wave-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 11px; font-weight: 600; color: var(--t2); }
+    .v3-wave-badge { font-size: 9px; padding: 1px 6px; border-radius: 100px; font-weight: 600; font-family: var(--mono); }
+    .v3-wave-tasks { display: flex; flex-direction: column; gap: 4px; }
+    .v3-wave-task { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; background: var(--card); border: 1px solid var(--bdr2); font-size: 12px; transition: all 150ms; }
+    .v3-wave-task:hover { border-color: var(--bdr); }
+    .v3-wt-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .v3-wt-name { flex: 1; color: var(--t1); font-weight: 500; }
+    .v3-wt-id { font-size: 10px; font-family: var(--mono); color: var(--t4); }
+    .v3-wt-st { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 100px; }
+    .queue-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; transition: all 150ms; margin-bottom: 2px; }
+    .queue-item:hover { background: var(--card); }
+    .queue-item.q-active { background: var(--tint-yellow); }
+    .queue-num { width: 24px; height: 24px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .queue-info { flex: 1; min-width: 0; }
+    .queue-name { font-size: 12px; font-weight: 600; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .queue-stage { font-size: 10px; color: var(--t3); }
+    .queue-prog { width: 40px; text-align: right; }
+    .queue-prog-text { font-size: 10px; font-weight: 600; font-family: var(--mono); color: var(--t3); }
+    .queue-prog-bar { width: 40px; height: 3px; background: var(--bdr); border-radius: 100px; overflow: hidden; margin-top: 2px; }
+    .queue-prog-fill { height: 100%; border-radius: 100px; }
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .metric-card { padding: 10px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--bdr2); }
+    .metric-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--t3); margin-bottom: 4px; }
+    .metric-val { font-size: 20px; font-weight: 700; color: var(--t1); }
+    .metric-sub { font-size: 10px; color: var(--t3); margin-top: 2px; }
+    .veri-section { margin-bottom: 14px; }
+    .veri-header { font-size: 11px; font-weight: 600; color: var(--t2); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .veri-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 12px; border-bottom: 1px solid var(--bdr2); }
+    .veri-row:last-child { border-bottom: none; }
+    .veri-icon { width: 12px; height: 12px; flex-shrink: 0; stroke-width: 2.5; }
+    .veri-text { flex: 1; color: var(--t2); }
+    .veri-st { font-size: 10px; font-weight: 600; }
+    .issue-section { margin-bottom: 14px; }
+    .issue-header { font-size: 11px; font-weight: 600; color: var(--t2); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .issue-row { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--bdr2); font-size: 12px; }
+    .issue-row:last-child { border-bottom: none; }
+    .issue-sev { font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 3px; flex-shrink: 0; margin-top: 2px; text-transform: uppercase; }
+    .issue-title { flex: 1; color: var(--t1); line-height: 1.4; }
+    .issue-status { font-size: 10px; font-weight: 600; color: var(--t3); white-space: nowrap; }
+    .cov-bars { display: flex; flex-direction: column; gap: 4px; }
+    .cov-row { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+    .cov-label { width: 70px; color: var(--t3); font-weight: 500; }
+    .cov-bar { flex: 1; height: 6px; background: var(--bdr); border-radius: 100px; overflow: hidden; }
+    .cov-fill { height: 100%; border-radius: 100px; }
+    .cov-val { width: 36px; text-align: right; font-family: var(--mono); font-weight: 600; color: var(--t2); }
+    .activity-strip {
+      grid-column: 1 / -1; display: flex; align-items: center; gap: 16px;
+      padding: 8px 16px; border-top: 1px solid var(--bdr); background: var(--bg2);
+      overflow-x: auto; flex-shrink: 0;
+    }
+    .act-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t4); white-space: nowrap; }
+    .act-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--t2); white-space: nowrap; flex-shrink: 0; }
+    .act-time { font-size: 10px; color: var(--t4); font-family: var(--mono); }
+    .act-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .act-sep { width: 1px; height: 14px; background: var(--bdr2); flex-shrink: 0; }
+
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <!-- ====== TopBar ====== -->
+  <header class="topbar">
+    <div class="topbar-l">
+      <button class="icon-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+      </button>
+      <span class="brand">Maestro</span>
+      <span style="color:var(--t4)">&middot;</span>
+      <span style="font-size:12px;color:var(--t2)">E-commerce Platform v2.0</span>
+    </div>
+
+    <!-- View Switcher (center) -->
+    <div class="topbar-c">
+      <div class="view-switcher" id="viewSwitcher" data-active="1">
+        <button class="vs-btn active" data-view="1" onclick="switchView(1)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Board
+          <span class="vs-key">1</span>
+        </button>
+        <button class="vs-btn" data-view="2" onclick="switchView(2)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Timeline
+          <span class="vs-key">2</span>
+        </button>
+        <button class="vs-btn" data-view="3" onclick="switchView(3)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Center
+          <span class="vs-key">3</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="topbar-r">
+      <span class="phase-num">Phase 3 / 6</span>
+      <span class="pill pill-yellow"><span class="pill-dot"></span> Executing</span>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- ====== DockRail ====== -->
+    <nav class="rail">
+      <button class="rail-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span class="tip">Dashboard</span></button>
+      <button class="rail-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="tip">Chat</span></button>
+      <button class="rail-btn active" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="tip">Workflow</span></button>
+      <button class="rail-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg><span class="tip">Artifacts</span></button>
+      <div class="rail-sep"></div>
+      <div class="rail-phases">
+        <span class="rail-pdot" style="background:var(--green)" title="1. Project Setup"></span>
+        <span class="rail-pdot" style="background:var(--orange)" title="2. Database Layer"></span>
+        <span class="rail-pdot" style="background:var(--yellow)" title="3. API Endpoints"></span>
+        <span class="rail-pdot" style="background:var(--purple)" title="4. Auth System"></span>
+        <span class="rail-pdot" style="background:var(--blue)" title="5. Frontend UI"></span>
+        <span class="rail-pdot" style="background:var(--gray)" title="6. Testing & Deploy"></span>
+      </div>
+    </nav>
+
+    <!-- ====== View Container ====== -->
+    <div class="view-container">
+
+      <!-- ==================== VIEW 1: Pipeline Board ==================== -->
+      <div class="view-panel active" id="view1">
+        <div class="pipeline-header">
+          <div class="pipe-stage"><span class="ps-dot" style="background:var(--gray)"></span> Pending <span class="ps-count">1</span></div>
+          <div class="pipe-arrow"></div>
+          <div class="pipe-stage"><span class="ps-dot" style="background:var(--blue)"></span> Exploring <span class="ps-count">1</span></div>
+          <div class="pipe-arrow"></div>
+          <div class="pipe-stage"><span class="ps-dot" style="background:var(--purple)"></span> Planning <span class="ps-count">1</span></div>
+          <div class="pipe-arrow"></div>
+          <div class="pipe-stage"><span class="ps-dot" style="background:var(--yellow)"></span> Executing <span class="ps-count">1</span></div>
+          <div class="pipe-arrow"></div>
+          <div class="pipe-stage"><span class="ps-dot" style="background:var(--orange)"></span> Verifying <span class="ps-count">1</span></div>
+          <div class="pipe-arrow"></div>
+          <div class="pipe-stage"><span class="ps-dot" style="background:var(--green)"></span> Complete <span class="ps-count">1</span></div>
+          <div class="pipe-filter">
+            <span class="filter-chip active">All</span>
+            <span class="filter-chip">Active</span>
+          </div>
+        </div>
+        <div class="pipeline-board">
+          <!-- Pending -->
+          <div class="pipe-col">
+            <div class="pipe-col-head"><span class="pipe-col-dot" style="background:var(--gray)"></span><span class="pipe-col-name">Pending</span><span class="pipe-col-cnt">1</span></div>
+            <div class="pipe-col-body">
+              <div class="wf-card st-pending">
+                <div class="wf-card-top"><span class="wf-badge b-pending">Pending</span><span class="wf-id">P-06</span></div>
+                <div class="wf-title">Testing & Deploy</div>
+                <div class="wf-goal">E2E tests, CI/CD pipeline, and production deployment automation</div>
+                <div class="prog"><div class="prog-track"><div class="prog-fill" style="width:0%;background:var(--gray)"></div></div><span class="prog-text">0/6</span></div>
+              </div>
+            </div>
+          </div>
+          <!-- Exploring -->
+          <div class="pipe-col">
+            <div class="pipe-col-head"><span class="pipe-col-dot" style="background:var(--blue)"></span><span class="pipe-col-name">Exploring</span><span class="pipe-col-cnt">1</span></div>
+            <div class="pipe-col-body">
+              <div class="wf-card st-exploring">
+                <div class="wf-card-top"><span class="wf-badge b-exploring">Exploring</span><span class="wf-id">P-05</span></div>
+                <div class="wf-title">Frontend UI</div>
+                <div class="wf-goal">React components for product pages, cart, and checkout flow</div>
+                <div class="prog"><div class="prog-track"><div class="prog-fill" style="width:0%;background:var(--blue)"></div></div><span class="prog-text">0/8</span></div>
+                <div class="brainstorm-ind">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5-3.5 6.5L14 17H10l-1.5-1.5C7 14 5 12 5 9a7 7 0 0 1 7-7z"/><line x1="9" y1="21" x2="15" y2="21"/></svg>
+                  Brainstorm in progress
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Planning -->
+          <div class="pipe-col">
+            <div class="pipe-col-head"><span class="pipe-col-dot" style="background:var(--purple)"></span><span class="pipe-col-name">Planning</span><span class="pipe-col-cnt">1</span></div>
+            <div class="pipe-col-body">
+              <div class="wf-card st-planning">
+                <div class="wf-card-top"><span class="wf-badge b-planning">Planning</span><span class="wf-id">P-04</span></div>
+                <div class="wf-title">Auth System</div>
+                <div class="wf-goal">JWT authentication, OAuth2, and RBAC permissions system</div>
+                <div class="prog"><div class="prog-track"><div class="prog-fill" style="width:0%;background:var(--purple)"></div></div><span class="prog-text">0/4</span></div>
+                <div class="wf-tasks">
+                  <div class="wf-task"><span class="wf-task-dot" style="background:var(--t4)"></span><span class="wf-task-name">User model & migration</span><span class="wf-task-st" style="color:var(--t3)">Draft</span></div>
+                  <div class="wf-task"><span class="wf-task-dot" style="background:var(--t4)"></span><span class="wf-task-name">JWT token service</span><span class="wf-task-st" style="color:var(--t3)">Draft</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Executing -->
+          <div class="pipe-col">
+            <div class="pipe-col-head"><span class="pipe-col-dot" style="background:var(--yellow)"></span><span class="pipe-col-name">Executing</span><span class="pipe-col-cnt">1</span></div>
+            <div class="pipe-col-body">
+              <div class="wf-card st-executing">
+                <div class="wf-card-top"><span class="wf-badge b-executing">Executing</span><span class="wf-id">P-03</span></div>
+                <div class="wf-title">API Endpoints</div>
+                <div class="wf-goal">RESTful API for product catalog, orders, and payments</div>
+                <div class="prog"><div class="prog-track"><div class="prog-fill" style="width:60%;background:var(--green)"></div></div><span class="prog-text">3/5</span></div>
+                <div class="wave"><span class="wave-dot"></span> Wave 2 active</div>
+                <div class="wf-tasks">
+                  <div class="wf-task"><span class="wf-task-dot" style="background:var(--green)"></span><span class="wf-task-name">Product CRUD</span><span class="wf-task-st" style="color:var(--green)">Done</span></div>
+                  <div class="wf-task"><span class="wf-task-dot" style="background:var(--green)"></span><span class="wf-task-name">Cart API</span><span class="wf-task-st" style="color:var(--green)">Done</span></div>
+                  <div class="wf-task"><span class="wf-task-dot" style="background:var(--green)"></span><span class="wf-task-name">Search & filter</span><span class="wf-task-st" style="color:var(--green)">Done</span></div>
+                  <div class="wf-task"><span class="wf-task-dot" style="background:var(--yellow)"></span><span class="wf-task-name">Payment gateway</span><span class="wf-task-st" style="color:var(--yellow)">Running</span></div>
+                  <div class="wf-task"><span class="wf-task-dot" style="background:var(--t4)"></span><span class="wf-task-name">Order webhooks</span><span class="wf-task-st" style="color:var(--t3)">Queued</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Verifying -->
+          <div class="pipe-col">
+            <div class="pipe-col-head"><span class="pipe-col-dot" style="background:var(--orange)"></span><span class="pipe-col-name">Verifying</span><span class="pipe-col-cnt">1</span></div>
+            <div class="pipe-col-body">
+              <div class="wf-card st-verifying">
+                <div class="wf-card-top"><span class="wf-badge b-verifying">Verifying</span><span class="wf-id">P-02</span></div>
+                <div class="wf-title">Database Layer</div>
+                <div class="wf-goal">PostgreSQL with Prisma ORM, seed data, and migrations</div>
+                <div class="prog"><div class="prog-track"><div class="prog-fill" style="width:100%;background:var(--green)"></div></div><span class="prog-text">4/4</span></div>
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                  <span class="veri-badge gaps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> 1 Gap</span>
+                  <span class="issue-cnt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> 1 issue</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Complete -->
+          <div class="pipe-col">
+            <div class="pipe-col-head"><span class="pipe-col-dot" style="background:var(--green)"></span><span class="pipe-col-name">Complete</span><span class="pipe-col-cnt">1</span></div>
+            <div class="pipe-col-body">
+              <div class="wf-card st-completed">
+                <div class="wf-card-top"><span class="wf-badge b-completed">Completed</span><span class="wf-id">P-01</span></div>
+                <div class="wf-title">Project Setup</div>
+                <div class="wf-goal">Monorepo structure, linting, CI pipeline, dependencies</div>
+                <div class="prog"><div class="prog-track"><div class="prog-fill" style="width:100%;background:var(--green)"></div></div><span class="prog-text">3/3</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="summary-bar">
+          <div class="summary-stat"><strong>Milestone v1.0</strong></div>
+          <div class="summary-stat">Phases: <strong>1/6</strong> complete</div>
+          <div class="summary-stat">Tasks: <strong>10/30</strong></div>
+          <div class="prog" style="width:140px"><div class="prog-track"><div class="prog-fill" style="width:33%;background:var(--green)"></div></div><span class="prog-text">33%</span></div>
+          <div class="summary-stat" style="margin-left:auto">Issues: <strong style="color:var(--red)">2</strong> active</div>
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 2: Phase Timeline ==================== -->
+      <div class="view-panel" id="view2">
+        <div class="proj-strip">
+          <span class="proj-name">Milestone v1.0</span>
+          <span class="proj-mile">6 phases</span>
+          <div class="proj-prog">
+            <div class="prog-ring">
+              <svg viewBox="0 0 28 28"><circle class="ring-bg" cx="14" cy="14" r="12"/><circle class="ring-fill" cx="14" cy="14" r="12" stroke-dasharray="75.4" stroke-dashoffset="50.3"/></svg>
+              <div class="ring-text">33%</div>
+            </div>
+            <div class="proj-stat">Tasks: <strong>10/30</strong></div>
+            <div class="proj-stat">Phases: <strong>1/6</strong></div>
+            <div class="proj-issue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> 2 issues</div>
+          </div>
+        </div>
+        <div class="phase-list-wrap">
+          <div class="phase-list">
+            <div class="pl-header">
+              <span>Phase</span>
+              <div class="stage-labels"><span>Explore</span><span>Plan</span><span>Execute</span><span>Verify</span><span>Test</span><span>Done</span></div>
+              <span style="text-align:right">Progress</span>
+              <span></span>
+            </div>
+            <!-- Phase 1 -->
+            <div class="pl-row">
+              <div class="pl-info"><div class="pl-num" style="background:var(--green)">1</div><div><div class="pl-name">Project Setup</div><div class="pl-sub">Monorepo, linting, CI</div></div></div>
+              <div class="pl-pipeline">
+                <div class="pl-stage done"></div><div class="pl-stage-line done"></div>
+                <div class="pl-stage done"></div><div class="pl-stage-line done"></div>
+                <div class="pl-stage done"></div><div class="pl-stage-line done"></div>
+                <div class="pl-stage done"></div><div class="pl-stage-line done"></div>
+                <div class="pl-stage done"></div><div class="pl-stage-line done"></div>
+                <div class="pl-stage done"></div>
+              </div>
+              <div class="pl-prog"><span class="pl-prog-text">3/3</span><div class="pl-prog-bar"><div class="pl-prog-fill" style="width:100%;background:var(--green)"></div></div></div>
+              <div class="pl-status"><svg class="pl-status-icon" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+            </div>
+            <!-- Phase 2 -->
+            <div class="pl-row">
+              <div class="pl-info"><div class="pl-num" style="background:var(--orange)">2</div><div><div class="pl-name">Database Layer</div><div class="pl-sub">PostgreSQL, Prisma ORM</div></div></div>
+              <div class="pl-pipeline">
+                <div class="pl-stage done"></div><div class="pl-stage-line done"></div>
+                <div class="pl-stage done"></div><div class="pl-stage-line done"></div>
+                <div class="pl-stage done"></div><div class="pl-stage-line done"></div>
+                <div class="pl-stage current st-verifying"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div>
+              </div>
+              <div class="pl-prog"><span class="pl-prog-text">4/4</span><div class="pl-prog-bar"><div class="pl-prog-fill" style="width:100%;background:var(--green)"></div></div></div>
+              <div class="pl-status"><svg class="pl-status-icon" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+            </div>
+            <!-- Phase 3 -->
+            <div class="pl-row selected">
+              <div class="pl-info"><div class="pl-num" style="background:var(--yellow)">3</div><div><div class="pl-name">API Endpoints</div><div class="pl-sub">REST API, payments, orders</div></div></div>
+              <div class="pl-pipeline">
+                <div class="pl-stage done"></div><div class="pl-stage-line done"></div>
+                <div class="pl-stage done"></div><div class="pl-stage-line done"></div>
+                <div class="pl-stage current st-executing"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div>
+              </div>
+              <div class="pl-prog"><span class="pl-prog-text">3/5</span><div class="pl-prog-bar"><div class="pl-prog-fill" style="width:60%;background:var(--yellow)"></div></div></div>
+              <div class="pl-status"><svg class="pl-status-icon" viewBox="0 0 24 24" fill="none" stroke="var(--yellow)" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 2s linear infinite"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+            </div>
+            <!-- Phase 4 -->
+            <div class="pl-row">
+              <div class="pl-info"><div class="pl-num" style="background:var(--purple)">4</div><div><div class="pl-name">Auth System</div><div class="pl-sub">JWT, OAuth2, RBAC</div></div></div>
+              <div class="pl-pipeline">
+                <div class="pl-stage done"></div><div class="pl-stage-line done"></div>
+                <div class="pl-stage current st-planning"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div>
+              </div>
+              <div class="pl-prog"><span class="pl-prog-text">0/4</span><div class="pl-prog-bar"><div class="pl-prog-fill" style="width:0%;background:var(--purple)"></div></div></div>
+              <div class="pl-status"></div>
+            </div>
+            <!-- Phase 5 -->
+            <div class="pl-row">
+              <div class="pl-info"><div class="pl-num" style="background:var(--blue)">5</div><div><div class="pl-name">Frontend UI</div><div class="pl-sub">React, responsive design</div></div></div>
+              <div class="pl-pipeline">
+                <div class="pl-stage current st-exploring"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div>
+              </div>
+              <div class="pl-prog"><span class="pl-prog-text">0/8</span><div class="pl-prog-bar"><div class="pl-prog-fill" style="width:0%"></div></div></div>
+              <div class="pl-status"></div>
+            </div>
+            <!-- Phase 6 -->
+            <div class="pl-row">
+              <div class="pl-info"><div class="pl-num" style="background:var(--gray)">6</div><div><div class="pl-name">Testing & Deploy</div><div class="pl-sub">E2E, CI/CD, production</div></div></div>
+              <div class="pl-pipeline">
+                <div class="pl-stage"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div><div class="pl-stage-line"></div>
+                <div class="pl-stage"></div>
+              </div>
+              <div class="pl-prog"><span class="pl-prog-text">0/6</span><div class="pl-prog-bar"><div class="pl-prog-fill" style="width:0%"></div></div></div>
+              <div class="pl-status"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 3: Command Center ==================== -->
+      <div class="view-panel" id="view3">
+        <div class="pipeline-flow">
+          <div class="pf-node"><div class="pf-circle" style="background:var(--green)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div class="pf-label">Setup</div><div class="pf-stage" style="background:rgba(90,158,120,0.12);color:var(--green)">Done</div></div>
+          <div class="pf-connector"><div class="pf-connector-line"></div><div class="pf-connector-fill" style="width:100%"></div></div>
+          <div class="pf-node"><div class="pf-circle" style="background:var(--orange)">2</div><div class="pf-label">Database</div><div class="pf-stage" style="background:rgba(200,134,58,0.12);color:var(--orange)">Verify</div></div>
+          <div class="pf-connector"><div class="pf-connector-line"></div><div class="pf-connector-fill" style="width:100%"></div></div>
+          <div class="pf-node current" style="color:var(--yellow)"><div class="pf-circle" style="background:var(--yellow)"><div class="pf-ring"></div>3</div><div class="pf-label" style="color:var(--yellow);font-weight:700">API</div><div class="pf-stage" style="background:rgba(184,149,64,0.15);color:var(--yellow)">Execute</div></div>
+          <div class="pf-connector"><div class="pf-connector-line"></div><div class="pf-connector-fill" style="width:0%"></div><div class="pf-connector-arrow"></div></div>
+          <div class="pf-node"><div class="pf-circle" style="background:var(--purple);opacity:0.7">4</div><div class="pf-label">Auth</div><div class="pf-stage" style="background:rgba(145,120,181,0.12);color:var(--purple)">Plan</div></div>
+          <div class="pf-connector"><div class="pf-connector-line"></div><div class="pf-connector-arrow"></div></div>
+          <div class="pf-node"><div class="pf-circle" style="background:var(--blue);opacity:0.5">5</div><div class="pf-label">Frontend</div><div class="pf-stage" style="background:rgba(91,141,184,0.12);color:var(--blue)">Explore</div></div>
+          <div class="pf-connector"><div class="pf-connector-line"></div><div class="pf-connector-arrow"></div></div>
+          <div class="pf-node"><div class="pf-circle" style="background:var(--gray);opacity:0.4">6</div><div class="pf-label">Deploy</div><div class="pf-stage" style="background:rgba(160,157,151,0.12);color:var(--gray)">Pending</div></div>
+        </div>
+
+        <div class="grid">
+          <!-- Panel 1: Active Execution -->
+          <div class="panel">
+            <div class="panel-head">
+              <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <span class="panel-title">Active Execution</span>
+              <span class="panel-badge" style="background:rgba(184,149,64,0.12);color:var(--yellow)">Wave 2</span>
+            </div>
+            <div class="panel-body">
+              <div class="exec-phase"><div class="exec-phase-num">3</div><div><div class="exec-phase-name">API Endpoints</div><div class="exec-phase-sub">RESTful API with payments & orders</div></div></div>
+              <div class="exec-prog"><div class="exec-prog-bar"><div class="exec-prog-fill" style="width:60%"></div></div><div class="exec-prog-meta"><span>3 of 5 tasks complete</span><span>60%</span></div></div>
+              <div class="v3-wave-section">
+                <div class="v3-wave-header"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Wave 1 <span class="v3-wave-badge" style="background:rgba(90,158,120,0.12);color:var(--green)">3/3</span></div>
+                <div class="v3-wave-tasks">
+                  <div class="v3-wave-task"><span class="v3-wt-dot" style="background:var(--green)"></span><span class="v3-wt-name">Product CRUD endpoints</span><span class="v3-wt-id">TASK-001</span><span class="v3-wt-st" style="background:rgba(90,158,120,0.1);color:var(--green)">Done</span></div>
+                  <div class="v3-wave-task"><span class="v3-wt-dot" style="background:var(--green)"></span><span class="v3-wt-name">Cart management API</span><span class="v3-wt-id">TASK-002</span><span class="v3-wt-st" style="background:rgba(90,158,120,0.1);color:var(--green)">Done</span></div>
+                  <div class="v3-wave-task"><span class="v3-wt-dot" style="background:var(--green)"></span><span class="v3-wt-name">Search & filter endpoints</span><span class="v3-wt-id">TASK-003</span><span class="v3-wt-st" style="background:rgba(90,158,120,0.1);color:var(--green)">Done</span></div>
+                </div>
+              </div>
+              <div class="v3-wave-section">
+                <div class="v3-wave-header"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--yellow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 2s linear infinite"><circle cx="12" cy="12" r="10"/></svg> Wave 2 <span class="v3-wave-badge" style="background:rgba(184,149,64,0.12);color:var(--yellow)">0/2 active</span></div>
+                <div class="v3-wave-tasks">
+                  <div class="v3-wave-task" style="border-color:var(--yellow)"><span class="v3-wt-dot" style="background:var(--yellow)"></span><span class="v3-wt-name">Payment gateway integration</span><span class="v3-wt-id">TASK-004</span><span class="v3-wt-st" style="background:rgba(184,149,64,0.1);color:var(--yellow)">Running</span></div>
+                  <div class="v3-wave-task"><span class="v3-wt-dot" style="background:var(--t4)"></span><span class="v3-wt-name">Order status webhooks</span><span class="v3-wt-id">TASK-005</span><span class="v3-wt-st" style="background:rgba(160,157,151,0.1);color:var(--gray)">Queued</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel 2: Phase Queue -->
+          <div class="panel">
+            <div class="panel-head">
+              <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              <span class="panel-title">Phase Queue</span>
+              <span class="panel-badge" style="background:var(--bdr2);color:var(--t2)">6 phases</span>
+            </div>
+            <div class="panel-body">
+              <div class="queue-item"><div class="queue-num" style="background:var(--green)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div class="queue-info"><div class="queue-name">Project Setup</div><div class="queue-stage">Completed</div></div><div class="queue-prog"><div class="queue-prog-text" style="color:var(--green)">3/3</div><div class="queue-prog-bar"><div class="queue-prog-fill" style="width:100%;background:var(--green)"></div></div></div></div>
+              <div class="queue-item"><div class="queue-num" style="background:var(--orange)">2</div><div class="queue-info"><div class="queue-name">Database Layer</div><div class="queue-stage">Verifying &middot; 1 gap found</div></div><div class="queue-prog"><div class="queue-prog-text">4/4</div><div class="queue-prog-bar"><div class="queue-prog-fill" style="width:100%;background:var(--orange)"></div></div></div></div>
+              <div class="queue-item q-active"><div class="queue-num" style="background:var(--yellow)">3</div><div class="queue-info"><div class="queue-name">API Endpoints</div><div class="queue-stage" style="color:var(--yellow)">Executing &middot; Wave 2</div></div><div class="queue-prog"><div class="queue-prog-text" style="color:var(--yellow)">3/5</div><div class="queue-prog-bar"><div class="queue-prog-fill" style="width:60%;background:var(--yellow)"></div></div></div></div>
+              <div class="queue-item"><div class="queue-num" style="background:var(--purple)">4</div><div class="queue-info"><div class="queue-name">Auth System</div><div class="queue-stage">Planning &middot; 4 tasks drafted</div></div><div class="queue-prog"><div class="queue-prog-text">0/4</div><div class="queue-prog-bar"><div class="queue-prog-fill" style="width:0%"></div></div></div></div>
+              <div class="queue-item"><div class="queue-num" style="background:var(--blue)">5</div><div class="queue-info"><div class="queue-name">Frontend UI</div><div class="queue-stage">Exploring &middot; Brainstorm active</div></div><div class="queue-prog"><div class="queue-prog-text">0/8</div><div class="queue-prog-bar"><div class="queue-prog-fill" style="width:0%"></div></div></div></div>
+              <div class="queue-item"><div class="queue-num" style="background:var(--gray)">6</div><div class="queue-info"><div class="queue-name">Testing & Deploy</div><div class="queue-stage">Pending</div></div><div class="queue-prog"><div class="queue-prog-text">0/6</div><div class="queue-prog-bar"><div class="queue-prog-fill" style="width:0%"></div></div></div></div>
+            </div>
+          </div>
+
+          <!-- Panel 3: Quality & Metrics -->
+          <div class="panel" style="border-right:none">
+            <div class="panel-head">
+              <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span class="panel-title">Quality</span>
+            </div>
+            <div class="panel-body">
+              <div class="metric-grid">
+                <div class="metric-card"><div class="metric-label">Tasks</div><div class="metric-val">10<span style="font-size:12px;font-weight:500;color:var(--t3)">/30</span></div><div class="metric-sub">33% complete</div></div>
+                <div class="metric-card"><div class="metric-label">Phases</div><div class="metric-val">1<span style="font-size:12px;font-weight:500;color:var(--t3)">/6</span></div><div class="metric-sub">17% complete</div></div>
+                <div class="metric-card"><div class="metric-label">Issues</div><div class="metric-val" style="color:var(--red)">2</div><div class="metric-sub">active</div></div>
+                <div class="metric-card"><div class="metric-label">Commits</div><div class="metric-val">7</div><div class="metric-sub">this milestone</div></div>
+              </div>
+              <div class="veri-section">
+                <div class="veri-header"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Verification (P-02)</div>
+                <div class="veri-row"><svg class="veri-icon" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="veri-text">User model created</span><span class="veri-st" style="color:var(--green)">Verified</span></div>
+                <div class="veri-row"><svg class="veri-icon" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="veri-text">Prisma schema valid</span><span class="veri-st" style="color:var(--green)">Verified</span></div>
+                <div class="veri-row"><svg class="veri-icon" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span class="veri-text">Query index optimization</span><span class="veri-st" style="color:var(--red)">Gap</span></div>
+              </div>
+              <div class="issue-section">
+                <div class="issue-header"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Active Issues</div>
+                <div class="issue-row"><span class="issue-sev" style="background:rgba(196,101,85,0.12);color:var(--red)">High</span><span class="issue-title">Refresh token rotation not implemented</span><span class="issue-status">Registered</span></div>
+                <div class="issue-row"><span class="issue-sev" style="background:rgba(200,134,58,0.12);color:var(--orange)">Med</span><span class="issue-title">Missing index on order_items.product_id</span><span class="issue-status">Diagnosed</span></div>
+              </div>
+              <div class="veri-section">
+                <div class="veri-header"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg> Test Coverage (P-02)</div>
+                <div class="cov-bars">
+                  <div class="cov-row"><span class="cov-label">Statements</span><div class="cov-bar"><div class="cov-fill" style="width:78.5%;background:var(--yellow)"></div></div><span class="cov-val">78.5%</span></div>
+                  <div class="cov-row"><span class="cov-label">Branches</span><div class="cov-bar"><div class="cov-fill" style="width:65.2%;background:var(--orange)"></div></div><span class="cov-val">65.2%</span></div>
+                  <div class="cov-row"><span class="cov-label">Functions</span><div class="cov-bar"><div class="cov-fill" style="width:82%;background:var(--green)"></div></div><span class="cov-val">82.0%</span></div>
+                  <div class="cov-row"><span class="cov-label">Lines</span><div class="cov-bar"><div class="cov-fill" style="width:79.1%;background:var(--yellow)"></div></div><span class="cov-val">79.1%</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Activity strip -->
+          <div class="activity-strip">
+            <span class="act-label">Activity</span>
+            <div class="act-item"><span class="act-dot" style="background:var(--yellow)"></span><span class="act-time">2m</span> Payment gateway task started</div>
+            <div class="act-sep"></div>
+            <div class="act-item"><span class="act-dot" style="background:var(--green)"></span><span class="act-time">14m</span> Search endpoints verified</div>
+            <div class="act-sep"></div>
+            <div class="act-item"><span class="act-dot" style="background:var(--yellow)"></span><span class="act-time">38m</span> Wave 2 initiated</div>
+            <div class="act-sep"></div>
+            <div class="act-item"><span class="act-dot" style="background:var(--green)"></span><span class="act-time">1h</span> Wave 1 completed</div>
+            <div class="act-sep"></div>
+            <div class="act-item"><span class="act-dot" style="background:var(--orange)"></span><span class="act-time">1.5h</span> P-02 verification gap found</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /view-container -->
+  </div><!-- /body -->
+</div><!-- /shell -->
+
+<script>
+  let currentView = 1;
+
+  function switchView(n) {
+    if (n === currentView) return;
+    currentView = n;
+
+    // Update switcher
+    const switcher = document.getElementById('viewSwitcher');
+    switcher.setAttribute('data-active', n);
+    switcher.querySelectorAll('.vs-btn').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.view) === n);
+    });
+
+    // Transition views
+    document.querySelectorAll('.view-panel').forEach(panel => {
+      panel.classList.remove('active');
+    });
+    // Small delay so exit animation plays before enter
+    requestAnimationFrame(() => {
+      document.getElementById('view' + n).classList.add('active');
+    });
+  }
+
+  // Keyboard shortcuts: 1, 2, 3
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === '1') switchView(1);
+    if (e.key === '2') switchView(2);
+    if (e.key === '3') switchView(3);
+  });
+</script>
+</body>
+</html>

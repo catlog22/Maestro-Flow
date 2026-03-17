@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat V1-A — Warm Earth</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; line-height: 1.5; background: #FAF8F5; color: #2D2A26; -webkit-font-smoothing: antialiased; }
+
+    :root {
+      --bg: #FAF8F5; --bg2: #F3F0EA; --bg3: #EBE8E1; --card: #FFFFFF;
+      --hover: rgba(45,42,38,0.04); --active: rgba(45,42,38,0.07);
+      --t1: #2D2A26; --t2: #78756F; --t3: #A09D97; --t4: #D1CEC8;
+      --bdr: #E8E5DE; --bdr2: #ECEAE4;
+      /* warm accent palette */
+      --blue: #5B8DB8; --green: #5A9E78; --orange: #C8863A; --yellow: #B89540;
+      --purple: #9178B5; --red: #C46555; --gray: #A09D97;
+      --tint-green: #EEF5F0; --tint-yellow: #FBF5E2; --tint-orange: #FAF0E3;
+      --tint-purple: #F2EDF8; --tint-gray: #F2F1EE; --tint-blue: #EDF2F8; --tint-red: #F8EDEC;
+      /* warm-dark for code */
+      --code-bg: #2C2723; --code-bg2: #342F2A; --code-border: #3D3731;
+      --code-t1: #D9D0C4; --code-t2: #9E9488;
+      --rail-w: 48px; --mono: 'JetBrains Mono', monospace;
+      --spring: cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .shell { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ====== TopBar ====== */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 48px; padding: 0 20px; background: var(--bg2);
+      border-bottom: 1px solid var(--bdr); flex-shrink: 0; z-index: 100;
+    }
+    .topbar-l { display: flex; align-items: center; gap: 12px; }
+    .brand { font-weight: 700; font-size: 15px; color: var(--t1); }
+    .topbar-r { display: flex; align-items: center; gap: 8px; }
+    .pill { font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 100px; display: flex; align-items: center; gap: 5px; }
+    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .pill-green { background: rgba(90,158,120,0.12); color: var(--green); }
+    .icon-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms;
+    }
+    .icon-btn:hover { background: var(--hover); color: var(--t1); }
+    .icon-btn svg { width: 16px; height: 16px; stroke-width: 1.8; }
+
+    .body { display: flex; flex: 1; overflow: hidden; position: relative; }
+
+    /* ====== DockRail ====== */
+    .rail {
+      width: var(--rail-w); background: var(--bg2); border-right: 1px solid var(--bdr);
+      flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+      padding-top: 8px; gap: 2px; z-index: 50;
+    }
+    .rail-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms; position: relative;
+    }
+    .rail-btn:hover { background: var(--hover); color: var(--t1); }
+    .rail-btn.active { background: var(--active); color: var(--t1); }
+    .rail-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
+    .rail-btn .tip {
+      position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+      background: var(--t1); color: #fff; font-size: 11px; font-weight: 500;
+      padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+      opacity: 0; pointer-events: none; transition: opacity 150ms; z-index: 200;
+    }
+    .rail-btn:hover .tip { opacity: 1; }
+    .rail-sep { width: 24px; height: 1px; background: var(--bdr2); margin: 6px 0; }
+    .rail-sessions { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0; }
+    .rail-sdot {
+      width: 8px; height: 8px; border-radius: 50%; cursor: pointer;
+      transition: transform 150ms; position: relative;
+    }
+    .rail-sdot:hover { transform: scale(1.4); }
+    .rail-sdot.active { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 3.5px currentColor; }
+    .rail-sdot .sdot-ping {
+      position: absolute; inset: -2px; border-radius: 50%; background: inherit;
+      opacity: 0; animation: sdot-ping 2s ease infinite;
+    }
+    .rail-sdot.running .sdot-ping { opacity: 0.4; }
+    @keyframes sdot-ping { 0% { transform: scale(1); opacity: 0.4; } 100% { transform: scale(2.2); opacity: 0; } }
+
+    /* ====== Floating Sidebar ====== */
+    .sidebar-float {
+      position: absolute; left: var(--rail-w); top: 0; bottom: 0;
+      width: 220px; background: var(--bg2); border-right: 1px solid var(--bdr);
+      box-shadow: 4px 0 16px rgba(0,0,0,0.06);
+      z-index: 40; overflow-y: auto;
+      transform: translateX(-100%); opacity: 0;
+      transition: transform 200ms var(--spring), opacity 180ms ease;
+      pointer-events: none;
+    }
+    .sidebar-float.open { transform: translateX(0); opacity: 1; pointer-events: auto; }
+    .sf-section { padding: 12px 10px; }
+    .sf-section + .sf-section { border-top: 1px solid var(--bdr2); }
+    .sf-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t3); padding: 0 10px; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
+    .sf-label-btn {
+      width: 18px; height: 18px; border-radius: 4px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t4); transition: all 100ms;
+    }
+    .sf-label-btn:hover { color: var(--t1); background: var(--hover); }
+    .sf-label-btn svg { width: 12px; height: 12px; stroke-width: 2; }
+    .sf-item {
+      display: flex; align-items: center; gap: 10px; padding: 7px 10px;
+      border-radius: 8px; font-size: 12px; font-weight: 500; color: var(--t2);
+      cursor: pointer; border: none; background: none; width: 100%; text-align: left; transition: all 150ms;
+    }
+    .sf-item:hover { background: var(--hover); color: var(--t1); }
+    .sf-item.active { background: var(--active); color: var(--t1); font-weight: 600; }
+    .sf-item .shortcut { margin-left: auto; font-size: 10px; color: var(--t4); }
+    .sf-session {
+      display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+      border-radius: 8px; font-size: 12px; color: var(--t2); cursor: pointer;
+      border: none; background: none; width: 100%; text-align: left; transition: all 150ms;
+    }
+    .sf-session:hover { background: var(--hover); }
+    .sf-session.active { background: var(--active); }
+    .sf-sdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .sf-session .sf-sname { flex: 1; font-weight: 500; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sf-session .sf-stime { font-size: 10px; color: var(--t4); flex-shrink: 0; }
+
+    /* ====== Chat Area ====== */
+    .chat-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+    /* Tab bar */
+    .tab-bar-wrap {
+      position: sticky; top: 0; z-index: 30; display: flex; justify-content: center;
+      padding: 8px 0 0; pointer-events: none;
+    }
+    .tab-bar {
+      display: inline-flex; align-items: center; gap: 2px;
+      background: var(--card); border: 1px solid var(--bdr); border-radius: 12px;
+      padding: 3px; box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      pointer-events: auto;
+    }
+    .cli-tab {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: 9px; border: none; background: none;
+      font-size: 11px; font-weight: 500; color: var(--t3); cursor: pointer;
+      transition: all 150ms;
+    }
+    .cli-tab:hover { background: var(--hover); color: var(--t1); }
+    .cli-tab.active { background: var(--t1); color: #fff; }
+    .cli-tab .tab-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .tab-sep { width: 1px; height: 16px; background: var(--bdr2); margin: 0 2px; }
+    .tab-split {
+      display: flex; align-items: center; padding: 5px 8px; border-radius: 9px;
+      border: none; background: none; color: var(--t3); cursor: pointer; transition: all 150ms;
+    }
+    .tab-split:hover { background: var(--hover); color: var(--t1); }
+    .tab-split.active { background: var(--tint-blue); color: var(--blue); }
+    .tab-split svg { width: 14px; height: 14px; stroke-width: 1.8; }
+    .tab-add {
+      width: 28px; height: 28px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms;
+    }
+    .tab-add:hover { background: var(--hover); color: var(--t1); }
+    .tab-add svg { width: 14px; height: 14px; stroke-width: 2; }
+
+    /* ====== Split View ====== */
+    .split-container { flex: 1; display: flex; overflow: hidden; }
+    .split-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+    .split-pane + .split-pane { border-left: 1px solid var(--bdr); }
+    .split-pane-label {
+      display: flex; align-items: center; gap: 6px; padding: 6px 16px;
+      background: var(--bg); border-bottom: 1px solid var(--bdr2);
+      font-size: 11px; font-weight: 600; color: var(--t2);
+    }
+    .split-pane-label .pane-dot { width: 7px; height: 7px; border-radius: 50%; }
+    .split-pane-label .pane-close {
+      margin-left: auto; width: 18px; height: 18px; border-radius: 4px;
+      border: none; background: none; color: var(--t4); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; transition: all 100ms;
+    }
+    .split-pane-label .pane-close:hover { background: var(--tint-red); color: var(--red); }
+    .split-pane-label .pane-close svg { width: 12px; height: 12px; stroke-width: 2; }
+    .split-divider {
+      width: 5px; background: var(--bdr); cursor: col-resize; flex-shrink: 0;
+      position: relative; transition: background 150ms;
+    }
+    .split-divider:hover { background: var(--orange); }
+
+    /* ====== Messages ====== */
+    .messages { flex: 1; overflow-y: auto; padding: 12px 24px 24px; }
+    .msg-list { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 4px; }
+
+    /* User message — warm brown bubble */
+    .msg-user { display: flex; justify-content: flex-end; padding: 6px 0; }
+    .msg-user-bubble {
+      max-width: 70%; background: #3D352D; color: #F0EBE5;
+      padding: 10px 14px; border-radius: 16px 16px 4px 16px;
+      font-size: 13px; line-height: 1.6; word-break: break-word;
+    }
+    .msg-user-bubble .user-attach {
+      display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;
+    }
+    .msg-user-bubble .ua-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 500;
+      background: rgba(240,235,229,0.12);
+    }
+    .msg-user-bubble .ua-chip svg { width: 11px; height: 11px; stroke-width: 2; opacity: 0.7; }
+
+    /* Assistant group */
+    .msg-group { display: flex; gap: 10px; padding: 10px 0; }
+    .msg-avatar {
+      width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #fff; margin-top: 2px;
+      position: relative;
+    }
+    .msg-avatar.claude { background: var(--purple); }
+    .msg-avatar.codex { background: var(--green); }
+    .msg-avatar.gemini { background: var(--blue); }
+    .msg-avatar.is-active::after {
+      content: ''; position: absolute; inset: -3px; border-radius: 10px;
+      border: 1.5px solid currentColor; opacity: 0.3;
+      animation: avatar-pulse 2.5s ease-in-out infinite;
+    }
+    @keyframes avatar-pulse { 0%,100% { opacity: 0.15; } 50% { opacity: 0.35; } }
+    .msg-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+
+    /* Text rendering */
+    .msg-text { font-size: 13px; line-height: 1.75; color: var(--t1); word-break: break-word; }
+    .msg-text p { margin-bottom: 6px; }
+    .msg-text p:last-child { margin-bottom: 0; }
+    .msg-text strong { font-weight: 600; color: var(--t1); }
+    .msg-text em { color: var(--t2); }
+    .msg-text h4 { font-size: 13px; font-weight: 600; margin: 10px 0 3px; color: var(--t1); }
+    .msg-text ul, .msg-text ol { padding-left: 18px; margin: 4px 0 8px; }
+    .msg-text li { margin-bottom: 3px; }
+    .msg-text li::marker { color: var(--t4); }
+    .msg-text blockquote {
+      border-left: 3px solid var(--orange); padding: 6px 14px; margin: 8px 0;
+      color: var(--t2); background: var(--tint-orange); border-radius: 0 8px 8px 0;
+      font-size: 12px;
+    }
+    .msg-text code {
+      font-family: var(--mono); font-size: 11.5px;
+      background: rgba(145,120,181,0.08); padding: 1.5px 6px; border-radius: 5px;
+      color: var(--purple);
+    }
+
+    /* Code block — warm dark */
+    .code-block {
+      position: relative; margin: 8px 0; border-radius: 10px;
+      overflow: hidden; border: 1px solid var(--code-border);
+    }
+    .code-block-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 12px; background: var(--code-bg2); font-size: 11px;
+      font-family: var(--mono); color: var(--code-t2);
+    }
+    .code-block-head .copy-btn {
+      border: none; background: none; color: var(--code-t2); cursor: pointer;
+      font-size: 10px; font-family: 'Inter', sans-serif; font-weight: 500;
+      display: flex; align-items: center; gap: 4px;
+      padding: 2px 6px; border-radius: 4px; transition: all 120ms;
+    }
+    .code-block-head .copy-btn:hover { color: var(--code-t1); background: rgba(255,255,255,0.06); }
+    .code-block-head .copy-btn svg { width: 12px; height: 12px; stroke-width: 2; }
+    .code-block pre {
+      background: var(--code-bg); color: var(--code-t1); padding: 12px 14px; margin: 0;
+      font-family: var(--mono); font-size: 12px; line-height: 1.6;
+      overflow-x: auto; white-space: pre;
+    }
+    /* warm syntax colors */
+    .code-block pre .kw { color: #D4A07A; }
+    .code-block pre .fn { color: #C9B87A; }
+    .code-block pre .str { color: #A3BE8C; }
+    .code-block pre .cm { color: #6E6355; }
+    .code-block pre .tp { color: #87B5A2; }
+    .code-block pre .num { color: #B5CEA8; }
+
+    .typing-cursor {
+      display: inline-block; width: 2px; height: 1em; margin-left: 2px;
+      background: var(--orange); animation: blink-cursor 1s step-end infinite;
+      vertical-align: text-bottom;
+    }
+    @keyframes blink-cursor { 50% { opacity: 0; } }
+
+    /* ====== Entry Cards ====== */
+    .entry-card { border-radius: 10px; overflow: hidden; transition: box-shadow 200ms; }
+    .entry-card:hover { box-shadow: 0 2px 12px rgba(45,42,38,0.06); }
+    .entry-header {
+      display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+      cursor: pointer; border: none; background: none; width: 100%; text-align: left;
+      font-family: 'Inter', sans-serif; transition: background 120ms;
+    }
+    .entry-header:hover { background: var(--hover); }
+    .entry-icon { width: 14px; height: 14px; stroke-width: 1.8; flex-shrink: 0; }
+    .entry-name { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .entry-meta { font-size: 11px; color: var(--t3); font-family: var(--mono); }
+    .entry-badge {
+      margin-left: auto; font-size: 10px; font-weight: 600;
+      padding: 2px 8px; border-radius: 100px;
+    }
+    .entry-detail {
+      padding: 0 12px; font-size: 12px; color: var(--t2);
+      max-height: 0; overflow: hidden; transition: max-height 250ms ease, padding 250ms;
+    }
+    .entry-card.expanded .entry-detail { max-height: 600px; padding: 8px 12px 10px; overflow-y: auto; }
+    .entry-card:not(.expanded) .entry-detail { visibility: hidden; }
+    .entry-chevron { width: 14px; height: 14px; color: var(--t4); transition: transform 200ms; flex-shrink: 0; }
+    .entry-card.expanded .entry-chevron { transform: rotate(90deg); }
+    .badge-completed { background: rgba(90,158,120,0.12); color: var(--green); }
+    .badge-running { background: rgba(184,149,64,0.12); color: var(--yellow); }
+
+    /* Thinking — inline italic (V1-C style) */
+    .thinking-text {
+      font-size: 12px; line-height: 1.6; color: var(--t3); font-style: italic;
+      padding: 4px 0; cursor: pointer; transition: color 150ms;
+    }
+    .thinking-text:hover { color: var(--t2); }
+    .thinking-text .th-label {
+      font-style: normal; font-weight: 600; font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--purple); margin-right: 6px;
+    }
+    .thinking-text .th-dur { font-style: normal; font-size: 10px; color: var(--t4); font-family: var(--mono); margin-left: 4px; }
+    .thinking-text .th-summary { color: var(--purple); }
+    .thinking-expanded {
+      display: none; font-style: italic; color: var(--t3); font-size: 12px;
+      line-height: 1.6; margin-top: 2px; padding-left: 2px;
+    }
+
+    /* Tool compact rows (V1-C style) */
+    .entry-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 0; font-size: 12px; cursor: pointer; transition: opacity 150ms;
+    }
+    .entry-row:hover { opacity: 0.7; }
+    .entry-row .er-icon { width: 14px; height: 14px; stroke-width: 1.8; flex-shrink: 0; color: var(--t3); }
+    .entry-row .er-name { font-weight: 600; color: var(--t1); font-size: 12px; }
+    .entry-row .er-meta { font-size: 11px; color: var(--t3); font-family: var(--mono); }
+    .entry-row .er-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 100px; margin-left: auto; }
+
+    /* Tool group — timeline dots */
+    .tool-group {
+      display: flex; flex-direction: column; gap: 0;
+      padding-left: 10px; border-left: 2px solid var(--bdr); margin-left: 2px;
+    }
+    .tool-group .entry-row { padding-left: 8px; position: relative; }
+    .tool-group .entry-row::before {
+      content: ''; position: absolute; left: -7px; top: 50%;
+      width: 8px; height: 8px; border-radius: 50%; transform: translateY(-50%);
+      background: var(--card); border: 2px solid var(--bdr);
+    }
+    .tool-group .entry-row.done::before { border-color: var(--green); background: var(--tint-green); }
+    .tool-group .entry-row.active::before { border-color: var(--yellow); background: var(--tint-yellow); }
+
+    /* Tool I/O expandable */
+    .tool-io-pre {
+      font-family: var(--mono); font-size: 11px; color: var(--t2);
+      background: var(--bg); border: 1px solid var(--bdr2); border-radius: 6px;
+      padding: 6px 8px; max-height: 120px; overflow: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.5;
+      margin-top: 4px; display: none;
+    }
+
+    /* File change — warm diff */
+    .file-card { background: var(--card); border: 1px solid var(--bdr); }
+    .file-action {
+      font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+      text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .file-action.create { background: rgba(90,158,120,0.12); color: var(--green); }
+    .file-action.modify { background: rgba(184,149,64,0.15); color: var(--yellow); }
+    .file-action.delete { background: rgba(196,101,85,0.12); color: var(--red); }
+    .file-path { font-family: var(--mono); font-size: 11px; color: var(--t2); }
+    .file-diff { margin-top: 6px; border-radius: 8px; overflow: hidden; border: 1px solid var(--code-border); }
+    .diff-line { display: flex; font-family: var(--mono); font-size: 11px; line-height: 1.6; }
+    .diff-ln { width: 36px; text-align: right; padding: 0 6px; user-select: none; flex-shrink: 0; }
+    .diff-text { flex: 1; padding: 0 8px; white-space: pre-wrap; }
+    /* warm diff colors */
+    .diff-add { background: rgba(90,158,120,0.08); }
+    .diff-add .diff-ln { background: rgba(90,158,120,0.06); color: var(--green); }
+    .diff-add .diff-text { color: #A3BE8C; }
+    .diff-del { background: rgba(196,101,85,0.08); }
+    .diff-del .diff-ln { background: rgba(196,101,85,0.06); color: var(--red); }
+    .diff-del .diff-text { color: #D4A07A; }
+    .diff-ctx { background: var(--code-bg); }
+    .diff-ctx .diff-ln { background: var(--code-bg2); color: var(--code-t2); }
+    .diff-ctx .diff-text { color: var(--code-t2); }
+    .file-stats { display: flex; gap: 8px; margin-top: 6px; font-size: 10px; font-family: var(--mono); }
+    .file-stats .fs-add { color: var(--green); }
+    .file-stats .fs-del { color: var(--red); }
+
+    /* Command — warm terminal */
+    .cmd-card { background: var(--code-bg); border: 1px solid var(--code-border); }
+    .cmd-card .entry-header:hover { background: rgba(255,255,255,0.03); }
+    .cmd-card .entry-icon { color: var(--code-t2); }
+    .cmd-card .entry-name { color: var(--code-t1); font-family: var(--mono); font-weight: 500; font-size: 12px; }
+    .cmd-card .entry-chevron { color: var(--code-t2); }
+    .cmd-exit { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; margin-left: auto; }
+    .cmd-exit.ok { background: rgba(90,158,120,0.15); color: #A3BE8C; }
+    .cmd-exit.fail { background: rgba(196,101,85,0.15); color: #D4A07A; }
+    .cmd-card .entry-detail {
+      font-family: var(--mono); font-size: 11px; line-height: 1.5;
+      color: var(--code-t2); border-top: 1px solid var(--code-border);
+    }
+    .cmd-output { white-space: pre-wrap; word-break: break-word; }
+
+    /* Approval — warm amber */
+    .approval-card {
+      border-radius: 10px; border: 1.5px solid var(--orange); overflow: hidden;
+      background: var(--tint-orange);
+    }
+    .approval-head {
+      display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+      border-bottom: 1px solid rgba(200,134,58,0.15);
+    }
+    .approval-icon { color: var(--orange); }
+    .approval-icon svg { width: 15px; height: 15px; stroke-width: 1.8; }
+    .approval-title { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .approval-tool {
+      margin-left: auto; font-size: 10px; font-weight: 600; padding: 2px 8px;
+      border-radius: 100px; background: rgba(200,134,58,0.12); color: var(--orange);
+    }
+    .approval-body { padding: 10px 12px; }
+    .approval-pre {
+      font-family: var(--mono); font-size: 11px; color: var(--t2);
+      background: var(--card); border: 1px solid var(--bdr2); border-radius: 6px;
+      padding: 8px 10px; max-height: 100px; overflow: auto;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .approval-actions {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; border-top: 1px solid rgba(200,134,58,0.15);
+    }
+    .btn-allow {
+      padding: 5px 16px; border-radius: 8px; border: none; font-size: 12px;
+      font-weight: 600; cursor: pointer; background: var(--green); color: #fff; transition: all 150ms;
+    }
+    .btn-allow:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-deny {
+      padding: 5px 16px; border-radius: 8px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 12px; font-weight: 600;
+      color: var(--red); cursor: pointer; transition: all 150ms;
+    }
+    .btn-deny:hover { border-color: var(--red); background: var(--tint-red); }
+
+    /* Error — inline */
+    .error-inline {
+      font-size: 12px; color: var(--red); display: flex; align-items: flex-start; gap: 6px; padding: 4px 0;
+    }
+    .error-inline svg { width: 14px; height: 14px; stroke-width: 1.8; flex-shrink: 0; margin-top: 2px; }
+    .error-inline .err-msg { line-height: 1.5; }
+    .error-inline code {
+      font-family: var(--mono); font-size: 11px;
+      background: rgba(196,101,85,0.06); padding: 1px 5px; border-radius: 3px;
+    }
+    .error-trace {
+      font-family: var(--mono); font-size: 10px; color: var(--t3);
+      margin-top: 3px;
+    }
+
+    /* Status line */
+    .status-line {
+      display: flex; align-items: center; gap: 8px; padding: 6px 0; justify-content: center;
+    }
+    .status-line::before, .status-line::after { content: ''; flex: 1; max-width: 80px; height: 1px; background: var(--bdr2); }
+    .status-pill {
+      font-size: 10px; font-weight: 600; padding: 2px 10px; border-radius: 100px;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .status-pill svg { width: 10px; height: 10px; stroke-width: 2; }
+
+    /* Token bar */
+    .token-bar {
+      display: flex; align-items: center; gap: 10px; padding: 6px 12px;
+      background: var(--bg); border-radius: 8px; border: 1px solid var(--bdr2);
+    }
+    .token-bar .tb-label { font-size: 10px; color: var(--t3); font-weight: 500; }
+    .token-bar .tb-val { font-size: 11px; color: var(--t2); font-family: var(--mono); font-weight: 500; }
+    .token-bar .tb-sep { width: 1px; height: 12px; background: var(--bdr2); }
+    .token-bar .tb-cost { font-size: 10px; color: var(--t3); margin-left: auto; }
+    .token-meter { flex: 1; max-width: 60px; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+    .token-meter-fill { height: 100%; border-radius: 2px; background: var(--orange); }
+
+    /* Task generation */
+    .task-gen-card { background: var(--card); border: 1px solid var(--bdr); border-radius: 10px; overflow: hidden; }
+    .task-gen-head {
+      display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+      border-bottom: 1px solid var(--bdr2);
+    }
+    .task-gen-head svg { width: 15px; height: 15px; stroke-width: 1.8; color: var(--green); }
+    .task-gen-head span { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .task-gen-head .tg-count { margin-left: auto; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 100px; background: var(--tint-green); color: var(--green); }
+    .task-gen-list { padding: 4px; }
+    .task-gen-item {
+      display: flex; align-items: flex-start; gap: 8px; padding: 7px 8px;
+      border-radius: 8px; transition: background 100ms;
+    }
+    .task-gen-item:hover { background: var(--hover); }
+    .task-gen-check {
+      width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--bdr);
+      flex-shrink: 0; margin-top: 1px; display: flex; align-items: center;
+      justify-content: center; cursor: pointer; transition: all 150ms; background: var(--card);
+    }
+    .task-gen-check.checked { background: var(--green); border-color: var(--green); }
+    .task-gen-check.checked svg { display: block; }
+    .task-gen-check svg { width: 10px; height: 10px; stroke-width: 2.5; color: #fff; display: none; }
+    .task-gen-text { font-size: 12px; color: var(--t1); line-height: 1.5; }
+    .task-gen-text .tg-tag {
+      display: inline-block; font-size: 9px; font-weight: 600; padding: 1px 6px;
+      border-radius: 4px; margin-left: 4px; vertical-align: middle;
+    }
+    .task-gen-actions {
+      display: flex; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--bdr2);
+    }
+    .tg-btn {
+      padding: 5px 14px; border-radius: 8px; font-size: 11px; font-weight: 600;
+      cursor: pointer; transition: all 150ms; border: none;
+    }
+    .tg-btn-primary { background: var(--green); color: #fff; }
+    .tg-btn-primary:hover { opacity: 0.9; }
+    .tg-btn-secondary { background: var(--bg); color: var(--t2); border: 1px solid var(--bdr); }
+    .tg-btn-secondary:hover { border-color: var(--t3); }
+
+    /* ====== Input Area ====== */
+    .input-area {
+      flex-shrink: 0; border-top: 1px solid var(--bdr);
+      padding: 0 24px 14px; background: var(--bg);
+    }
+    .input-wrap { max-width: 780px; margin: 0 auto; }
+    .attach-strip { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0 6px; }
+    .attach-chip {
+      display: flex; align-items: center; gap: 5px;
+      padding: 4px 8px 4px 6px; border-radius: 8px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 11px; color: var(--t1); transition: all 150ms;
+    }
+    .attach-chip:hover { border-color: var(--t3); }
+    .attach-chip svg { width: 13px; height: 13px; stroke-width: 1.8; flex-shrink: 0; }
+    .attach-chip .chip-remove {
+      width: 14px; height: 14px; border-radius: 4px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t4); font-size: 12px; margin-left: 2px; transition: all 100ms;
+    }
+    .attach-chip .chip-remove:hover { color: var(--red); background: var(--tint-red); }
+    .attach-chip.skill-chip { border-color: var(--purple); background: var(--tint-purple); }
+    .attach-chip.skill-chip svg { color: var(--purple); }
+    .composer {
+      border: 1px solid var(--bdr); border-radius: 14px; background: var(--card);
+      overflow: hidden; transition: border-color 150ms, box-shadow 200ms;
+    }
+    .composer:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(200,134,58,0.08); }
+    .composer-textarea {
+      width: 100%; min-height: 42px; max-height: 200px; resize: none;
+      border: none; padding: 10px 14px; font: 13px/1.5 'Inter', sans-serif;
+      color: var(--t1); background: transparent; outline: none;
+    }
+    .composer-textarea::placeholder { color: var(--t4); }
+    .composer-toolbar {
+      display: flex; align-items: center; gap: 2px;
+      padding: 4px 6px; border-top: 1px solid var(--bdr2);
+    }
+    .tb-btn {
+      width: 30px; height: 30px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms; position: relative;
+    }
+    .tb-btn:hover { background: var(--hover); color: var(--t1); }
+    .tb-btn svg { width: 15px; height: 15px; stroke-width: 1.8; }
+    .tb-btn .tb-tip {
+      position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+      background: var(--t1); color: #fff; font-size: 10px; font-weight: 500;
+      padding: 2px 7px; border-radius: 5px; white-space: nowrap;
+      opacity: 0; pointer-events: none; transition: opacity 120ms;
+    }
+    .tb-btn:hover .tb-tip { opacity: 1; }
+    .tb-sep { width: 1px; height: 18px; background: var(--bdr2); margin: 0 4px; }
+    .tb-agent {
+      display: flex; align-items: center; gap: 5px; margin-left: auto;
+      padding: 3px 10px 3px 6px; border-radius: 100px; border: 1px solid var(--bdr);
+      background: var(--bg); cursor: pointer; transition: all 150ms;
+      font-size: 11px; font-weight: 500; color: var(--t2);
+    }
+    .tb-agent:hover { border-color: var(--t3); color: var(--t1); }
+    .tb-agent .ag-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .tb-agent select { border: none; background: none; font: inherit; color: inherit; cursor: pointer; outline: none; appearance: none; }
+    .tb-send {
+      width: 34px; height: 30px; border-radius: 8px; border: none;
+      background: var(--orange); color: #fff; display: flex; align-items: center;
+      justify-content: center; cursor: pointer; transition: all 150ms; margin-left: 4px;
+    }
+    .tb-send:hover { opacity: 0.9; }
+    .tb-send svg { width: 15px; height: 15px; stroke-width: 2; }
+    .input-hints {
+      display: flex; gap: 12px; margin-top: 5px; padding: 0 6px; font-size: 10px; color: var(--t4);
+    }
+    .input-hints kbd {
+      font-family: var(--mono); font-size: 10px; padding: 0 4px;
+      border: 1px solid var(--bdr2); border-radius: 3px; background: var(--bg2);
+    }
+
+    .slash-menu {
+      position: absolute; bottom: 100%; left: 0; right: 0;
+      background: var(--card); border: 1px solid var(--bdr); border-radius: 12px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.06); padding: 6px;
+      margin-bottom: 6px; max-height: 240px; overflow-y: auto; display: none;
+    }
+    .slash-menu.open { display: block; }
+    .slash-item {
+      display: flex; align-items: center; gap: 10px; padding: 7px 10px;
+      border-radius: 8px; cursor: pointer; transition: background 100ms;
+    }
+    .slash-item:hover { background: var(--hover); }
+    .slash-item.selected { background: var(--active); }
+    .slash-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .slash-icon svg { width: 14px; height: 14px; stroke-width: 1.8; }
+    .slash-name { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .slash-desc { font-size: 11px; color: var(--t3); }
+
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="topbar-l">
+      <button class="icon-btn" type="button" onclick="togglePanel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg></button>
+      <span class="brand">Maestro</span>
+      <span style="color:var(--t4)">&middot;</span>
+      <span style="font-size:12px;color:var(--t2)">E-commerce Platform v2.0</span>
+    </div>
+    <div class="topbar-r">
+      <span style="font-size:12px;color:var(--t3)">Phase 3 / 6</span>
+      <span class="pill pill-green"><span class="pill-dot"></span> 3 Active</span>
+    </div>
+  </header>
+  <div class="body">
+    <nav class="rail">
+      <button class="rail-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span class="tip">Kanban</span></button>
+      <button class="rail-btn active" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="tip">Chat</span></button>
+      <button class="rail-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg><span class="tip">Artifacts</span></button>
+      <button class="rail-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="tip">Workflow</span></button>
+      <div class="rail-sep"></div>
+      <div class="rail-sessions">
+        <span class="rail-sdot active running" style="background:var(--purple);color:var(--purple)" title="Claude Code"><span class="sdot-ping"></span></span>
+        <span class="rail-sdot running" style="background:var(--green);color:var(--green)" title="Codex"><span class="sdot-ping"></span></span>
+        <span class="rail-sdot" style="background:var(--t4);color:var(--t4)" title="Stopped"></span>
+      </div>
+    </nav>
+    <aside class="sidebar-float" id="sidePanel">
+      <div class="sf-section"><div class="sf-label">Views</div><nav>
+        <button class="sf-item" type="button">Kanban<span class="shortcut">K</span></button>
+        <button class="sf-item active" type="button">Chat<span class="shortcut">C</span></button>
+        <button class="sf-item" type="button">Artifacts<span class="shortcut">A</span></button>
+      </nav></div>
+      <div class="sf-section"><div class="sf-label">Sessions<button class="sf-label-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></div><nav>
+        <button class="sf-session active" type="button"><span class="sf-sdot" style="background:var(--purple)"></span><span class="sf-sname">Claude Code</span><span class="sf-stime">2m</span></button>
+        <button class="sf-session" type="button"><span class="sf-sdot" style="background:var(--green)"></span><span class="sf-sname">Codex</span><span class="sf-stime">14m</span></button>
+      </nav></div>
+    </aside>
+
+    <div class="chat-main">
+      <div class="tab-bar-wrap"><div class="tab-bar">
+        <button class="cli-tab active" type="button"><span class="tab-dot" style="background:var(--purple)"></span>Claude Code</button>
+        <button class="cli-tab" type="button"><span class="tab-dot" style="background:var(--green)"></span>Codex</button>
+        <div class="tab-sep"></div>
+        <button class="tab-split" type="button" id="splitToggle" onclick="toggleSplit()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg></button>
+        <button class="tab-add" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      </div></div>
+
+      <div class="split-container" id="splitContainer">
+        <div class="split-pane" id="pane1">
+          <div class="messages"><div class="msg-list">
+
+            <!-- User -->
+            <div class="msg-user"><div class="msg-user-bubble">
+              <div class="user-attach">
+                <span class="ua-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg> api-spec.yaml</span>
+              </div>
+              Implement the Stripe payment gateway. Follow the attached API spec.
+            </div></div>
+
+            <!-- Thinking -->
+            <div class="msg-group"><div class="msg-avatar claude is-active">C</div><div class="msg-body">
+              <div class="thinking-text" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'">
+                <span class="th-label">Thinking</span><span class="th-summary">Analyzing existing payment infrastructure...</span><span class="th-dur">4.2s</span>
+              </div>
+              <div class="thinking-expanded">The user wants Stripe integration. Let me check the existing payment infrastructure to understand the patterns used. Looking at api-spec.yaml, I need PaymentIntent creation, webhook handling, and refund flows.</div>
+              <div class="msg-text">
+                <p>I'll implement the Stripe payment gateway. Let me start by analyzing the existing infrastructure.</p>
+                <h4>Plan</h4>
+                <ol>
+                  <li>Search for existing payment patterns</li>
+                  <li>Create the <code>StripeGateway</code> class</li>
+                  <li>Add webhook endpoint</li>
+                  <li>Write integration tests</li>
+                </ol>
+                <blockquote>Based on the API spec, I'll use PaymentIntents for the primary flow.</blockquote>
+              </div>
+            </div></div>
+
+            <!-- Tool group -->
+            <div class="msg-group"><div class="msg-avatar claude is-active">C</div><div class="msg-body">
+              <div class="tool-group">
+                <div class="entry-row done">
+                  <svg class="er-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <span class="er-name">Grep</span><span class="er-meta">PaymentProvider</span>
+                  <span class="er-badge badge-completed">Done</span>
+                </div>
+                <div class="entry-row done">
+                  <svg class="er-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <span class="er-name">Read</span><span class="er-meta">provider.ts</span>
+                  <span class="er-badge badge-completed">Done</span>
+                </div>
+                <div class="entry-row active">
+                  <svg class="er-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  <span class="er-name">Write</span><span class="er-meta">stripe-gateway.ts</span>
+                  <span class="er-badge badge-running">Running</span>
+                </div>
+              </div>
+            </div></div>
+
+            <!-- Approval -->
+            <div class="msg-group"><div class="msg-avatar claude is-active">C</div><div class="msg-body">
+              <div class="approval-card">
+                <div class="approval-head">
+                  <span class="approval-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4M12 16h.01"/></svg></span>
+                  <span class="approval-title">Permission Required</span>
+                  <span class="approval-tool">Write</span>
+                </div>
+                <div class="approval-body"><div class="approval-pre">src/payments/stripe-gateway.ts (new file, 142 lines)</div></div>
+                <div class="approval-actions"><button class="btn-allow" type="button">Allow</button><button class="btn-deny" type="button">Deny</button></div>
+              </div>
+            </div></div>
+
+            <!-- File change -->
+            <div class="msg-group"><div class="msg-avatar claude is-active">C</div><div class="msg-body">
+              <div class="entry-card file-card" onclick="this.classList.toggle('expanded')">
+                <button class="entry-header" type="button">
+                  <svg class="entry-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <span class="file-path">src/payments/stripe-gateway.ts</span>
+                  <span class="file-action create">Create</span>
+                  <svg class="entry-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                <div class="entry-detail">
+                  <div class="file-diff">
+                    <div class="diff-line diff-add"><span class="diff-ln">1</span><span class="diff-text"><span class="kw">import</span> Stripe <span class="kw">from</span> <span class="str">'stripe'</span>;</span></div>
+                    <div class="diff-line diff-add"><span class="diff-ln">2</span><span class="diff-text"><span class="kw">import</span> { <span class="tp">PaymentProvider</span> } <span class="kw">from</span> <span class="str">'./provider'</span>;</span></div>
+                    <div class="diff-line diff-add"><span class="diff-ln">3</span><span class="diff-text"></span></div>
+                    <div class="diff-line diff-add"><span class="diff-ln">4</span><span class="diff-text"><span class="kw">export class</span> <span class="tp">StripeGateway</span> <span class="kw">implements</span> <span class="tp">PaymentProvider</span> {</span></div>
+                    <div class="diff-line diff-add"><span class="diff-ln">5</span><span class="diff-text">  <span class="kw">private</span> client: <span class="tp">Stripe</span>;</span></div>
+                  </div>
+                  <div class="file-stats"><span class="fs-add">+142</span><span class="fs-del">-0</span></div>
+                </div>
+              </div>
+            </div></div>
+
+            <!-- Command -->
+            <div class="msg-group"><div class="msg-avatar claude is-active">C</div><div class="msg-body">
+              <div class="entry-card cmd-card" onclick="this.classList.toggle('expanded')">
+                <button class="entry-header" type="button">
+                  <svg class="entry-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                  <span class="entry-name">npm test -- --grep "stripe"</span>
+                  <span class="cmd-exit ok">exit 0</span>
+                  <svg class="entry-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                <div class="entry-detail"><div class="cmd-output">  StripeGateway
+    <span style="color:#A3BE8C">&#10003;</span> should create payment intent (45ms)
+    <span style="color:#A3BE8C">&#10003;</span> should handle refund (23ms)
+
+  <span style="color:#A3BE8C">2 passing</span> (68ms)</div></div>
+              </div>
+            </div></div>
+
+            <!-- Error — inline -->
+            <div class="msg-group"><div class="msg-avatar claude is-active">C</div><div class="msg-body">
+              <div class="error-inline">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <div class="err-msg">Property <code>webhookSecret</code> missing in <code>StripeConfig</code> at <code>:47</code>
+                  <div class="error-trace">at validateConfig (src/payments/stripe-gateway.ts:47:5)</div>
+                </div>
+              </div>
+            </div></div>
+
+            <!-- Status -->
+            <div class="status-line"><span class="status-pill" style="background:rgba(90,158,120,0.12);color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Error resolved</span></div>
+
+            <!-- Code block -->
+            <div class="msg-group"><div class="msg-avatar claude is-active">C</div><div class="msg-body">
+              <div class="msg-text"><p>Fixed the config. Here's the updated type:</p></div>
+              <div class="code-block">
+                <div class="code-block-head"><span>stripe-gateway.ts</span><button class="copy-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy</button></div>
+                <pre><span class="kw">interface</span> <span class="tp">StripeConfig</span> {
+  apiKey: <span class="tp">string</span>;
+  webhookSecret: <span class="tp">string</span>;  <span class="cm">// required for verification</span>
+  apiVersion?: <span class="str">'2024-12-18'</span>;
+}</pre>
+              </div>
+            </div></div>
+
+            <!-- Token usage -->
+            <div class="msg-group"><div class="msg-avatar claude">C</div><div class="msg-body">
+              <div class="token-bar">
+                <span class="tb-label">Tokens</span><span class="tb-val">12,847</span>
+                <div class="token-meter"><div class="token-meter-fill" style="width:32%"></div></div>
+                <div class="tb-sep"></div>
+                <span class="tb-label">Cache</span><span class="tb-val">8,204</span>
+                <span class="tb-cost">$0.042</span>
+              </div>
+            </div></div>
+
+            <!-- Final text -->
+            <div class="msg-group"><div class="msg-avatar claude is-active">C</div><div class="msg-body">
+              <div class="msg-text">
+                <p>Stripe gateway implemented. All tests pass.<span class="typing-cursor"></span></p>
+              </div>
+            </div></div>
+
+            <!-- Task gen -->
+            <div class="msg-group"><div class="msg-avatar claude">C</div><div class="msg-body">
+              <div class="task-gen-card">
+                <div class="task-gen-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg><span>Generated Tasks</span><span class="tg-count">3 tasks</span></div>
+                <div class="task-gen-list">
+                  <div class="task-gen-item"><div class="task-gen-check checked"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div class="task-gen-text">Implement StripeGateway <span class="tg-tag" style="background:rgba(90,158,120,0.12);color:var(--green)">done</span></div></div>
+                  <div class="task-gen-item"><div class="task-gen-check"></div><div class="task-gen-text">Add idempotency key support <span class="tg-tag" style="background:var(--tint-yellow);color:var(--yellow)">todo</span></div></div>
+                  <div class="task-gen-item"><div class="task-gen-check"></div><div class="task-gen-text">Implement PayPal gateway <span class="tg-tag" style="background:var(--tint-yellow);color:var(--yellow)">todo</span></div></div>
+                </div>
+                <div class="task-gen-actions"><button class="tg-btn tg-btn-primary" type="button">Push to Kanban</button><button class="tg-btn tg-btn-secondary" type="button">Edit</button></div>
+              </div>
+            </div></div>
+
+          </div></div>
+        </div>
+        <div class="split-divider" id="splitDivider" style="display:none"></div>
+        <div class="split-pane" id="pane2" style="display:none">
+          <div class="split-pane-label"><span class="pane-dot" style="background:var(--green)"></span>Codex<button class="pane-close" type="button" onclick="toggleSplit()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+          <div class="messages"><div class="msg-list">
+            <div class="msg-user"><div class="msg-user-bubble">Review payment module for security</div></div>
+            <div class="msg-group"><div class="msg-avatar codex">Cx</div><div class="msg-body">
+              <div class="msg-text"><p>Found <strong>2 issues</strong> in <code>src/payments/</code>:</p><ul><li><strong>Medium:</strong> Webhook signature not verified</li><li><strong>Low:</strong> API key logged in debug mode</li></ul></div>
+            </div></div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="input-area"><div class="input-wrap" style="position:relative">
+        <div class="slash-menu" id="slashMenu">
+          <div class="slash-item selected"><div class="slash-icon" style="background:var(--tint-purple)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div><div><div class="slash-name">/pipeline-plan</div><div class="slash-desc">Create detailed phase plan</div></div></div>
+          <div class="slash-item"><div class="slash-icon" style="background:var(--tint-green)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div><div class="slash-name">/quality-review</div><div class="slash-desc">Tiered code review</div></div></div>
+        </div>
+        <div class="composer">
+          <textarea class="composer-textarea" rows="1" placeholder="Send a message, / for commands..." oninput="autoResize(this);checkSlash(this)"></textarea>
+          <div class="composer-toolbar">
+            <button class="tb-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><span class="tb-tip">File</span></button>
+            <button class="tb-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span class="tb-tip">Image</span></button>
+            <button class="tb-btn" type="button" onclick="document.getElementById('slashMenu').classList.toggle('open')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span class="tb-tip">Skills</span></button>
+            <div class="tb-sep"></div>
+            <div class="tb-agent"><span class="ag-dot" id="agentDot1" style="background:var(--purple)"></span><select onchange="document.getElementById('agentDot1').style.background={'claude':'var(--purple)','codex':'var(--green)','gemini':'var(--blue)'}[this.value]"><option value="claude">Claude Code</option><option value="codex">Codex</option><option value="gemini">Gemini</option></select></div>
+            <button class="tb-send" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+          </div>
+        </div>
+        <div class="input-hints"><span><kbd>Enter</kbd> send</span><span><kbd>/</kbd> skills</span><span style="margin-left:auto">claude-code &middot; opus-4.6</span></div>
+      </div></div>
+    </div>
+  </div>
+</div>
+<script>
+  const panel=document.getElementById('sidePanel');let pinned=false;
+  function togglePanel(){pinned=!pinned;panel.classList.toggle('open',pinned)}
+  const rail=document.querySelector('.rail');
+  rail.addEventListener('mouseenter',()=>{if(!pinned)panel.classList.add('open')});
+  panel.addEventListener('mouseleave',e=>{if(!pinned&&!rail.contains(e.relatedTarget))panel.classList.remove('open')});
+  rail.addEventListener('mouseleave',e=>{if(!pinned&&!panel.contains(e.relatedTarget))panel.classList.remove('open')});
+  function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,200)+'px'}
+  function checkSlash(el){const m=document.getElementById('slashMenu');if(el.value.startsWith('/'))m.classList.add('open');else m.classList.remove('open')}
+  function toggleSplit(){const p=document.getElementById('pane2'),d=document.getElementById('splitDivider'),b=document.getElementById('splitToggle'),s=p.style.display==='none';p.style.display=s?'flex':'none';d.style.display=s?'block':'none';b.classList.toggle('active',s)}
+  const divider=document.getElementById('splitDivider');let dragging=false;
+  divider.addEventListener('mousedown',e=>{dragging=true;e.preventDefault()});
+  document.addEventListener('mousemove',e=>{if(!dragging)return;const c=document.getElementById('splitContainer'),r=c.getBoundingClientRect(),p=((e.clientX-r.left)/r.width)*100,cl=Math.max(25,Math.min(75,p));document.getElementById('pane1').style.flex='0 0 '+cl+'%';document.getElementById('pane2').style.flex='0 0 '+(100-cl)+'%'});
+  document.addEventListener('mouseup',()=>{dragging=false});
+</script>
+</body>
+</html>

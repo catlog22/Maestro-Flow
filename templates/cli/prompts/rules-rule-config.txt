@@ -1,0 +1,89 @@
+# Rule Template: Configuration Rules
+
+## Variables
+- {TECH_STACK_NAME}: Tech stack display name
+- {CONFIG_FILES}: List of config file patterns
+
+## Output Format
+
+```markdown
+---
+paths:
+  - "*.config.*"
+  - ".*rc"
+  - ".*rc.{js,json,yaml,yml}"
+  - "package.json"
+  - "tsconfig*.json"
+  - "pyproject.toml"
+  - "Cargo.toml"
+  - "go.mod"
+  - ".env*"
+---
+
+# {TECH_STACK_NAME} Configuration Rules
+
+## Project Setup
+
+[Configuration guidelines from Exa research]
+
+### Essential Config Files
+- [List primary config files]
+- [Purpose of each]
+
+### Recommended Structure
+```
+project/
+├── [config files]
+├── src/
+└── tests/
+```
+
+## Tooling
+
+[Linters, formatters, bundlers]
+
+### Linting
+- Tool: [ESLint/Pylint/etc]
+- Config file: [.eslintrc/pyproject.toml/etc]
+- Key rules to enable
+
+### Formatting
+- Tool: [Prettier/Black/etc]
+- Integration with editor
+- Pre-commit hooks
+
+### Build Tools
+- Bundler: [Webpack/Vite/etc]
+- Build configuration
+- Optimization settings
+
+## Environment
+
+[Environment management]
+
+### Environment Variables
+- Naming conventions
+- Required vs optional
+- Secret handling
+- .env file structure
+
+### Development vs Production
+- Environment-specific configs
+- Feature flags
+- Debug settings
+
+## Dependencies
+
+[Dependency management]
+- Lock file usage
+- Version pinning strategy
+- Security updates
+- Peer dependencies
+```
+
+## Content Guidelines
+
+- Focus on config file best practices
+- Include security considerations
+- Cover development workflow setup
+- Mention CI/CD integration where relevant

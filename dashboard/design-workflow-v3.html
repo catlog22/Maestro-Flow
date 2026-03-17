@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow V3 — Command Center</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; line-height: 1.5; background: #FAF8F5; color: #2D2A26; -webkit-font-smoothing: antialiased; }
+
+    :root {
+      --bg: #FAF8F5; --bg2: #F3F0EA; --bg3: #EBE8E1; --card: #FFFFFF;
+      --hover: rgba(45,42,38,0.04); --active: rgba(45,42,38,0.07);
+      --t1: #2D2A26; --t2: #78756F; --t3: #A09D97; --t4: #D1CEC8;
+      --bdr: #E8E5DE; --bdr2: #ECEAE4;
+      --blue: #5B8DB8; --green: #5A9E78; --orange: #C8863A; --yellow: #B89540;
+      --purple: #9178B5; --red: #C46555; --gray: #A09D97;
+      --tint-green: #EEF5F0; --tint-yellow: #FBF5E2; --tint-orange: #FAF0E3;
+      --tint-purple: #F2EDF8; --tint-gray: #F2F1EE; --tint-blue: #EDF2F8; --tint-red: #F8EDEC;
+      --rail-w: 48px; --mono: 'JetBrains Mono', monospace;
+      --spring: cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .shell { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ====== TopBar ====== */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 48px; padding: 0 20px; background: var(--bg2);
+      border-bottom: 1px solid var(--bdr); flex-shrink: 0; z-index: 100;
+    }
+    .topbar-l { display: flex; align-items: center; gap: 12px; }
+    .brand { font-weight: 700; font-size: 15px; color: var(--t1); }
+    .topbar-r { display: flex; align-items: center; gap: 12px; }
+    .pill { font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 100px; display: flex; align-items: center; gap: 5px; }
+    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .pill-yellow { background: rgba(184,149,64,0.12); color: var(--yellow); }
+    .phase-num { font-size: 12px; color: var(--t3); }
+    .icon-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms;
+    }
+    .icon-btn:hover { background: var(--hover); color: var(--t1); }
+    .icon-btn svg { width: 16px; height: 16px; stroke-width: 1.8; }
+
+    .body { display: flex; flex: 1; overflow: hidden; position: relative; }
+
+    /* ====== DockRail ====== */
+    .rail {
+      width: var(--rail-w); background: var(--bg2); border-right: 1px solid var(--bdr);
+      flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+      padding-top: 8px; gap: 2px; z-index: 50;
+    }
+    .rail-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms; position: relative;
+    }
+    .rail-btn:hover { background: var(--hover); color: var(--t1); }
+    .rail-btn.active { background: var(--active); color: var(--t1); }
+    .rail-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
+    .rail-btn .tip {
+      position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+      background: var(--t1); color: #fff; font-size: 11px; font-weight: 500;
+      padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+      opacity: 0; pointer-events: none; transition: opacity 150ms; z-index: 200;
+    }
+    .rail-btn:hover .tip { opacity: 1; }
+    .rail-sep { width: 24px; height: 1px; background: var(--bdr2); margin: 6px 0; }
+    .rail-phases { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0; }
+    .rail-pdot { width: 8px; height: 8px; border-radius: 50%; cursor: pointer; transition: transform 150ms; }
+    .rail-pdot:hover { transform: scale(1.4); }
+
+    /* ====== Main ====== */
+    .main { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+
+    /* ====== Pipeline Flow (horizontal) ====== */
+    .pipeline-flow {
+      display: flex; align-items: center; gap: 0; padding: 16px 24px;
+      border-bottom: 1px solid var(--bdr); background: var(--bg);
+      overflow-x: auto; flex-shrink: 0;
+    }
+    .pf-node {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      cursor: pointer; transition: all 150ms; flex-shrink: 0;
+    }
+    .pf-node:hover .pf-circle { transform: scale(1.1); }
+    .pf-circle {
+      width: 42px; height: 42px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff; transition: all 200ms;
+      position: relative;
+    }
+    .pf-circle .pf-ring {
+      position: absolute; inset: -4px; border-radius: 14px;
+      border: 2px solid transparent; transition: all 200ms;
+    }
+    .pf-node.current .pf-ring { border-color: currentColor; opacity: 0.3; animation: pf-pulse 2s ease infinite; }
+    @keyframes pf-pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.1; } }
+    .pf-label { font-size: 10px; font-weight: 600; color: var(--t3); max-width: 80px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pf-stage { font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 5px; border-radius: 100px; }
+    .pf-connector {
+      width: 40px; height: 2px; flex-shrink: 0; position: relative; margin-bottom: 22px;
+    }
+    .pf-connector-line {
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--bdr);
+    }
+    .pf-connector-fill {
+      position: absolute; top: 0; left: 0; height: 2px;
+      background: var(--green); border-radius: 1px;
+    }
+    .pf-connector-arrow {
+      position: absolute; right: -1px; top: -3px;
+      border: 3px solid transparent; border-left: 5px solid var(--bdr);
+    }
+
+    /* ====== Grid Layout ====== */
+    .grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr 320px; grid-template-rows: 1fr auto; gap: 0; overflow: hidden; }
+
+    /* Panel base */
+    .panel {
+      display: flex; flex-direction: column; overflow: hidden;
+      border-right: 1px solid var(--bdr2); border-bottom: 1px solid var(--bdr2);
+    }
+    .panel:last-child { border-right: none; }
+    .panel-head {
+      display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+      border-bottom: 1px solid var(--bdr2); flex-shrink: 0;
+    }
+    .panel-icon { width: 14px; height: 14px; stroke-width: 2; color: var(--t3); }
+    .panel-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t3); }
+    .panel-badge { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 100px; margin-left: auto; }
+    .panel-body { flex: 1; overflow-y: auto; padding: 12px 16px; }
+
+    /* ====== Panel 1: Active Execution ====== */
+    .exec-phase {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+    }
+    .exec-phase-num {
+      width: 32px; height: 32px; border-radius: 10px; background: var(--yellow);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; color: #fff;
+    }
+    .exec-phase-info { flex: 1; }
+    .exec-phase-name { font-size: 14px; font-weight: 700; color: var(--t1); }
+    .exec-phase-sub { font-size: 11px; color: var(--t3); }
+
+    .exec-prog { margin-bottom: 14px; }
+    .exec-prog-bar { height: 6px; background: var(--bdr); border-radius: 100px; overflow: hidden; margin-bottom: 4px; }
+    .exec-prog-fill { height: 100%; border-radius: 100px; background: var(--green); }
+    .exec-prog-meta { display: flex; justify-content: space-between; font-size: 10px; color: var(--t3); }
+
+    .wave-section { margin-bottom: 12px; }
+    .wave-header {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+      font-size: 11px; font-weight: 600; color: var(--t2);
+    }
+    .wave-badge { font-size: 9px; padding: 1px 6px; border-radius: 100px; font-weight: 600; font-family: var(--mono); }
+    .wave-tasks { display: flex; flex-direction: column; gap: 4px; }
+    .wave-task {
+      display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+      border-radius: 8px; background: var(--card); border: 1px solid var(--bdr2);
+      font-size: 12px; transition: all 150ms;
+    }
+    .wave-task:hover { border-color: var(--bdr); }
+    .wave-task-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .wave-task-name { flex: 1; color: var(--t1); font-weight: 500; }
+    .wave-task-id { font-size: 10px; font-family: var(--mono); color: var(--t4); }
+    .wave-task-st { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 100px; }
+
+    /* ====== Panel 2: Phase Queue ====== */
+    .queue-item {
+      display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+      border-radius: 8px; cursor: pointer; transition: all 150ms;
+      margin-bottom: 2px;
+    }
+    .queue-item:hover { background: var(--card); }
+    .queue-item.active { background: var(--tint-yellow); }
+    .queue-num {
+      width: 24px; height: 24px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .queue-info { flex: 1; min-width: 0; }
+    .queue-name { font-size: 12px; font-weight: 600; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .queue-stage { font-size: 10px; color: var(--t3); }
+    .queue-prog { width: 40px; text-align: right; }
+    .queue-prog-text { font-size: 10px; font-weight: 600; font-family: var(--mono); color: var(--t3); }
+    .queue-prog-bar { width: 40px; height: 3px; background: var(--bdr); border-radius: 100px; overflow: hidden; margin-top: 2px; }
+    .queue-prog-fill { height: 100%; border-radius: 100px; }
+
+    /* ====== Panel 3: Quality & Metrics ====== */
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .metric-card {
+      padding: 10px 12px; border-radius: 10px; background: var(--card);
+      border: 1px solid var(--bdr2);
+    }
+    .metric-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--t3); margin-bottom: 4px; }
+    .metric-val { font-size: 20px; font-weight: 700; color: var(--t1); }
+    .metric-sub { font-size: 10px; color: var(--t3); margin-top: 2px; }
+
+    /* Verification status */
+    .veri-section { margin-bottom: 14px; }
+    .veri-header { font-size: 11px; font-weight: 600; color: var(--t2); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .veri-row {
+      display: flex; align-items: center; gap: 6px; padding: 4px 0;
+      font-size: 12px; border-bottom: 1px solid var(--bdr2);
+    }
+    .veri-row:last-child { border-bottom: none; }
+    .veri-icon { width: 12px; height: 12px; flex-shrink: 0; stroke-width: 2.5; }
+    .veri-text { flex: 1; color: var(--t2); }
+    .veri-st { font-size: 10px; font-weight: 600; }
+
+    /* Issue list */
+    .issue-section { margin-bottom: 14px; }
+    .issue-header { font-size: 11px; font-weight: 600; color: var(--t2); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .issue-row {
+      display: flex; align-items: flex-start; gap: 8px; padding: 6px 0;
+      border-bottom: 1px solid var(--bdr2); font-size: 12px;
+    }
+    .issue-row:last-child { border-bottom: none; }
+    .issue-sev { font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 3px; flex-shrink: 0; margin-top: 2px; text-transform: uppercase; }
+    .issue-title { flex: 1; color: var(--t1); line-height: 1.4; }
+    .issue-status { font-size: 10px; font-weight: 600; color: var(--t3); white-space: nowrap; }
+
+    /* Test coverage */
+    .cov-bars { display: flex; flex-direction: column; gap: 4px; }
+    .cov-row { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+    .cov-label { width: 70px; color: var(--t3); font-weight: 500; }
+    .cov-bar { flex: 1; height: 6px; background: var(--bdr); border-radius: 100px; overflow: hidden; }
+    .cov-fill { height: 100%; border-radius: 100px; }
+    .cov-val { width: 36px; text-align: right; font-family: var(--mono); font-weight: 600; color: var(--t2); }
+
+    /* ====== Activity Strip (bottom) ====== */
+    .activity-strip {
+      grid-column: 1 / -1; display: flex; align-items: center; gap: 16px;
+      padding: 8px 16px; border-top: 1px solid var(--bdr);
+      background: var(--bg2); overflow-x: auto; flex-shrink: 0;
+    }
+    .act-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t4); white-space: nowrap; }
+    .act-item {
+      display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--t2);
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .act-time { font-size: 10px; color: var(--t4); font-family: var(--mono); }
+    .act-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .act-sep { width: 1px; height: 14px; background: var(--bdr2); flex-shrink: 0; }
+
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <!-- TopBar -->
+  <header class="topbar">
+    <div class="topbar-l">
+      <button class="icon-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+      </button>
+      <span class="brand">Maestro</span>
+      <span style="color:var(--t4)">&middot;</span>
+      <span style="font-size:12px;color:var(--t2)">E-commerce Platform v2.0</span>
+    </div>
+    <div class="topbar-r">
+      <span class="phase-num">Milestone v1.0</span>
+      <span class="pill pill-yellow"><span class="pill-dot"></span> Executing</span>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- DockRail -->
+    <nav class="rail">
+      <button class="rail-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span class="tip">Dashboard</span>
+      </button>
+      <button class="rail-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="tip">Chat</span>
+      </button>
+      <button class="rail-btn active" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span class="tip">Workflow</span>
+      </button>
+      <button class="rail-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span class="tip">Artifacts</span>
+      </button>
+      <div class="rail-sep"></div>
+      <div class="rail-phases">
+        <span class="rail-pdot" style="background:var(--green)" title="1. Project Setup"></span>
+        <span class="rail-pdot" style="background:var(--orange)" title="2. Database Layer"></span>
+        <span class="rail-pdot" style="background:var(--yellow)" title="3. API Endpoints"></span>
+        <span class="rail-pdot" style="background:var(--purple)" title="4. Auth System"></span>
+        <span class="rail-pdot" style="background:var(--blue)" title="5. Frontend UI"></span>
+        <span class="rail-pdot" style="background:var(--gray)" title="6. Testing & Deploy"></span>
+      </div>
+    </nav>
+
+    <!-- Main -->
+    <div class="main">
+      <!-- Pipeline Flow (horizontal phase nodes) -->
+      <div class="pipeline-flow">
+        <!-- Phase 1 -->
+        <div class="pf-node">
+          <div class="pf-circle" style="background:var(--green)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="pf-label">Setup</div>
+          <div class="pf-stage" style="background:rgba(90,158,120,0.12);color:var(--green)">Done</div>
+        </div>
+        <div class="pf-connector"><div class="pf-connector-line"></div><div class="pf-connector-fill" style="width:100%"></div></div>
+
+        <!-- Phase 2 -->
+        <div class="pf-node">
+          <div class="pf-circle" style="background:var(--orange)">2</div>
+          <div class="pf-label">Database</div>
+          <div class="pf-stage" style="background:rgba(200,134,58,0.12);color:var(--orange)">Verify</div>
+        </div>
+        <div class="pf-connector"><div class="pf-connector-line"></div><div class="pf-connector-fill" style="width:100%"></div></div>
+
+        <!-- Phase 3 (current) -->
+        <div class="pf-node current" style="color:var(--yellow)">
+          <div class="pf-circle" style="background:var(--yellow)">
+            <div class="pf-ring"></div>
+            3
+          </div>
+          <div class="pf-label" style="color:var(--yellow);font-weight:700">API</div>
+          <div class="pf-stage" style="background:rgba(184,149,64,0.15);color:var(--yellow)">Execute</div>
+        </div>
+        <div class="pf-connector"><div class="pf-connector-line"></div><div class="pf-connector-fill" style="width:0%"></div><div class="pf-connector-arrow"></div></div>
+
+        <!-- Phase 4 -->
+        <div class="pf-node">
+          <div class="pf-circle" style="background:var(--purple);opacity:0.7">4</div>
+          <div class="pf-label">Auth</div>
+          <div class="pf-stage" style="background:rgba(145,120,181,0.12);color:var(--purple)">Plan</div>
+        </div>
+        <div class="pf-connector"><div class="pf-connector-line"></div><div class="pf-connector-arrow"></div></div>
+
+        <!-- Phase 5 -->
+        <div class="pf-node">
+          <div class="pf-circle" style="background:var(--blue);opacity:0.5">5</div>
+          <div class="pf-label">Frontend</div>
+          <div class="pf-stage" style="background:rgba(91,141,184,0.12);color:var(--blue)">Explore</div>
+        </div>
+        <div class="pf-connector"><div class="pf-connector-line"></div><div class="pf-connector-arrow"></div></div>
+
+        <!-- Phase 6 -->
+        <div class="pf-node">
+          <div class="pf-circle" style="background:var(--gray);opacity:0.4">6</div>
+          <div class="pf-label">Deploy</div>
+          <div class="pf-stage" style="background:rgba(160,157,151,0.12);color:var(--gray)">Pending</div>
+        </div>
+      </div>
+
+      <!-- Grid panels -->
+      <div class="grid">
+        <!-- Panel 1: Active Execution -->
+        <div class="panel">
+          <div class="panel-head">
+            <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span class="panel-title">Active Execution</span>
+            <span class="panel-badge" style="background:rgba(184,149,64,0.12);color:var(--yellow)">Wave 2</span>
+          </div>
+          <div class="panel-body">
+            <div class="exec-phase">
+              <div class="exec-phase-num">3</div>
+              <div class="exec-phase-info">
+                <div class="exec-phase-name">API Endpoints</div>
+                <div class="exec-phase-sub">RESTful API with payments & orders</div>
+              </div>
+            </div>
+
+            <div class="exec-prog">
+              <div class="exec-prog-bar"><div class="exec-prog-fill" style="width:60%"></div></div>
+              <div class="exec-prog-meta"><span>3 of 5 tasks complete</span><span>60%</span></div>
+            </div>
+
+            <!-- Wave 1: Done -->
+            <div class="wave-section">
+              <div class="wave-header">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Wave 1 <span class="wave-badge" style="background:rgba(90,158,120,0.12);color:var(--green)">3/3</span>
+              </div>
+              <div class="wave-tasks">
+                <div class="wave-task">
+                  <span class="wave-task-dot" style="background:var(--green)"></span>
+                  <span class="wave-task-name">Product CRUD endpoints</span>
+                  <span class="wave-task-id">TASK-001</span>
+                  <span class="wave-task-st" style="background:rgba(90,158,120,0.1);color:var(--green)">Done</span>
+                </div>
+                <div class="wave-task">
+                  <span class="wave-task-dot" style="background:var(--green)"></span>
+                  <span class="wave-task-name">Cart management API</span>
+                  <span class="wave-task-id">TASK-002</span>
+                  <span class="wave-task-st" style="background:rgba(90,158,120,0.1);color:var(--green)">Done</span>
+                </div>
+                <div class="wave-task">
+                  <span class="wave-task-dot" style="background:var(--green)"></span>
+                  <span class="wave-task-name">Search & filter endpoints</span>
+                  <span class="wave-task-id">TASK-003</span>
+                  <span class="wave-task-st" style="background:rgba(90,158,120,0.1);color:var(--green)">Done</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Wave 2: Active -->
+            <div class="wave-section">
+              <div class="wave-header">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--yellow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 2s linear infinite"><circle cx="12" cy="12" r="10"/></svg>
+                Wave 2 <span class="wave-badge" style="background:rgba(184,149,64,0.12);color:var(--yellow)">0/2 active</span>
+              </div>
+              <div class="wave-tasks">
+                <div class="wave-task" style="border-color:var(--yellow)">
+                  <span class="wave-task-dot" style="background:var(--yellow)"></span>
+                  <span class="wave-task-name">Payment gateway integration</span>
+                  <span class="wave-task-id">TASK-004</span>
+                  <span class="wave-task-st" style="background:rgba(184,149,64,0.1);color:var(--yellow)">Running</span>
+                </div>
+                <div class="wave-task">
+                  <span class="wave-task-dot" style="background:var(--t4)"></span>
+                  <span class="wave-task-name">Order status webhooks</span>
+                  <span class="wave-task-id">TASK-005</span>
+                  <span class="wave-task-st" style="background:rgba(160,157,151,0.1);color:var(--gray)">Queued</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2: Phase Queue -->
+        <div class="panel">
+          <div class="panel-head">
+            <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            <span class="panel-title">Phase Queue</span>
+            <span class="panel-badge" style="background:var(--bdr2);color:var(--t2)">6 phases</span>
+          </div>
+          <div class="panel-body">
+            <div class="queue-item">
+              <div class="queue-num" style="background:var(--green)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div class="queue-info"><div class="queue-name">Project Setup</div><div class="queue-stage">Completed</div></div>
+              <div class="queue-prog">
+                <div class="queue-prog-text" style="color:var(--green)">3/3</div>
+                <div class="queue-prog-bar"><div class="queue-prog-fill" style="width:100%;background:var(--green)"></div></div>
+              </div>
+            </div>
+
+            <div class="queue-item">
+              <div class="queue-num" style="background:var(--orange)">2</div>
+              <div class="queue-info"><div class="queue-name">Database Layer</div><div class="queue-stage">Verifying &middot; 1 gap found</div></div>
+              <div class="queue-prog">
+                <div class="queue-prog-text">4/4</div>
+                <div class="queue-prog-bar"><div class="queue-prog-fill" style="width:100%;background:var(--orange)"></div></div>
+              </div>
+            </div>
+
+            <div class="queue-item active">
+              <div class="queue-num" style="background:var(--yellow)">3</div>
+              <div class="queue-info"><div class="queue-name">API Endpoints</div><div class="queue-stage" style="color:var(--yellow)">Executing &middot; Wave 2</div></div>
+              <div class="queue-prog">
+                <div class="queue-prog-text" style="color:var(--yellow)">3/5</div>
+                <div class="queue-prog-bar"><div class="queue-prog-fill" style="width:60%;background:var(--yellow)"></div></div>
+              </div>
+            </div>
+
+            <div class="queue-item">
+              <div class="queue-num" style="background:var(--purple)">4</div>
+              <div class="queue-info"><div class="queue-name">Auth System</div><div class="queue-stage">Planning &middot; 4 tasks drafted</div></div>
+              <div class="queue-prog">
+                <div class="queue-prog-text">0/4</div>
+                <div class="queue-prog-bar"><div class="queue-prog-fill" style="width:0%"></div></div>
+              </div>
+            </div>
+
+            <div class="queue-item">
+              <div class="queue-num" style="background:var(--blue)">5</div>
+              <div class="queue-info"><div class="queue-name">Frontend UI</div><div class="queue-stage">Exploring &middot; Brainstorm active</div></div>
+              <div class="queue-prog">
+                <div class="queue-prog-text">0/8</div>
+                <div class="queue-prog-bar"><div class="queue-prog-fill" style="width:0%"></div></div>
+              </div>
+            </div>
+
+            <div class="queue-item">
+              <div class="queue-num" style="background:var(--gray)">6</div>
+              <div class="queue-info"><div class="queue-name">Testing & Deploy</div><div class="queue-stage">Pending</div></div>
+              <div class="queue-prog">
+                <div class="queue-prog-text">0/6</div>
+                <div class="queue-prog-bar"><div class="queue-prog-fill" style="width:0%"></div></div>
+              </div>
+            </div>
+
+            <!-- Specs section -->
+            <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--bdr2)">
+              <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--t4);margin-bottom:8px">Specs</div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px">
+                <span style="font-size:10px;padding:2px 8px;border-radius:100px;background:var(--tint-purple);color:var(--purple);font-weight:500">coding-conventions</span>
+                <span style="font-size:10px;padding:2px 8px;border-radius:100px;background:var(--tint-blue);color:var(--blue);font-weight:500">architecture</span>
+                <span style="font-size:10px;padding:2px 8px;border-radius:100px;background:var(--tint-green);color:var(--green);font-weight:500">learnings</span>
+                <span style="font-size:10px;padding:2px 8px;border-radius:100px;background:var(--tint-orange);color:var(--orange);font-weight:500">quality-rules</span>
+              </div>
+              <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">
+                <span style="font-size:10px;padding:2px 8px;border-radius:100px;background:var(--bdr2);color:var(--t2);font-weight:500">SPEC-auth-2026-03-12</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 3: Quality & Metrics -->
+        <div class="panel" style="border-right:none">
+          <div class="panel-head">
+            <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <span class="panel-title">Quality</span>
+          </div>
+          <div class="panel-body">
+            <!-- Metric cards -->
+            <div class="metric-grid">
+              <div class="metric-card">
+                <div class="metric-label">Tasks</div>
+                <div class="metric-val">10<span style="font-size:12px;font-weight:500;color:var(--t3)">/30</span></div>
+                <div class="metric-sub">33% complete</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Phases</div>
+                <div class="metric-val">1<span style="font-size:12px;font-weight:500;color:var(--t3)">/6</span></div>
+                <div class="metric-sub">17% complete</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Issues</div>
+                <div class="metric-val" style="color:var(--red)">2</div>
+                <div class="metric-sub">active</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Commits</div>
+                <div class="metric-val">7</div>
+                <div class="metric-sub">this milestone</div>
+              </div>
+            </div>
+
+            <!-- Verification -->
+            <div class="veri-section">
+              <div class="veri-header">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                Verification (P-02)
+              </div>
+              <div class="veri-row">
+                <svg class="veri-icon" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <span class="veri-text">User model created</span>
+                <span class="veri-st" style="color:var(--green)">Verified</span>
+              </div>
+              <div class="veri-row">
+                <svg class="veri-icon" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <span class="veri-text">Prisma schema valid</span>
+                <span class="veri-st" style="color:var(--green)">Verified</span>
+              </div>
+              <div class="veri-row">
+                <svg class="veri-icon" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span class="veri-text">Query index optimization</span>
+                <span class="veri-st" style="color:var(--red)">Gap</span>
+              </div>
+            </div>
+
+            <!-- Issues -->
+            <div class="issue-section">
+              <div class="issue-header">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                Active Issues
+              </div>
+              <div class="issue-row">
+                <span class="issue-sev" style="background:rgba(196,101,85,0.12);color:var(--red)">High</span>
+                <span class="issue-title">Refresh token rotation not implemented</span>
+                <span class="issue-status">Registered</span>
+              </div>
+              <div class="issue-row">
+                <span class="issue-sev" style="background:rgba(200,134,58,0.12);color:var(--orange)">Med</span>
+                <span class="issue-title">Missing index on order_items.product_id</span>
+                <span class="issue-status">Diagnosed</span>
+              </div>
+            </div>
+
+            <!-- Test coverage -->
+            <div class="veri-section">
+              <div class="veri-header">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Test Coverage (P-02)
+              </div>
+              <div class="cov-bars">
+                <div class="cov-row"><span class="cov-label">Statements</span><div class="cov-bar"><div class="cov-fill" style="width:78.5%;background:var(--yellow)"></div></div><span class="cov-val">78.5%</span></div>
+                <div class="cov-row"><span class="cov-label">Branches</span><div class="cov-bar"><div class="cov-fill" style="width:65.2%;background:var(--orange)"></div></div><span class="cov-val">65.2%</span></div>
+                <div class="cov-row"><span class="cov-label">Functions</span><div class="cov-bar"><div class="cov-fill" style="width:82%;background:var(--green)"></div></div><span class="cov-val">82.0%</span></div>
+                <div class="cov-row"><span class="cov-label">Lines</span><div class="cov-bar"><div class="cov-fill" style="width:79.1%;background:var(--yellow)"></div></div><span class="cov-val">79.1%</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activity strip (bottom spanning all columns) -->
+        <div class="activity-strip">
+          <span class="act-label">Activity</span>
+          <div class="act-item"><span class="act-dot" style="background:var(--yellow)"></span><span class="act-time">2m</span> Payment gateway task started</div>
+          <div class="act-sep"></div>
+          <div class="act-item"><span class="act-dot" style="background:var(--green)"></span><span class="act-time">14m</span> Search endpoints verified</div>
+          <div class="act-sep"></div>
+          <div class="act-item"><span class="act-dot" style="background:var(--yellow)"></span><span class="act-time">38m</span> Wave 2 initiated</div>
+          <div class="act-sep"></div>
+          <div class="act-item"><span class="act-dot" style="background:var(--green)"></span><span class="act-time">1h</span> Wave 1 completed</div>
+          <div class="act-sep"></div>
+          <div class="act-item"><span class="act-dot" style="background:var(--orange)"></span><span class="act-time">1.5h</span> P-02 verification gap found</div>
+          <div class="act-sep"></div>
+          <div class="act-item"><span class="act-dot" style="background:var(--purple)"></span><span class="act-time">2h</span> P-04 plan draft started</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

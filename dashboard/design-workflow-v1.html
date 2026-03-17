@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow V1 — Pipeline Board</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; line-height: 1.5; background: #FAF8F5; color: #2D2A26; -webkit-font-smoothing: antialiased; }
+
+    :root {
+      --bg: #FAF8F5; --bg2: #F3F0EA; --bg3: #EBE8E1; --card: #FFFFFF;
+      --hover: rgba(45,42,38,0.04); --active: rgba(45,42,38,0.07);
+      --t1: #2D2A26; --t2: #78756F; --t3: #A09D97; --t4: #D1CEC8;
+      --bdr: #E8E5DE; --bdr2: #ECEAE4;
+      --blue: #5B8DB8; --green: #5A9E78; --orange: #C8863A; --yellow: #B89540;
+      --purple: #9178B5; --red: #C46555; --gray: #A09D97;
+      --tint-green: #EEF5F0; --tint-yellow: #FBF5E2; --tint-orange: #FAF0E3;
+      --tint-purple: #F2EDF8; --tint-gray: #F2F1EE; --tint-blue: #EDF2F8; --tint-red: #F8EDEC;
+      --rail-w: 48px; --mono: 'JetBrains Mono', monospace;
+      --spring: cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .shell { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ====== TopBar ====== */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 48px; padding: 0 20px; background: var(--bg2);
+      border-bottom: 1px solid var(--bdr); flex-shrink: 0; z-index: 100;
+    }
+    .topbar-l { display: flex; align-items: center; gap: 12px; }
+    .brand { font-weight: 700; font-size: 15px; color: var(--t1); }
+    .topbar-r { display: flex; align-items: center; gap: 12px; }
+    .pill { font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 100px; display: flex; align-items: center; gap: 5px; }
+    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .pill-green { background: rgba(90,158,120,0.12); color: var(--green); }
+    .pill-yellow { background: rgba(184,149,64,0.12); color: var(--yellow); }
+    .phase-num { font-size: 12px; color: var(--t3); }
+    .icon-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms;
+    }
+    .icon-btn:hover { background: var(--hover); color: var(--t1); }
+    .icon-btn svg { width: 16px; height: 16px; stroke-width: 1.8; }
+
+    .body { display: flex; flex: 1; overflow: hidden; position: relative; }
+
+    /* ====== DockRail ====== */
+    .rail {
+      width: var(--rail-w); background: var(--bg2); border-right: 1px solid var(--bdr);
+      flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+      padding-top: 8px; gap: 2px; z-index: 50;
+    }
+    .rail-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms; position: relative;
+    }
+    .rail-btn:hover { background: var(--hover); color: var(--t1); }
+    .rail-btn.active { background: var(--active); color: var(--t1); }
+    .rail-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
+    .rail-btn .tip {
+      position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+      background: var(--t1); color: #fff; font-size: 11px; font-weight: 500;
+      padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+      opacity: 0; pointer-events: none; transition: opacity 150ms; z-index: 200;
+    }
+    .rail-btn:hover .tip { opacity: 1; }
+    .rail-sep { width: 24px; height: 1px; background: var(--bdr2); margin: 6px 0; }
+    .rail-phases { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0; }
+    .rail-pdot { width: 8px; height: 8px; border-radius: 50%; cursor: pointer; transition: transform 150ms; }
+    .rail-pdot:hover { transform: scale(1.4); }
+
+    /* ====== Floating Sidebar ====== */
+    .sidebar-float {
+      position: absolute; left: var(--rail-w); top: 0; bottom: 0;
+      width: 200px; background: var(--bg2); border-right: 1px solid var(--bdr);
+      box-shadow: 4px 0 16px rgba(0,0,0,0.06);
+      z-index: 40; overflow-y: auto;
+      transform: translateX(-100%); opacity: 0;
+      transition: transform 200ms var(--spring), opacity 180ms ease;
+      pointer-events: none;
+    }
+    .sidebar-float.open { transform: translateX(0); opacity: 1; pointer-events: auto; }
+    .sf-section { padding: 12px 10px; }
+    .sf-section + .sf-section { border-top: 1px solid var(--bdr2); }
+    .sf-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t3); padding: 0 10px; margin-bottom: 6px; }
+    .sf-item {
+      display: flex; align-items: center; gap: 10px; padding: 7px 10px;
+      border-radius: 8px; font-size: 12px; font-weight: 500; color: var(--t2);
+      cursor: pointer; border: none; background: none; width: 100%; text-align: left; transition: all 150ms;
+    }
+    .sf-item:hover { background: var(--hover); color: var(--t1); }
+    .sf-item.active { background: var(--active); color: var(--t1); font-weight: 600; }
+    .sf-item .shortcut { margin-left: auto; font-size: 10px; color: var(--t4); }
+    .phase-row {
+      display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+      border-radius: 8px; font-size: 12px; color: var(--t2); cursor: pointer;
+      border: none; background: none; width: 100%; text-align: left; transition: all 150ms;
+    }
+    .phase-row:hover { background: var(--hover); }
+    .pdot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .phase-row .pname { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .phase-row .pprog { font-size: 10px; color: var(--t4); font-family: var(--mono); }
+
+    /* ====== Main ====== */
+    .main { flex: 1; overflow: hidden; background: var(--bg); display: flex; flex-direction: column; min-width: 0; }
+
+    /* Pipeline header */
+    .pipeline-header {
+      display: flex; align-items: center; padding: 12px 16px;
+      border-bottom: 1px solid var(--bdr2); gap: 0; background: var(--bg);
+    }
+    .pipe-stage {
+      display: flex; align-items: center; gap: 8px; padding: 6px 14px;
+      font-size: 11px; font-weight: 600; color: var(--t3); position: relative;
+    }
+    .pipe-stage .ps-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .pipe-stage .ps-count {
+      font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 100px;
+      background: var(--bg2); color: var(--t3); font-family: var(--mono);
+    }
+    .pipe-arrow {
+      width: 20px; height: 1px; background: var(--bdr); position: relative; flex-shrink: 0;
+    }
+    .pipe-arrow::after {
+      content: ''; position: absolute; right: -1px; top: -3px;
+      border: 3px solid transparent; border-left: 4px solid var(--bdr);
+    }
+    .pipe-filter {
+      margin-left: auto; display: flex; align-items: center; gap: 6px;
+    }
+    .filter-chip {
+      font-size: 11px; font-weight: 500; padding: 4px 12px; border-radius: 100px;
+      border: 1px solid var(--bdr); background: var(--card); color: var(--t2);
+      cursor: pointer; transition: all 150ms;
+    }
+    .filter-chip:hover { border-color: var(--t3); color: var(--t1); }
+    .filter-chip.active { background: var(--t1); color: #fff; border-color: var(--t1); }
+
+    /* Pipeline board */
+    .pipeline-board { display: flex; gap: 10px; flex: 1; overflow-x: auto; padding: 12px; }
+    .pipe-col {
+      display: flex; flex-direction: column; min-width: 220px; flex: 1;
+      background: var(--bg2); border-radius: 12px; overflow: hidden;
+    }
+    .pipe-col-head {
+      display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+    }
+    .pipe-col-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .pipe-col-name { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .pipe-col-cnt { font-size: 11px; color: var(--t3); background: var(--card); padding: 0 6px; border-radius: 100px; }
+    .pipe-col-body { flex: 1; overflow-y: auto; padding: 0 8px 8px; display: flex; flex-direction: column; gap: 8px; }
+
+    /* Phase cards */
+    .wf-card {
+      border-radius: 10px; padding: 12px 14px; border: none;
+      cursor: pointer; transition: all 180ms var(--spring);
+    }
+    .wf-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .wf-card.selected { box-shadow: 0 0 0 2px var(--purple); }
+    .wf-card.st-pending { background: var(--tint-gray); }
+    .wf-card.st-exploring { background: var(--tint-blue); }
+    .wf-card.st-planning { background: var(--tint-purple); }
+    .wf-card.st-executing { background: var(--tint-yellow); }
+    .wf-card.st-verifying { background: var(--tint-orange); }
+    .wf-card.st-completed { background: var(--tint-green); }
+
+    .wf-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .wf-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 100px; }
+    .wf-badge.b-pending { background: rgba(160,157,151,0.15); color: var(--gray); }
+    .wf-badge.b-exploring { background: rgba(91,141,184,0.15); color: var(--blue); }
+    .wf-badge.b-planning { background: rgba(145,120,181,0.15); color: var(--purple); }
+    .wf-badge.b-executing { background: rgba(184,149,64,0.15); color: var(--yellow); }
+    .wf-badge.b-verifying { background: rgba(200,134,58,0.15); color: var(--orange); }
+    .wf-badge.b-completed { background: rgba(90,158,120,0.15); color: var(--green); }
+    .wf-id { font-size: 10px; font-family: var(--mono); color: var(--t3); }
+    .wf-title { font-size: 14px; font-weight: 600; color: var(--t1); margin-bottom: 3px; }
+    .wf-goal { font-size: 12px; color: var(--t2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 8px; line-height: 1.5; }
+
+    /* Progress bar */
+    .prog { display: flex; align-items: center; gap: 8px; }
+    .prog-track { flex: 1; height: 5px; background: rgba(0,0,0,0.06); border-radius: 100px; overflow: hidden; }
+    .prog-fill { height: 100%; border-radius: 100px; transition: width 400ms var(--spring); }
+    .prog-text { font-size: 11px; font-weight: 500; color: var(--t3); white-space: nowrap; font-family: var(--mono); }
+
+    /* Wave indicator */
+    .wave { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--yellow); margin-top: 6px; font-weight: 500; }
+    .wave-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: pulse 2s ease infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
+
+    /* Task rows inside cards */
+    .wf-tasks { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+    .wf-task {
+      display: flex; align-items: center; gap: 6px; padding: 4px 8px;
+      border-radius: 6px; font-size: 11px; background: rgba(255,255,255,0.5);
+    }
+    .wf-task-dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    }
+    .wf-task-name { flex: 1; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .wf-task-st { font-size: 10px; font-weight: 600; }
+
+    /* Verification badge */
+    .veri-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      margin-top: 6px; font-size: 10px; font-weight: 600;
+      padding: 2px 8px; border-radius: 100px;
+    }
+    .veri-badge svg { width: 10px; height: 10px; stroke-width: 2.5; }
+    .veri-badge.gaps { background: rgba(196,101,85,0.1); color: var(--red); }
+    .veri-badge.passed { background: rgba(90,158,120,0.1); color: var(--green); }
+
+    /* Issue count */
+    .issue-cnt {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 10px; font-weight: 600; color: var(--red);
+      margin-top: 4px; margin-left: 8px;
+    }
+    .issue-cnt svg { width: 10px; height: 10px; stroke-width: 2; }
+
+    /* Brainstorm indicator */
+    .brainstorm-ind {
+      display: flex; align-items: center; gap: 5px; margin-top: 6px;
+      font-size: 11px; color: var(--blue); font-weight: 500;
+    }
+    .brainstorm-ind svg { width: 12px; height: 12px; stroke-width: 1.8; }
+
+    /* ====== Detail Panel ====== */
+    .detail {
+      width: 0; overflow: hidden; background: var(--bg);
+      border-left: 1px solid var(--bdr); flex-shrink: 0;
+      transition: width 280ms var(--spring);
+      display: flex; flex-direction: column;
+    }
+    .detail.open { width: 340px; }
+    .detail-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--bdr2); min-height: 48px;
+    }
+    .detail-head-title { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .detail-close {
+      width: 28px; height: 28px; border-radius: 8px; border: none; background: none;
+      cursor: pointer; color: var(--t3); display: flex; align-items: center; justify-content: center;
+      transition: all 150ms;
+    }
+    .detail-close:hover { background: var(--hover); color: var(--t1); }
+    .detail-close svg { width: 14px; height: 14px; stroke-width: 2; }
+    .detail-body { flex: 1; overflow-y: auto; padding: 16px; }
+    .d-title { font-size: 16px; font-weight: 700; color: var(--t1); margin-bottom: 4px; }
+    .d-meta { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+    .d-tag { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 100px; }
+    .d-section { margin-bottom: 16px; }
+    .d-section-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t3); margin-bottom: 8px; }
+    .d-desc { font-size: 13px; color: var(--t2); line-height: 1.6; }
+    .d-task-row {
+      display: flex; align-items: center; gap: 8px; padding: 6px 0;
+      border-bottom: 1px solid var(--bdr2); font-size: 12px;
+    }
+    .d-task-row:last-child { border-bottom: none; }
+    .d-task-check { width: 14px; height: 14px; border: 1.5px solid var(--bdr); border-radius: 4px; flex-shrink: 0; }
+    .d-task-check.done { background: var(--green); border-color: var(--green); }
+    .d-task-name { flex: 1; color: var(--t1); }
+    .d-task-status { font-size: 10px; font-weight: 500; }
+
+    /* Lifecycle dots in detail */
+    .lifecycle {
+      display: flex; align-items: center; gap: 0; margin-bottom: 16px;
+    }
+    .lc-step {
+      display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1;
+    }
+    .lc-dot {
+      width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--bdr);
+      background: var(--bg); transition: all 200ms;
+    }
+    .lc-dot.done { background: var(--green); border-color: var(--green); }
+    .lc-dot.current { border-color: var(--yellow); background: var(--tint-yellow); box-shadow: 0 0 0 3px rgba(184,149,64,0.15); }
+    .lc-label { font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--t4); }
+    .lc-dot.done + .lc-label { color: var(--green); }
+    .lc-dot.current ~ .lc-label { color: var(--yellow); }
+    .lc-line { flex: 1; height: 2px; background: var(--bdr); margin-bottom: 14px; }
+    .lc-line.done { background: var(--green); }
+
+    /* Verification detail */
+    .veri-item {
+      display: flex; align-items: flex-start; gap: 6px; padding: 5px 0;
+      font-size: 12px; color: var(--t2); border-bottom: 1px solid var(--bdr2);
+    }
+    .veri-item:last-child { border-bottom: none; }
+    .veri-item svg { width: 12px; height: 12px; flex-shrink: 0; margin-top: 2px; stroke-width: 2; }
+
+    /* Activity log */
+    .d-log { font-size: 12px; color: var(--t2); }
+    .d-log-item { padding: 5px 0; border-bottom: 1px solid var(--bdr2); display: flex; gap: 8px; }
+    .d-log-item:last-child { border-bottom: none; }
+    .d-log-time { font-size: 10px; color: var(--t4); font-family: var(--mono); white-space: nowrap; min-width: 48px; }
+    .d-log-text { flex: 1; }
+
+    /* Summary bar at bottom */
+    .summary-bar {
+      display: flex; align-items: center; gap: 20px; padding: 8px 20px;
+      border-top: 1px solid var(--bdr); background: var(--bg2); font-size: 12px;
+    }
+    .summary-stat { display: flex; align-items: center; gap: 6px; color: var(--t2); }
+    .summary-stat strong { font-weight: 600; color: var(--t1); }
+    .summary-bar .prog { width: 140px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <!-- TopBar -->
+  <header class="topbar">
+    <div class="topbar-l">
+      <button class="icon-btn" type="button" onclick="togglePanel()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+      </button>
+      <span class="brand">Maestro</span>
+      <span style="color:var(--t4)">&middot;</span>
+      <span style="font-size:12px;color:var(--t2)">E-commerce Platform v2.0</span>
+    </div>
+    <div class="topbar-r">
+      <span class="phase-num">Phase 3 / 6</span>
+      <span class="pill pill-yellow"><span class="pill-dot"></span> Executing</span>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- DockRail -->
+    <nav class="rail">
+      <button class="rail-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span class="tip">Dashboard</span>
+      </button>
+      <button class="rail-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="tip">Chat</span>
+      </button>
+      <button class="rail-btn active" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span class="tip">Workflow</span>
+      </button>
+      <button class="rail-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span class="tip">Artifacts</span>
+      </button>
+      <div class="rail-sep"></div>
+      <div class="rail-phases">
+        <span class="rail-pdot" style="background:var(--green)" title="1. Project Setup"></span>
+        <span class="rail-pdot" style="background:var(--orange)" title="2. Database Layer"></span>
+        <span class="rail-pdot" style="background:var(--yellow)" title="3. API Endpoints"></span>
+        <span class="rail-pdot" style="background:var(--purple)" title="4. Auth System"></span>
+        <span class="rail-pdot" style="background:var(--blue)" title="5. Frontend UI"></span>
+        <span class="rail-pdot" style="background:var(--gray)" title="6. Testing & Deploy"></span>
+      </div>
+    </nav>
+
+    <!-- Sidebar -->
+    <aside class="sidebar-float" id="sidePanel">
+      <div class="sf-section">
+        <div class="sf-label">Views</div>
+        <nav>
+          <button class="sf-item active" type="button">Pipeline Board<span class="shortcut">P</span></button>
+          <button class="sf-item" type="button">Timeline<span class="shortcut">T</span></button>
+          <button class="sf-item" type="button">Kanban<span class="shortcut">K</span></button>
+        </nav>
+      </div>
+      <div class="sf-section">
+        <div class="sf-label">Phases</div>
+        <nav>
+          <button class="phase-row"><span class="pdot" style="background:var(--green)"></span><span class="pname">1. Project Setup</span><span class="pprog">3/3</span></button>
+          <button class="phase-row"><span class="pdot" style="background:var(--orange)"></span><span class="pname">2. Database Layer</span><span class="pprog">4/4</span></button>
+          <button class="phase-row"><span class="pdot" style="background:var(--yellow)"></span><span class="pname">3. API Endpoints</span><span class="pprog">3/5</span></button>
+          <button class="phase-row"><span class="pdot" style="background:var(--purple)"></span><span class="pname">4. Auth System</span><span class="pprog">0/4</span></button>
+          <button class="phase-row"><span class="pdot" style="background:var(--blue)"></span><span class="pname">5. Frontend UI</span><span class="pprog">0/8</span></button>
+          <button class="phase-row"><span class="pdot" style="background:var(--gray)"></span><span class="pname">6. Testing &amp; Deploy</span><span class="pprog">0/6</span></button>
+        </nav>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main">
+      <!-- Pipeline header -->
+      <div class="pipeline-header">
+        <div class="pipe-stage"><span class="ps-dot" style="background:var(--gray)"></span> Pending <span class="ps-count">1</span></div>
+        <div class="pipe-arrow"></div>
+        <div class="pipe-stage"><span class="ps-dot" style="background:var(--blue)"></span> Exploring <span class="ps-count">1</span></div>
+        <div class="pipe-arrow"></div>
+        <div class="pipe-stage"><span class="ps-dot" style="background:var(--purple)"></span> Planning <span class="ps-count">1</span></div>
+        <div class="pipe-arrow"></div>
+        <div class="pipe-stage"><span class="ps-dot" style="background:var(--yellow)"></span> Executing <span class="ps-count">1</span></div>
+        <div class="pipe-arrow"></div>
+        <div class="pipe-stage"><span class="ps-dot" style="background:var(--orange)"></span> Verifying <span class="ps-count">1</span></div>
+        <div class="pipe-arrow"></div>
+        <div class="pipe-stage"><span class="ps-dot" style="background:var(--green)"></span> Complete <span class="ps-count">1</span></div>
+        <div class="pipe-filter">
+          <span class="filter-chip active">All</span>
+          <span class="filter-chip">Active</span>
+        </div>
+      </div>
+
+      <!-- Pipeline board -->
+      <div class="pipeline-board">
+        <!-- Pending -->
+        <div class="pipe-col">
+          <div class="pipe-col-head"><span class="pipe-col-dot" style="background:var(--gray)"></span><span class="pipe-col-name">Pending</span><span class="pipe-col-cnt">1</span></div>
+          <div class="pipe-col-body">
+            <div class="wf-card st-pending" onclick="selectCard(this)">
+              <div class="wf-card-top"><span class="wf-badge b-pending">Pending</span><span class="wf-id">P-06</span></div>
+              <div class="wf-title">Testing & Deploy</div>
+              <div class="wf-goal">E2E tests, CI/CD pipeline, and production deployment automation</div>
+              <div class="prog"><div class="prog-track"><div class="prog-fill" style="width:0%;background:var(--gray)"></div></div><span class="prog-text">0/6</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exploring -->
+        <div class="pipe-col">
+          <div class="pipe-col-head"><span class="pipe-col-dot" style="background:var(--blue)"></span><span class="pipe-col-name">Exploring</span><span class="pipe-col-cnt">1</span></div>
+          <div class="pipe-col-body">
+            <div class="wf-card st-exploring" onclick="selectCard(this)">
+              <div class="wf-card-top"><span class="wf-badge b-exploring">Exploring</span><span class="wf-id">P-05</span></div>
+              <div class="wf-title">Frontend UI</div>
+              <div class="wf-goal">React components for product pages, cart, and checkout flow</div>
+              <div class="prog"><div class="prog-track"><div class="prog-fill" style="width:0%;background:var(--blue)"></div></div><span class="prog-text">0/8</span></div>
+              <div class="brainstorm-ind">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5-3.5 6.5L14 17H10l-1.5-1.5C7 14 5 12 5 9a7 7 0 0 1 7-7z"/><line x1="9" y1="21" x2="15" y2="21"/></svg>
+                Brainstorm in progress
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Planning -->
+        <div class="pipe-col">
+          <div class="pipe-col-head"><span class="pipe-col-dot" style="background:var(--purple)"></span><span class="pipe-col-name">Planning</span><span class="pipe-col-cnt">1</span></div>
+          <div class="pipe-col-body">
+            <div class="wf-card st-planning" onclick="selectCard(this)">
+              <div class="wf-card-top"><span class="wf-badge b-planning">Planning</span><span class="wf-id">P-04</span></div>
+              <div class="wf-title">Auth System</div>
+              <div class="wf-goal">JWT authentication, OAuth2, and RBAC permissions system</div>
+              <div class="prog"><div class="prog-track"><div class="prog-fill" style="width:0%;background:var(--purple)"></div></div><span class="prog-text">0/4</span></div>
+              <div class="wf-tasks">
+                <div class="wf-task"><span class="wf-task-dot" style="background:var(--t4)"></span><span class="wf-task-name">User model & migration</span><span class="wf-task-st" style="color:var(--t3)">Draft</span></div>
+                <div class="wf-task"><span class="wf-task-dot" style="background:var(--t4)"></span><span class="wf-task-name">JWT token service</span><span class="wf-task-st" style="color:var(--t3)">Draft</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Executing -->
+        <div class="pipe-col">
+          <div class="pipe-col-head"><span class="pipe-col-dot" style="background:var(--yellow)"></span><span class="pipe-col-name">Executing</span><span class="pipe-col-cnt">1</span></div>
+          <div class="pipe-col-body">
+            <div class="wf-card st-executing selected" onclick="selectCard(this)">
+              <div class="wf-card-top"><span class="wf-badge b-executing">Executing</span><span class="wf-id">P-03</span></div>
+              <div class="wf-title">API Endpoints</div>
+              <div class="wf-goal">RESTful API for product catalog, orders, and payments</div>
+              <div class="prog"><div class="prog-track"><div class="prog-fill" style="width:60%;background:var(--green)"></div></div><span class="prog-text">3/5</span></div>
+              <div class="wave"><span class="wave-dot"></span> Wave 2 active</div>
+              <div class="wf-tasks">
+                <div class="wf-task"><span class="wf-task-dot" style="background:var(--green)"></span><span class="wf-task-name">Product CRUD</span><span class="wf-task-st" style="color:var(--green)">Done</span></div>
+                <div class="wf-task"><span class="wf-task-dot" style="background:var(--green)"></span><span class="wf-task-name">Cart API</span><span class="wf-task-st" style="color:var(--green)">Done</span></div>
+                <div class="wf-task"><span class="wf-task-dot" style="background:var(--green)"></span><span class="wf-task-name">Search & filter</span><span class="wf-task-st" style="color:var(--green)">Done</span></div>
+                <div class="wf-task"><span class="wf-task-dot" style="background:var(--yellow)"></span><span class="wf-task-name">Payment gateway</span><span class="wf-task-st" style="color:var(--yellow)">Running</span></div>
+                <div class="wf-task"><span class="wf-task-dot" style="background:var(--t4)"></span><span class="wf-task-name">Order webhooks</span><span class="wf-task-st" style="color:var(--t3)">Queued</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Verifying -->
+        <div class="pipe-col">
+          <div class="pipe-col-head"><span class="pipe-col-dot" style="background:var(--orange)"></span><span class="pipe-col-name">Verifying</span><span class="pipe-col-cnt">1</span></div>
+          <div class="pipe-col-body">
+            <div class="wf-card st-verifying" onclick="selectCard(this)">
+              <div class="wf-card-top"><span class="wf-badge b-verifying">Verifying</span><span class="wf-id">P-02</span></div>
+              <div class="wf-title">Database Layer</div>
+              <div class="wf-goal">PostgreSQL with Prisma ORM, seed data, and migrations</div>
+              <div class="prog"><div class="prog-track"><div class="prog-fill" style="width:100%;background:var(--green)"></div></div><span class="prog-text">4/4</span></div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <span class="veri-badge gaps">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  1 Gap
+                </span>
+                <span class="issue-cnt">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  1 issue
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Complete -->
+        <div class="pipe-col">
+          <div class="pipe-col-head"><span class="pipe-col-dot" style="background:var(--green)"></span><span class="pipe-col-name">Complete</span><span class="pipe-col-cnt">1</span></div>
+          <div class="pipe-col-body">
+            <div class="wf-card st-completed" onclick="selectCard(this)">
+              <div class="wf-card-top"><span class="wf-badge b-completed">Completed</span><span class="wf-id">P-01</span></div>
+              <div class="wf-title">Project Setup</div>
+              <div class="wf-goal">Monorepo structure, linting, CI pipeline, dependencies</div>
+              <div class="prog"><div class="prog-track"><div class="prog-fill" style="width:100%;background:var(--green)"></div></div><span class="prog-text">3/3</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary bar -->
+      <div class="summary-bar">
+        <div class="summary-stat"><strong>Milestone v1.0</strong></div>
+        <div class="summary-stat">Phases: <strong>1/6</strong> complete</div>
+        <div class="summary-stat">Tasks: <strong>10/30</strong></div>
+        <div class="prog" style="width:140px">
+          <div class="prog-track"><div class="prog-fill" style="width:33%;background:var(--green)"></div></div>
+          <span class="prog-text">33%</span>
+        </div>
+        <div class="summary-stat" style="margin-left:auto">Issues: <strong style="color:var(--red)">2</strong> active</div>
+      </div>
+    </div>
+
+    <!-- Detail Panel -->
+    <aside class="detail open" id="detail">
+      <div class="detail-head">
+        <span class="detail-head-title">Phase Detail</span>
+        <button class="detail-close" type="button" onclick="closeDetail()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="detail-body">
+        <div class="d-title">API Endpoints</div>
+        <div class="d-meta">
+          <span class="d-tag" style="background:rgba(184,149,64,0.12);color:var(--yellow)">Executing</span>
+          <span class="d-tag" style="background:var(--bdr2);color:var(--t2)">P-03</span>
+          <span class="d-tag" style="background:var(--bdr2);color:var(--t2)">Wave 2</span>
+        </div>
+
+        <!-- Lifecycle -->
+        <div class="lifecycle">
+          <div class="lc-step"><div class="lc-dot done"></div><div class="lc-label">Explore</div></div>
+          <div class="lc-line done"></div>
+          <div class="lc-step"><div class="lc-dot done"></div><div class="lc-label">Plan</div></div>
+          <div class="lc-line done"></div>
+          <div class="lc-step"><div class="lc-dot current"></div><div class="lc-label">Execute</div></div>
+          <div class="lc-line"></div>
+          <div class="lc-step"><div class="lc-dot"></div><div class="lc-label">Verify</div></div>
+          <div class="lc-line"></div>
+          <div class="lc-step"><div class="lc-dot"></div><div class="lc-label">Test</div></div>
+        </div>
+
+        <div class="d-section">
+          <div class="d-section-title">Goal</div>
+          <div class="d-desc">RESTful API for product catalog, order management, and payment processing. Includes validation, error handling, and rate limiting.</div>
+        </div>
+
+        <div class="d-section">
+          <div class="d-section-title">Progress</div>
+          <div class="prog" style="margin-bottom:8px">
+            <div class="prog-track" style="height:6px"><div class="prog-fill" style="width:60%;background:var(--green);height:100%;border-radius:100px"></div></div>
+            <span class="prog-text">3/5 tasks</span>
+          </div>
+        </div>
+
+        <div class="d-section">
+          <div class="d-section-title">Tasks</div>
+          <div class="d-task-row"><span class="d-task-check done"></span><span class="d-task-name">Product CRUD endpoints</span><span class="d-task-status" style="color:var(--green)">Done</span></div>
+          <div class="d-task-row"><span class="d-task-check done"></span><span class="d-task-name">Cart management API</span><span class="d-task-status" style="color:var(--green)">Done</span></div>
+          <div class="d-task-row"><span class="d-task-check done"></span><span class="d-task-name">Search & filter</span><span class="d-task-status" style="color:var(--green)">Done</span></div>
+          <div class="d-task-row"><span class="d-task-check"></span><span class="d-task-name">Payment gateway</span><span class="d-task-status" style="color:var(--yellow)">Running</span></div>
+          <div class="d-task-row"><span class="d-task-check"></span><span class="d-task-name">Order webhooks</span><span class="d-task-status" style="color:var(--t3)">Queued</span></div>
+        </div>
+
+        <div class="d-section">
+          <div class="d-section-title">Activity</div>
+          <div class="d-log">
+            <div class="d-log-item"><span class="d-log-time">2m ago</span><span class="d-log-text">Payment gateway task started</span></div>
+            <div class="d-log-item"><span class="d-log-time">14m</span><span class="d-log-text">Search endpoints passed verification</span></div>
+            <div class="d-log-item"><span class="d-log-time">38m</span><span class="d-log-text">Wave 2 initiated (2 tasks)</span></div>
+            <div class="d-log-item"><span class="d-log-time">1h</span><span class="d-log-text">Wave 1 completed (3/3)</span></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+  const panel = document.getElementById('sidePanel');
+  let pinned = false;
+  function togglePanel() { pinned = !pinned; panel.classList.toggle('open', pinned); }
+  const rail = document.querySelector('.rail');
+  rail.addEventListener('mouseenter', () => { if (!pinned) panel.classList.add('open'); });
+  panel.addEventListener('mouseleave', (e) => { if (!pinned && !rail.contains(e.relatedTarget)) panel.classList.remove('open'); });
+  rail.addEventListener('mouseleave', (e) => { if (!pinned && !panel.contains(e.relatedTarget)) panel.classList.remove('open'); });
+
+  function selectCard(el) {
+    document.querySelectorAll('.wf-card.selected').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('detail').classList.add('open');
+  }
+  function closeDetail() {
+    document.getElementById('detail').classList.remove('open');
+    document.querySelectorAll('.wf-card.selected').forEach(c => c.classList.remove('selected'));
+  }
+</script>
+</body>
+</html>

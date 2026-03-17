@@ -1,0 +1,104 @@
+import { lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AppLayout } from '@/client/components/layout/AppLayout.js';
+
+// ---------------------------------------------------------------------------
+// Lazy-loaded routes
+// ---------------------------------------------------------------------------
+
+const KanbanPage = lazy(() =>
+  import('@/client/pages/KanbanPage.js').then((m) => ({ default: m.KanbanPage }))
+);
+
+const ArtifactsPage = lazy(() =>
+  import('@/client/pages/ArtifactsPage.js').then((m) => ({ default: m.ArtifactsPage }))
+);
+
+const ChatPage = lazy(() =>
+  import('@/client/pages/chat/ChatPage.js').then((m) => ({ default: m.ChatPage })),
+);
+
+const WorkflowPage = lazy(() =>
+  import('@/client/pages/WorkflowPage.js').then((m) => ({ default: m.WorkflowPage })),
+);
+
+const McpPage = lazy(() =>
+  import('@/client/pages/McpPage.js').then((m) => ({ default: m.McpPage })),
+);
+
+const SpecsPage = lazy(() =>
+  import('@/client/pages/SpecsPage.js').then((m) => ({ default: m.SpecsPage })),
+);
+
+// ---------------------------------------------------------------------------
+// App — root component with React Router v6 layout routes
+// ---------------------------------------------------------------------------
+
+function LazyFallback() {
+  return (
+    <div className="flex items-center justify-center h-full text-text-tertiary text-[length:var(--font-size-sm)]">
+      Loading...
+    </div>
+  );
+}
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route index element={<Navigate to="/kanban" replace />} />
+          <Route
+            path="kanban"
+            element={
+              <Suspense fallback={<LazyFallback />}>
+                <KanbanPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="artifacts"
+            element={
+              <Suspense fallback={<LazyFallback />}>
+                <ArtifactsPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="chat"
+            element={
+              <Suspense fallback={<LazyFallback />}>
+                <ChatPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="workflow"
+            element={
+              <Suspense fallback={<LazyFallback />}>
+                <WorkflowPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="mcp"
+            element={
+              <Suspense fallback={<LazyFallback />}>
+                <McpPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="specs"
+            element={
+              <Suspense fallback={<LazyFallback />}>
+                <SpecsPage />
+              </Suspense>
+            }
+          />
+          <Route path="*" element={<Navigate to="/kanban" replace />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}

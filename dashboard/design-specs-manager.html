@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Specs Manager — Maestro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; line-height: 1.5; background: #FAF8F5; color: #2D2A26; -webkit-font-smoothing: antialiased; }
+
+    :root {
+      --bg: #FAF8F5; --bg2: #F3F0EA; --bg3: #EBE8E1; --card: #FFFFFF;
+      --hover: rgba(45,42,38,0.04); --active: rgba(45,42,38,0.07);
+      --t1: #2D2A26; --t2: #78756F; --t3: #A09D97; --t4: #D1CEC8;
+      --bdr: #E8E5DE; --bdr2: #ECEAE4;
+      --blue: #5B8DB8; --green: #5A9E78; --orange: #C8863A; --yellow: #B89540;
+      --purple: #9178B5; --red: #C46555; --gray: #A09D97;
+      --tint-green: #EEF5F0; --tint-yellow: #FBF5E2; --tint-orange: #FAF0E3;
+      --tint-purple: #F2EDF8; --tint-gray: #F2F1EE; --tint-blue: #EDF2F8; --tint-red: #F8EDEC;
+      --code-bg: #2C2723; --code-border: #3D3731; --code-t1: #D9D0C4;
+      --rail-w: 48px; --mono: 'JetBrains Mono', monospace;
+      --spring: cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .shell { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ====== TopBar ====== */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 48px; padding: 0 20px; background: var(--bg2);
+      border-bottom: 1px solid var(--bdr); flex-shrink: 0; z-index: 100;
+    }
+    .topbar-l { display: flex; align-items: center; gap: 12px; }
+    .brand { font-weight: 800; font-size: 15px; color: var(--t1); letter-spacing: -0.02em; }
+    .topbar-c { position: absolute; left: 50%; transform: translateX(-50%); }
+    .topbar-r { display: flex; align-items: center; gap: 10px; }
+
+    /* View switcher */
+    .view-switcher {
+      display: flex; align-items: center; position: relative;
+      background: var(--bg3); border-radius: 8px; padding: 3px;
+    }
+    .view-tab {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 14px; border-radius: 6px; border: none; background: none;
+      font-size: 12px; font-weight: 600; color: var(--t3);
+      cursor: pointer; font-family: inherit; transition: color 200ms;
+      position: relative; z-index: 2;
+    }
+    .view-tab:hover { color: var(--t2); }
+    .view-tab.active { color: var(--t1); }
+    .view-tab svg { width: 14px; height: 14px; stroke-width: 1.8; }
+    .view-indicator {
+      position: absolute; top: 3px; left: 3px; height: calc(100% - 6px);
+      background: var(--card); border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      transition: all 280ms var(--spring);
+      z-index: 1;
+    }
+
+    .icon-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms;
+    }
+    .icon-btn:hover { background: var(--hover); color: var(--t1); }
+    .icon-btn svg { width: 16px; height: 16px; stroke-width: 1.8; }
+    .pill { font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 100px; display: flex; align-items: center; gap: 5px; }
+    .pill-green { background: rgba(90,158,120,0.12); color: var(--green); }
+    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    .body { display: flex; flex: 1; overflow: hidden; position: relative; }
+
+    /* ====== Rail ====== */
+    .rail {
+      width: var(--rail-w); background: var(--bg2); border-right: 1px solid var(--bdr);
+      flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+      padding-top: 8px; gap: 2px; z-index: 50;
+    }
+    .rail-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms; position: relative;
+    }
+    .rail-btn:hover { background: var(--hover); color: var(--t1); }
+    .rail-btn.active { background: var(--active); color: var(--t1); }
+    .rail-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
+    .rail-btn .tip {
+      position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+      background: var(--t1); color: #fff; font-size: 11px; font-weight: 500;
+      padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+      opacity: 0; pointer-events: none; transition: opacity 150ms; z-index: 200;
+    }
+    .rail-btn:hover .tip { opacity: 1; }
+    .rail-sep { width: 24px; height: 1px; background: var(--bdr2); margin: 6px 0; }
+
+    /* ====== Main ====== */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex; align-items: center; gap: 10px; padding: 10px 20px;
+      border-bottom: 1px solid var(--bdr2); flex-shrink: 0;
+    }
+    .toolbar-title { font-size: 16px; font-weight: 700; color: var(--t1); }
+    .toolbar-count { font-size: 11px; color: var(--t3); font-family: var(--mono); }
+    .toolbar-spacer { flex: 1; }
+    .search-box {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: 8px; background: var(--card);
+      border: 1px solid var(--bdr); width: 240px; transition: border-color 150ms;
+    }
+    .search-box:focus-within { border-color: var(--purple); }
+    .search-box svg { width: 13px; height: 13px; stroke-width: 2; color: var(--t4); flex-shrink: 0; }
+    .search-box input { border: none; background: none; outline: none; font-size: 12px; color: var(--t1); font-family: inherit; width: 100%; }
+    .search-box input::placeholder { color: var(--t4); }
+    .btn-primary {
+      display: flex; align-items: center; gap: 6px; padding: 6px 14px;
+      border-radius: 8px; border: none; background: var(--t1); color: #fff;
+      font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+      transition: all 150ms;
+    }
+    .btn-primary:hover { background: #1A1816; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+    .btn-primary svg { width: 14px; height: 14px; stroke-width: 2; }
+
+    /* Types */
+    .type-bug { background: var(--tint-red); color: var(--red); }
+    .type-pattern { background: var(--tint-blue); color: var(--blue); }
+    .type-decision { background: var(--tint-purple); color: var(--purple); }
+    .type-rule { background: var(--tint-green); color: var(--green); }
+
+    /* ====== View Container ====== */
+    .view-container { flex: 1; position: relative; overflow: hidden; }
+    .view-pane {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      opacity: 0; pointer-events: none;
+      transition: opacity 220ms ease, transform 280ms var(--spring);
+      transform: translateY(8px);
+    }
+    .view-pane.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
+
+    /* ====== Kanban View ====== */
+    .stats {
+      display: flex; align-items: center; gap: 16px; padding: 8px 20px;
+      border-bottom: 1px solid var(--bdr2); background: var(--bg);
+    }
+    .stat { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; color: var(--t2); }
+    .stat-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .stat-num { font-family: var(--mono); font-weight: 600; color: var(--t1); }
+
+    .kanban { display: flex; gap: 12px; flex: 1; overflow-x: auto; padding: 12px; }
+    .col {
+      display: flex; flex-direction: column; min-width: 280px; flex: 1;
+      background: var(--bg2); border-radius: 12px; overflow: hidden;
+    }
+    .col-head {
+      display: flex; align-items: center; gap: 8px; padding: 12px 14px;
+      border-bottom: 1px solid rgba(0,0,0,0.04);
+    }
+    .col-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .col-icon svg { width: 14px; height: 14px; stroke-width: 1.8; }
+    .col-name { font-size: 13px; font-weight: 700; color: var(--t1); }
+    .col-cnt { font-size: 10px; color: var(--t3); background: var(--card); padding: 0 6px; border-radius: 100px; font-family: var(--mono); }
+    .col-add {
+      margin-left: auto; width: 24px; height: 24px; border-radius: 6px;
+      border: 1px dashed var(--bdr); background: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--t4); transition: all 150ms;
+    }
+    .col-add:hover { border-color: var(--t3); color: var(--t1); background: var(--card); }
+    .col-add svg { width: 12px; height: 12px; stroke-width: 2; }
+    .col-body { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+
+    .spec-card {
+      background: var(--card); border-radius: 10px; padding: 12px 14px;
+      border: 1px solid var(--bdr2); cursor: pointer;
+      transition: all 180ms var(--spring);
+    }
+    .spec-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.06); border-color: var(--bdr); }
+    .spec-card.selected { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(145,120,181,0.2); }
+    .sc-top { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+    .sc-type {
+      font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+      text-transform: uppercase; font-family: var(--mono); letter-spacing: 0.04em;
+    }
+    .sc-id { font-size: 10px; font-family: var(--mono); color: var(--t4); margin-left: auto; }
+    .sc-content { font-size: 13px; color: var(--t1); font-weight: 500; line-height: 1.5; margin-bottom: 8px;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .sc-meta { display: flex; align-items: center; gap: 8px; }
+    .sc-time { font-size: 10px; color: var(--t4); font-family: var(--mono); display: flex; align-items: center; gap: 3px; }
+    .sc-time svg { width: 10px; height: 10px; stroke-width: 2; }
+    .sc-file { font-size: 10px; color: var(--t3); display: flex; align-items: center; gap: 3px; margin-left: auto; }
+    .sc-file svg { width: 10px; height: 10px; stroke-width: 2; }
+
+    /* ====== Table View ====== */
+    .filter-bar {
+      display: flex; align-items: center; gap: 8px; padding: 8px 20px;
+      border-bottom: 1px solid var(--bdr2); background: var(--bg);
+    }
+    .filter-label { font-size: 11px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: 0.04em; }
+    .filter-chip {
+      font-size: 11px; font-weight: 500; padding: 4px 12px; border-radius: 100px;
+      border: 1px solid var(--bdr); background: var(--card); color: var(--t2);
+      cursor: pointer; transition: all 150ms; display: flex; align-items: center; gap: 5px;
+    }
+    .filter-chip:hover { border-color: var(--t3); color: var(--t1); }
+    .filter-chip.active { background: var(--t1); color: #fff; border-color: var(--t1); }
+    .filter-chip .fc-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .filter-chip .fc-count { font-size: 10px; font-family: var(--mono); opacity: 0.7; }
+    .filter-sep { width: 1px; height: 18px; background: var(--bdr2); }
+    .sort-btn {
+      font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 6px;
+      border: 1px solid var(--bdr); background: var(--card); color: var(--t3);
+      cursor: pointer; font-family: inherit; transition: all 150ms;
+      display: flex; align-items: center; gap: 4px; margin-left: auto;
+    }
+    .sort-btn:hover { border-color: var(--t3); color: var(--t1); }
+    .sort-btn svg { width: 12px; height: 12px; stroke-width: 2; }
+
+    .table-wrap { flex: 1; overflow-y: auto; }
+    .spec-table { width: 100%; border-collapse: collapse; }
+    .spec-table th {
+      position: sticky; top: 0; z-index: 10;
+      text-align: left; font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em; color: var(--t3);
+      padding: 8px 12px; background: var(--bg2); border-bottom: 1px solid var(--bdr);
+      cursor: pointer; user-select: none; white-space: nowrap;
+    }
+    .spec-table th:hover { color: var(--t1); }
+    .spec-table th svg { width: 10px; height: 10px; stroke-width: 2; display: inline-block; vertical-align: middle; margin-left: 3px; }
+    .spec-table td { padding: 10px 12px; border-bottom: 1px solid var(--bdr2); vertical-align: top; }
+    .spec-table tr { transition: background 100ms; cursor: pointer; }
+    .spec-table tbody tr:hover td { background: var(--hover); }
+    .spec-table tr.selected td { background: var(--tint-purple); }
+
+    .t-id { font-family: var(--mono); font-size: 11px; color: var(--t3); white-space: nowrap; width: 60px; }
+    .t-type-badge {
+      font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+      text-transform: uppercase; font-family: var(--mono); letter-spacing: 0.04em;
+      white-space: nowrap; display: inline-block;
+    }
+    .t-content { font-size: 13px; color: var(--t1); font-weight: 500; line-height: 1.5; max-width: 500px; }
+    .t-file { font-family: var(--mono); font-size: 11px; color: var(--t3); white-space: nowrap; }
+    .t-time { font-family: var(--mono); font-size: 11px; color: var(--t4); white-space: nowrap; }
+    .t-actions { display: flex; gap: 2px; white-space: nowrap; }
+    .t-act {
+      width: 28px; height: 28px; border-radius: 6px; border: none; background: none;
+      cursor: pointer; color: var(--t4); display: flex; align-items: center; justify-content: center;
+      transition: all 120ms; opacity: 0;
+    }
+    tr:hover .t-act { opacity: 1; }
+    .t-act:hover { background: var(--hover); color: var(--t1); }
+    .t-act.danger:hover { background: var(--tint-red); color: var(--red); }
+    .t-act svg { width: 14px; height: 14px; stroke-width: 1.8; }
+
+    .new-entry-row td { background: var(--tint-purple) !important; border-bottom: 2px solid rgba(145,120,181,0.3) !important; }
+    .ne-input {
+      width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 13px; color: var(--t1); font-family: inherit;
+      outline: none; transition: border-color 150ms;
+    }
+    .ne-input:focus { border-color: var(--purple); }
+    .ne-select {
+      padding: 4px 8px; border-radius: 6px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 11px; color: var(--t1); font-family: inherit;
+      outline: none; cursor: pointer;
+    }
+    .ne-actions { display: flex; gap: 4px; }
+    .ne-btn { padding: 5px 12px; border-radius: 6px; border: none; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 120ms; }
+    .ne-save { background: var(--t1); color: #fff; }
+    .ne-save:hover { background: #1A1816; }
+    .ne-cancel { background: var(--bg2); color: var(--t2); }
+    .ne-cancel:hover { background: var(--bg3); }
+
+    /* Footer */
+    .footer {
+      display: flex; align-items: center; gap: 16px; padding: 6px 20px;
+      border-top: 1px solid var(--bdr2); background: var(--bg2);
+      font-size: 11px; color: var(--t3); flex-shrink: 0;
+    }
+    .footer-stat { display: flex; align-items: center; gap: 4px; }
+    .footer-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+    /* ====== Detail / Preview Panel ====== */
+    .detail-panel {
+      width: 0; overflow: hidden; background: var(--bg);
+      border-left: 1px solid var(--bdr); flex-shrink: 0;
+      transition: width 280ms var(--spring);
+      display: flex; flex-direction: column;
+    }
+    .detail-panel.open { width: 380px; }
+    .dp-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--bdr2); min-height: 48px;
+    }
+    .dp-title { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .dp-close {
+      width: 28px; height: 28px; border-radius: 8px; border: none; background: none;
+      cursor: pointer; color: var(--t3); display: flex; align-items: center; justify-content: center;
+      transition: all 150ms;
+    }
+    .dp-close:hover { background: var(--hover); color: var(--t1); }
+    .dp-close svg { width: 14px; height: 14px; stroke-width: 2; }
+    .dp-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+    .dp-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .dp-entry-title { font-size: 16px; font-weight: 700; color: var(--t1); line-height: 1.5; margin-bottom: 16px; }
+    .dp-section { margin-bottom: 16px; }
+    .dp-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t4); margin-bottom: 6px; }
+    .dp-val { font-size: 13px; color: var(--t2); line-height: 1.6; }
+    .dp-val.mono { font-family: var(--mono); font-size: 12px; }
+    .dp-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .dp-meta-item { padding: 8px 12px; background: var(--bg2); border-radius: 8px; }
+    .dp-meta-key { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--t4); margin-bottom: 2px; }
+    .dp-meta-val { font-size: 13px; font-weight: 600; color: var(--t1); }
+    .dp-meta-val.mono { font-family: var(--mono); font-size: 12px; }
+    .dp-code {
+      background: var(--code-bg); border-radius: 8px; padding: 12px 14px;
+      font-family: var(--mono); font-size: 11px; line-height: 1.6;
+      color: var(--code-t1); border: 1px solid var(--code-border); overflow-x: auto;
+    }
+    .dp-related { display: flex; flex-direction: column; gap: 4px; }
+    .dp-rel-item {
+      display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+      border-radius: 8px; background: var(--card); border: 1px solid var(--bdr2);
+      font-size: 12px; color: var(--t2); cursor: pointer; transition: all 120ms;
+    }
+    .dp-rel-item:hover { border-color: var(--bdr); box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+    .dp-rel-item svg { width: 14px; height: 14px; stroke-width: 1.8; color: var(--t3); flex-shrink: 0; }
+    .dp-rel-name { flex: 1; font-weight: 500; }
+    .dp-rel-type { font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 3px; text-transform: uppercase; font-family: var(--mono); }
+    .dp-actions { display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--bdr2); }
+    .dp-btn {
+      flex: 1; padding: 8px 0; border-radius: 8px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 12px; font-weight: 600; color: var(--t2);
+      cursor: pointer; font-family: inherit; transition: all 150ms;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .dp-btn:hover { border-color: var(--t3); color: var(--t1); }
+    .dp-btn.primary { background: var(--t1); color: #fff; border-color: var(--t1); }
+    .dp-btn.primary:hover { background: #1A1816; }
+    .dp-btn.danger:hover { border-color: var(--red); color: var(--red); background: var(--tint-red); }
+    .dp-btn svg { width: 13px; height: 13px; stroke-width: 2; }
+
+    /* ====== New Entry Modal ====== */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(45,42,38,0.4);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; opacity: 0; pointer-events: none;
+      transition: opacity 200ms; backdrop-filter: blur(4px);
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .modal {
+      background: var(--card); border-radius: 16px; width: 480px; max-height: 80vh;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15); overflow: hidden;
+      transform: translateY(20px) scale(0.96);
+      transition: transform 300ms var(--spring);
+    }
+    .modal-overlay.open .modal { transform: translateY(0) scale(1); }
+    .modal-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid var(--bdr2);
+    }
+    .modal-title { font-size: 16px; font-weight: 700; color: var(--t1); }
+    .modal-body { padding: 20px; }
+    .form-group { margin-bottom: 16px; }
+    .form-label { font-size: 11px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; display: block; }
+    .type-chips { display: flex; gap: 8px; }
+    .type-chip {
+      flex: 1; padding: 10px 0; border-radius: 10px; border: 1.5px solid var(--bdr);
+      background: var(--card); cursor: pointer; text-align: center;
+      font-size: 11px; font-weight: 600; color: var(--t3);
+      transition: all 150ms; font-family: inherit;
+    }
+    .type-chip:hover { border-color: var(--t3); color: var(--t1); }
+    .type-chip.active { font-weight: 700; }
+    .type-chip.active.chip-bug { border-color: var(--red); color: var(--red); background: var(--tint-red); }
+    .type-chip.active.chip-pattern { border-color: var(--blue); color: var(--blue); background: var(--tint-blue); }
+    .type-chip.active.chip-decision { border-color: var(--purple); color: var(--purple); background: var(--tint-purple); }
+    .type-chip.active.chip-rule { border-color: var(--green); color: var(--green); background: var(--tint-green); }
+    .form-textarea {
+      width: 100%; min-height: 120px; padding: 10px 14px; border-radius: 8px;
+      border: 1px solid var(--bdr); background: var(--bg); font-size: 13px;
+      color: var(--t1); font-family: inherit; line-height: 1.6; resize: vertical;
+      outline: none; transition: border-color 150ms;
+    }
+    .form-textarea:focus { border-color: var(--purple); }
+    .form-hint { font-size: 11px; color: var(--t4); margin-top: 4px; }
+    .modal-foot {
+      display: flex; justify-content: flex-end; gap: 8px;
+      padding: 16px 20px; border-top: 1px solid var(--bdr2);
+    }
+    .btn-ghost {
+      padding: 8px 16px; border-radius: 8px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 12px; font-weight: 600; color: var(--t2);
+      cursor: pointer; font-family: inherit; transition: all 150ms;
+    }
+    .btn-ghost:hover { border-color: var(--t3); color: var(--t1); }
+    .preview-box {
+      background: var(--bg); border-radius: 10px; padding: 14px 16px;
+      border: 1px solid var(--bdr2); margin-top: 12px;
+    }
+    .preview-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t4); margin-bottom: 8px; }
+    .preview-target {
+      display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+      border-radius: 6px; background: var(--card); border: 1px solid var(--bdr2);
+      font-size: 11px; font-family: var(--mono); color: var(--t2); margin-bottom: 4px;
+    }
+    .preview-target svg { width: 12px; height: 12px; stroke-width: 1.8; color: var(--t3); }
+    .preview-target .primary { color: var(--t1); font-weight: 600; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <!-- TopBar -->
+  <header class="topbar">
+    <div class="topbar-l">
+      <button class="icon-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg></button>
+      <span class="brand">Maestro</span>
+      <span style="color:var(--t4)">&middot;</span>
+      <span style="font-size:12px;color:var(--t2)">Specs Manager</span>
+    </div>
+
+    <!-- Center View Switcher -->
+    <div class="topbar-c">
+      <div class="view-switcher" id="viewSwitcher">
+        <div class="view-indicator" id="viewIndicator"></div>
+        <button class="view-tab active" data-view="kanban" onclick="switchView('kanban')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="12" rx="1"/></svg>
+          Kanban
+        </button>
+        <button class="view-tab" data-view="table" onclick="switchView('table')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Table
+        </button>
+      </div>
+    </div>
+
+    <div class="topbar-r">
+      <span style="font-size:12px;color:var(--t3)">4 files</span>
+      <span class="pill pill-green"><span class="pill-dot"></span> Synced</span>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- Rail -->
+    <nav class="rail">
+      <button class="rail-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span class="tip">Dashboard</span></button>
+      <button class="rail-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg><span class="tip">Artifacts</span></button>
+      <button class="rail-btn active" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span class="tip">Specs</span></button>
+      <div class="rail-sep"></div>
+    </nav>
+
+    <div class="main">
+      <!-- Shared Toolbar -->
+      <div class="toolbar">
+        <span class="toolbar-title">Specs</span>
+        <span class="toolbar-count">23 entries</span>
+        <div class="toolbar-spacer"></div>
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="Search specs... (Ctrl+K)" />
+        </div>
+        <button class="btn-primary" onclick="openModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Entry
+        </button>
+      </div>
+
+      <!-- View Container -->
+      <div class="view-container">
+        <!-- ====== KANBAN VIEW ====== -->
+        <div class="view-pane active" id="view-kanban">
+          <div class="stats">
+            <div class="stat"><span class="stat-dot" style="background:var(--red)"></span><span class="stat-num">5</span> Bugs</div>
+            <div class="stat"><span class="stat-dot" style="background:var(--blue)"></span><span class="stat-num">8</span> Patterns</div>
+            <div class="stat"><span class="stat-dot" style="background:var(--purple)"></span><span class="stat-num">6</span> Decisions</div>
+            <div class="stat"><span class="stat-dot" style="background:var(--green)"></span><span class="stat-num">4</span> Rules</div>
+          </div>
+          <div class="kanban">
+            <!-- Bugs column -->
+            <div class="col">
+              <div class="col-head">
+                <div class="col-icon" style="background:var(--tint-red);color:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+                <span class="col-name">Bugs</span>
+                <span class="col-cnt">5</span>
+                <button class="col-add" onclick="openModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+              </div>
+              <div class="col-body">
+                <div class="spec-card selected" onclick="openDetail('bug')">
+                  <div class="sc-top"><span class="sc-type type-bug">bug</span><span class="sc-id">L-017</span></div>
+                  <div class="sc-content">Prisma connection pool exhaustion under concurrent requests with nested transactions</div>
+                  <div class="sc-meta">
+                    <span class="sc-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>2h ago</span>
+                    <span class="sc-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg>learnings.md</span>
+                  </div>
+                </div>
+                <div class="spec-card" onclick="openDetail('bug')">
+                  <div class="sc-top"><span class="sc-type type-bug">bug</span><span class="sc-id">L-014</span></div>
+                  <div class="sc-content">ESM import of .js extension required in tsconfig paths resolution with Node 20</div>
+                  <div class="sc-meta">
+                    <span class="sc-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>1d ago</span>
+                    <span class="sc-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg>learnings.md</span>
+                  </div>
+                </div>
+                <div class="spec-card" onclick="openDetail('bug')">
+                  <div class="sc-top"><span class="sc-type type-bug">bug</span><span class="sc-id">L-009</span></div>
+                  <div class="sc-content">Race condition in WebSocket reconnect logic causes duplicate event handlers</div>
+                  <div class="sc-meta">
+                    <span class="sc-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>3d ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Patterns column -->
+            <div class="col">
+              <div class="col-head">
+                <div class="col-icon" style="background:var(--tint-blue);color:var(--blue)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+                <span class="col-name">Patterns</span>
+                <span class="col-cnt">8</span>
+                <button class="col-add" onclick="openModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+              </div>
+              <div class="col-body">
+                <div class="spec-card" onclick="openDetail('pattern')">
+                  <div class="sc-top"><span class="sc-type type-pattern">pattern</span><span class="sc-id">L-018</span></div>
+                  <div class="sc-content">Use barrel exports (index.ts) for all module directories to maintain clean import paths</div>
+                  <div class="sc-meta">
+                    <span class="sc-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>1h ago</span>
+                    <span class="sc-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg>conventions.md</span>
+                  </div>
+                </div>
+                <div class="spec-card" onclick="openDetail('pattern')">
+                  <div class="sc-top"><span class="sc-type type-pattern">pattern</span><span class="sc-id">L-015</span></div>
+                  <div class="sc-content">Error handling: always wrap external API calls in try/catch with typed error responses</div>
+                  <div class="sc-meta">
+                    <span class="sc-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>1d ago</span>
+                    <span class="sc-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg>conventions.md</span>
+                  </div>
+                </div>
+                <div class="spec-card" onclick="openDetail('pattern')">
+                  <div class="sc-top"><span class="sc-type type-pattern">pattern</span><span class="sc-id">L-011</span></div>
+                  <div class="sc-content">Prefer composition over inheritance for service classes; use dependency injection via constructor</div>
+                  <div class="sc-meta">
+                    <span class="sc-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>2d ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Decisions column -->
+            <div class="col">
+              <div class="col-head">
+                <div class="col-icon" style="background:var(--tint-purple);color:var(--purple)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></div>
+                <span class="col-name">Decisions</span>
+                <span class="col-cnt">6</span>
+                <button class="col-add" onclick="openModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+              </div>
+              <div class="col-body">
+                <div class="spec-card" onclick="openDetail('decision')">
+                  <div class="sc-top"><span class="sc-type type-decision">decision</span><span class="sc-id">L-019</span></div>
+                  <div class="sc-content">Use Prisma as ORM with PostgreSQL 15+; Drizzle rejected due to immature relation handling</div>
+                  <div class="sc-meta">
+                    <span class="sc-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>30m ago</span>
+                    <span class="sc-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg>architecture.md</span>
+                  </div>
+                </div>
+                <div class="spec-card" onclick="openDetail('decision')">
+                  <div class="sc-top"><span class="sc-type type-decision">decision</span><span class="sc-id">L-016</span></div>
+                  <div class="sc-content">JWT + refresh token for auth; session-based auth rejected for API-first architecture</div>
+                  <div class="sc-meta">
+                    <span class="sc-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>1d ago</span>
+                    <span class="sc-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg>architecture.md</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Rules column -->
+            <div class="col">
+              <div class="col-head">
+                <div class="col-icon" style="background:var(--tint-green);color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+                <span class="col-name">Rules</span>
+                <span class="col-cnt">4</span>
+                <button class="col-add" onclick="openModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+              </div>
+              <div class="col-body">
+                <div class="spec-card" onclick="openDetail('rule')">
+                  <div class="sc-top"><span class="sc-type type-rule">rule</span><span class="sc-id">L-020</span></div>
+                  <div class="sc-content">All API routes must have request validation via Zod schemas; no unvalidated req.body access</div>
+                  <div class="sc-meta">
+                    <span class="sc-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>15m ago</span>
+                    <span class="sc-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg>quality-rules.md</span>
+                  </div>
+                </div>
+                <div class="spec-card" onclick="openDetail('rule')">
+                  <div class="sc-top"><span class="sc-type type-rule">rule</span><span class="sc-id">L-013</span></div>
+                  <div class="sc-content">Test coverage must exceed 80% for all new modules; no PR merge below threshold</div>
+                  <div class="sc-meta">
+                    <span class="sc-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>2d ago</span>
+                    <span class="sc-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg>quality-rules.md</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====== TABLE VIEW ====== -->
+        <div class="view-pane" id="view-table">
+          <div class="filter-bar">
+            <span class="filter-label">Filter</span>
+            <span class="filter-chip active">All <span class="fc-count">23</span></span>
+            <span class="filter-chip"><span class="fc-dot" style="background:var(--red)"></span>Bug <span class="fc-count">5</span></span>
+            <span class="filter-chip"><span class="fc-dot" style="background:var(--blue)"></span>Pattern <span class="fc-count">8</span></span>
+            <span class="filter-chip"><span class="fc-dot" style="background:var(--purple)"></span>Decision <span class="fc-count">6</span></span>
+            <span class="filter-chip"><span class="fc-dot" style="background:var(--green)"></span>Rule <span class="fc-count">4</span></span>
+            <div class="filter-sep"></div>
+            <span class="filter-chip">learnings.md</span>
+            <span class="filter-chip">conventions.md</span>
+            <span class="filter-chip">architecture.md</span>
+            <span class="filter-chip">quality-rules.md</span>
+            <button class="sort-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+              Newest
+            </button>
+          </div>
+          <div class="table-wrap">
+            <table class="spec-table">
+              <thead>
+                <tr>
+                  <th style="width:60px">ID <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></th>
+                  <th style="width:80px">Type</th>
+                  <th>Content</th>
+                  <th style="width:160px">File</th>
+                  <th style="width:90px">Added</th>
+                  <th style="width:80px"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="new-entry-row" id="newRow" style="display:none">
+                  <td class="t-id" style="color:var(--purple);font-weight:600">NEW</td>
+                  <td>
+                    <select class="ne-select">
+                      <option>bug</option><option>pattern</option><option>decision</option><option>rule</option>
+                    </select>
+                  </td>
+                  <td><input class="ne-input" placeholder="Describe the entry..." /></td>
+                  <td style="font-size:11px;color:var(--t3);font-family:var(--mono)">learnings.md</td>
+                  <td style="font-size:11px;color:var(--t3);font-family:var(--mono)">now</td>
+                  <td>
+                    <div class="ne-actions">
+                      <button class="ne-btn ne-save">Save</button>
+                      <button class="ne-btn ne-cancel" onclick="toggleNewRow()">Cancel</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="selected" onclick="openDetail('rule')">
+                  <td class="t-id">L-020</td>
+                  <td><span class="t-type-badge type-rule">rule</span></td>
+                  <td class="t-content">All API routes must have request validation via Zod schemas; no unvalidated req.body access</td>
+                  <td class="t-file">quality-rules.md</td>
+                  <td class="t-time">15m ago</td>
+                  <td>
+                    <div class="t-actions">
+                      <button class="t-act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                      <button class="t-act danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                    </div>
+                  </td>
+                </tr>
+                <tr onclick="openDetail('decision')">
+                  <td class="t-id">L-019</td>
+                  <td><span class="t-type-badge type-decision">decision</span></td>
+                  <td class="t-content">Use Prisma as ORM with PostgreSQL 15+; Drizzle rejected due to immature relation handling</td>
+                  <td class="t-file">architecture.md</td>
+                  <td class="t-time">30m ago</td>
+                  <td>
+                    <div class="t-actions">
+                      <button class="t-act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                      <button class="t-act danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                    </div>
+                  </td>
+                </tr>
+                <tr onclick="openDetail('pattern')">
+                  <td class="t-id">L-018</td>
+                  <td><span class="t-type-badge type-pattern">pattern</span></td>
+                  <td class="t-content">Use barrel exports (index.ts) for all module directories to maintain clean import paths</td>
+                  <td class="t-file">conventions.md</td>
+                  <td class="t-time">1h ago</td>
+                  <td>
+                    <div class="t-actions">
+                      <button class="t-act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                      <button class="t-act danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                    </div>
+                  </td>
+                </tr>
+                <tr onclick="openDetail('bug')">
+                  <td class="t-id">L-017</td>
+                  <td><span class="t-type-badge type-bug">bug</span></td>
+                  <td class="t-content">Prisma connection pool exhaustion under concurrent requests with nested transactions</td>
+                  <td class="t-file">learnings.md</td>
+                  <td class="t-time">2h ago</td>
+                  <td>
+                    <div class="t-actions">
+                      <button class="t-act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                      <button class="t-act danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                    </div>
+                  </td>
+                </tr>
+                <tr onclick="openDetail('decision')">
+                  <td class="t-id">L-016</td>
+                  <td><span class="t-type-badge type-decision">decision</span></td>
+                  <td class="t-content">JWT + refresh token for auth; session-based auth rejected for API-first architecture</td>
+                  <td class="t-file">architecture.md</td>
+                  <td class="t-time">1d ago</td>
+                  <td>
+                    <div class="t-actions">
+                      <button class="t-act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                      <button class="t-act danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                    </div>
+                  </td>
+                </tr>
+                <tr onclick="openDetail('pattern')">
+                  <td class="t-id">L-015</td>
+                  <td><span class="t-type-badge type-pattern">pattern</span></td>
+                  <td class="t-content">Error handling: always wrap external API calls in try/catch with typed error responses</td>
+                  <td class="t-file">conventions.md</td>
+                  <td class="t-time">1d ago</td>
+                  <td>
+                    <div class="t-actions">
+                      <button class="t-act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                      <button class="t-act danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                    </div>
+                  </td>
+                </tr>
+                <tr onclick="openDetail('bug')">
+                  <td class="t-id">L-014</td>
+                  <td><span class="t-type-badge type-bug">bug</span></td>
+                  <td class="t-content">ESM import of .js extension required in tsconfig paths resolution with Node 20</td>
+                  <td class="t-file">learnings.md</td>
+                  <td class="t-time">1d ago</td>
+                  <td>
+                    <div class="t-actions">
+                      <button class="t-act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                      <button class="t-act danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                    </div>
+                  </td>
+                </tr>
+                <tr onclick="openDetail('rule')">
+                  <td class="t-id">L-013</td>
+                  <td><span class="t-type-badge type-rule">rule</span></td>
+                  <td class="t-content">Test coverage must exceed 80% for all new modules; no PR merge below threshold</td>
+                  <td class="t-file">quality-rules.md</td>
+                  <td class="t-time">2d ago</td>
+                  <td>
+                    <div class="t-actions">
+                      <button class="t-act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                      <button class="t-act danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shared Footer -->
+      <div class="footer">
+        <span>23 entries</span>
+        <div class="footer-stat"><span class="footer-dot" style="background:var(--red)"></span>5 bugs</div>
+        <div class="footer-stat"><span class="footer-dot" style="background:var(--blue)"></span>8 patterns</div>
+        <div class="footer-stat"><span class="footer-dot" style="background:var(--purple)"></span>6 decisions</div>
+        <div class="footer-stat"><span class="footer-dot" style="background:var(--green)"></span>4 rules</div>
+        <span style="margin-left:auto;font-family:var(--mono);font-size:10px">learnings.md &middot; conventions.md &middot; architecture.md &middot; quality-rules.md</span>
+      </div>
+    </div>
+
+    <!-- Shared Detail / Preview Panel -->
+    <aside class="detail-panel open" id="detailPanel">
+      <div class="dp-head">
+        <span class="dp-title">Entry Detail</span>
+        <button class="dp-close" type="button" onclick="closeDetail()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="dp-body">
+        <span class="dp-badge type-rule">Rule</span>
+        <div class="dp-entry-title">All API routes must have request validation via Zod schemas; no unvalidated req.body access</div>
+
+        <div class="dp-meta-grid" style="margin-bottom:16px">
+          <div class="dp-meta-item">
+            <div class="dp-meta-key">ID</div>
+            <div class="dp-meta-val mono">L-020</div>
+          </div>
+          <div class="dp-meta-item">
+            <div class="dp-meta-key">Added</div>
+            <div class="dp-meta-val mono">15m ago</div>
+          </div>
+          <div class="dp-meta-item">
+            <div class="dp-meta-key">Primary</div>
+            <div class="dp-meta-val mono">learnings.md</div>
+          </div>
+          <div class="dp-meta-item">
+            <div class="dp-meta-key">Secondary</div>
+            <div class="dp-meta-val mono">quality-rules.md</div>
+          </div>
+        </div>
+
+        <div class="dp-section">
+          <div class="dp-label">Description</div>
+          <div class="dp-val">Every Express route handler must validate incoming request body using a Zod schema before processing. Direct access to <code style="font-family:var(--mono);font-size:12px;padding:2px 5px;background:var(--bg2);border-radius:4px;color:var(--purple)">req.body</code> properties without validation is prohibited. Schema errors should return 400 with structured error response.</div>
+        </div>
+
+        <div class="dp-section">
+          <div class="dp-label">Example</div>
+          <div class="dp-code">const CreateUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(2).max(100),
+  role: z.enum(['admin', 'user']),
+});
+
+router.post('/users', (req, res) => {
+  const parsed = CreateUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'VALIDATION_ERROR',
+      details: parsed.error.flatten(),
+    });
+  }
+  // Use parsed.data (typed!)
+});</div>
+        </div>
+
+        <div class="dp-section">
+          <div class="dp-label">Related Entries</div>
+          <div class="dp-related">
+            <div class="dp-rel-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              <span class="dp-rel-name">Error handling try/catch pattern</span>
+              <span class="dp-rel-type" style="background:var(--tint-blue);color:var(--blue)">pattern</span>
+            </div>
+            <div class="dp-rel-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span class="dp-rel-name">80% test coverage minimum</span>
+              <span class="dp-rel-type" style="background:var(--tint-green);color:var(--green)">rule</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dp-actions">
+          <button class="dp-btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit</button>
+          <button class="dp-btn danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Delete</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- New Entry Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">New Spec Entry</span>
+      <button class="dp-close" type="button" onclick="closeModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <div class="type-chips">
+          <button class="type-chip chip-bug active" onclick="selectType(this)">Bug</button>
+          <button class="type-chip chip-pattern" onclick="selectType(this)">Pattern</button>
+          <button class="type-chip chip-decision" onclick="selectType(this)">Decision</button>
+          <button class="type-chip chip-rule" onclick="selectType(this)">Rule</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Content</label>
+        <textarea class="form-textarea" placeholder="Describe the bug, pattern, decision, or rule..."></textarea>
+        <div class="form-hint">Supports markdown. Will be timestamped automatically.</div>
+      </div>
+      <div class="preview-box">
+        <div class="preview-label">Will write to</div>
+        <div class="preview-target"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="primary">.workflow/specs/learnings.md</span></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Add Entry
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // View switcher
+  let currentView = 'kanban';
+
+  function switchView(view) {
+    if (view === currentView) return;
+    currentView = view;
+
+    // Update tabs
+    document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.view-tab[data-view="${view}"]`).classList.add('active');
+
+    // Update indicator position
+    updateIndicator();
+
+    // Toggle view panes
+    document.querySelectorAll('.view-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById(`view-${view}`).classList.add('active');
+  }
+
+  function updateIndicator() {
+    const switcher = document.getElementById('viewSwitcher');
+    const activeTab = switcher.querySelector('.view-tab.active');
+    const indicator = document.getElementById('viewIndicator');
+    if (activeTab && indicator) {
+      indicator.style.width = activeTab.offsetWidth + 'px';
+      indicator.style.left = (activeTab.offsetLeft) + 'px';
+    }
+  }
+
+  // Detail panel
+  function openDetail() {
+    document.getElementById('detailPanel').classList.add('open');
+  }
+  function closeDetail() {
+    document.getElementById('detailPanel').classList.remove('open');
+    document.querySelectorAll('.spec-card.selected').forEach(c => c.classList.remove('selected'));
+    document.querySelectorAll('.spec-table tr.selected').forEach(r => r.classList.remove('selected'));
+  }
+
+  // Modal
+  function openModal() {
+    document.getElementById('modal').classList.add('open');
+  }
+  function closeModal() {
+    document.getElementById('modal').classList.remove('open');
+  }
+  function selectType(el) {
+    document.querySelectorAll('.type-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // Table inline new row
+  function toggleNewRow() {
+    const row = document.getElementById('newRow');
+    row.style.display = row.style.display === 'none' ? '' : 'none';
+    if (row.style.display !== 'none') {
+      row.querySelector('.ne-input').focus();
+    }
+  }
+
+  // Filter chips
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      if (chip.textContent.trim().startsWith('All')) {
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+      } else {
+        document.querySelector('.filter-chip.active')?.classList.remove('active');
+        chip.classList.toggle('active');
+      }
+    });
+  });
+
+  // Initialize indicator on load
+  requestAnimationFrame(() => updateIndicator());
+  window.addEventListener('resize', updateIndicator);
+</script>
+</body>
+</html>

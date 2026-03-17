@@ -1,0 +1,95 @@
+{
+  "nav": {
+    "home": "Home",
+    "search": "Search",
+    "categories": "Categories"
+  },
+  "sidebar": {
+    "toggle": "Toggle sidebar",
+    "categories": "Categories",
+    "commands": "Commands",
+    "skills": "Skills",
+    "codex_skills": "Codex Skills",
+    "expand_all": "Expand all",
+    "collapse_all": "Collapse all"
+  },
+  "topbar": {
+    "title": "Maestro Documentation",
+    "search_placeholder": "Search commands and skills...",
+    "aria_search": "Search",
+    "logo_alt": "Maestro Logo"
+  },
+  "accessibility": {
+    "main_content": "Main content area",
+    "skip_to_content": "Skip to main content"
+  },
+  "language_switcher": {
+    "en": "English",
+    "zh": "中文",
+    "aria_label": "Language switcher"
+  },
+  "theme_toggle": {
+    "light": "Light theme",
+    "dark": "Dark theme",
+    "aria_label": "Toggle theme"
+  },
+  "search": {
+    "placeholder": "Search...",
+    "no_results": "No results found",
+    "type": {
+      "command": "Command",
+      "claude_skill": "Claude Skill",
+      "codex_skill": "Codex Skill"
+    },
+    "results_count": "{count} result(s)",
+    "searching": "Searching..."
+  },
+  "breadcrumbs": {
+    "home": "Home",
+    "aria_label": "Breadcrumb navigation"
+  },
+  "categories": {
+    "pipeline": "Pipeline",
+    "spec": "Specification",
+    "quality": "Quality",
+    "manage": "Management",
+    "maestro": "Maestro",
+    "team": "Team Skills",
+    "cli": "CLI Tools",
+    "brainstorm": "Brainstorm",
+    "workflow": "Workflow",
+    "ddd": "Document-Driven",
+    "issue": "Issue System",
+    "paper": "Paper Writing",
+    "scholar": "Scholar",
+    "context": "Context",
+    "data": "Data",
+    "experiment": "Experiment",
+    "ui_design": "UI Design",
+    "session": "Session"
+  },
+  "landing": {
+    "description": "Complete documentation for Maestro commands, skills, and workflows."
+  },
+  "content": {
+    "copy": "Copy",
+    "copied": "Copied!",
+    "expand_all": "Expand All",
+    "collapse_all": "Collapse All",
+    "search_json": "Search in JSON...",
+    "parameters": "Parameters",
+    "required": "Required",
+    "optional": "Optional",
+    "type": "Type",
+    "default": "Default",
+    "description": "Description",
+    "view_details": "View Details",
+    "roles": "Roles",
+    "phases": "Phases",
+    "command_count": "{{count}} commands",
+    "skill_count": "{{count}} skills",
+    "usage": "Usage",
+    "allowed_tools": "Allowed Tools",
+    "file_reference": "File Reference"
+  }
+}

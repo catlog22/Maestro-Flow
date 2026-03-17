@@ -1,0 +1,70 @@
+# Rule Template: Implementation Patterns
+
+## Variables
+- {TECH_STACK_NAME}: Tech stack display name
+- {FILE_EXT}: File extension pattern
+
+## Output Format
+
+```markdown
+---
+paths: src/**/*.{FILE_EXT}
+---
+
+# {TECH_STACK_NAME} Implementation Patterns
+
+## Common Patterns
+
+[With code examples from Exa research]
+
+### Pattern 1: [Name]
+```{lang}
+// Example code
+```
+**When to use**: [Context]
+**Benefits**: [Why this pattern]
+
+### Pattern 2: [Name]
+...
+
+## Anti-Patterns to Avoid
+
+[Common mistakes with examples]
+
+### Anti-Pattern 1: [Name]
+```{lang}
+// Bad example
+```
+**Problem**: [Why it's bad]
+**Solution**: [Better approach]
+
+## Error Handling
+
+[Error handling conventions]
+- Error types and hierarchy
+- Try-catch patterns
+- Error propagation
+- Logging practices
+
+## Async Patterns
+
+[Asynchronous code conventions - if applicable]
+- Promise handling
+- Async/await usage
+- Concurrency patterns
+- Error handling in async code
+
+## State Management
+
+[State handling patterns]
+- Local state patterns
+- Shared state approaches
+- Immutability practices
+```
+
+## Content Guidelines
+
+- Focus on source code implementation
+- Provide concrete code examples
+- Show both good and bad patterns
+- Include context for when to apply each pattern

@@ -1,0 +1,122 @@
+# Rule Template: Component Rules (Frontend/Fullstack Only)
+
+## Variables
+- {TECH_STACK_NAME}: Tech stack display name
+- {FILE_EXT}: File extension pattern
+- {UI_FRAMEWORK}: UI framework (React, Vue, etc)
+
+## Output Format
+
+```markdown
+---
+paths:
+  - "**/components/**/*.{FILE_EXT}"
+  - "**/ui/**/*.{FILE_EXT}"
+  - "**/views/**/*.{FILE_EXT}"
+  - "**/pages/**/*.{FILE_EXT}"
+---
+
+# {TECH_STACK_NAME} Component Rules
+
+## Component Structure
+
+[Organization patterns from Exa research]
+
+### File Organization
+```
+components/
+├── common/          # Shared components
+├── features/        # Feature-specific
+├── layout/          # Layout components
+└── ui/              # Base UI elements
+```
+
+### Component Template
+```{lang}
+// Standard component structure
+```
+
+### Naming Conventions
+- PascalCase for components
+- Descriptive names
+- Prefix conventions (if any)
+
+## Props & State
+
+[State management guidelines]
+
+### Props Definition
+```{lang}
+// Props type/interface example
+```
+
+### Props Best Practices
+- Required vs optional
+- Default values
+- Prop validation
+- Prop naming
+
+### Local State
+- When to use local state
+- State initialization
+- State updates
+
+### Shared State
+- State management approach
+- Context usage
+- Store patterns
+
+## Styling
+
+[CSS/styling conventions]
+
+### Approach
+- [CSS Modules/Styled Components/Tailwind/etc]
+
+### Style Organization
+```{lang}
+// Style example
+```
+
+### Naming Conventions
+- Class naming (BEM, etc)
+- CSS variable usage
+- Theme integration
+
+## Accessibility
+
+[A11y requirements]
+
+### Essential Requirements
+- Semantic HTML
+- ARIA labels
+- Keyboard navigation
+- Focus management
+
+### Testing A11y
+- Automated checks
+- Manual testing
+- Screen reader testing
+
+## Performance
+
+[Performance guidelines]
+
+### Optimization Patterns
+- Memoization
+- Lazy loading
+- Code splitting
+- Virtual lists
+
+### Avoiding Re-renders
+- When to memoize
+- Callback optimization
+- State structure
+```
+
+## Content Guidelines
+
+- Focus on component-specific patterns
+- Include framework-specific examples
+- Cover accessibility requirements
+- Address performance considerations

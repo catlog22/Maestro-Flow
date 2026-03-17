@@ -1,0 +1,436 @@
+@import "tailwindcss";
+
+/*
+ * Notion-Style Design Token System
+ * Source: ../../.workflow/.team/TLV4-docsite-2026-03-15/spec/design-tokens.json
+ * Light/dark mode via prefers-color-scheme + data-theme attribute
+ */
+
+/* ===== LIGHT MODE (default) ===== */
+:root,
+[data-theme="light"] {
+  /* Background */
+  --color-bg-primary: #FFFFFF;
+  --color-bg-secondary: #F7F6F3;
+  --color-bg-card: #FFFFFF;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-hover: rgba(55, 53, 47, 0.04);
+  --color-bg-active: rgba(55, 53, 47, 0.08);
+
+  /* Text */
+  --color-text-primary: #37352F;
+  --color-text-secondary: #6F6E6B;
+  --color-text-tertiary: #91918D;
+  --color-text-placeholder: #C7C7C4;
+  --color-text-inverse: #FFFFFF;
+
+  /* Border */
+  --color-border: #E3E2DE;
+  --color-border-divider: #EBEBEA;
+  --color-border-focused: rgba(35, 131, 226, 0.57);
+
+  /* Accent */
+  --color-accent-blue: #2383E2;
+  --color-accent-blue-light: #4B8BBF;
+  --color-accent-orange: #D9730D;
+  --color-accent-yellow: #A07623;
+  --color-accent-green: #0F7B6C;
+  --color-accent-pink: #C14C8A;
+  --color-accent-purple: #6940A5;
+  --color-accent-red: #E03E3E;
+  --color-accent-gray: #87867F;
+
+  /* Status */
+  --color-status-pending: #87867F;
+  --color-status-exploring: #2383E2;
+  --color-status-planning: #6940A5;
+  --color-status-executing: #A07623;
+  --color-status-verifying: #D9730D;
+  --color-status-testing: #4B8BBF;
+  --color-status-completed: #0F7B6C;
+  --color-status-blocked: #E03E3E;
+
+  /* Status Backgrounds */
+  --color-status-bg-pending: rgba(135, 134, 127, 0.12);
+  --color-status-bg-exploring: rgba(35, 131, 226, 0.12);
+  --color-status-bg-planning: rgba(105, 64, 165, 0.12);
+  --color-status-bg-executing: rgba(160, 118, 35, 0.12);
+  --color-status-bg-verifying: rgba(217, 115, 13, 0.12);
+  --color-status-bg-testing: rgba(75, 139, 191, 0.12);
+  --color-status-bg-completed: rgba(15, 123, 108, 0.12);
+  --color-status-bg-blocked: rgba(224, 62, 62, 0.12);
+
+  /* Selection */
+  --color-selection: rgba(35, 131, 226, 0.28);
+  --color-selection-text: #37352F;
+  --color-selection-range: rgba(35, 131, 226, 0.14);
+
+  /* Scrollbar */
+  --color-scrollbar-thumb: rgba(55, 53, 47, 0.16);
+  --color-scrollbar-thumb-hover: rgba(55, 53, 47, 0.28);
+  --color-scrollbar-track: transparent;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(15, 15, 15, 0.05);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(15, 15, 15, 0.04);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(15, 15, 15, 0.03);
+  --shadow-inner: inset 0 0 0 1px rgba(15, 15, 15, 0.05);
+  --shadow-focus-ring: 0 0 0 2px #FFFFFF, 0 0 0 4px rgba(35, 131, 226, 0.57);
+}
+
+/* ===== DARK MODE ===== */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg-primary: #191919;
+    --color-bg-secondary: #202020;
+    --color-bg-card: #252525;
+    --color-bg-elevated: #2F2F2F;
+    --color-bg-hover: rgba(255, 255, 255, 0.055);
+    --color-bg-active: rgba(255, 255, 255, 0.08);
+
+    --color-text-primary: rgba(255, 255, 255, 0.9);
+    --color-text-secondary: rgba(255, 255, 255, 0.6);
+    --color-text-tertiary: rgba(255, 255, 255, 0.4);
+    --color-text-placeholder: rgba(255, 255, 255, 0.3);
+    --color-text-inverse: #FFFFFF;
+
+    --color-border: rgba(255, 255, 255, 0.08);
+    --color-border-divider: rgba(255, 255, 255, 0.06);
+    --color-border-focused: rgba(35, 131, 226, 0.57);
+
+    --color-accent-blue: #2383E2;
+    --color-accent-blue-light: #529CCA;
+    --color-accent-orange: #C47539;
+    --color-accent-yellow: #C4963A;
+    --color-accent-green: #3A8660;
+    --color-accent-pink: #A14C6B;
+    --color-accent-purple: #8E6FBF;
+    --color-accent-red: #C4554D;
+    --color-accent-gray: #787774;
+
+    --color-status-pending: #787774;
+    --color-status-exploring: #2383E2;
+    --color-status-planning: #8E6FBF;
+    --color-status-executing: #C4963A;
+    --color-status-verifying: #C47539;
+    --color-status-testing: #529CCA;
+    --color-status-completed: #3A8660;
+    --color-status-blocked: #C4554D;
+
+    --color-status-bg-pending: rgba(120, 119, 116, 0.15);
+    --color-status-bg-exploring: rgba(35, 131, 226, 0.15);
+    --color-status-bg-planning: rgba(142, 111, 191, 0.15);
+    --color-status-bg-executing: rgba(196, 150, 58, 0.15);
+    --color-status-bg-verifying: rgba(196, 117, 57, 0.15);
+    --color-status-bg-testing: rgba(82, 156, 202, 0.15);
+    --color-status-bg-completed: rgba(58, 134, 96, 0.15);
+    --color-status-bg-blocked: rgba(196, 85, 77, 0.15);
+
+    --color-selection: rgba(35, 131, 226, 0.35);
+    --color-selection-text: rgba(255, 255, 255, 0.9);
+    --color-selection-range: rgba(35, 131, 226, 0.20);
+
+    --color-scrollbar-thumb: rgba(255, 255, 255, 0.12);
+    --color-scrollbar-thumb-hover: rgba(255, 255, 255, 0.22);
+    --color-scrollbar-track: transparent;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    --shadow-inner: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    --shadow-focus-ring: 0 0 0 2px #191919, 0 0 0 4px rgba(35, 131, 226, 0.57);
+  }
+}
+
+[data-theme="dark"] {
+  --color-bg-primary: #191919;
+  --color-bg-secondary: #202020;
+  --color-bg-card: #252525;
+  --color-bg-elevated: #2F2F2F;
+  --color-bg-hover: rgba(255, 255, 255, 0.055);
+  --color-bg-active: rgba(255, 255, 255, 0.08);
+
+  --color-text-primary: rgba(255, 255, 255, 0.9);
+  --color-text-secondary: rgba(255, 255, 255, 0.6);
+  --color-text-tertiary: rgba(255, 255, 255, 0.4);
+  --color-text-placeholder: rgba(255, 255, 255, 0.3);
+  --color-text-inverse: #FFFFFF;
+
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-divider: rgba(255, 255, 255, 0.06);
+  --color-border-focused: rgba(35, 131, 226, 0.57);
+
+  --color-accent-blue: #2383E2;
+  --color-accent-blue-light: #529CCA;
+  --color-accent-orange: #C47539;
+  --color-accent-yellow: #C4963A;
+  --color-accent-green: #3A8660;
+  --color-accent-pink: #A14C6B;
+  --color-accent-purple: #8E6FBF;
+  --color-accent-red: #C4554D;
+  --color-accent-gray: #787774;
+
+  --color-status-pending: #787774;
+  --color-status-exploring: #2383E2;
+  --color-status-planning: #8E6FBF;
+  --color-status-executing: #C4963A;
+  --color-status-verifying: #C47539;
+  --color-status-testing: #529CCA;
+  --color-status-completed: #3A8660;
+  --color-status-blocked: #C4554D;
+
+  --color-status-bg-pending: rgba(120, 119, 116, 0.15);
+  --color-status-bg-exploring: rgba(35, 131, 226, 0.15);
+  --color-status-bg-planning: rgba(142, 111, 191, 0.15);
+  --color-status-bg-executing: rgba(196, 150, 58, 0.15);
+  --color-status-bg-verifying: rgba(196, 117, 57, 0.15);
+  --color-status-bg-testing: rgba(82, 156, 202, 0.15);
+  --color-status-bg-completed: rgba(58, 134, 96, 0.15);
+  --color-status-bg-blocked: rgba(196, 85, 77, 0.15);
+
+  --color-selection: rgba(35, 131, 226, 0.35);
+  --color-selection-text: rgba(255, 255, 255, 0.9);
+  --color-selection-range: rgba(35, 131, 226, 0.20);
+
+  --color-scrollbar-thumb: rgba(255, 255, 255, 0.12);
+  --color-scrollbar-thumb-hover: rgba(255, 255, 255, 0.22);
+  --color-scrollbar-track: transparent;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-inner: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-focus-ring: 0 0 0 2px #191919, 0 0 0 4px rgba(35, 131, 226, 0.57);
+}
+
+/* ===== STATIC TOKENS ===== */
+:root {
+  /* Typography */
+  --font-sans: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+
+  --font-size-xs: 0.6875rem;
+  --font-size-sm: 0.8125rem;
+  --font-size-base: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
+
+  --letter-spacing-tighter: -0.02em;
+  --letter-spacing-tight: -0.01em;
+  --letter-spacing-normal: 0em;
+  --letter-spacing-wide: 0.05em;
+
+  /* Spacing */
+  --spacing-0: 0px;
+  --spacing-0-5: 2px;
+  --spacing-1: 4px;
+  --spacing-1-5: 6px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+
+  /* Sizing */
+  --size-sidebar-width: 240px;
+  --size-topbar-height: 44px;
+  --size-card-min-width: 260px;
+  --size-card-max-width: 340px;
+  --size-tree-panel-width: 240px;
+  --size-icon-sm: 14px;
+  --size-icon-md: 16px;
+  --size-icon-lg: 20px;
+  --size-scrollbar-width: 8px;
+
+  /* Border Radius */
+  --radius-none: 0px;
+  --radius-sm: 4px;
+  --radius-default: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --duration-fast: 100ms;
+  --duration-normal: 150ms;
+  --duration-slow: 200ms;
+  --duration-smooth: 300ms;
+  --ease-notion: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Opacity */
+  --opacity-disabled: 0.4;
+  --opacity-hover-overlay: 0.055;
+  --opacity-active-overlay: 0.08;
+  --opacity-card-dimmed: 0.6;
+  --opacity-backdrop: 0.5;
+}
+
+/* ===== TAILWIND v4 @theme ===== */
+@theme {
+  /* Colors — surfaces */
+  --color-bg-primary: var(--color-bg-primary);
+  --color-bg-secondary: var(--color-bg-secondary);
+  --color-bg-card: var(--color-bg-card);
+  --color-bg-elevated: var(--color-bg-elevated);
+  --color-bg-hover: var(--color-bg-hover);
+  --color-bg-active: var(--color-bg-active);
+
+  /* Colors — text */
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-tertiary: var(--color-text-tertiary);
+  --color-text-placeholder: var(--color-text-placeholder);
+  --color-text-inverse: var(--color-text-inverse);
+
+  /* Colors — borders */
+  --color-border: var(--color-border);
+  --color-border-divider: var(--color-border-divider);
+  --color-border-focused: var(--color-border-focused);
+
+  /* Colors — accents */
+  --color-accent-blue: var(--color-accent-blue);
+  --color-accent-blue-light: var(--color-accent-blue-light);
+  --color-accent-orange: var(--color-accent-orange);
+  --color-accent-yellow: var(--color-accent-yellow);
+  --color-accent-green: var(--color-accent-green);
+  --color-accent-pink: var(--color-accent-pink);
+  --color-accent-purple: var(--color-accent-purple);
+  --color-accent-red: var(--color-accent-red);
+  --color-accent-gray: var(--color-accent-gray);
+
+  /* Colors — workflow status */
+  --color-status-pending: var(--color-status-pending);
+  --color-status-exploring: var(--color-status-exploring);
+  --color-status-planning: var(--color-status-planning);
+  --color-status-executing: var(--color-status-executing);
+  --color-status-verifying: var(--color-status-verifying);
+  --color-status-testing: var(--color-status-testing);
+  --color-status-completed: var(--color-status-completed);
+  --color-status-blocked: var(--color-status-blocked);
+
+  /* Colors — status badge backgrounds */
+  --color-status-bg-pending: var(--color-status-bg-pending);
+  --color-status-bg-exploring: var(--color-status-bg-exploring);
+  --color-status-bg-planning: var(--color-status-bg-planning);
+  --color-status-bg-executing: var(--color-status-bg-executing);
+  --color-status-bg-verifying: var(--color-status-bg-verifying);
+  --color-status-bg-testing: var(--color-status-bg-testing);
+  --color-status-bg-completed: var(--color-status-bg-completed);
+  --color-status-bg-blocked: var(--color-status-bg-blocked);
+
+  /* Colors — selection */
+  --color-selection: var(--color-selection);
+  --color-selection-text: var(--color-selection-text);
+  --color-selection-range: var(--color-selection-range);
+
+  /* Colors — scrollbar */
+  --color-scrollbar-thumb: var(--color-scrollbar-thumb);
+  --color-scrollbar-thumb-hover: var(--color-scrollbar-thumb-hover);
+
+  /* Typography */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --text-xs: var(--font-size-xs);
+  --text-sm: var(--font-size-sm);
+  --text-base: var(--font-size-base);
+  --text-md: var(--font-size-md);
+  --text-lg: var(--font-size-lg);
+  --text-xl: var(--font-size-xl);
+  --text-2xl: var(--font-size-2xl);
+
+  /* Shadows */
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-inner: var(--shadow-inner);
+  --shadow-focus-ring: var(--shadow-focus-ring);
+
+  /* Border radius */
+  --radius-none: var(--radius-none);
+  --radius-sm: var(--radius-sm);
+  --radius-default: var(--radius-default);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-full: var(--radius-full);
+
+  /* Transitions */
+  --ease-notion: var(--ease-notion);
+  --ease-out: var(--ease-out);
+  --ease-in-out: var(--ease-in-out);
+
+  /* Custom spacing extensions */
+  --spacing-0-5: var(--spacing-0-5);
+  --spacing-1-5: var(--spacing-1-5);
+}
+
+/* ===== BASE STYLES ===== */
+body {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: var(--size-scrollbar-width);
+  height: var(--size-scrollbar-width);
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar-thumb);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scrollbar-thumb-hover);
+}
+
+/* Selection */
+::selection {
+  background-color: var(--color-selection);
+  color: var(--color-selection-text);
+}
+
+/* Focus visible */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring);
+}
+
+/* Reduced motion: disable all animations */
+@media (prefers-reduced-motion: reduce) {
+  .animate-ping,
+  .animate-pulse {
+    animation: none;
+  }
+}

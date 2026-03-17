@@ -1,0 +1,12 @@
+{
+  "phase": 0,
+  "status": "pending",
+  "verified_at": null,
+  "verifier": "workflow-verifier",
+  "must_haves": {
+    "truths": [],
+    "artifacts": [],
+    "key_links": []
+  },
+  "gaps": []
+}

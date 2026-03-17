@@ -1,0 +1,55 @@
+{
+  "phase": 0,
+  "slug": "{{SLUG}}",
+  "title": "{{TITLE}}",
+  "status": "pending",
+  "created_at": "{{TIMESTAMP}}",
+  "updated_at": "{{TIMESTAMP}}",
+
+  "goal": "{{GOAL}}",
+  "success_criteria": [],
+  "requirements": [],
+  "spec_ref": null,
+
+  "plan": {
+    "task_ids": [],
+    "task_count": 0,
+    "complexity": null,
+    "waves": []
+  },
+
+  "execution": {
+    "method": "agent",
+    "started_at": null,
+    "completed_at": null,
+    "tasks_completed": 0,
+    "tasks_total": 0,
+    "current_wave": 0,
+    "commits": []
+  },
+
+  "verification": {
+    "status": "pending",
+    "verified_at": null,
+    "must_haves": [],
+    "gaps": []
+  },
+
+  "validation": {
+    "status": "pending",
+    "test_coverage": null,
+    "gaps": []
+  },
+
+  "uat": {
+    "status": "pending",
+    "test_count": 0,
+    "passed": 0,
+    "gaps": []
+  },
+
+  "reflection": {
+    "rounds": 0,
+    "strategy_adjustments": []
+  }
+}

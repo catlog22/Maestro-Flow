@@ -1,0 +1,95 @@
+{
+  "nav": {
+    "home": "首页",
+    "search": "搜索",
+    "categories": "分类"
+  },
+  "sidebar": {
+    "toggle": "切换侧边栏",
+    "categories": "分类",
+    "commands": "命令",
+    "skills": "技能",
+    "codex_skills": "Codex 技能",
+    "expand_all": "全部展开",
+    "collapse_all": "全部折叠"
+  },
+  "topbar": {
+    "title": "Maestro 文档",
+    "search_placeholder": "搜索命令和技能...",
+    "aria_search": "搜索",
+    "logo_alt": "Maestro 标志"
+  },
+  "accessibility": {
+    "main_content": "主内容区域",
+    "skip_to_content": "跳转到主内容"
+  },
+  "language_switcher": {
+    "en": "English",
+    "zh": "中文",
+    "aria_label": "语言切换器"
+  },
+  "theme_toggle": {
+    "light": "浅色主题",
+    "dark": "深色主题",
+    "aria_label": "切换主题"
+  },
+  "search": {
+    "placeholder": "搜索...",
+    "no_results": "未找到结果",
+    "type": {
+      "command": "命令",
+      "claude_skill": "Claude 技能",
+      "codex_skill": "Codex 技能"
+    },
+    "results_count": "{count} 个结果",
+    "searching": "搜索中..."
+  },
+  "breadcrumbs": {
+    "home": "首页",
+    "aria_label": "面包屑导航"
+  },
+  "categories": {
+    "pipeline": "管线",
+    "spec": "规格",
+    "quality": "质量",
+    "manage": "管理",
+    "maestro": "Maestro",
+    "team": "团队技能",
+    "cli": "CLI 工具",
+    "brainstorm": "头脑风暴",
+    "workflow": "工作流",
+    "ddd": "文档驱动",
+    "issue": "问题系统",
+    "paper": "论文写作",
+    "scholar": "学者",
+    "context": "上下文",
+    "data": "数据",
+    "experiment": "实验",
+    "ui_design": "UI 设计",
+    "session": "会话"
+  },
+  "landing": {
+    "description": "Maestro 命令、技能和工作流的完整文档。"
+  },
+  "content": {
+    "copy": "复制",
+    "copied": "已复制！",
+    "expand_all": "展开全部",
+    "collapse_all": "折叠全部",
+    "search_json": "搜索 JSON...",
+    "parameters": "参数",
+    "required": "必需",
+    "optional": "可选",
+    "type": "类型",
+    "default": "默认值",
+    "description": "描述",
+    "view_details": "查看详情",
+    "roles": "角色",
+    "phases": "阶段",
+    "command_count": "{{count}} 个命令",
+    "skill_count": "{{count}} 个技能",
+    "usage": "用法",
+    "allowed_tools": "允许的工具",
+    "file_reference": "文件引用"
+  }
+}

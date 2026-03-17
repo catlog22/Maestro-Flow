@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Artifacts V3 — Document Reader</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; line-height: 1.5; background: #FAF8F5; color: #2D2A26; -webkit-font-smoothing: antialiased; }
+
+    :root {
+      --bg: #FAF8F5; --bg2: #F3F0EA; --bg3: #EBE8E1; --card: #FFFFFF;
+      --hover: rgba(45,42,38,0.04); --active: rgba(45,42,38,0.07);
+      --t1: #2D2A26; --t2: #78756F; --t3: #A09D97; --t4: #D1CEC8;
+      --bdr: #E8E5DE; --bdr2: #ECEAE4;
+      --blue: #5B8DB8; --green: #5A9E78; --orange: #C8863A; --yellow: #B89540;
+      --purple: #9178B5; --red: #C46555; --gray: #A09D97;
+      --tint-green: #EEF5F0; --tint-yellow: #FBF5E2; --tint-orange: #FAF0E3;
+      --tint-purple: #F2EDF8; --tint-gray: #F2F1EE; --tint-blue: #EDF2F8; --tint-red: #F8EDEC;
+      --code-bg: #2C2723; --code-bg2: #342F2A; --code-border: #3D3731;
+      --code-t1: #D9D0C4; --code-t2: #9E9488;
+      --rail-w: 48px; --mono: 'JetBrains Mono', monospace;
+      --spring: cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .shell { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ====== TopBar ====== */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 48px; padding: 0 20px; background: var(--bg2);
+      border-bottom: 1px solid var(--bdr); flex-shrink: 0; z-index: 100;
+    }
+    .topbar-l { display: flex; align-items: center; gap: 12px; }
+    .brand { font-weight: 800; font-size: 15px; color: var(--t1); letter-spacing: -0.02em; }
+    .topbar-c { display: flex; align-items: center; gap: 0; }
+    .topbar-r { display: flex; align-items: center; gap: 12px; }
+    .pill { font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 100px; display: flex; align-items: center; gap: 5px; }
+    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .pill-green { background: rgba(90,158,120,0.12); color: var(--green); }
+    .icon-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms;
+    }
+    .icon-btn:hover { background: var(--hover); color: var(--t1); }
+    .icon-btn svg { width: 16px; height: 16px; stroke-width: 1.8; }
+
+    /* ====== View Switcher (from workflow-landing) ====== */
+    .view-switcher {
+      display: flex; align-items: center; gap: 2px;
+      background: var(--bg3); border-radius: 10px; padding: 3px;
+      position: relative;
+    }
+    .view-switcher::before {
+      content: ''; position: absolute; top: 3px; left: 3px;
+      width: calc((100% - 6px) / 3); height: calc(100% - 6px);
+      background: var(--card); border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      transition: transform 300ms var(--spring);
+    }
+    .view-switcher[data-active="1"]::before { transform: translateX(0); }
+    .view-switcher[data-active="2"]::before { transform: translateX(100%); }
+    .view-switcher[data-active="3"]::before { transform: translateX(200%); }
+    .vs-btn {
+      display: flex; align-items: center; gap: 6px; padding: 5px 14px;
+      border: none; background: none; cursor: pointer;
+      font-size: 11px; font-weight: 600; color: var(--t3);
+      border-radius: 8px; transition: color 200ms; position: relative; z-index: 1;
+      white-space: nowrap;
+    }
+    .vs-btn.active { color: var(--t1); }
+    .vs-btn:hover { color: var(--t1); }
+    .vs-btn svg { width: 14px; height: 14px; stroke-width: 2; }
+    .vs-btn .vs-key {
+      font-size: 9px; font-family: var(--mono); padding: 0 4px;
+      border-radius: 4px; background: rgba(0,0,0,0.06); color: var(--t4);
+      line-height: 16px;
+    }
+    .vs-btn.active .vs-key { background: rgba(0,0,0,0.08); color: var(--t3); }
+
+    .body { display: flex; flex: 1; overflow: hidden; position: relative; }
+
+    /* ====== DockRail ====== */
+    .rail {
+      width: var(--rail-w); background: var(--bg2); border-right: 1px solid var(--bdr);
+      flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+      padding-top: 8px; gap: 2px; z-index: 50;
+    }
+    .rail-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms; position: relative;
+    }
+    .rail-btn:hover { background: var(--hover); color: var(--t1); }
+    .rail-btn.active { background: var(--active); color: var(--t1); }
+    .rail-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
+    .rail-btn .tip {
+      position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+      background: var(--t1); color: #fff; font-size: 11px; font-weight: 500;
+      padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+      opacity: 0; pointer-events: none; transition: opacity 150ms; z-index: 200;
+    }
+    .rail-btn:hover .tip { opacity: 1; }
+    .rail-sep { width: 24px; height: 1px; background: var(--bdr2); margin: 6px 0; }
+
+    /* ====== Main Layout: file-tree | content ====== */
+    .main { flex: 1; display: flex; overflow: hidden; min-width: 0; }
+
+    /* ====== Left: File Tree (from V1) ====== */
+    .file-tree {
+      width: 260px; background: var(--bg); border-right: 1px solid var(--bdr);
+      display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;
+    }
+    .ft-head {
+      display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+      border-bottom: 1px solid var(--bdr2);
+    }
+    .ft-title { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .ft-count { font-size: 10px; color: var(--t3); margin-left: auto; font-family: var(--mono); }
+    .ft-search {
+      display: flex; align-items: center; gap: 6px; margin: 8px 10px;
+      padding: 5px 10px; border-radius: 8px; background: var(--bg2);
+      border: 1px solid var(--bdr2); font-size: 11px; color: var(--t3);
+      transition: border-color 150ms;
+    }
+    .ft-search:focus-within { border-color: var(--purple); }
+    .ft-search svg { width: 12px; height: 12px; stroke-width: 2; flex-shrink: 0; }
+    .ft-search input {
+      border: none; background: none; outline: none; font-size: 11px;
+      color: var(--t1); font-family: inherit; width: 100%;
+    }
+    .ft-search input::placeholder { color: var(--t4); }
+    .ft-body { flex: 1; overflow-y: auto; padding: 4px 0; }
+    .ft-folder, .ft-file {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 10px; cursor: pointer; transition: background 100ms;
+      border: none; background: none; width: 100%; text-align: left;
+      font-family: inherit; font-size: 12px;
+    }
+    .ft-folder:hover, .ft-file:hover { background: var(--hover); }
+    .ft-file.selected { background: var(--active); }
+    .ft-folder svg, .ft-file svg { width: 14px; height: 14px; stroke-width: 1.8; flex-shrink: 0; }
+    .ft-folder svg { color: var(--yellow); }
+    .ft-folder .ft-name { font-weight: 600; color: var(--t1); }
+    .ft-file .ft-name { color: var(--t2); }
+    .ft-file.selected .ft-name { color: var(--t1); font-weight: 600; }
+    .ft-file .ft-type {
+      margin-left: auto; font-size: 9px; font-weight: 600; padding: 1px 5px;
+      border-radius: 4px; text-transform: uppercase; font-family: var(--mono);
+    }
+    .ft-type-json { background: rgba(184,149,64,0.12); color: var(--yellow); }
+    .ft-type-md { background: rgba(91,141,184,0.12); color: var(--blue); }
+    .ft-type-jsonl { background: rgba(200,134,58,0.12); color: var(--orange); }
+    .ft-indent { width: 16px; flex-shrink: 0; }
+    .ft-chevron { width: 10px; height: 10px; stroke-width: 2.5; color: var(--t4); flex-shrink: 0; transition: transform 150ms; }
+    .ft-folder.open .ft-chevron { transform: rotate(90deg); }
+    .ft-children { display: none; }
+    .ft-folder.open + .ft-children { display: block; }
+    .ft-badge {
+      font-size: 9px; font-weight: 600; padding: 0 5px; border-radius: 100px;
+      margin-left: auto;
+    }
+
+    /* ====== View Container ====== */
+    .view-container { flex: 1; overflow: hidden; position: relative; min-width: 0; }
+    .view-panel {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      opacity: 0; transform: scale(0.97) translateY(8px);
+      transition: opacity 350ms ease, transform 350ms var(--spring);
+      pointer-events: none; overflow: hidden;
+    }
+    .view-panel.active {
+      opacity: 1; transform: scale(1) translateY(0);
+      pointer-events: auto;
+    }
+
+    /* ================================================
+       VIEW 1: Document Reader (V3 original)
+       ================================================ */
+    .reader { flex: 1; display: flex; overflow: hidden; }
+    .reader-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+    .reader-head {
+      display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+      border-bottom: 1px solid var(--bdr2); flex-shrink: 0;
+    }
+    .rh-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .rh-icon svg { width: 14px; height: 14px; stroke-width: 1.8; }
+    .rh-info { flex: 1; }
+    .rh-name { font-size: 14px; font-weight: 700; color: var(--t1); }
+    .rh-path { font-size: 10px; font-family: var(--mono); color: var(--t3); }
+    .rh-actions { display: flex; gap: 4px; }
+    .rh-btn {
+      padding: 4px 10px; border-radius: 6px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 10px; font-weight: 600; color: var(--t2);
+      cursor: pointer; font-family: inherit; transition: all 150ms;
+    }
+    .rh-btn:hover { border-color: var(--t3); color: var(--t1); }
+    .rh-btn.active { background: var(--t1); color: #fff; border-color: var(--t1); }
+
+    .reader-body { flex: 1; overflow-y: auto; }
+    .reader-content { max-width: 720px; margin: 0 auto; padding: 24px 32px; }
+
+    /* Markdown rendering */
+    .md h1 {
+      font-size: 22px; font-weight: 700; color: var(--t1);
+      margin: 0 0 16px; padding-bottom: 10px;
+      border-bottom: 2px solid var(--bdr);
+    }
+    .md h2 {
+      font-size: 16px; font-weight: 700; color: var(--t1);
+      margin: 24px 0 10px; padding-bottom: 6px;
+      border-bottom: 1px solid var(--bdr2);
+    }
+    .md h3 { font-size: 14px; font-weight: 600; color: var(--t1); margin: 16px 0 8px; }
+    .md p { font-size: 14px; color: var(--t2); line-height: 1.8; margin-bottom: 12px; }
+    .md ul, .md ol { padding-left: 24px; margin-bottom: 12px; }
+    .md li { font-size: 14px; color: var(--t2); line-height: 1.8; margin-bottom: 4px; }
+    .md li strong { color: var(--t1); font-weight: 600; }
+    .md code {
+      font-family: var(--mono); font-size: 12px; padding: 2px 6px;
+      background: var(--bg2); border-radius: 4px; color: var(--purple);
+    }
+    .md blockquote {
+      border-left: 3px solid var(--purple); padding: 10px 16px; margin: 12px 0;
+      background: var(--tint-purple); border-radius: 0 10px 10px 0;
+      font-size: 13px; color: var(--t2); font-style: italic; line-height: 1.7;
+    }
+    .md hr { border: none; height: 1px; background: var(--bdr); margin: 20px 0; }
+
+    /* Decision card */
+    .decision-card {
+      padding: 16px 20px; border-radius: 12px; background: var(--card);
+      border: 1px solid var(--bdr2); margin-bottom: 12px;
+    }
+    .dc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .dc-num { font-size: 10px; font-weight: 700; font-family: var(--mono); color: var(--purple); }
+    .dc-title { font-size: 14px; font-weight: 700; color: var(--t1); }
+    .dc-status { font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin-left: auto; text-transform: uppercase; }
+    .dc-grid { display: flex; flex-direction: column; gap: 6px; }
+    .dc-row { display: grid; grid-template-columns: 90px 1fr; gap: 10px; font-size: 13px; }
+    .dc-key { font-weight: 600; color: var(--t3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; padding-top: 3px; }
+    .dc-val { color: var(--t2); line-height: 1.6; }
+    .dc-val.chosen { color: var(--green); font-weight: 600; }
+    .dc-options { display: flex; gap: 6px; flex-wrap: wrap; }
+    .dc-option {
+      font-size: 11px; padding: 3px 10px; border-radius: 6px;
+      background: var(--bg2); color: var(--t2); font-weight: 500;
+    }
+    .dc-option.selected { background: var(--tint-green); color: var(--green); font-weight: 600; border: 1px solid rgba(90,158,120,0.2); }
+
+    /* Meta Panel */
+    .meta-panel {
+      width: 240px; background: var(--bg); border-left: 1px solid var(--bdr);
+      display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;
+    }
+    .mp-head {
+      padding: 10px 14px; border-bottom: 1px solid var(--bdr2);
+      font-size: 12px; font-weight: 600; color: var(--t1);
+    }
+    .mp-body { flex: 1; overflow-y: auto; padding: 12px 14px; }
+    .mp-section { margin-bottom: 16px; }
+    .mp-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t4); margin-bottom: 6px; }
+    .mp-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 4px 0; font-size: 12px;
+    }
+    .mp-key { color: var(--t3); }
+    .mp-val { color: var(--t1); font-weight: 500; }
+    .mp-val.mono { font-family: var(--mono); font-size: 11px; }
+    .mp-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .mp-tag { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 100px; }
+    .mp-related { display: flex; flex-direction: column; gap: 4px; }
+    .mp-rel-item {
+      display: flex; align-items: center; gap: 6px; padding: 5px 8px;
+      border-radius: 6px; font-size: 11px; color: var(--t2); cursor: pointer;
+      transition: all 100ms;
+    }
+    .mp-rel-item:hover { background: var(--hover); color: var(--t1); }
+    .mp-rel-item svg { width: 12px; height: 12px; stroke-width: 1.8; color: var(--t3); flex-shrink: 0; }
+    .mp-rel-name { flex: 1; }
+    .mp-rel-type { font-size: 8px; font-weight: 600; padding: 1px 4px; border-radius: 3px; text-transform: uppercase; font-family: var(--mono); }
+    .mp-outline { display: flex; flex-direction: column; gap: 2px; }
+    .mp-outline-item {
+      display: flex; align-items: center; gap: 6px; padding: 3px 8px;
+      border-radius: 4px; font-size: 11px; color: var(--t3); cursor: pointer;
+      transition: background 100ms; border: none; background: none; width: 100%;
+      text-align: left; font-family: inherit;
+    }
+    .mp-outline-item:hover { background: var(--hover); color: var(--t1); }
+    .mp-outline-item.active { color: var(--t1); font-weight: 600; }
+    .mp-outline-item .mo-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--t4); flex-shrink: 0; }
+    .mp-outline-item.active .mo-dot { background: var(--purple); }
+
+    /* ================================================
+       VIEW 2: Card Gallery (from V2)
+       ================================================ */
+    .gallery-toolbar {
+      display: flex; align-items: center; gap: 8px; padding: 10px 24px;
+      border-bottom: 1px solid var(--bdr2); flex-shrink: 0;
+    }
+    .gt-search {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: 8px; background: var(--card);
+      border: 1px solid var(--bdr); font-size: 12px; width: 200px;
+      transition: border-color 150ms;
+    }
+    .gt-search:focus-within { border-color: var(--purple); }
+    .gt-search svg { width: 13px; height: 13px; stroke-width: 2; color: var(--t4); flex-shrink: 0; }
+    .gt-search input { border: none; background: none; outline: none; font-size: 12px; color: var(--t1); font-family: inherit; width: 100%; }
+    .gt-search input::placeholder { color: var(--t4); }
+    .gt-spacer { flex: 1; }
+    .gt-chip {
+      font-size: 11px; font-weight: 500; padding: 4px 12px; border-radius: 100px;
+      border: 1px solid var(--bdr); background: var(--card); color: var(--t2);
+      cursor: pointer; transition: all 150ms;
+    }
+    .gt-chip:hover { border-color: var(--t3); color: var(--t1); }
+    .gt-chip.active { background: var(--t1); color: #fff; border-color: var(--t1); }
+
+    .gallery { flex: 1; overflow-y: auto; padding: 16px 24px; }
+    .phase-group { margin-bottom: 24px; }
+    .pg-head {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding-left: 4px;
+    }
+    .pg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .pg-name { font-size: 13px; font-weight: 700; color: var(--t1); }
+    .pg-status { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 100px; }
+    .pg-count { font-size: 11px; color: var(--t3); margin-left: auto; }
+    .pg-line { flex: 1; height: 1px; background: var(--bdr2); margin-left: 8px; }
+    .pg-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px;
+    }
+    .art-card {
+      background: var(--card); border: 1px solid var(--bdr2); border-radius: 12px;
+      padding: 14px 16px; cursor: pointer; transition: all 180ms var(--spring);
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .art-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.06); border-color: var(--bdr); }
+    .art-card.selected { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(145,120,181,0.2); }
+    .art-top { display: flex; align-items: center; gap: 8px; }
+    .art-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .art-icon svg { width: 16px; height: 16px; stroke-width: 1.8; }
+    .art-icon.json { background: var(--tint-yellow); color: var(--yellow); }
+    .art-icon.md { background: var(--tint-blue); color: var(--blue); }
+    .art-icon.jsonl { background: var(--tint-orange); color: var(--orange); }
+    .art-name { font-size: 13px; font-weight: 600; color: var(--t1); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .art-type {
+      font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 4px;
+      text-transform: uppercase; font-family: var(--mono); flex-shrink: 0;
+    }
+    .art-preview {
+      font-size: 11px; color: var(--t3); line-height: 1.5;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+      overflow: hidden; min-height: 48px;
+    }
+    .art-preview.code-preview {
+      font-family: var(--mono); font-size: 10px; background: var(--bg2);
+      border-radius: 6px; padding: 8px 10px; color: var(--t2);
+    }
+    .art-preview.md-preview { padding: 0 2px; }
+    .art-foot {
+      display: flex; align-items: center; gap: 6px; padding-top: 4px;
+      border-top: 1px solid var(--bdr2);
+    }
+    .art-meta { font-size: 10px; color: var(--t4); display: flex; align-items: center; gap: 3px; }
+    .art-meta svg { width: 10px; height: 10px; stroke-width: 2; }
+    .art-badge { font-size: 9px; font-weight: 600; padding: 1px 6px; border-radius: 100px; margin-left: auto; }
+
+    /* ================================================
+       VIEW 3: Structured JSON / Raw (from V1)
+       ================================================ */
+    .structured-head {
+      display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+      border-bottom: 1px solid var(--bdr2); flex-shrink: 0;
+    }
+    .sh-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .sh-icon svg { width: 14px; height: 14px; stroke-width: 1.8; }
+    .sh-info { flex: 1; }
+    .sh-name { font-size: 14px; font-weight: 700; color: var(--t1); }
+    .sh-path { font-size: 10px; font-family: var(--mono); color: var(--t3); }
+    .sh-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+    .sh-tag { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 100px; }
+    .sh-actions { display: flex; gap: 4px; }
+    .sh-btn {
+      padding: 4px 10px; border-radius: 6px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 10px; font-weight: 600; color: var(--t2);
+      cursor: pointer; font-family: inherit; transition: all 150ms;
+    }
+    .sh-btn:hover { border-color: var(--t3); color: var(--t1); }
+    .sh-btn.active { background: var(--t1); color: #fff; border-color: var(--t1); }
+
+    .structured-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+    .sv-inner { max-width: 780px; margin: 0 auto; }
+
+    /* JSON sections */
+    .json-section { margin-bottom: 16px; }
+    .json-section-head {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+      padding-bottom: 6px; border-bottom: 1px solid var(--bdr2);
+    }
+    .json-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t3); }
+    .json-section-badge { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 100px; }
+    .kv-grid { display: flex; flex-direction: column; gap: 0; }
+    .kv-row {
+      display: grid; grid-template-columns: 140px 1fr; gap: 12px;
+      padding: 6px 0; border-bottom: 1px solid var(--bdr2); align-items: flex-start;
+    }
+    .kv-row:last-child { border-bottom: none; }
+    .kv-key { font-size: 11px; font-weight: 600; color: var(--t3); font-family: var(--mono); padding-top: 1px; }
+    .kv-val { font-size: 13px; color: var(--t1); }
+    .kv-val.mono { font-family: var(--mono); font-size: 12px; }
+    .kv-val .status-badge {
+      font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 100px;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .kv-val .status-badge svg { width: 10px; height: 10px; stroke-width: 2.5; }
+    .check-list { display: flex; flex-direction: column; gap: 4px; }
+    .check-item {
+      display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px;
+      border-radius: 8px; background: var(--card); border: 1px solid var(--bdr2);
+    }
+    .check-icon { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; stroke-width: 2; }
+    .check-content { flex: 1; min-width: 0; }
+    .check-claim { font-size: 13px; color: var(--t1); font-weight: 500; }
+    .check-evidence { font-size: 11px; color: var(--t3); margin-top: 2px; font-style: italic; }
+    .artifact-file {
+      display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+      border-radius: 8px; background: var(--card); border: 1px solid var(--bdr2);
+    }
+    .artifact-file svg { width: 14px; height: 14px; stroke-width: 1.8; color: var(--t3); flex-shrink: 0; }
+    .artifact-file-path { font-size: 12px; font-family: var(--mono); color: var(--t2); flex: 1; }
+    .artifact-file-badge { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 100px; }
+    .gap-card {
+      padding: 10px 14px; border-radius: 10px; border-left: 3px solid var(--red);
+      background: var(--tint-red); margin-bottom: 6px;
+    }
+    .gap-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+    .gap-id { font-size: 10px; font-weight: 700; font-family: var(--mono); color: var(--red); }
+    .gap-sev { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; text-transform: uppercase; }
+    .gap-type { font-size: 10px; color: var(--t3); margin-left: auto; font-family: var(--mono); }
+    .gap-desc { font-size: 13px; color: var(--t1); margin-bottom: 4px; }
+    .gap-fix { font-size: 12px; color: var(--t2); font-style: italic; }
+    .gap-fix strong { font-weight: 600; font-style: normal; color: var(--t3); font-size: 10px; text-transform: uppercase; }
+
+    /* Raw JSON */
+    .raw-json {
+      background: var(--code-bg); border-radius: 10px; padding: 16px 20px;
+      font-family: var(--mono); font-size: 11px; line-height: 1.6;
+      color: var(--code-t1); overflow-x: auto;
+      border: 1px solid var(--code-border);
+    }
+    .raw-json .j-key { color: #D4A07A; }
+    .raw-json .j-str { color: #A3BE8C; }
+    .raw-json .j-num { color: #87B5A2; }
+    .raw-json .j-bool { color: #C49A6C; }
+    .raw-json .j-null { color: #6E6355; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <!-- ====== TopBar ====== -->
+  <header class="topbar">
+    <div class="topbar-l">
+      <button class="icon-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg></button>
+      <span class="brand">Maestro</span>
+      <span style="color:var(--t4)">&middot;</span>
+      <span style="font-size:12px;color:var(--t2)">E-commerce Platform v2.0</span>
+    </div>
+
+    <!-- View Switcher (center) -->
+    <div class="topbar-c">
+      <div class="view-switcher" id="viewSwitcher" data-active="1">
+        <button class="vs-btn active" data-view="1" onclick="switchView(1)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Reader
+          <span class="vs-key">1</span>
+        </button>
+        <button class="vs-btn" data-view="2" onclick="switchView(2)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Gallery
+          <span class="vs-key">2</span>
+        </button>
+        <button class="vs-btn" data-view="3" onclick="switchView(3)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Structured
+          <span class="vs-key">3</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="topbar-r">
+      <span style="font-size:12px;color:var(--t3)">Phase 3 / 6</span>
+      <span class="pill pill-green"><span class="pill-dot"></span> Live</span>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- DockRail -->
+    <nav class="rail">
+      <button class="rail-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span class="tip">Dashboard</span></button>
+      <button class="rail-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="tip">Chat</span></button>
+      <button class="rail-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="tip">Workflow</span></button>
+      <button class="rail-btn active" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg><span class="tip">Artifacts</span></button>
+      <div class="rail-sep"></div>
+    </nav>
+
+    <div class="main">
+      <!-- ====== File Tree (from V1) ====== -->
+      <div class="file-tree">
+        <div class="ft-head">
+          <span class="ft-title">Artifacts</span>
+          <span class="ft-count">14</span>
+        </div>
+        <div class="ft-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="Search files..." />
+        </div>
+        <div class="ft-body">
+          <!-- Project root files -->
+          <button class="ft-file" onclick="sel(this)"><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="ft-name">state.json</span><span class="ft-type ft-type-json">json</span></button>
+          <button class="ft-file" onclick="sel(this)"><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="ft-name">roadmap.md</span><span class="ft-type ft-type-md">md</span></button>
+          <button class="ft-file" onclick="sel(this)"><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="ft-name">config.json</span><span class="ft-type ft-type-json">json</span></button>
+
+          <!-- Phases folder -->
+          <button class="ft-folder open" onclick="this.classList.toggle('open')"><svg class="ft-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span class="ft-name">phases</span></button>
+          <div class="ft-children">
+            <!-- Phase 1 -->
+            <button class="ft-folder" onclick="this.classList.toggle('open')"><span class="ft-indent"></span><svg class="ft-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span class="ft-name">01-project-setup</span><span class="ft-badge" style="background:rgba(90,158,120,0.12);color:var(--green)">Done</span></button>
+            <div class="ft-children">
+              <button class="ft-file" onclick="sel(this)"><span class="ft-indent"></span><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="ft-name">index.json</span><span class="ft-type ft-type-json">json</span></button>
+              <button class="ft-file" onclick="sel(this)"><span class="ft-indent"></span><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="ft-name">plan.json</span><span class="ft-type ft-type-json">json</span></button>
+            </div>
+
+            <!-- Phase 2 -->
+            <button class="ft-folder open" onclick="this.classList.toggle('open')"><span class="ft-indent"></span><svg class="ft-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span class="ft-name">02-database-layer</span><span class="ft-badge" style="background:rgba(200,134,58,0.12);color:var(--orange)">Verify</span></button>
+            <div class="ft-children">
+              <button class="ft-file" onclick="sel(this)"><span class="ft-indent"></span><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="ft-name">index.json</span><span class="ft-type ft-type-json">json</span></button>
+              <button class="ft-file selected" onclick="sel(this)"><span class="ft-indent"></span><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="ft-name">context.md</span><span class="ft-type ft-type-md">md</span></button>
+              <button class="ft-file" onclick="sel(this)"><span class="ft-indent"></span><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="ft-name">plan.json</span><span class="ft-type ft-type-json">json</span></button>
+              <button class="ft-file" onclick="sel(this)"><span class="ft-indent"></span><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="ft-name">verification.json</span><span class="ft-type ft-type-json">json</span></button>
+              <button class="ft-file" onclick="sel(this)"><span class="ft-indent"></span><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="ft-name">validation.json</span><span class="ft-type ft-type-json">json</span></button>
+            </div>
+
+            <!-- Phase 3 -->
+            <button class="ft-folder" onclick="this.classList.toggle('open')"><span class="ft-indent"></span><svg class="ft-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span class="ft-name">03-api-endpoints</span><span class="ft-badge" style="background:rgba(184,149,64,0.12);color:var(--yellow)">Exec</span></button>
+            <div class="ft-children">
+              <button class="ft-file" onclick="sel(this)"><span class="ft-indent"></span><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="ft-name">index.json</span><span class="ft-type ft-type-json">json</span></button>
+              <button class="ft-file" onclick="sel(this)"><span class="ft-indent"></span><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="ft-name">context.md</span><span class="ft-type ft-type-md">md</span></button>
+              <button class="ft-file" onclick="sel(this)"><span class="ft-indent"></span><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span class="ft-name">reflection-log.md</span><span class="ft-type ft-type-md">md</span></button>
+            </div>
+          </div>
+
+          <!-- Specs folder -->
+          <button class="ft-folder" onclick="this.classList.toggle('open')"><svg class="ft-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span class="ft-name">specs</span></button>
+          <div class="ft-children">
+            <button class="ft-file" onclick="sel(this)"><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="ft-name">coding-conventions.md</span><span class="ft-type ft-type-md">md</span></button>
+            <button class="ft-file" onclick="sel(this)"><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="ft-name">architecture.md</span><span class="ft-type ft-type-md">md</span></button>
+          </div>
+
+          <!-- Issues folder -->
+          <button class="ft-folder" onclick="this.classList.toggle('open')"><svg class="ft-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span class="ft-name">issues</span></button>
+          <div class="ft-children">
+            <button class="ft-file" onclick="sel(this)"><span class="ft-indent"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg><span class="ft-name">issues.jsonl</span><span class="ft-type ft-type-jsonl">jsonl</span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== View Container ====== -->
+      <div class="view-container">
+
+        <!-- ========== VIEW 1: Reader ========== -->
+        <div class="view-panel active" id="view1">
+          <div class="reader">
+            <div class="reader-main">
+              <div class="reader-head">
+                <div class="rh-icon" style="background:var(--tint-blue);color:var(--blue)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                <div class="rh-info">
+                  <div class="rh-name">context.md</div>
+                  <div class="rh-path">.workflow/phases/02-database-layer/context.md</div>
+                </div>
+                <div class="rh-actions">
+                  <button class="rh-btn active">Rendered</button>
+                  <button class="rh-btn">Source</button>
+                </div>
+              </div>
+
+              <div class="reader-body">
+                <div class="reader-content">
+                  <div class="md">
+                    <h1>Phase 2: Database Layer &mdash; Context</h1>
+                    <p>User decisions and locked constraints for the database layer implementation. These decisions were captured during the discussion phase and are binding throughout execution.</p>
+                    <hr />
+
+                    <h2>Decision 1: ORM Selection</h2>
+                    <div class="decision-card">
+                      <div class="dc-head">
+                        <span class="dc-num">D-001</span>
+                        <span class="dc-title">ORM Selection</span>
+                        <span class="dc-status" style="background:rgba(90,158,120,0.12);color:var(--green)">Locked</span>
+                      </div>
+                      <div class="dc-grid">
+                        <div class="dc-row"><span class="dc-key">Context</span><span class="dc-val">Need database abstraction layer for PostgreSQL with type-safe queries and migration support.</span></div>
+                        <div class="dc-row"><span class="dc-key">Options</span><span class="dc-val"><div class="dc-options"><span class="dc-option selected">Prisma</span><span class="dc-option">TypeORM</span><span class="dc-option">Drizzle</span></div></span></div>
+                        <div class="dc-row"><span class="dc-key">Chosen</span><span class="dc-val chosen">Prisma</span></div>
+                        <div class="dc-row"><span class="dc-key">Reason</span><span class="dc-val">Type-safe client generation, excellent migration tooling, strong ecosystem. Drizzle considered but less mature for complex relations.</span></div>
+                      </div>
+                    </div>
+
+                    <h2>Decision 2: Migration Strategy</h2>
+                    <div class="decision-card">
+                      <div class="dc-head">
+                        <span class="dc-num">D-002</span>
+                        <span class="dc-title">Migration Strategy</span>
+                        <span class="dc-status" style="background:rgba(90,158,120,0.12);color:var(--green)">Locked</span>
+                      </div>
+                      <div class="dc-grid">
+                        <div class="dc-row"><span class="dc-key">Context</span><span class="dc-val">How to handle database schema evolution across environments.</span></div>
+                        <div class="dc-row"><span class="dc-key">Options</span><span class="dc-val"><div class="dc-options"><span class="dc-option selected">Prisma Migrate</span><span class="dc-option">Raw SQL</span><span class="dc-option">db push</span></div></span></div>
+                        <div class="dc-row"><span class="dc-key">Chosen</span><span class="dc-val chosen">Prisma Migrate</span></div>
+                        <div class="dc-row"><span class="dc-key">Reason</span><span class="dc-val">Versioned migrations with rollback support. <code>db push</code> only for prototyping. Raw SQL reserved for performance-critical migrations.</span></div>
+                      </div>
+                    </div>
+
+                    <h2>Decision 3: Seed Data</h2>
+                    <div class="decision-card">
+                      <div class="dc-head">
+                        <span class="dc-num">D-003</span>
+                        <span class="dc-title">Seed Data Approach</span>
+                        <span class="dc-status" style="background:rgba(184,149,64,0.12);color:var(--yellow)">Free</span>
+                      </div>
+                      <div class="dc-grid">
+                        <div class="dc-row"><span class="dc-key">Context</span><span class="dc-val">Development and testing need reproducible seed data.</span></div>
+                        <div class="dc-row"><span class="dc-key">Options</span><span class="dc-val"><div class="dc-options"><span class="dc-option">Prisma seed</span><span class="dc-option">Fixtures</span><span class="dc-option">Factory</span></div></span></div>
+                        <div class="dc-row"><span class="dc-key">Status</span><span class="dc-val" style="color:var(--yellow);font-weight:600">Agent may choose</span></div>
+                      </div>
+                    </div>
+
+                    <blockquote>Locked decisions cannot be overridden by agents during execution. Free decisions allow agent discretion within the stated constraints.</blockquote>
+
+                    <h2>Constraints</h2>
+                    <ul>
+                      <li><strong>PostgreSQL 15+</strong> &mdash; required for JSON path queries</li>
+                      <li><strong>Connection pooling</strong> &mdash; PgBouncer in production</li>
+                      <li><strong>No raw SQL in application code</strong> &mdash; all queries through Prisma client</li>
+                      <li><strong>Indexes</strong> &mdash; explicit index definitions for all foreign keys</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Meta Panel -->
+            <div class="meta-panel">
+              <div class="mp-head">Properties</div>
+              <div class="mp-body">
+                <div class="mp-section">
+                  <div class="mp-label">File Info</div>
+                  <div class="mp-row"><span class="mp-key">Type</span><span class="mp-val"><span class="mp-tag" style="background:rgba(91,141,184,0.12);color:var(--blue)">Markdown</span></span></div>
+                  <div class="mp-row"><span class="mp-key">Size</span><span class="mp-val mono">2.8 KB</span></div>
+                  <div class="mp-row"><span class="mp-key">Modified</span><span class="mp-val mono">3h ago</span></div>
+                  <div class="mp-row"><span class="mp-key">Created</span><span class="mp-val mono">Mar 14</span></div>
+                </div>
+                <div class="mp-section">
+                  <div class="mp-label">Phase Context</div>
+                  <div class="mp-row"><span class="mp-key">Phase</span><span class="mp-val">2 &mdash; Database Layer</span></div>
+                  <div class="mp-row"><span class="mp-key">Status</span><span class="mp-val"><span class="mp-tag" style="background:rgba(200,134,58,0.12);color:var(--orange)">Verifying</span></span></div>
+                  <div class="mp-row"><span class="mp-key">Decisions</span><span class="mp-val">3 (2 locked, 1 free)</span></div>
+                </div>
+                <div class="mp-section">
+                  <div class="mp-label">Outline</div>
+                  <div class="mp-outline">
+                    <button class="mp-outline-item active"><span class="mo-dot"></span>Decision 1: ORM Selection</button>
+                    <button class="mp-outline-item"><span class="mo-dot"></span>Decision 2: Migration Strategy</button>
+                    <button class="mp-outline-item"><span class="mo-dot"></span>Decision 3: Seed Data</button>
+                    <button class="mp-outline-item"><span class="mo-dot"></span>Constraints</button>
+                  </div>
+                </div>
+                <div class="mp-section">
+                  <div class="mp-label">Related Artifacts</div>
+                  <div class="mp-related">
+                    <div class="mp-rel-item">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                      <span class="mp-rel-name">plan.json</span>
+                      <span class="mp-rel-type" style="background:rgba(184,149,64,0.12);color:var(--yellow)">json</span>
+                    </div>
+                    <div class="mp-rel-item">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                      <span class="mp-rel-name">verification.json</span>
+                      <span class="mp-rel-type" style="background:rgba(184,149,64,0.12);color:var(--yellow)">json</span>
+                    </div>
+                    <div class="mp-rel-item">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                      <span class="mp-rel-name">validation.json</span>
+                      <span class="mp-rel-type" style="background:rgba(184,149,64,0.12);color:var(--yellow)">json</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="mp-section">
+                  <div class="mp-label">Tags</div>
+                  <div class="mp-tags">
+                    <span class="mp-tag" style="background:var(--tint-purple);color:var(--purple)">decisions</span>
+                    <span class="mp-tag" style="background:var(--tint-blue);color:var(--blue)">database</span>
+                    <span class="mp-tag" style="background:var(--tint-green);color:var(--green)">prisma</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== VIEW 2: Gallery ========== -->
+        <div class="view-panel" id="view2">
+          <div class="gallery-toolbar">
+            <div class="gt-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" placeholder="Search artifacts..." />
+            </div>
+            <div class="gt-spacer"></div>
+            <span class="gt-chip active">All</span>
+            <span class="gt-chip">JSON</span>
+            <span class="gt-chip">Markdown</span>
+          </div>
+          <div class="gallery">
+            <!-- Project root -->
+            <div class="phase-group">
+              <div class="pg-head">
+                <span class="pg-dot" style="background:var(--t3)"></span>
+                <span class="pg-name">Project</span>
+                <span class="pg-count">3 files</span>
+                <div class="pg-line"></div>
+              </div>
+              <div class="pg-grid">
+                <div class="art-card" onclick="switchView(3)">
+                  <div class="art-top">
+                    <div class="art-icon json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+                    <span class="art-name">state.json</span>
+                    <span class="art-type" style="background:rgba(184,149,64,0.12);color:var(--yellow)">json</span>
+                  </div>
+                  <div class="art-preview code-preview">"status": "executing",
+"current_phase": 3,
+"phases_summary": { "total": 6, "completed": 1 }</div>
+                  <div class="art-foot">
+                    <span class="art-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>5m ago</span>
+                    <span class="art-meta">0.8 KB</span>
+                  </div>
+                </div>
+                <div class="art-card" onclick="switchView(1)">
+                  <div class="art-top">
+                    <div class="art-icon md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                    <span class="art-name">roadmap.md</span>
+                    <span class="art-type" style="background:rgba(91,141,184,0.12);color:var(--blue)">md</span>
+                  </div>
+                  <div class="art-preview md-preview">6 phases planned for milestone v1.0. Current focus on API endpoints with auth system in planning...</div>
+                  <div class="art-foot">
+                    <span class="art-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>2h ago</span>
+                    <span class="art-meta">3.2 KB</span>
+                  </div>
+                </div>
+                <div class="art-card" onclick="switchView(3)">
+                  <div class="art-top">
+                    <div class="art-icon json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+                    <span class="art-name">config.json</span>
+                    <span class="art-type" style="background:rgba(184,149,64,0.12);color:var(--yellow)">json</span>
+                  </div>
+                  <div class="art-preview code-preview">"mode": "interactive",
+"model_profile": "quality",
+"workflow": { "research": true }</div>
+                  <div class="art-foot">
+                    <span class="art-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>1d ago</span>
+                    <span class="art-meta">0.5 KB</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Phase 2 -->
+            <div class="phase-group">
+              <div class="pg-head">
+                <span class="pg-dot" style="background:var(--orange)"></span>
+                <span class="pg-name">Phase 2 &mdash; Database Layer</span>
+                <span class="pg-status" style="background:rgba(200,134,58,0.12);color:var(--orange)">Verifying</span>
+                <span class="pg-count">5 files</span>
+                <div class="pg-line"></div>
+              </div>
+              <div class="pg-grid">
+                <div class="art-card" onclick="switchView(3)">
+                  <div class="art-top">
+                    <div class="art-icon json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+                    <span class="art-name">index.json</span>
+                    <span class="art-type" style="background:rgba(184,149,64,0.12);color:var(--yellow)">json</span>
+                  </div>
+                  <div class="art-preview code-preview">"phase": 2, "slug": "database-layer",
+"status": "verifying",
+"execution": { "tasks_completed": 4 }</div>
+                  <div class="art-foot">
+                    <span class="art-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>30m ago</span>
+                    <span class="art-badge" style="background:rgba(200,134,58,0.1);color:var(--orange)">Verifying</span>
+                  </div>
+                </div>
+                <div class="art-card selected" onclick="switchView(1)">
+                  <div class="art-top">
+                    <div class="art-icon md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg></div>
+                    <span class="art-name">context.md</span>
+                    <span class="art-type" style="background:rgba(91,141,184,0.12);color:var(--blue)">md</span>
+                  </div>
+                  <div class="art-preview md-preview">Decision 1: ORM Selection &mdash; Prisma chosen for type-safe queries. Decision 2: Migration strategy &mdash; incremental...</div>
+                  <div class="art-foot">
+                    <span class="art-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>3h ago</span>
+                    <span class="art-badge" style="background:rgba(145,120,181,0.1);color:var(--purple)">2 decisions</span>
+                  </div>
+                </div>
+                <div class="art-card" onclick="switchView(3)">
+                  <div class="art-top">
+                    <div class="art-icon json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+                    <span class="art-name">verification.json</span>
+                    <span class="art-type" style="background:rgba(184,149,64,0.12);color:var(--yellow)">json</span>
+                  </div>
+                  <div class="art-preview code-preview">"status": "gaps_found",
+"must_haves": { "truths": [2 verified] },
+"gaps": [{ "id": "GAP-001" }]</div>
+                  <div class="art-foot">
+                    <span class="art-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>14m ago</span>
+                    <span class="art-badge" style="background:rgba(196,101,85,0.1);color:var(--red)">1 gap</span>
+                  </div>
+                </div>
+                <div class="art-card" onclick="switchView(3)">
+                  <div class="art-top">
+                    <div class="art-icon json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg></div>
+                    <span class="art-name">validation.json</span>
+                    <span class="art-type" style="background:rgba(184,149,64,0.12);color:var(--yellow)">json</span>
+                  </div>
+                  <div class="art-preview code-preview">"coverage": { "statements": 78.5,
+  "branches": 65.2, "functions": 82.0 },
+"gaps": [1 requirement uncovered]</div>
+                  <div class="art-foot">
+                    <span class="art-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>14m ago</span>
+                    <span class="art-badge" style="background:rgba(184,149,64,0.1);color:var(--yellow)">78.5%</span>
+                  </div>
+                </div>
+                <div class="art-card" onclick="switchView(3)">
+                  <div class="art-top">
+                    <div class="art-icon json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+                    <span class="art-name">plan.json</span>
+                    <span class="art-type" style="background:rgba(184,149,64,0.12);color:var(--yellow)">json</span>
+                  </div>
+                  <div class="art-preview code-preview">"task_count": 4,
+"complexity": "Medium",
+"waves": [{ "wave": 1, "tasks": 2 }, ...]</div>
+                  <div class="art-foot">
+                    <span class="art-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>5h ago</span>
+                    <span class="art-badge" style="background:rgba(90,158,120,0.1);color:var(--green)">4 tasks</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Phase 3 -->
+            <div class="phase-group">
+              <div class="pg-head">
+                <span class="pg-dot" style="background:var(--yellow)"></span>
+                <span class="pg-name">Phase 3 &mdash; API Endpoints</span>
+                <span class="pg-status" style="background:rgba(184,149,64,0.12);color:var(--yellow)">Executing</span>
+                <span class="pg-count">4 files</span>
+                <div class="pg-line"></div>
+              </div>
+              <div class="pg-grid">
+                <div class="art-card" onclick="switchView(3)">
+                  <div class="art-top">
+                    <div class="art-icon json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+                    <span class="art-name">index.json</span>
+                    <span class="art-type" style="background:rgba(184,149,64,0.12);color:var(--yellow)">json</span>
+                  </div>
+                  <div class="art-preview code-preview">"phase": 3, "status": "executing",
+"execution": { "current_wave": 2,
+  "tasks_completed": 3 }</div>
+                  <div class="art-foot">
+                    <span class="art-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>2m ago</span>
+                    <span class="art-badge" style="background:rgba(184,149,64,0.1);color:var(--yellow)">Wave 2</span>
+                  </div>
+                </div>
+                <div class="art-card" onclick="switchView(1)">
+                  <div class="art-top">
+                    <div class="art-icon md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg></div>
+                    <span class="art-name">context.md</span>
+                    <span class="art-type" style="background:rgba(91,141,184,0.12);color:var(--blue)">md</span>
+                  </div>
+                  <div class="art-preview md-preview">REST API design decisions: Express.js router, Zod validation middleware, Stripe for payment gateway...</div>
+                  <div class="art-foot">
+                    <span class="art-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>4h ago</span>
+                    <span class="art-badge" style="background:rgba(145,120,181,0.1);color:var(--purple)">3 decisions</span>
+                  </div>
+                </div>
+                <div class="art-card" onclick="switchView(1)">
+                  <div class="art-top">
+                    <div class="art-icon md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+                    <span class="art-name">reflection-log.md</span>
+                    <span class="art-type" style="background:rgba(91,141,184,0.12);color:var(--blue)">md</span>
+                  </div>
+                  <div class="art-preview md-preview">Round 1: Middleware registration order changed to explicit declaration. Payment integration moved to Wave 2...</div>
+                  <div class="art-foot">
+                    <span class="art-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>40m ago</span>
+                    <span class="art-badge" style="background:rgba(200,134,58,0.1);color:var(--orange)">1 round</span>
+                  </div>
+                </div>
+                <div class="art-card" onclick="switchView(3)">
+                  <div class="art-top">
+                    <div class="art-icon json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+                    <span class="art-name">plan.json</span>
+                    <span class="art-type" style="background:rgba(184,149,64,0.12);color:var(--yellow)">json</span>
+                  </div>
+                  <div class="art-preview code-preview">"task_count": 5, "complexity": "High",
+"waves": [
+  { "wave": 1, "tasks": 3, "parallel": true }]</div>
+                  <div class="art-foot">
+                    <span class="art-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>6h ago</span>
+                    <span class="art-badge" style="background:rgba(90,158,120,0.1);color:var(--green)">5 tasks</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Specs -->
+            <div class="phase-group">
+              <div class="pg-head">
+                <span class="pg-dot" style="background:var(--purple)"></span>
+                <span class="pg-name">Specs</span>
+                <span class="pg-count">2 files</span>
+                <div class="pg-line"></div>
+              </div>
+              <div class="pg-grid">
+                <div class="art-card" onclick="switchView(1)">
+                  <div class="art-top">
+                    <div class="art-icon md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg></div>
+                    <span class="art-name">coding-conventions.md</span>
+                    <span class="art-type" style="background:rgba(91,141,184,0.12);color:var(--blue)">md</span>
+                  </div>
+                  <div class="art-preview md-preview">ESM modules, strict TypeScript, Prisma for ORM. Naming: camelCase variables, PascalCase types...</div>
+                  <div class="art-foot">
+                    <span class="art-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>1d ago</span>
+                  </div>
+                </div>
+                <div class="art-card" onclick="switchView(1)">
+                  <div class="art-top">
+                    <div class="art-icon md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg></div>
+                    <span class="art-name">architecture.md</span>
+                    <span class="art-type" style="background:rgba(91,141,184,0.12);color:var(--blue)">md</span>
+                  </div>
+                  <div class="art-preview md-preview">Layered architecture: Controller &rarr; Service &rarr; Repository. No direct DB access from controllers...</div>
+                  <div class="art-foot">
+                    <span class="art-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>1d ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== VIEW 3: Structured ========== -->
+        <div class="view-panel" id="view3">
+          <div class="structured-head">
+            <div class="sh-icon" style="background:var(--tint-yellow);color:var(--yellow)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+            <div class="sh-info">
+              <div class="sh-name">verification.json</div>
+              <div class="sh-path">.workflow/phases/02-database-layer/verification.json</div>
+            </div>
+            <div class="sh-meta">
+              <span class="sh-tag" style="background:rgba(200,134,58,0.12);color:var(--orange)">Gaps Found</span>
+              <span class="sh-tag" style="background:var(--bdr2);color:var(--t2)">1.2 KB</span>
+              <span class="sh-tag" style="background:var(--bdr2);color:var(--t2)">14m ago</span>
+            </div>
+            <div class="sh-actions">
+              <button class="sh-btn active" onclick="toggleStructured('structured',this)">Structured</button>
+              <button class="sh-btn" onclick="toggleStructured('raw',this)">Raw JSON</button>
+            </div>
+          </div>
+
+          <div class="structured-body" id="structuredView">
+            <div class="sv-inner">
+              <!-- Overview -->
+              <div class="json-section">
+                <div class="json-section-head">
+                  <span class="json-section-title">Overview</span>
+                </div>
+                <div class="kv-grid">
+                  <div class="kv-row"><span class="kv-key">phase</span><span class="kv-val">2 &mdash; Database Layer</span></div>
+                  <div class="kv-row"><span class="kv-key">status</span><span class="kv-val"><span class="status-badge" style="background:rgba(200,134,58,0.12);color:var(--orange)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> gaps_found</span></span></div>
+                  <div class="kv-row"><span class="kv-key">verified_at</span><span class="kv-val mono">2026-03-14T16:00:00+08:00</span></div>
+                  <div class="kv-row"><span class="kv-key">verifier</span><span class="kv-val mono">workflow-verifier</span></div>
+                </div>
+              </div>
+
+              <!-- Truths -->
+              <div class="json-section">
+                <div class="json-section-head">
+                  <span class="json-section-title">Must-Haves: Truths</span>
+                  <span class="json-section-badge" style="background:rgba(90,158,120,0.12);color:var(--green)">2/2 verified</span>
+                </div>
+                <div class="check-list">
+                  <div class="check-item">
+                    <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    <div class="check-content">
+                      <div class="check-claim">User model created with email/password_hash</div>
+                      <div class="check-evidence">POST /api/auth/register returns 201</div>
+                    </div>
+                  </div>
+                  <div class="check-item">
+                    <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    <div class="check-content">
+                      <div class="check-claim">Prisma schema valid and migrations run</div>
+                      <div class="check-evidence">prisma migrate dev completed without errors</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Artifacts -->
+              <div class="json-section">
+                <div class="json-section-head">
+                  <span class="json-section-title">Must-Haves: Artifacts</span>
+                  <span class="json-section-badge" style="background:rgba(90,158,120,0.12);color:var(--green)">2 found</span>
+                </div>
+                <div class="check-list">
+                  <div class="artifact-file">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg>
+                    <span class="artifact-file-path">src/models/user.ts</span>
+                    <span class="artifact-file-badge" style="background:rgba(90,158,120,0.1);color:var(--green)">exists &middot; substantive</span>
+                  </div>
+                  <div class="artifact-file" style="margin-top:4px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg>
+                    <span class="artifact-file-path">prisma/schema.prisma</span>
+                    <span class="artifact-file-badge" style="background:rgba(90,158,120,0.1);color:var(--green)">exists &middot; substantive</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Key Links -->
+              <div class="json-section">
+                <div class="json-section-head">
+                  <span class="json-section-title">Must-Haves: Key Links</span>
+                  <span class="json-section-badge" style="background:rgba(90,158,120,0.12);color:var(--green)">wired</span>
+                </div>
+                <div class="check-list">
+                  <div class="check-item">
+                    <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                    <div class="check-content">
+                      <div class="check-claim" style="font-family:var(--mono);font-size:12px">user.controller &rarr; user.service &rarr; user.model</div>
+                      <div class="check-evidence">Status: wired</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Gaps -->
+              <div class="json-section">
+                <div class="json-section-head">
+                  <span class="json-section-title">Gaps</span>
+                  <span class="json-section-badge" style="background:rgba(196,101,85,0.12);color:var(--red)">1 gap</span>
+                </div>
+                <div class="gap-card">
+                  <div class="gap-head">
+                    <span class="gap-id">GAP-001</span>
+                    <span class="gap-sev" style="background:rgba(200,134,58,0.12);color:var(--orange)">Medium</span>
+                    <span class="gap-type">missing_feature</span>
+                  </div>
+                  <div class="gap-desc">Refresh token rotation not implemented</div>
+                  <div class="gap-fix"><strong>Fix direction: </strong>Add rotateRefreshToken method in auth.service with one-time-use enforcement</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Raw JSON (hidden by default) -->
+          <div class="structured-body" id="rawView" style="display:none">
+            <div class="sv-inner">
+              <pre class="raw-json">{
+  <span class="j-key">"phase"</span>: <span class="j-num">2</span>,
+  <span class="j-key">"status"</span>: <span class="j-str">"gaps_found"</span>,
+  <span class="j-key">"verified_at"</span>: <span class="j-str">"2026-03-14T16:00:00+08:00"</span>,
+  <span class="j-key">"verifier"</span>: <span class="j-str">"workflow-verifier"</span>,
+  <span class="j-key">"must_haves"</span>: {
+    <span class="j-key">"truths"</span>: [
+      {
+        <span class="j-key">"claim"</span>: <span class="j-str">"User model created with email/password_hash"</span>,
+        <span class="j-key">"status"</span>: <span class="j-str">"verified"</span>,
+        <span class="j-key">"evidence"</span>: <span class="j-str">"POST /api/auth/register returns 201"</span>
+      },
+      {
+        <span class="j-key">"claim"</span>: <span class="j-str">"Prisma schema valid and migrations run"</span>,
+        <span class="j-key">"status"</span>: <span class="j-str">"verified"</span>,
+        <span class="j-key">"evidence"</span>: <span class="j-str">"prisma migrate dev completed without errors"</span>
+      }
+    ],
+    <span class="j-key">"artifacts"</span>: [
+      { <span class="j-key">"path"</span>: <span class="j-str">"src/models/user.ts"</span>, <span class="j-key">"status"</span>: <span class="j-str">"exists"</span>, <span class="j-key">"substantive"</span>: <span class="j-bool">true</span> },
+      { <span class="j-key">"path"</span>: <span class="j-str">"prisma/schema.prisma"</span>, <span class="j-key">"status"</span>: <span class="j-str">"exists"</span>, <span class="j-key">"substantive"</span>: <span class="j-bool">true</span> }
+    ],
+    <span class="j-key">"key_links"</span>: [
+      { <span class="j-key">"from"</span>: <span class="j-str">"user.controller -> user.service -> user.model"</span>, <span class="j-key">"status"</span>: <span class="j-str">"wired"</span> }
+    ]
+  },
+  <span class="j-key">"gaps"</span>: [
+    {
+      <span class="j-key">"id"</span>: <span class="j-str">"GAP-001"</span>,
+      <span class="j-key">"type"</span>: <span class="j-str">"missing_feature"</span>,
+      <span class="j-key">"severity"</span>: <span class="j-str">"medium"</span>,
+      <span class="j-key">"description"</span>: <span class="j-str">"Refresh token rotation not implemented"</span>,
+      <span class="j-key">"fix_direction"</span>: <span class="j-str">"Add rotateRefreshToken method in auth.service"</span>
+    }
+  ]
+}</pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentView = 1;
+
+  function switchView(n) {
+    if (n === currentView) return;
+    currentView = n;
+
+    const switcher = document.getElementById('viewSwitcher');
+    switcher.setAttribute('data-active', n);
+    switcher.querySelectorAll('.vs-btn').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.view) === n);
+    });
+
+    document.querySelectorAll('.view-panel').forEach(panel => {
+      panel.classList.remove('active');
+    });
+    requestAnimationFrame(() => {
+      document.getElementById('view' + n).classList.add('active');
+    });
+  }
+
+  function sel(el) {
+    document.querySelectorAll('.ft-file.selected').forEach(f => f.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  function toggleStructured(mode, btn) {
+    document.querySelectorAll('.sh-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('structuredView').style.display = mode === 'structured' ? '' : 'none';
+    document.getElementById('rawView').style.display = mode === 'raw' ? '' : 'none';
+  }
+
+  // Keyboard shortcuts: 1, 2, 3
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    const n = parseInt(e.key);
+    if (n >= 1 && n <= 3) switchView(n);
+  });
+</script>
+</body>
+</html>

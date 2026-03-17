@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCP Manager — Maestro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; line-height: 1.5; background: #FAF8F5; color: #2D2A26; -webkit-font-smoothing: antialiased; }
+
+    :root {
+      --bg: #FAF8F5; --bg2: #F3F0EA; --bg3: #EBE8E1; --card: #FFFFFF;
+      --hover: rgba(45,42,38,0.04); --active: rgba(45,42,38,0.07);
+      --t1: #2D2A26; --t2: #78756F; --t3: #A09D97; --t4: #D1CEC8;
+      --bdr: #E8E5DE; --bdr2: #ECEAE4;
+      --blue: #5B8DB8; --green: #5A9E78; --orange: #C8863A; --yellow: #B89540;
+      --purple: #9178B5; --red: #C46555; --gray: #A09D97;
+      --tint-green: #EEF5F0; --tint-yellow: #FBF5E2; --tint-orange: #FAF0E3;
+      --tint-purple: #F2EDF8; --tint-gray: #F2F1EE; --tint-blue: #EDF2F8; --tint-red: #F8EDEC;
+      --code-bg: #2C2723; --code-border: #3D3731; --code-t1: #D9D0C4;
+      --rail-w: 48px; --mono: 'JetBrains Mono', monospace;
+      --spring: cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .shell { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ================================================================
+       TopBar
+       ================================================================ */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 48px; padding: 0 20px; background: var(--bg2);
+      border-bottom: 1px solid var(--bdr); flex-shrink: 0; z-index: 100;
+    }
+    .topbar-l { display: flex; align-items: center; gap: 12px; }
+    .brand { font-weight: 800; font-size: 15px; color: var(--t1); letter-spacing: -0.02em; }
+    .breadcrumb { font-size: 12px; color: var(--t3); display: flex; align-items: center; gap: 6px; }
+    .breadcrumb b { color: var(--t1); font-weight: 600; }
+
+    /* View Switcher (3-tab) */
+    .topbar-c { position: absolute; left: 50%; transform: translateX(-50%); }
+    .view-sw {
+      display: flex; align-items: center; position: relative;
+      background: var(--bg3); border-radius: 8px; padding: 3px;
+    }
+    .view-sw .indicator {
+      position: absolute; top: 3px; left: 3px; height: calc(100% - 6px);
+      background: var(--card); border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      transition: all 280ms var(--spring); z-index: 1;
+    }
+    .vs-btn {
+      display: flex; align-items: center; gap: 6px; padding: 5px 14px;
+      border-radius: 6px; border: none; background: none; cursor: pointer;
+      font-size: 11px; font-weight: 600; color: var(--t3);
+      font-family: inherit; transition: color 200ms; position: relative; z-index: 2;
+      white-space: nowrap;
+    }
+    .vs-btn:hover { color: var(--t2); }
+    .vs-btn.active { color: var(--t1); }
+    .vs-btn svg { width: 14px; height: 14px; stroke-width: 1.8; }
+    .vs-key {
+      font-size: 9px; font-family: var(--mono); padding: 1px 5px;
+      border-radius: 4px; background: rgba(0,0,0,0.06); color: var(--t4); line-height: 14px;
+    }
+    .vs-btn.active .vs-key { background: rgba(0,0,0,0.08); color: var(--t3); }
+
+    .topbar-r { display: flex; align-items: center; gap: 8px; }
+    .pill { font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 100px; display: flex; align-items: center; gap: 5px; }
+    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .pill-green { background: rgba(90,158,120,0.12); color: var(--green); }
+    .pill-blue { background: rgba(91,141,184,0.12); color: var(--blue); }
+    .icon-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms;
+    }
+    .icon-btn:hover { background: var(--hover); color: var(--t1); }
+    .icon-btn svg { width: 16px; height: 16px; stroke-width: 1.8; }
+
+    .body { display: flex; flex: 1; overflow: hidden; }
+
+    /* ================================================================
+       Rail
+       ================================================================ */
+    .rail {
+      width: var(--rail-w); background: var(--bg2); border-right: 1px solid var(--bdr);
+      flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+      padding-top: 8px; gap: 2px; z-index: 50;
+    }
+    .rail-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: none; background: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--t3); transition: all 150ms; position: relative;
+    }
+    .rail-btn:hover { background: var(--hover); color: var(--t1); }
+    .rail-btn.active { background: var(--active); color: var(--t1); }
+    .rail-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
+    .rail-btn .tip {
+      position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+      background: var(--t1); color: #fff; font-size: 11px; font-weight: 500;
+      padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+      opacity: 0; pointer-events: none; transition: opacity 150ms; z-index: 200;
+    }
+    .rail-btn:hover .tip { opacity: 1; }
+    .rail-sep { width: 24px; height: 1px; background: var(--bdr2); margin: 6px 0; }
+
+    /* ================================================================
+       Main
+       ================================================================ */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+    /* Stats strip (servers) */
+    .stats {
+      display: flex; align-items: center; gap: 20px; padding: 8px 20px;
+      border-bottom: 1px solid var(--bdr2); background: var(--bg); flex-shrink: 0;
+    }
+    .stat { display: flex; align-items: center; gap: 6px; }
+    .stat-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .stat-num { font-size: 16px; font-weight: 800; color: var(--t1); font-family: var(--mono); }
+    .stat-label { font-size: 10px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: 0.04em; }
+
+    /* Toolbar (servers) */
+    .toolbar {
+      display: flex; align-items: center; gap: 10px; padding: 8px 20px;
+      border-bottom: 1px solid var(--bdr2); flex-shrink: 0;
+    }
+    .search-box {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 8px; background: var(--card);
+      border: 1px solid var(--bdr); width: 260px; transition: border-color 150ms;
+    }
+    .search-box:focus-within { border-color: var(--purple); }
+    .search-box svg { width: 13px; height: 13px; stroke-width: 2; color: var(--t4); flex-shrink: 0; }
+    .search-box input { border: none; background: none; outline: none; font-size: 12px; color: var(--t1); font-family: inherit; width: 100%; }
+    .search-box input::placeholder { color: var(--t4); }
+
+    .filter-chips { display: flex; gap: 6px; }
+    .chip {
+      padding: 4px 10px; border-radius: 100px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 10px; font-weight: 600; color: var(--t3);
+      cursor: pointer; white-space: nowrap; transition: all 150ms; font-family: inherit;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .chip:hover { border-color: var(--t4); color: var(--t2); }
+    .chip.active { background: var(--t1); color: #fff; border-color: var(--t1); }
+    .chip-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .chip-n { font-family: var(--mono); font-size: 9px; opacity: 0.6; }
+    .filter-sep { width: 1px; height: 18px; background: var(--bdr2); }
+    .toolbar-spacer { flex: 1; }
+    .btn-primary {
+      display: flex; align-items: center; gap: 6px; padding: 6px 14px;
+      border-radius: 8px; border: none; background: var(--t1); color: #fff;
+      font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit;
+      transition: all 150ms; white-space: nowrap;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+    .btn-primary svg { width: 13px; height: 13px; stroke-width: 2; }
+    .btn-sm {
+      padding: 5px 10px; border-radius: 6px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 10px; font-weight: 600; color: var(--t2);
+      cursor: pointer; font-family: inherit; transition: all 150ms;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .btn-sm:hover { border-color: var(--t4); color: var(--t1); }
+    .btn-sm svg { width: 11px; height: 11px; stroke-width: 2; }
+    .btn-danger { color: var(--red); }
+    .btn-danger:hover { border-color: var(--red); background: var(--tint-red); }
+
+    /* ================================================================
+       View Container
+       ================================================================ */
+    .view-container { flex: 1; position: relative; overflow: hidden; }
+    .view-pane {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      opacity: 0; pointer-events: none;
+      transition: opacity 220ms ease, transform 280ms var(--spring);
+      transform: translateY(8px);
+    }
+    .view-pane.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
+
+    /* ================================================================
+       Shared Components
+       ================================================================ */
+    .s-icon {
+      width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .s-icon svg { width: 14px; height: 14px; stroke-width: 1.8; }
+    .s-icon-stdio { background: var(--tint-blue); color: var(--blue); }
+    .s-icon-http { background: var(--tint-purple); color: var(--purple); }
+    .s-icon-lg { width: 36px; height: 36px; border-radius: 8px; }
+    .s-icon-lg svg { width: 18px; height: 18px; }
+
+    .toggle { position: relative; width: 32px; height: 18px; flex-shrink: 0; }
+    .toggle input { display: none; }
+    .toggle-track {
+      width: 32px; height: 18px; border-radius: 100px; background: var(--bdr);
+      cursor: pointer; transition: background 200ms; position: relative;
+    }
+    .toggle-track::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 14px; height: 14px; border-radius: 50%; background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15); transition: transform 200ms var(--spring);
+    }
+    .toggle input:checked + .toggle-track { background: var(--green); }
+    .toggle input:checked + .toggle-track::after { transform: translateX(14px); }
+
+    .scope-b { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.03em; font-family: var(--mono); }
+    .scope-global { background: rgba(91,141,184,0.12); color: var(--blue); }
+    .scope-project { background: rgba(145,120,181,0.12); color: var(--purple); }
+    .scope-enterprise { background: rgba(200,134,58,0.12); color: var(--orange); }
+
+    .transport-b { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 4px; }
+    .transport-stdio { background: var(--tint-blue); color: var(--blue); }
+    .transport-http { background: var(--tint-purple); color: var(--purple); }
+
+    /* CLI presence badges */
+    .cli-badges { display: flex; gap: 3px; }
+    .cli-b {
+      width: 20px; height: 16px; border-radius: 3px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 8px; font-weight: 800; font-family: var(--mono); line-height: 1;
+    }
+    .cli-b-claude { background: var(--tint-orange); color: var(--orange); }
+    .cli-b-codex { background: var(--tint-green); color: var(--green); }
+    .cli-b-dim { opacity: 0.25; }
+
+    .copy-trigger {
+      padding: 4px 8px; border-radius: 5px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 9px; font-weight: 600; color: var(--t3);
+      cursor: pointer; font-family: inherit; transition: all 150ms;
+      display: flex; align-items: center; gap: 3px; white-space: nowrap;
+    }
+    .copy-trigger:hover { border-color: var(--blue); color: var(--blue); background: var(--tint-blue); }
+    .copy-trigger svg { width: 10px; height: 10px; stroke-width: 2.5; }
+
+    /* ================================================================
+       VIEW 1: LIST (Table)
+       ================================================================ */
+    .list-wrap { flex: 1; display: flex; overflow: hidden; }
+    .list-table-area { flex: 1; overflow-y: auto; min-width: 0; }
+    .s-table { width: 100%; border-collapse: collapse; }
+    .s-table th {
+      position: sticky; top: 0; z-index: 10;
+      text-align: left; font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.05em; color: var(--t3);
+      padding: 8px 14px; background: var(--bg2); border-bottom: 1px solid var(--bdr);
+      white-space: nowrap; user-select: none; cursor: pointer;
+    }
+    .s-table th:hover { color: var(--t1); }
+    .s-table td { padding: 8px 14px; border-bottom: 1px solid var(--bdr2); vertical-align: middle; }
+    .s-table tbody tr { cursor: pointer; transition: background 100ms; }
+    .s-table tbody tr:hover td { background: var(--hover); }
+    .s-table tbody tr.selected td { background: rgba(145,120,181,0.07); }
+    .t-name { font-size: 12px; font-weight: 600; color: var(--t1); display: flex; align-items: center; gap: 8px; }
+    .t-cmd { font-family: var(--mono); font-size: 11px; color: var(--t3); max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .t-scope { white-space: nowrap; }
+    .t-toggle { text-align: center; }
+    .t-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 150ms; align-items: center; }
+    .s-table tbody tr:hover .t-actions { opacity: 1; }
+
+    /* Detail panel */
+    .detail-panel {
+      width: 0; overflow: hidden; border-left: 1px solid var(--bdr);
+      background: var(--card); flex-shrink: 0;
+      transition: width 300ms var(--spring);
+    }
+    .detail-panel.open { width: 380px; }
+    .dp-inner { width: 380px; display: flex; flex-direction: column; height: 100%; }
+    .dp-head {
+      display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+      border-bottom: 1px solid var(--bdr2); flex-shrink: 0;
+    }
+    .dp-title { font-size: 15px; font-weight: 700; color: var(--t1); flex: 1; }
+    .dp-close {
+      width: 28px; height: 28px; border-radius: 6px; border: none; background: none;
+      cursor: pointer; color: var(--t3); display: flex; align-items: center; justify-content: center;
+      transition: all 150ms;
+    }
+    .dp-close:hover { background: var(--hover); color: var(--t1); }
+    .dp-close svg { width: 14px; height: 14px; stroke-width: 2; }
+    .dp-body { flex: 1; overflow-y: auto; padding: 16px 18px; }
+
+    .cfg-section { margin-bottom: 16px; }
+    .cfg-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--t3); margin-bottom: 6px; }
+    .cfg-block {
+      background: var(--bg2); border: 1px solid var(--bdr2); border-radius: 8px;
+      padding: 10px 12px; font-family: var(--mono); font-size: 11px; color: var(--t1);
+      line-height: 1.7; white-space: pre-wrap; word-break: break-all;
+    }
+    .cfg-row { display: flex; gap: 8px; padding: 3px 0; align-items: center; }
+    .cfg-key { font-size: 11px; font-weight: 600; color: var(--t2); min-width: 70px; flex-shrink: 0; }
+    .cfg-val { font-family: var(--mono); font-size: 11px; color: var(--t1); word-break: break-all; }
+    .env-tbl { width: 100%; border-collapse: collapse; }
+    .env-tbl td { padding: 4px 8px; font-size: 11px; border-bottom: 1px solid var(--bdr2); }
+    .env-tbl td:first-child { font-family: var(--mono); font-weight: 500; color: var(--blue); white-space: nowrap; }
+    .env-tbl td:last-child { font-family: var(--mono); color: var(--t2); word-break: break-all; }
+
+    .dp-cli-row {
+      display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+      border-radius: 6px; margin-bottom: 4px;
+    }
+    .dp-cli-logo {
+      width: 24px; height: 18px; border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 800; font-family: var(--mono);
+    }
+    .dp-cli-name { font-size: 12px; font-weight: 600; color: var(--t1); flex: 1; }
+    .dp-cli-status { font-size: 10px; font-weight: 600; }
+    .dp-cli-present { color: var(--green); }
+    .dp-cli-absent { color: var(--t4); }
+    .dp-cli-copy {
+      padding: 3px 8px; border-radius: 4px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 9px; font-weight: 600; color: var(--blue);
+      cursor: pointer; font-family: inherit; transition: all 150ms;
+    }
+    .dp-cli-copy:hover { background: var(--tint-blue); border-color: var(--blue); }
+    .dp-actions { display: flex; gap: 6px; padding: 12px 18px; border-top: 1px solid var(--bdr2); flex-shrink: 0; }
+
+    /* ================================================================
+       VIEW 2: CARDS (Grid)
+       ================================================================ */
+    .cards-scroll { flex: 1; overflow-y: auto; padding: 16px 20px; }
+
+    .scope-section { margin-bottom: 20px; }
+    .scope-head {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+      padding-bottom: 6px; border-bottom: 1px solid var(--bdr2);
+    }
+    .scope-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .scope-name { font-size: 12px; font-weight: 700; color: var(--t1); }
+    .scope-cnt { font-size: 10px; color: var(--t3); font-family: var(--mono); }
+
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
+
+    .srv-card {
+      background: var(--card); border: 1px solid var(--bdr); border-radius: 10px;
+      padding: 14px; cursor: pointer; transition: all 200ms;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .srv-card:hover { border-color: var(--t4); box-shadow: 0 2px 10px rgba(0,0,0,0.06); transform: translateY(-2px); }
+    .srv-card.selected { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(145,120,181,0.2); }
+
+    .sc-top { display: flex; align-items: center; gap: 10px; }
+    .sc-info { flex: 1; min-width: 0; }
+    .sc-name { font-size: 13px; font-weight: 700; color: var(--t1); }
+    .sc-meta { display: flex; gap: 5px; margin-top: 3px; }
+    .sc-cmd {
+      font-family: var(--mono); font-size: 10px; color: var(--t2);
+      background: var(--bg2); border-radius: 6px; padding: 6px 10px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sc-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .sc-env { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; min-width: 0; }
+    .sc-env-tag {
+      font-size: 9px; font-family: var(--mono); padding: 2px 6px; border-radius: 4px;
+      background: rgba(91,141,184,0.08); color: var(--blue);
+    }
+    .sc-actions { display: flex; gap: 3px; flex-shrink: 0; }
+    .sc-copy {
+      padding: 3px 7px; border-radius: 4px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 8px; font-weight: 700; color: var(--t3);
+      cursor: pointer; font-family: var(--mono); transition: all 150ms;
+      display: flex; align-items: center; gap: 3px;
+    }
+    .sc-copy svg { width: 9px; height: 9px; stroke-width: 2.5; }
+    .sc-copy:hover { border-color: var(--blue); color: var(--blue); background: var(--tint-blue); }
+    .sc-copy-claude:hover { border-color: var(--orange); color: var(--orange); background: var(--tint-orange); }
+    .sc-copy-codex:hover { border-color: var(--green); color: var(--green); background: var(--tint-green); }
+
+    /* ================================================================
+       VIEW 3: TEMPLATES (Gallery)
+       ================================================================ */
+    .tpl-stats {
+      display: flex; align-items: center; gap: 20px; padding: 8px 20px;
+      border-bottom: 1px solid var(--bdr2); background: var(--bg); flex-shrink: 0;
+    }
+    .tpl-toolbar {
+      display: flex; align-items: center; gap: 10px; padding: 8px 20px;
+      border-bottom: 1px solid var(--bdr2); flex-shrink: 0;
+    }
+    .tpl-grid-wrap { flex: 1; overflow-y: auto; padding: 16px 20px; }
+    .tpl-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;
+    }
+
+    .tpl-card {
+      background: var(--card); border: 1px solid var(--bdr); border-radius: 10px;
+      padding: 14px; transition: all 200ms;
+      cursor: pointer; display: flex; flex-direction: column; gap: 10px;
+    }
+    .tpl-card:hover { border-color: var(--t4); box-shadow: 0 2px 8px rgba(0,0,0,0.06); transform: translateY(-2px); }
+
+    .tpl-head { display: flex; align-items: flex-start; gap: 10px; }
+    .tpl-icon {
+      width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .tpl-icon svg { width: 18px; height: 18px; stroke-width: 1.8; }
+    .tpl-icon-data { background: var(--tint-blue); color: var(--blue); }
+    .tpl-icon-search { background: var(--tint-purple); color: var(--purple); }
+    .tpl-icon-code { background: var(--tint-green); color: var(--green); }
+    .tpl-icon-fs { background: var(--tint-yellow); color: var(--yellow); }
+    .tpl-icon-api { background: var(--tint-orange); color: var(--orange); }
+    .tpl-icon-tool { background: var(--tint-gray); color: var(--gray); }
+
+    .tpl-info { flex: 1; min-width: 0; }
+    .tpl-name { font-size: 13px; font-weight: 700; color: var(--t1); }
+    .tpl-desc { font-size: 11px; color: var(--t2); line-height: 1.5; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+    .tpl-cmd {
+      font-family: var(--mono); font-size: 10px; color: var(--t2);
+      background: var(--bg2); border-radius: 6px; padding: 6px 10px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .tpl-footer { display: flex; align-items: center; justify-content: space-between; }
+    .tpl-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+    .tpl-tag {
+      font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 4px;
+      text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .tpl-tag-data { background: rgba(91,141,184,0.12); color: var(--blue); }
+    .tpl-tag-search { background: rgba(145,120,181,0.12); color: var(--purple); }
+    .tpl-tag-code { background: rgba(90,158,120,0.12); color: var(--green); }
+    .tpl-tag-fs { background: rgba(184,149,64,0.12); color: var(--yellow); }
+    .tpl-tag-api { background: rgba(200,134,58,0.12); color: var(--orange); }
+
+    .tpl-install {
+      padding: 4px 10px; border-radius: 6px; border: 1px solid var(--bdr);
+      background: var(--card); font-size: 10px; font-weight: 600; color: var(--t2);
+      cursor: pointer; font-family: inherit; transition: all 150ms;
+      display: flex; align-items: center; gap: 4px; white-space: nowrap;
+    }
+    .tpl-install:hover { border-color: var(--green); color: var(--green); background: var(--tint-green); }
+    .tpl-install svg { width: 10px; height: 10px; stroke-width: 2.5; }
+    .tpl-installed { border-color: var(--green); color: var(--green); background: var(--tint-green); cursor: default; }
+
+    /* Server/Template context-aware areas */
+    .ctx-servers { flex-shrink: 0; }
+    .ctx-templates { flex-shrink: 0; display: none; }
+    .show-tpl .ctx-servers { display: none; }
+    .show-tpl .ctx-templates { display: flex; }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <!-- ============================================================
+       TopBar
+       ============================================================ -->
+  <header class="topbar">
+    <div class="topbar-l">
+      <div class="brand">Maestro</div>
+      <div class="breadcrumb">/ Settings / <b>MCP Manager</b></div>
+    </div>
+    <div class="topbar-c">
+      <div class="view-sw" id="viewSw">
+        <div class="indicator" id="vsIndicator"></div>
+        <button class="vs-btn active" data-view="0" onclick="switchView(0)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          List
+          <span class="vs-key">1</span>
+        </button>
+        <button class="vs-btn" data-view="1" onclick="switchView(1)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Cards
+          <span class="vs-key">2</span>
+        </button>
+        <button class="vs-btn" data-view="2" onclick="switchView(2)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Templates
+          <span class="vs-key">3</span>
+        </button>
+      </div>
+    </div>
+    <div class="topbar-r">
+      <div class="pill pill-green"><div class="pill-dot"></div>12 Active</div>
+      <div class="pill pill-blue"><div class="pill-dot"></div>3 Global</div>
+      <button class="icon-btn" title="Add Server">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14m-7-7h14"/></svg>
+      </button>
+      <button class="icon-btn" title="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- ============================================================
+         Rail
+         ============================================================ -->
+    <nav class="rail">
+      <button class="rail-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span class="tip">Dashboard</span></button>
+      <button class="rail-btn active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span class="tip">MCP Manager</span></button>
+      <div class="rail-sep"></div>
+      <button class="rail-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span class="tip">Settings</span></button>
+    </nav>
+
+    <!-- ============================================================
+         Main
+         ============================================================ -->
+    <div class="main" id="mainArea">
+      <!-- Stats: Servers -->
+      <div class="stats ctx-servers">
+        <div class="stat"><div class="stat-dot" style="background:var(--green);"></div><div class="stat-num">12</div><div class="stat-label">Active</div></div>
+        <div class="stat"><div class="stat-dot" style="background:var(--blue);"></div><div class="stat-num">3</div><div class="stat-label">Global</div></div>
+        <div class="stat"><div class="stat-dot" style="background:var(--purple);"></div><div class="stat-num">8</div><div class="stat-label">Project</div></div>
+        <div class="stat"><div class="stat-dot" style="background:var(--orange);"></div><div class="stat-num">1</div><div class="stat-label">Enterprise</div></div>
+      </div>
+      <!-- Stats: Templates -->
+      <div class="stats ctx-templates">
+        <div class="stat"><div class="stat-dot" style="background:var(--purple);"></div><div class="stat-num">24</div><div class="stat-label">Templates</div></div>
+        <div class="stat"><div class="stat-dot" style="background:var(--blue);"></div><div class="stat-num">6</div><div class="stat-label">Categories</div></div>
+        <div class="stat"><div class="stat-dot" style="background:var(--green);"></div><div class="stat-num">9</div><div class="stat-label">Installed</div></div>
+      </div>
+
+      <!-- Toolbar: Servers -->
+      <div class="toolbar ctx-servers">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" placeholder="Search servers..." />
+        </div>
+        <div class="filter-chips">
+          <button class="chip active">All <span class="chip-n">12</span></button>
+          <button class="chip"><div class="chip-dot" style="background:var(--blue);"></div> Global <span class="chip-n">3</span></button>
+          <button class="chip"><div class="chip-dot" style="background:var(--purple);"></div> Project <span class="chip-n">8</span></button>
+          <button class="chip"><div class="chip-dot" style="background:var(--orange);"></div> Enterprise <span class="chip-n">1</span></button>
+        </div>
+        <div class="filter-sep"></div>
+        <div class="filter-chips">
+          <button class="chip">STDIO <span class="chip-n">9</span></button>
+          <button class="chip">HTTP <span class="chip-n">3</span></button>
+        </div>
+        <div class="toolbar-spacer"></div>
+        <button class="btn-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14m-7-7h14"/></svg>
+          Add Server
+        </button>
+      </div>
+      <!-- Toolbar: Templates -->
+      <div class="toolbar ctx-templates">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" placeholder="Search templates..." />
+        </div>
+        <div class="filter-chips">
+          <button class="chip active">All <span class="chip-n">24</span></button>
+          <button class="chip"><div class="chip-dot" style="background:var(--blue);"></div> Database <span class="chip-n">5</span></button>
+          <button class="chip"><div class="chip-dot" style="background:var(--purple);"></div> Search <span class="chip-n">4</span></button>
+          <button class="chip"><div class="chip-dot" style="background:var(--green);"></div> Code <span class="chip-n">6</span></button>
+          <button class="chip"><div class="chip-dot" style="background:var(--yellow);"></div> Filesystem <span class="chip-n">3</span></button>
+          <button class="chip"><div class="chip-dot" style="background:var(--orange);"></div> API <span class="chip-n">4</span></button>
+          <button class="chip"><div class="chip-dot" style="background:var(--gray);"></div> Utility <span class="chip-n">2</span></button>
+        </div>
+        <div class="toolbar-spacer"></div>
+        <button class="btn-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14m-7-7h14"/></svg>
+          New Template
+        </button>
+      </div>
+
+      <!-- ============================================================
+           View Container
+           ============================================================ -->
+      <div class="view-container">
+
+        <!-- ========================================================
+             VIEW 1: LIST (Table + Detail Panel)
+             ======================================================== -->
+        <div class="view-pane active" id="view0">
+          <div class="list-wrap">
+            <div class="list-table-area">
+              <table class="s-table">
+                <thead>
+                  <tr>
+                    <th style="width:36px;"></th>
+                    <th>Name</th>
+                    <th>Command / URL</th>
+                    <th>Scope</th>
+                    <th>CLI</th>
+                    <th style="width:50px;">On</th>
+                    <th style="width:140px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Both CLIs -->
+                  <tr class="selected">
+                    <td><div class="s-icon s-icon-stdio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div></td>
+                    <td class="t-name">maestro-tools</td>
+                    <td class="t-cmd">npx -y maestro-mcp</td>
+                    <td class="t-scope"><span class="scope-b scope-global">Global</span></td>
+                    <td><div class="cli-badges"><span class="cli-b cli-b-claude">C</span><span class="cli-b cli-b-codex">X</span></div></td>
+                    <td class="t-toggle"><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div></label></td>
+                    <td><div class="t-actions">
+                      <button class="btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                      <button class="btn-sm btn-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+                    </div></td>
+                  </tr>
+                  <tr>
+                    <td><div class="s-icon s-icon-stdio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div></td>
+                    <td class="t-name">ace-tool</td>
+                    <td class="t-cmd">npx -y @anthropic/ace-mcp</td>
+                    <td class="t-scope"><span class="scope-b scope-global">Global</span></td>
+                    <td><div class="cli-badges"><span class="cli-b cli-b-claude">C</span><span class="cli-b cli-b-codex">X</span></div></td>
+                    <td class="t-toggle"><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div></label></td>
+                    <td><div class="t-actions">
+                      <button class="btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                      <button class="btn-sm btn-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+                    </div></td>
+                  </tr>
+                  <tr>
+                    <td><div class="s-icon s-icon-http"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg></div></td>
+                    <td class="t-name">context7</td>
+                    <td class="t-cmd">https://mcp.context7.com/mcp</td>
+                    <td class="t-scope"><span class="scope-b scope-global">Global</span></td>
+                    <td><div class="cli-badges"><span class="cli-b cli-b-claude">C</span><span class="cli-b cli-b-codex">X</span></div></td>
+                    <td class="t-toggle"><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div></label></td>
+                    <td><div class="t-actions">
+                      <button class="btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                      <button class="btn-sm btn-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+                    </div></td>
+                  </tr>
+                  <!-- Claude only -->
+                  <tr>
+                    <td><div class="s-icon s-icon-stdio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div></td>
+                    <td class="t-name">filesystem</td>
+                    <td class="t-cmd">npx -y @anthropic/fs-mcp -- /home/user</td>
+                    <td class="t-scope"><span class="scope-b scope-project">Project</span></td>
+                    <td><div class="cli-badges"><span class="cli-b cli-b-claude">C</span><span class="cli-b cli-b-codex cli-b-dim">X</span></div></td>
+                    <td class="t-toggle"><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div></label></td>
+                    <td><div class="t-actions">
+                      <button class="copy-trigger" title="Copy to Codex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg> <span class="cli-b cli-b-codex" style="width:14px;height:11px;font-size:7px;">X</span></button>
+                      <button class="btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                      <button class="btn-sm btn-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+                    </div></td>
+                  </tr>
+                  <tr>
+                    <td><div class="s-icon s-icon-stdio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div></td>
+                    <td class="t-name">github</td>
+                    <td class="t-cmd">npx -y @modelcontextprotocol/server-github</td>
+                    <td class="t-scope"><span class="scope-b scope-project">Project</span></td>
+                    <td><div class="cli-badges"><span class="cli-b cli-b-claude">C</span><span class="cli-b cli-b-codex cli-b-dim">X</span></div></td>
+                    <td class="t-toggle"><label class="toggle"><input type="checkbox"><div class="toggle-track"></div></label></td>
+                    <td><div class="t-actions">
+                      <button class="copy-trigger" title="Copy to Codex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg> <span class="cli-b cli-b-codex" style="width:14px;height:11px;font-size:7px;">X</span></button>
+                      <button class="btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                      <button class="btn-sm btn-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+                    </div></td>
+                  </tr>
+                  <!-- Codex only -->
+                  <tr>
+                    <td><div class="s-icon s-icon-stdio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div></td>
+                    <td class="t-name">puppeteer</td>
+                    <td class="t-cmd">npx -y @anthropic/puppeteer-mcp</td>
+                    <td class="t-scope"><span class="scope-b scope-project">Project</span></td>
+                    <td><div class="cli-badges"><span class="cli-b cli-b-claude cli-b-dim">C</span><span class="cli-b cli-b-codex">X</span></div></td>
+                    <td class="t-toggle"><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div></label></td>
+                    <td><div class="t-actions">
+                      <button class="copy-trigger" title="Copy to Claude"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"/></svg> <span class="cli-b cli-b-claude" style="width:14px;height:11px;font-size:7px;">C</span></button>
+                      <button class="btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                      <button class="btn-sm btn-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+                    </div></td>
+                  </tr>
+                  <!-- Enterprise -->
+                  <tr>
+                    <td><div class="s-icon s-icon-stdio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div></td>
+                    <td class="t-name">corporate-tools</td>
+                    <td class="t-cmd">managed (read-only)</td>
+                    <td class="t-scope"><span class="scope-b scope-enterprise">Enterprise</span></td>
+                    <td><div class="cli-badges"><span class="cli-b cli-b-claude">C</span><span class="cli-b cli-b-codex cli-b-dim">X</span></div></td>
+                    <td class="t-toggle"><label class="toggle"><input type="checkbox" checked disabled><div class="toggle-track" style="opacity:.5; cursor:default;"></div></label></td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Detail Panel -->
+            <div class="detail-panel open">
+              <div class="dp-inner">
+                <div class="dp-head">
+                  <div class="s-icon s-icon-lg s-icon-stdio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+                  <div class="dp-title">maestro-tools</div>
+                  <button class="dp-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                </div>
+                <div class="dp-body">
+                  <div class="cfg-section">
+                    <div class="cfg-label">Info</div>
+                    <div class="cfg-row"><span class="cfg-key">Scope</span><span class="scope-b scope-global">Global</span></div>
+                    <div class="cfg-row"><span class="cfg-key">Transport</span><span class="transport-b transport-stdio">STDIO</span></div>
+                    <div class="cfg-row"><span class="cfg-key">Status</span><span style="color:var(--green); font-weight:600; font-size:12px; display:flex; align-items:center; gap:4px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;"></span>Enabled</span></div>
+                    <div class="cfg-row"><span class="cfg-key">Source</span><span class="cfg-val">~/.claude.json</span></div>
+                  </div>
+                  <div class="cfg-section">
+                    <div class="cfg-label">CLI Presence</div>
+                    <div class="dp-cli-row" style="background:var(--tint-orange);">
+                      <div class="dp-cli-logo" style="background:var(--tint-orange);color:var(--orange);">C</div>
+                      <div class="dp-cli-name">Claude Code</div>
+                      <span class="dp-cli-status dp-cli-present">Installed</span>
+                    </div>
+                    <div class="dp-cli-row" style="background:var(--tint-green);">
+                      <div class="dp-cli-logo" style="background:var(--tint-green);color:var(--green);">X</div>
+                      <div class="dp-cli-name">Codex CLI</div>
+                      <span class="dp-cli-status dp-cli-present">Installed</span>
+                    </div>
+                  </div>
+                  <div class="cfg-section">
+                    <div class="cfg-label">Command</div>
+                    <div class="cfg-block">npx -y maestro-mcp</div>
+                  </div>
+                  <div class="cfg-section">
+                    <div class="cfg-label">Environment</div>
+                    <div style="background:var(--bg2); border:1px solid var(--bdr2); border-radius:8px; overflow:hidden;">
+                      <table class="env-tbl">
+                        <tr><td>MAESTRO_ENABLED_TOOLS</td><td>write_file,edit_file,read_file,core_memory</td></tr>
+                        <tr><td>MAESTRO_PROJECT_ROOT</td><td>D:/maestro2</td></tr>
+                      </table>
+                    </div>
+                  </div>
+                  <div class="cfg-section">
+                    <div class="cfg-label">Raw Config</div>
+                    <div class="cfg-block" style="background:var(--code-bg);color:var(--code-t1);border-color:var(--code-border);">{
+  "command": "npx",
+  "args": ["-y", "maestro-mcp"],
+  "env": {
+    "MAESTRO_ENABLED_TOOLS": "...",
+    "MAESTRO_PROJECT_ROOT": "D:/maestro2"
+  }
+}</div>
+                  </div>
+                </div>
+                <div class="dp-actions">
+                  <button class="btn-sm" style="flex:1; justify-content:center;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button>
+                  <button class="btn-sm btn-danger" style="flex:1; justify-content:center;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg> Remove</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================================
+             VIEW 2: CARDS (Grouped Grid)
+             ======================================================== -->
+        <div class="view-pane" id="view1">
+          <div class="cards-scroll">
+            <!-- Global -->
+            <div class="scope-section">
+              <div class="scope-head">
+                <div class="scope-dot" style="background:var(--blue);"></div>
+                <div class="scope-name">Global Servers</div>
+                <div class="scope-cnt">3 servers</div>
+              </div>
+              <div class="card-grid">
+                <div class="srv-card selected">
+                  <div class="sc-top">
+                    <div class="s-icon s-icon-lg s-icon-stdio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+                    <div class="sc-info">
+                      <div class="sc-name">maestro-tools</div>
+                      <div class="sc-meta"><span class="scope-b scope-global">Global</span><span class="transport-b transport-stdio">STDIO</span></div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div></label>
+                  </div>
+                  <div class="sc-cmd">npx -y maestro-mcp</div>
+                  <div class="sc-footer">
+                    <div class="sc-env">
+                      <span class="sc-env-tag">MAESTRO_ENABLED_TOOLS</span>
+                      <span class="sc-env-tag">MAESTRO_PROJECT_ROOT</span>
+                    </div>
+                    <div class="cli-badges"><span class="cli-b cli-b-claude">C</span><span class="cli-b cli-b-codex">X</span></div>
+                  </div>
+                </div>
+                <div class="srv-card">
+                  <div class="sc-top">
+                    <div class="s-icon s-icon-lg s-icon-stdio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+                    <div class="sc-info">
+                      <div class="sc-name">ace-tool</div>
+                      <div class="sc-meta"><span class="scope-b scope-global">Global</span><span class="transport-b transport-stdio">STDIO</span></div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div></label>
+                  </div>
+                  <div class="sc-cmd">npx -y @anthropic/ace-mcp</div>
+                  <div class="sc-footer">
+                    <div class="sc-env"></div>
+                    <div class="cli-badges"><span class="cli-b cli-b-claude">C</span><span class="cli-b cli-b-codex">X</span></div>
+                  </div>
+                </div>
+                <div class="srv-card">
+                  <div class="sc-top">
+                    <div class="s-icon s-icon-lg s-icon-http"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg></div>
+                    <div class="sc-info">
+                      <div class="sc-name">context7</div>
+                      <div class="sc-meta"><span class="scope-b scope-global">Global</span><span class="transport-b transport-http">HTTP</span></div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div></label>
+                  </div>
+                  <div class="sc-cmd">https://mcp.context7.com/mcp</div>
+                  <div class="sc-footer">
+                    <div class="sc-env"></div>
+                    <div class="cli-badges"><span class="cli-b cli-b-claude">C</span><span class="cli-b cli-b-codex">X</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Project -->
+            <div class="scope-section">
+              <div class="scope-head">
+                <div class="scope-dot" style="background:var(--purple);"></div>
+                <div class="scope-name">Project Servers</div>
+                <div class="scope-cnt">5 servers</div>
+              </div>
+              <div class="card-grid">
+                <div class="srv-card">
+                  <div class="sc-top">
+                    <div class="s-icon s-icon-lg s-icon-stdio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+                    <div class="sc-info">
+                      <div class="sc-name">filesystem</div>
+                      <div class="sc-meta"><span class="scope-b scope-project">Project</span><span class="transport-b transport-stdio">STDIO</span></div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div></label>
+                  </div>
+                  <div class="sc-cmd">npx -y @anthropic/fs-mcp -- /home/user</div>
+                  <div class="sc-footer">
+                    <div class="sc-env"></div>
+                    <div class="sc-actions">
+                      <button class="sc-copy sc-copy-codex" title="Copy to Codex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg>X</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="srv-card">
+                  <div class="sc-top">
+                    <div class="s-icon s-icon-lg s-icon-stdio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+                    <div class="sc-info">
+                      <div class="sc-name">github</div>
+                      <div class="sc-meta"><span class="scope-b scope-project">Project</span><span class="transport-b transport-stdio">STDIO</span></div>
+                    </div>
+                    <label class="toggle"><input type="checkbox"><div class="toggle-track"></div></label>
+                  </div>
+                  <div class="sc-cmd">npx -y @modelcontextprotocol/server-github</div>
+                  <div class="sc-footer">
+                    <div class="sc-env"><span class="sc-env-tag">GITHUB_TOKEN</span></div>
+                    <div class="sc-actions">
+                      <button class="sc-copy sc-copy-codex" title="Copy to Codex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg>X</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="srv-card">
+                  <div class="sc-top">
+                    <div class="s-icon s-icon-lg s-icon-stdio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+                    <div class="sc-info">
+                      <div class="sc-name">puppeteer</div>
+                      <div class="sc-meta"><span class="scope-b scope-project">Project</span><span class="transport-b transport-stdio">STDIO</span></div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div></label>
+                  </div>
+                  <div class="sc-cmd">npx -y @anthropic/puppeteer-mcp</div>
+                  <div class="sc-footer">
+                    <div class="sc-env"></div>
+                    <div class="sc-actions">
+                      <button class="sc-copy sc-copy-claude" title="Copy to Claude"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"/></svg>C</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Enterprise -->
+            <div class="scope-section">
+              <div class="scope-head">
+                <div class="scope-dot" style="background:var(--orange);"></div>
+                <div class="scope-name">Enterprise Managed</div>
+                <div class="scope-cnt">1 server &middot; read-only</div>
+              </div>
+              <div class="card-grid">
+                <div class="srv-card" style="border-color: rgba(200,134,58,0.3); background: var(--tint-orange);">
+                  <div class="sc-top">
+                    <div class="s-icon s-icon-lg s-icon-stdio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+                    <div class="sc-info">
+                      <div class="sc-name">corporate-tools</div>
+                      <div class="sc-meta"><span class="scope-b scope-enterprise">Enterprise</span><span class="transport-b transport-stdio">STDIO</span></div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked disabled><div class="toggle-track" style="opacity:.5; cursor:default;"></div></label>
+                  </div>
+                  <div class="sc-cmd" style="background:rgba(200,134,58,0.08);">managed (read-only)</div>
+                  <div class="sc-footer">
+                    <div class="sc-env"></div>
+                    <div class="cli-badges"><span class="cli-b cli-b-claude">C</span><span class="cli-b cli-b-codex cli-b-dim">X</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================================
+             VIEW 3: TEMPLATES (Gallery)
+             ======================================================== -->
+        <div class="view-pane" id="view2">
+          <div class="tpl-grid-wrap">
+            <div class="tpl-grid">
+              <!-- PostgreSQL -->
+              <div class="tpl-card">
+                <div class="tpl-head">
+                  <div class="tpl-icon tpl-icon-data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div>
+                  <div class="tpl-info">
+                    <div class="tpl-name">PostgreSQL</div>
+                    <div class="tpl-desc">Query PostgreSQL databases, inspect schema, run read-only queries for data analysis</div>
+                  </div>
+                </div>
+                <div class="tpl-cmd">npx -y @modelcontextprotocol/server-postgres</div>
+                <div class="tpl-footer">
+                  <div class="tpl-tags"><span class="tpl-tag tpl-tag-data">database</span><span class="tpl-tag tpl-tag-code">sql</span></div>
+                  <button class="tpl-install"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Install</button>
+                </div>
+              </div>
+
+              <!-- Brave Search -->
+              <div class="tpl-card">
+                <div class="tpl-head">
+                  <div class="tpl-icon tpl-icon-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
+                  <div class="tpl-info">
+                    <div class="tpl-name">Brave Search</div>
+                    <div class="tpl-desc">Web search via Brave Search API with privacy-focused results and rich snippets</div>
+                  </div>
+                </div>
+                <div class="tpl-cmd">npx -y @anthropic/brave-search-mcp</div>
+                <div class="tpl-footer">
+                  <div class="tpl-tags"><span class="tpl-tag tpl-tag-search">search</span><span class="tpl-tag tpl-tag-api">web</span></div>
+                  <button class="tpl-install"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Install</button>
+                </div>
+              </div>
+
+              <!-- GitHub -->
+              <div class="tpl-card">
+                <div class="tpl-head">
+                  <div class="tpl-icon tpl-icon-code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+                  <div class="tpl-info">
+                    <div class="tpl-name">GitHub</div>
+                    <div class="tpl-desc">Access GitHub repos, create issues, manage PRs, search code across organizations</div>
+                  </div>
+                </div>
+                <div class="tpl-cmd">npx -y @modelcontextprotocol/server-github</div>
+                <div class="tpl-footer">
+                  <div class="tpl-tags"><span class="tpl-tag tpl-tag-code">code</span><span class="tpl-tag tpl-tag-api">api</span></div>
+                  <button class="tpl-install"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Install</button>
+                </div>
+              </div>
+
+              <!-- Filesystem -->
+              <div class="tpl-card">
+                <div class="tpl-head">
+                  <div class="tpl-icon tpl-icon-fs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></div>
+                  <div class="tpl-info">
+                    <div class="tpl-name">Filesystem</div>
+                    <div class="tpl-desc">Read, write, and manage files with configurable directory access controls</div>
+                  </div>
+                </div>
+                <div class="tpl-cmd">npx -y @anthropic/fs-mcp -- /path/to/dir</div>
+                <div class="tpl-footer">
+                  <div class="tpl-tags"><span class="tpl-tag tpl-tag-fs">filesystem</span></div>
+                  <button class="tpl-install"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Install</button>
+                </div>
+              </div>
+
+              <!-- Context7 (installed) -->
+              <div class="tpl-card">
+                <div class="tpl-head">
+                  <div class="tpl-icon tpl-icon-api"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg></div>
+                  <div class="tpl-info">
+                    <div class="tpl-name">Context7</div>
+                    <div class="tpl-desc">Up-to-date documentation for any library via the Context7 knowledge graph</div>
+                  </div>
+                </div>
+                <div class="tpl-cmd">https://mcp.context7.com/mcp</div>
+                <div class="tpl-footer">
+                  <div class="tpl-tags"><span class="tpl-tag tpl-tag-api">api</span><span class="tpl-tag tpl-tag-search">docs</span></div>
+                  <button class="tpl-install tpl-installed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg> Installed</button>
+                </div>
+              </div>
+
+              <!-- Maestro Tools (installed) -->
+              <div class="tpl-card">
+                <div class="tpl-head">
+                  <div class="tpl-icon tpl-icon-tool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg></div>
+                  <div class="tpl-info">
+                    <div class="tpl-name">Maestro Tools</div>
+                    <div class="tpl-desc">Core Maestro file operations, memory management, and smart search capabilities</div>
+                  </div>
+                </div>
+                <div class="tpl-cmd">npx -y maestro-mcp</div>
+                <div class="tpl-footer">
+                  <div class="tpl-tags"><span class="tpl-tag tpl-tag-code">tools</span><span class="tpl-tag tpl-tag-fs">files</span></div>
+                  <button class="tpl-install tpl-installed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg> Installed</button>
+                </div>
+              </div>
+
+              <!-- SQLite -->
+              <div class="tpl-card">
+                <div class="tpl-head">
+                  <div class="tpl-icon tpl-icon-data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div>
+                  <div class="tpl-info">
+                    <div class="tpl-name">SQLite</div>
+                    <div class="tpl-desc">Local SQLite database operations with schema inspection and query execution</div>
+                  </div>
+                </div>
+                <div class="tpl-cmd">npx -y @modelcontextprotocol/server-sqlite</div>
+                <div class="tpl-footer">
+                  <div class="tpl-tags"><span class="tpl-tag tpl-tag-data">database</span><span class="tpl-tag tpl-tag-code">sql</span></div>
+                  <button class="tpl-install"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Install</button>
+                </div>
+              </div>
+
+              <!-- Exa Search -->
+              <div class="tpl-card">
+                <div class="tpl-head">
+                  <div class="tpl-icon tpl-icon-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
+                  <div class="tpl-info">
+                    <div class="tpl-name">Exa Search</div>
+                    <div class="tpl-desc">Neural search engine for finding high-quality web content and research papers</div>
+                  </div>
+                </div>
+                <div class="tpl-cmd">npx -y exa-mcp-server</div>
+                <div class="tpl-footer">
+                  <div class="tpl-tags"><span class="tpl-tag tpl-tag-search">search</span><span class="tpl-tag tpl-tag-api">research</span></div>
+                  <button class="tpl-install"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Install</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /view-container -->
+    </div><!-- /main -->
+  </div><!-- /body -->
+</div><!-- /shell -->
+
+<script>
+  const btns = document.querySelectorAll('.vs-btn');
+  const panes = [document.getElementById('view0'), document.getElementById('view1'), document.getElementById('view2')];
+  const indicator = document.getElementById('vsIndicator');
+  const mainArea = document.getElementById('mainArea');
+
+  function switchView(idx) {
+    btns.forEach((b, i) => b.classList.toggle('active', i === idx));
+    panes.forEach((p, i) => p.classList.toggle('active', i === idx));
+    // Toggle context-aware stats/toolbar
+    mainArea.classList.toggle('show-tpl', idx === 2);
+    // Position indicator
+    const btn = btns[idx];
+    indicator.style.width = btn.offsetWidth + 'px';
+    indicator.style.transform = 'translateX(' + btn.offsetLeft + 'px)';
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === '1') switchView(0);
+    if (e.key === '2') switchView(1);
+    if (e.key === '3') switchView(2);
+  });
+
+  requestAnimationFrame(() => switchView(0));
+</script>
+</body>
+</html>

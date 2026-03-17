@@ -1,0 +1,83 @@
+{
+  "nav": {
+    "kanban": "看板",
+    "artifacts": "产物",
+    "chat": "聊天",
+    "workflow": "工作流查看器",
+    "mcp": "MCP 管理器",
+    "specs": "规范管理器",
+    "views": "视图"
+  },
+  "sidebar": {
+    "phases": "阶段",
+    "no_phases_loaded": "未加载阶段"
+  },
+  "dock": {
+    "toggle_sidebar": "切换侧边栏",
+    "kanban_tooltip": "看板",
+    "artifacts_tooltip": "文件",
+    "chat_tooltip": "对话",
+    "workflow_tooltip": "工作流",
+    "mcp_tooltip": "MCP 管理器",
+    "specs_tooltip": "规范管理器",
+    "views_label": "视图",
+    "phases_label": "阶段",
+    "phase_dot_aria": "阶段 {{phase}}：{{title}} — {{status}}"
+  },
+  "accessibility": {
+    "main_content": "主内容区域"
+  },
+  "topbar": {
+    "phase": "阶段",
+    "of": "/",
+    "connection": {
+      "connected": "在线",
+      "disconnected": "离线",
+      "aria_connected": "已连接",
+      "aria_disconnected": "已断开"
+    }
+  },
+  "status": {
+    "pending": "待处理",
+    "exploring": "探索中",
+    "planning": "规划中",
+    "executing": "执行中",
+    "verifying": "验证中",
+    "testing": "测试中",
+    "completed": "已完成",
+    "blocked": "已阻塞"
+  },
+  "taskStatus": {
+    "pending": "待处理",
+    "in_progress": "进行中",
+    "completed": "完成",
+    "failed": "失败"
+  },
+  "columns": {
+    "backlog": "待办",
+    "in_progress": "进行中",
+    "review": "审查",
+    "done": "完成"
+  },
+  "kanban": {
+    "wave": "波次",
+    "phase_aria": "阶段 {{phase}}: {{title}}。状态: {{status}}。已完成 {{completed}}/{{total}} 个任务。",
+    "task_aria": "{{type}}: {{title}}。状态: {{status}}",
+    "no_phases": "暂无阶段",
+    "loading": "加载看板数据..."
+  },
+  "artifacts": {
+    "empty_title": "未选择文件",
+    "empty_desc": "从树中选择文件以查看其内容",
+    "loading": "加载中...",
+    "breadcrumb_root": ".workflow/",
+    "aria_viewer": "产物查看器",
+    "aria_breadcrumb": "面包屑导航"
+  },
+  "connection_error": "无法连接到仪表盘服务器。请确保它在 3001 端口上运行。",
+  "language_switcher": {
+    "en": "English",
+    "zh": "中文",
+    "aria_label": "语言切换器"
+  }
+}

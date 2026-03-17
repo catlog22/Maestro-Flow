@@ -1,0 +1,120 @@
+import { EventEmitter } from 'node:events';
+
+import type {
+  SSEEvent,
+  SSEEventType,
+  BoardState,
+  PhaseCard,
+  TaskCard,
+  ScratchCard,
+  ProjectState,
+} from '../../shared/types.js';
+import type {
+  AgentProcess,
+  NormalizedEntry,
+  ApprovalRequest,
+  AgentStatusPayload,
+  AgentStoppedPayload,
+} from '../../shared/agent-types.js';
+
+// ---------------------------------------------------------------------------
+// All event types — single source of truth for onAny / offAny
+// ---------------------------------------------------------------------------
+
+const ALL_EVENT_TYPES: SSEEventType[] = [
+  'board:full',
+  'phase:updated',
+  'task:updated',
+  'scratch:updated',
+  'project:updated',
+  'watcher:error',
+  'heartbeat',
+  'connected',
+  'agent:spawned',
+  'agent:entry',
+  'agent:approval',
+  'agent:status',
+  'agent:stopped',
+];
+
+// ---------------------------------------------------------------------------
+// Event payload map — each SSEEventType maps to its expected data shape
+// ---------------------------------------------------------------------------
+
+export interface DashboardEventMap {
+  'board:full': BoardState;
+  'phase:updated': PhaseCard;
+  'task:updated': TaskCard;
+  'scratch:updated': ScratchCard;
+  'project:updated': ProjectState;
+  'watcher:error': string;
+  'heartbeat': null;
+  'connected': null;
+  // Agent lifecycle events
+  'agent:spawned': AgentProcess;
+  'agent:entry': NormalizedEntry;
+  'agent:approval': ApprovalRequest;
+  'agent:status': AgentStatusPayload;
+  'agent:stopped': AgentStoppedPayload;
+}
+
+// ---------------------------------------------------------------------------
+// Typed event bus wrapping Node.js EventEmitter
+// ---------------------------------------------------------------------------
+
+export class DashboardEventBus {
+  private readonly emitter = new EventEmitter();
+
+  constructor() {
+    // Raise limit — multiple SSE clients may subscribe
+    this.emitter.setMaxListeners(50);
+  }
+
+  /** Emit a typed dashboard event */
+  emit<K extends SSEEventType & keyof DashboardEventMap>(
+    type: K,
+    data: DashboardEventMap[K],
+  ): void {
+    const event: SSEEvent = {
+      type,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+    this.emitter.emit(type, event);
+  }
+
+  /** Subscribe to a specific event type */
+  on<K extends SSEEventType & keyof DashboardEventMap>(
+    type: K,
+    listener: (event: SSEEvent) => void,
+  ): void {
+    this.emitter.on(type, listener);
+  }
+
+  /** Unsubscribe from a specific event type */
+  off<K extends SSEEventType & keyof DashboardEventMap>(
+    type: K,
+    listener: (event: SSEEvent) => void,
+  ): void {
+    this.emitter.off(type, listener);
+  }
+
+  /** Subscribe to all event types */
+  onAny(listener: (event: SSEEvent) => void): void {
+    for (const type of ALL_EVENT_TYPES) {
+      this.emitter.on(type, listener);
+    }
+  }
+
+  /** Unsubscribe from all event types */
+  offAny(listener: (event: SSEEvent) => void): void {
+    for (const type of ALL_EVENT_TYPES) {
+      this.emitter.off(type, listener);
+    }
+  }
+
+  /** Remove all listeners */
+  removeAllListeners(): void {
+    this.emitter.removeAllListeners();
+  }
+}

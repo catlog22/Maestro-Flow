@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "description": "Terminology glossary schema for brainstorm guidance-specification",
+  "schema": {
+    "terminology": {
+      "type": "array",
+      "items": {
+        "term": "string (required) - canonical term",
+        "definition": "string (required) - concise definition",
+        "aliases": "array of strings - alternative names",
+        "category": "enum: core|technical|business (required)",
+        "first_used_in": "string - source document"
+      }
+    }
+  },
+  "validation_rules": {
+    "min_terms": 5,
+    "max_terms": 20,
+    "term_format": "lowercase, alphanumeric + hyphens",
+    "definition_max_length": 200
+  }
+}

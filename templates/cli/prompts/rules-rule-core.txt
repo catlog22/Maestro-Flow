@@ -1,0 +1,60 @@
+# Rule Template: Core Principles
+
+## Variables
+- {TECH_STACK_NAME}: Tech stack display name
+- {FILE_EXT}: File extension pattern
+
+## Output Format
+
+```markdown
+---
+paths: **/*.{FILE_EXT}
+---
+
+# {TECH_STACK_NAME} Core Principles
+
+## Philosophy
+
+[Synthesize core philosophy from Exa research]
+- Key paradigms and mental models
+- Design philosophy
+- Community conventions
+
+## Naming Conventions
+
+[Language-specific naming rules]
+- Variables and functions
+- Classes and types
+- Files and directories
+- Constants and enums
+
+## Code Organization
+
+[Structure and module guidelines]
+- File structure patterns
+- Module boundaries
+- Import organization
+- Dependency management
+
+## Type Safety
+
+[Type system best practices - if applicable]
+- Type annotation guidelines
+- Generic usage patterns
+- Type inference vs explicit types
+- Null/undefined handling
+
+## Documentation
+
+[Documentation standards]
+- Comment style
+- JSDoc/docstring format
+- README conventions
+```
+
+## Content Guidelines
+
+- Focus on universal principles that apply to ALL files
+- Keep rules actionable and specific
+- Include rationale for each rule
+- Reference official style guides where applicable

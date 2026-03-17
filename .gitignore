@@ -1,0 +1,23 @@
+node_modules/
+dist/
+dist-server/
+.tmp/
+*.log
+.env
+.env.*
+.DS_Store
+Thumbs.db
+
+# Local tool/workflow state (not for distribution)
+.ace-tool/
+.ccw/
+.workflow/
+claude-code-skills-guide.md
+docs/
+
+# Dashboard local state
+dashboard/.planning/
+dashboard/.workflow/
+dashboard/dist/
+dashboard/dist-server/
+dashboard/node_modules/

@@ -1,0 +1,32 @@
+{
+  "id": "ISS-{{YYYYMMDD}}-{{NNN}}",
+  "title": "{{TITLE}}",
+  "status": "registered",
+  "priority": 3,
+  "severity": "medium",
+  "source": "verification",
+
+  "phase_ref": null,
+  "gap_ref": null,
+
+  "description": "{{DESCRIPTION}}",
+  "fix_direction": "{{SUGGESTED_FIX_APPROACH}}",
+
+  "context": {
+    "location": "{{FILE_PATH:LINE}}",
+    "suggested_fix": "{{REMEDIATION_CODE_OR_STEPS}}",
+    "notes": ""
+  },
+
+  "tags": [],
+  "affected_components": [],
+
+  "feedback": [],
+
+  "issue_history": [],
+
+  "created_at": "{{TIMESTAMP}}",
+  "updated_at": "{{TIMESTAMP}}",
+  "resolved_at": null,
+  "resolution": null
+}

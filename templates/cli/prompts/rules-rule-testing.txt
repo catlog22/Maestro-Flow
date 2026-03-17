@@ -1,0 +1,81 @@
+# Rule Template: Testing Rules
+
+## Variables
+- {TECH_STACK_NAME}: Tech stack display name
+- {FILE_EXT}: File extension pattern
+- {TEST_FRAMEWORK}: Primary testing framework
+
+## Output Format
+
+```markdown
+---
+paths:
+  - "**/*.{test,spec}.{FILE_EXT}"
+  - "tests/**/*.{FILE_EXT}"
+  - "__tests__/**/*.{FILE_EXT}"
+  - "**/test_*.{FILE_EXT}"
+  - "**/*_test.{FILE_EXT}"
+---
+
+# {TECH_STACK_NAME} Testing Rules
+
+## Testing Framework
+
+[Recommended frameworks from Exa research]
+- Primary: {TEST_FRAMEWORK}
+- Assertion library
+- Mocking library
+- Coverage tool
+
+## Test Structure
+
+[Organization patterns]
+
+### File Naming
+- Unit tests: `*.test.{ext}` or `*.spec.{ext}`
+- Integration tests: `*.integration.test.{ext}`
+- E2E tests: `*.e2e.test.{ext}`
+
+### Test Organization
+```{lang}
+describe('[Component/Module]', () => {
+  describe('[method/feature]', () => {
+    it('should [expected behavior]', () => {
+      // Arrange
+      // Act
+      // Assert
+    });
+  });
+});
+```
+
+## Mocking & Fixtures
+
+[Best practices]
+- Mock creation patterns
+- Fixture organization
+- Test data factories
+- Cleanup strategies
+
+## Assertions
+
+[Assertion patterns]
+- Common assertions
+- Custom matchers
+- Async assertions
+- Error assertions
+
+## Coverage Requirements
+
+[Coverage guidelines]
+- Minimum coverage thresholds
+- What to cover vs skip
+- Coverage report interpretation
+```
+
+## Content Guidelines
+
+- Include framework-specific patterns
+- Show test structure examples
+- Cover both unit and integration testing
+- Include async testing patterns
