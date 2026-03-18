@@ -1,0 +1,68 @@
+name: Deploy Docs Site
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - 'docs-site/**'
+      - '.claude/commands/**'
+      - '.claude/skills/**'
+      - '.workflow/.team/**/inventory.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: docs-site/package-lock.json
+
+      - name: Copy command and skill files for Vite glob
+        run: |
+          mkdir -p docs-site/.claude/commands docs-site/.claude/skills
+          cp .claude/commands/*.md docs-site/.claude/commands/ 2>/dev/null || true
+          for d in .claude/skills/*/; do
+            name=$(basename "$d")
+            mkdir -p "docs-site/.claude/skills/$name"
+            cp "$d/SKILL.md" "docs-site/.claude/skills/$name/" 2>/dev/null || true
+          done
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: docs-site
+
+      - name: Build
+        run: npm run build
+        working-directory: docs-site
+        env:
+          VITE_BASE_URL: /${{ github.event.repository.name }}
+
+      - uses: actions/configure-pages@v4
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs-site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment
