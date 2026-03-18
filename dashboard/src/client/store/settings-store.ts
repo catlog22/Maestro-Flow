@@ -31,7 +31,7 @@ export interface SettingsConfig {
 }
 
 /** Section type union */
-export type SettingsSectionType = 'general' | 'agents' | 'cli-tools' | 'specs' | 'linear';
+export type SettingsSectionType = 'general' | 'agents' | 'cli-tools' | 'specs' | 'linear' | 'kanban';
 
 export interface SettingsStore {
   open: boolean;

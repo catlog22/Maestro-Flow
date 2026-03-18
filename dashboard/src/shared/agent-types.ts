@@ -36,6 +36,8 @@ export interface AgentProcess {
   config: AgentConfig;
   startedAt: string;
   pid?: number;
+  /** Whether the agent supports interactive follow-up messages */
+  interactive?: boolean;
 }
 
 // ---------------------------------------------------------------------------

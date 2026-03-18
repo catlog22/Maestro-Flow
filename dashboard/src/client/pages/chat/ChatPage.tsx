@@ -89,7 +89,7 @@ export function ChatPage() {
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+    <div className="h-full flex flex-col min-w-0 overflow-hidden">
       {/* Floating tab bar */}
       <div className="sticky top-0 z-30 flex justify-center pt-2 pointer-events-none">
         <div
@@ -142,6 +142,7 @@ export function ChatPage() {
           )}
           <button
             type="button"
+            onClick={() => setActiveProcessId(null)}
             className="w-7 h-7 rounded-[8px] border-none bg-transparent flex items-center justify-center cursor-pointer transition-all duration-150"
             style={{ color: 'var(--color-text-tertiary)' }}
             onMouseEnter={(e) => {

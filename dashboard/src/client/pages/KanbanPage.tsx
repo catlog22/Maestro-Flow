@@ -14,7 +14,11 @@ import { LinearExportDialog } from '@/client/components/kanban/LinearExportDialo
 import { ExecutionCliPanel } from '@/client/components/kanban/ExecutionCliPanel.js';
 import { ExecutionToolbar } from '@/client/components/kanban/ExecutionToolbar.js';
 import { SupervisorStatusBar } from '@/client/components/kanban/SupervisorStatusBar.js';
+import { IssueCreateModal } from '@/client/components/kanban/IssueCreateModal.js';
+import { IssueDetailModal } from '@/client/components/kanban/IssueDetailModal.js';
+import { useUIPrefsStore } from '@/client/store/ui-prefs-store.js';
 import type { SelectedKanbanItem } from '@/shared/types.js';
+import type { Issue } from '@/shared/issue-types.js';
 import type { LinearIssue } from '@/shared/linear-types.js';
 import LayoutGrid from 'lucide-react/dist/esm/icons/layout-grid.js';
 import Clock from 'lucide-react/dist/esm/icons/clock.js';
@@ -38,6 +42,17 @@ export function KanbanPage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [showDone, setShowDone] = useState(false);
   const [composingColumnId, setComposingColumnId] = useState<string | null>(null);
+
+  // Create modal state
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createModalColumnId, setCreateModalColumnId] = useState('backlog');
+
+  // Detail modal state
+  const [detailIssue, setDetailIssue] = useState<Issue | null>(null);
+
+  // Style prefs from settings (persisted to localStorage)
+  const createStyle = useUIPrefsStore((s) => s.createModalStyle);
+  const detailStyle = useUIPrefsStore((s) => s.detailModalStyle);
 
   const { register, unregister } = useContext(ViewSwitcherContext);
   const selectedPhase = useBoardStore((s) => s.selectedPhase);
@@ -118,8 +133,9 @@ export function KanbanPage() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
 
       if (e.key === 'c' && !e.metaKey && !e.ctrlKey) {
-        // 'C' to compose in backlog
-        setComposingColumnId('backlog');
+        // 'C' to open create modal in backlog
+        setCreateModalColumnId('backlog');
+        setCreateModalOpen(true);
       }
     }
     window.addEventListener('keydown', handleKeyDown);
@@ -134,18 +150,30 @@ export function KanbanPage() {
   }
 
   function handleSelectItem(item: SelectedKanbanItem) {
+    // Local issues open the detail modal instead of the side panel
+    if (item.type === 'issue') {
+      setDetailIssue(item.issue);
+      setSelectedItem(null);
+      setSelectedPhase(null);
+      return;
+    }
+
     const isSame =
       selectedItem?.type === item.type &&
       (item.type === 'phase'
         ? (selectedItem as { phaseId: number }).phaseId === item.phaseId
         : (selectedItem as { issue: LinearIssue }).issue.id === item.issue.id);
     setSelectedItem(isSame ? null : item);
-    // Keep board-store in sync for phase selections
     if (item.type === 'phase') {
       setSelectedPhase(isSame ? null : item.phaseId);
     } else {
       setSelectedPhase(null);
     }
+  }
+
+  function handleOpenCreateModal(columnId: string) {
+    setCreateModalColumnId(columnId);
+    setCreateModalOpen(true);
   }
 
   function handleCloseDetail() {
@@ -267,7 +295,7 @@ export function KanbanPage() {
               selectedItem={selectedItem}
               onSelectItem={handleSelectItem}
               composingColumnId={composingColumnId}
-              onStartCompose={setComposingColumnId}
+              onStartCompose={handleOpenCreateModal}
               onStopCompose={() => setComposingColumnId(null)}
               onIssueCreated={handleIssueCreated}
               showDone={showDone}
@@ -317,6 +345,24 @@ export function KanbanPage() {
           teams={linearTeams}
           selectedTeamId={linearSelectedTeamId}
           onClose={() => setExportOpen(false)}
+        />
+      )}
+
+      {/* Create modal */}
+      <IssueCreateModal
+        open={createModalOpen}
+        columnId={createModalColumnId}
+        style={createStyle}
+        onClose={() => setCreateModalOpen(false)}
+        onCreated={handleIssueCreated}
+      />
+
+      {/* Issue detail modal */}
+      {detailIssue && !cliPanelIssueId && (
+        <IssueDetailModal
+          issue={detailIssue}
+          style={detailStyle}
+          onClose={() => setDetailIssue(null)}
         />
       )}
     </div>

@@ -147,6 +147,7 @@ export class CodexCliAdapter extends BaseAgentAdapter {
       config,
       startedAt: new Date().toISOString(),
       pid: child.pid,
+      interactive: false,
     };
   }
 

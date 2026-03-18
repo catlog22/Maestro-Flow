@@ -15,6 +15,24 @@ export type IssuePriority = 'low' | 'medium' | 'high' | 'urgent';
 export type IssueStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 
 // ---------------------------------------------------------------------------
+// Solution — pre-planned execution steps (from /issue:plan)
+// ---------------------------------------------------------------------------
+
+/** A single step in an issue solution plan */
+export interface SolutionStep {
+  description: string;
+  target?: string;        // file or module target
+  verification?: string;  // how to verify this step
+}
+
+/** Pre-planned solution attached to an issue */
+export interface IssueSolution {
+  steps: SolutionStep[];
+  context?: string;          // exploration context, key files
+  promptTemplate?: string;   // custom prompt template (Liquid syntax)
+}
+
+// ---------------------------------------------------------------------------
 // Core interfaces
 // ---------------------------------------------------------------------------
 
@@ -28,6 +46,7 @@ export interface Issue {
   status: IssueStatus;
   executor?: AgentType;
   promptMode?: PromptMode;
+  solution?: IssueSolution;
   execution?: IssueExecution;
   source_entry_id?: string;
   source_process_id?: string;

@@ -32,32 +32,44 @@ const SLASH_COMMANDS = [
   { name: '/quality-debug', desc: 'Parallel hypothesis debugging', color: 'var(--color-accent-blue)', bg: 'var(--color-tint-exploring)' },
 ];
 
-export function ChatInput() {
+interface ChatInputProps {
+  processId?: string | null;
+  /** Executor type — fallback for interactivity when process not yet resolved */
+  executor?: AgentType;
+}
+
+/** Fallback: executor types that support interactive messaging (used when process.interactive is unknown) */
+const INTERACTIVE_EXECUTOR_FALLBACK = new Set<AgentType>(['claude-code']);
+
+export function ChatInput({ processId: externalProcessId, executor }: ChatInputProps = {}) {
   const [text, setText] = useState('');
   const [agentType, setAgentType] = useState<AgentType>('claude-code');
   const [slashOpen, setSlashOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const activeProcessId = useAgentStore((s) => s.activeProcessId);
-  const activeProcess = useAgentStore((s) =>
-    s.activeProcessId ? s.processes[s.activeProcessId] ?? null : null,
-  );
+  const storeProcessId = useAgentStore((s) => s.activeProcessId);
+  const processes = useAgentStore((s) => s.processes);
 
+  const effectiveProcessId = externalProcessId !== undefined ? externalProcessId : storeProcessId;
+  const activeProcess = effectiveProcessId ? processes[effectiveProcessId] ?? null : null;
+
+  // Use process.interactive flag if available, fallback to executor type heuristic
   const isNonInteractive =
-    activeProcess != null &&
-    activeProcess.type !== 'claude-code' &&
-    activeProcess.status === 'running';
+    activeProcess != null
+      ? activeProcess.interactive === false
+      : executor != null && !INTERACTIVE_EXECUTOR_FALLBACK.has(executor);
 
   const handleSend = useCallback(() => {
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    if (activeProcessId && activeProcess) {
+    if (effectiveProcessId && activeProcess) {
       sendWsMessage({
         action: 'message',
-        processId: activeProcessId,
+        processId: effectiveProcessId,
         content: trimmed,
       });
-    } else {
+    } else if (externalProcessId === undefined) {
+      // Only spawn new agents when not in external processId mode
       sendWsMessage({
         action: 'spawn',
         config: {
@@ -73,7 +85,7 @@ export function ChatInput() {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-  }, [text, activeProcessId, activeProcess, agentType]);
+  }, [text, effectiveProcessId, activeProcess, agentType, externalProcessId]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -104,7 +116,7 @@ export function ChatInput() {
     textareaRef.current?.focus();
   }, []);
 
-  const showAgentSelector = !activeProcessId;
+  const showAgentSelector = !effectiveProcessId && externalProcessId === undefined;
   const currentModel = activeProcess?.type ?? agentType;
 
   return (
@@ -170,7 +182,7 @@ export function ChatInput() {
             wrap.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06), 0 0 0 3px rgba(200, 134, 58, 0.08)';
           }}
           onBlurCapture={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget as Node)) {
               const wrap = e.currentTarget as HTMLElement;
               wrap.style.borderColor = 'var(--color-border)';
               wrap.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.02)';
@@ -183,8 +195,8 @@ export function ChatInput() {
             onChange={handleChange}
             onInput={handleInput}
             onKeyDown={handleKeyDown}
-            disabled={isNonInteractive}
-            placeholder={activeProcessId ? 'Send a message...' : 'Send a message, / for commands...'}
+            disabled={isNonInteractive || (externalProcessId !== undefined && !effectiveProcessId)}
+            placeholder={effectiveProcessId ? 'Send a message...' : 'Send a message, / for commands...'}
             rows={1}
             className="w-full min-h-[42px] max-h-[200px] resize-none border-none px-[14px] py-[10px] text-[13px] leading-[1.5] bg-transparent outline-none disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ color: 'var(--color-text-primary)' }}
@@ -245,7 +257,7 @@ export function ChatInput() {
             <button
               type="button"
               onClick={handleSend}
-              disabled={!text.trim() || isNonInteractive}
+              disabled={!text.trim() || isNonInteractive || (externalProcessId !== undefined && !effectiveProcessId)}
               className="shrink-0 w-[34px] h-[30px] rounded-[8px] flex items-center justify-center transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 ml-1 border-none cursor-pointer"
               style={{ backgroundColor: 'var(--color-accent-orange)', color: '#fff' }}
               aria-label="Send message"

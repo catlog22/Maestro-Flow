@@ -192,15 +192,16 @@ export function useWebSocket(): void {
       };
 
       ws.onclose = () => {
+        // Guard: stale handler from a previous effect cycle (StrictMode double-mount)
+        if (disposed) return;
+
         setConnected(false);
         wsRef.current = null;
         wsSendFn = null;
 
-        if (!disposed) {
-          const delay = reconnectDelay.current;
-          reconnectDelay.current = Math.min(delay * 2, RECONNECT_MAX_MS);
-          reconnectTimer.current = setTimeout(connect, delay);
-        }
+        const delay = reconnectDelay.current;
+        reconnectDelay.current = Math.min(delay * 2, RECONNECT_MAX_MS);
+        reconnectTimer.current = setTimeout(connect, delay);
       };
 
       ws.onerror = () => {
@@ -217,6 +218,11 @@ export function useWebSocket(): void {
         clearTimeout(reconnectTimer.current);
       }
       if (wsRef.current) {
+        // Nullify handlers before closing to prevent stale callbacks
+        wsRef.current.onopen = null;
+        wsRef.current.onmessage = null;
+        wsRef.current.onerror = null;
+        wsRef.current.onclose = null;
         wsRef.current.close();
         wsRef.current = null;
       }

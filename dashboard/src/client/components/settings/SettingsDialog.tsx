@@ -21,6 +21,7 @@ const SECTIONS: SectionNavItem[] = [
   { id: 'cli-tools', label: 'CLI Tools', icon: 'terminal' },
   { id: 'specs', label: 'Specs', icon: 'file-text' },
   { id: 'linear', label: 'Linear', icon: 'linear' },
+  { id: 'kanban', label: 'Kanban', icon: 'kanban' },
 ];
 
 /** Simple SVG icons to avoid heavy lucide imports for just 4 icons */
@@ -67,6 +68,14 @@ function SectionIcon({ icon }: { icon: string }) {
           <path d="M3 17l6-6" />
           <path d="M10 18l4-4" />
           <path d="M14 20l7-7" />
+        </svg>
+      );
+    case 'kanban':
+      return (
+        <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="5" height="18" rx="1" />
+          <rect x="10" y="3" width="5" height="12" rx="1" />
+          <rect x="17" y="3" width="5" height="15" rx="1" />
         </svg>
       );
     default:

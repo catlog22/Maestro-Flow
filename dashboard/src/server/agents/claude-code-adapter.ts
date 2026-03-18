@@ -112,6 +112,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         '@anthropic-ai/claude-code',
         '--output-format=stream-json',
         '--input-format=stream-json',
+        '--verbose',
         '--print',
         config.prompt,
       ],
@@ -155,6 +156,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       config,
       startedAt: new Date().toISOString(),
       pid: child.pid,
+      interactive: true,
     };
   }
 

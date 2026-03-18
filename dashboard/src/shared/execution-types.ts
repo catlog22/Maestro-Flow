@@ -28,6 +28,13 @@ export type IssueExecutionStatus =
   | 'failed'
   | 'retrying';
 
+export interface ExecutionResult {
+  summary?: string;     // Agent's completion summary
+  commitHash?: string;  // Git commit created by agent
+  prUrl?: string;       // PR URL if created
+  filesChanged?: number;
+}
+
 export interface IssueExecution {
   status: IssueExecutionStatus;
   processId?: string;
@@ -35,6 +42,7 @@ export interface IssueExecution {
   completedAt?: string;
   retryCount: number;
   lastError?: string;
+  result?: ExecutionResult;
 }
 
 // ---------------------------------------------------------------------------
@@ -43,6 +51,17 @@ export interface IssueExecution {
 
 export type PromptMode = 'skill' | 'direct';
 export type SupervisorStrategy = 'priority' | 'smart';
+
+export interface WorkspacePolicy {
+  /** Enable per-issue workspace isolation */
+  enabled: boolean;
+  /** Use git worktree (true) or plain directory (false) */
+  useWorktree: boolean;
+  /** Auto-cleanup workspaces after completion */
+  autoCleanup: boolean;
+  /** Strict mode: fail execution if workspace creation fails (instead of falling back to cwd) */
+  strict: boolean;
+}
 
 export interface SupervisorConfig {
   enabled: boolean;
@@ -54,6 +73,7 @@ export interface SupervisorConfig {
   retryBackoffMs: number;
   defaultPromptMode: PromptMode;
   defaultExecutor: AgentType;
+  workspace: WorkspacePolicy;
 }
 
 export const DEFAULT_SUPERVISOR_CONFIG: SupervisorConfig = {
@@ -66,6 +86,12 @@ export const DEFAULT_SUPERVISOR_CONFIG: SupervisorConfig = {
   retryBackoffMs: 60_000,
   defaultPromptMode: 'direct',
   defaultExecutor: 'claude-code',
+  workspace: {
+    enabled: false,
+    useWorktree: true,
+    autoCleanup: true,
+    strict: false,
+  },
 };
 
 // ---------------------------------------------------------------------------

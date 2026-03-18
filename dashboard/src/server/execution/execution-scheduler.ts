@@ -9,6 +9,7 @@ import type { AgentType, AgentProcess } from '../../shared/agent-types.js';
 import type { Issue, IssueStatus } from '../../shared/issue-types.js';
 import type {
   ExecutionSlot,
+  ExecutionResult,
   IssueExecution,
   SupervisorConfig,
   SupervisorStatus,
@@ -16,6 +17,7 @@ import type {
 import { DEFAULT_SUPERVISOR_CONFIG } from '../../shared/execution-types.js';
 import type { AgentManager } from '../agents/agent-manager.js';
 import type { DashboardEventBus } from '../state/event-bus.js';
+import { WorkspaceManager, type WorkspaceConfig } from './workspace-manager.js';
 
 // ---------------------------------------------------------------------------
 // JSONL helpers
@@ -78,6 +80,7 @@ export class ExecutionScheduler {
   private readonly retryQueue = new Map<string, { retryAt: number; count: number }>();
   private readonly claimed = new Set<string>();
   private config: SupervisorConfig;
+  private readonly workspaceManager: WorkspaceManager | null;
   private tickTimer: ReturnType<typeof setInterval> | null = null;
   private lastTickAt: string | null = null;
   private stats = { totalDispatched: 0, totalCompleted: 0, totalFailed: 0 };
@@ -89,6 +92,16 @@ export class ExecutionScheduler {
     config?: Partial<SupervisorConfig>,
   ) {
     this.config = { ...DEFAULT_SUPERVISOR_CONFIG, ...config };
+
+    // Initialize workspace manager if enabled
+    const ws = this.config.workspace;
+    this.workspaceManager = ws.enabled
+      ? new WorkspaceManager(process.cwd(), {
+          useWorktree: ws.useWorktree,
+          autoCleanup: ws.autoCleanup,
+        })
+      : null;
+
     this.subscribeToAgentEvents();
     // Recover state from persisted issues on startup
     void this.recoverState();
@@ -249,6 +262,7 @@ export class ExecutionScheduler {
   /** Clean shutdown */
   async destroy(): Promise<void> {
     this.stopSupervisor();
+    await this.workspaceManager?.destroy();
   }
 
   // -------------------------------------------------------------------------
@@ -323,9 +337,25 @@ export class ExecutionScheduler {
 
   private async dispatch(issue: Issue, executor: AgentType): Promise<void> {
     const prompt = this.buildPrompt(issue);
-    const workDir = process.cwd();
     const now = new Date().toISOString();
     const retryCount = issue.execution?.retryCount ?? 0;
+
+    // Create isolated workspace if manager is active
+    let workDir = process.cwd();
+    if (this.workspaceManager) {
+      try {
+        const ws = await this.workspaceManager.createForIssue(issue.id);
+        workDir = ws.path;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (this.config.workspace.strict) {
+          // Strict mode: fail execution rather than running in project root
+          await this.handleFailure(issue.id, `Workspace creation failed: ${message}`);
+          return;
+        }
+        console.error(`[Execution] Workspace creation failed for ${issue.id}, falling back to cwd:`, message);
+      }
+    }
 
     // Update issue: execution state + status in a single write
     await this.updateIssueFields(issue.id, {
@@ -387,8 +417,8 @@ export class ExecutionScheduler {
       return `Execute the following issue:\n\nIssue ID: ${issue.id}\nTitle: ${issue.title}\nType: ${issue.type}\nPriority: ${issue.priority}\n\nDescription:\n${issue.description}`;
     }
 
-    // Direct mode — assemble natural language prompt
-    return [
+    // Direct mode — assemble natural language prompt with solution awareness
+    const lines: string[] = [
       `You are working on the following ${issue.type} issue:`,
       '',
       `## ${issue.title}`,
@@ -396,10 +426,57 @@ export class ExecutionScheduler {
       issue.description,
       '',
       `Priority: ${issue.priority}`,
-      '',
-      'Please implement this issue. Follow existing code patterns and conventions.',
-      'When done, provide a summary of the changes made.',
-    ].join('\n');
+    ];
+
+    // Inject solution steps if available (from /issue:plan)
+    if (issue.solution) {
+      lines.push('', '## Solution Plan', '');
+
+      if (issue.solution.context) {
+        lines.push('### Context', '', issue.solution.context, '');
+      }
+
+      if (issue.solution.steps.length > 0) {
+        lines.push('### Steps', '');
+        for (let i = 0; i < issue.solution.steps.length; i++) {
+          const step = issue.solution.steps[i];
+          lines.push(`${i + 1}. ${step.description}`);
+          if (step.target) lines.push(`   - Target: ${step.target}`);
+          if (step.verification) lines.push(`   - Verify: ${step.verification}`);
+        }
+      }
+
+      lines.push(
+        '',
+        'Follow the solution plan above. Execute each step in order.',
+        'After completing all steps, verify each step\'s criteria.',
+        'When done, provide a summary of the changes made.',
+      );
+    } else {
+      lines.push(
+        '',
+        'Please implement this issue. Follow existing code patterns and conventions.',
+        'When done, provide a summary of the changes made.',
+      );
+    }
+
+    // Apply custom prompt template if provided (simple variable substitution)
+    if (issue.solution?.promptTemplate) {
+      return this.applyTemplate(issue.solution.promptTemplate, issue);
+    }
+
+    return lines.join('\n');
+  }
+
+  /** Simple variable substitution for custom prompt templates */
+  private applyTemplate(template: string, issue: Issue): string {
+    return template
+      .replace(/\{\{\s*issue\.id\s*\}\}/g, issue.id)
+      .replace(/\{\{\s*issue\.title\s*\}\}/g, issue.title)
+      .replace(/\{\{\s*issue\.description\s*\}\}/g, issue.description)
+      .replace(/\{\{\s*issue\.type\s*\}\}/g, issue.type)
+      .replace(/\{\{\s*issue\.priority\s*\}\}/g, issue.priority)
+      .replace(/\{\{\s*issue\.status\s*\}\}/g, issue.status);
   }
 
   // -------------------------------------------------------------------------
@@ -447,18 +524,73 @@ export class ExecutionScheduler {
   }
 
   private async handleCompletion(issueId: string, processId: string): Promise<void> {
+    // Extract result from agent entries
+    const result = this.extractResult(processId);
+
     await this.updateIssueFields(issueId, {
       status: 'resolved',
       execution: {
         status: 'completed',
         retryCount: 0,
         completedAt: new Date().toISOString(),
+        result,
       },
     });
     this.claimed.delete(issueId);
     this.stats.totalCompleted++;
 
+    // Clean up workspace if auto-cleanup is enabled
+    if (this.workspaceManager?.getWorkspacePath(issueId)) {
+      void this.workspaceManager.removeForIssue(issueId);
+    }
+
     this.eventBus.emit('execution:completed', { issueId, processId });
+  }
+
+  /** Extract structured result from agent entry history */
+  private extractResult(processId: string): ExecutionResult | undefined {
+    const entries = this.agentManager.getEntries(processId);
+    if (entries.length === 0) return undefined;
+
+    const result: ExecutionResult = {};
+
+    // Count file changes
+    const fileChanges = entries.filter((e) => e.type === 'file_change');
+    if (fileChanges.length > 0) {
+      result.filesChanged = fileChanges.length;
+    }
+
+    // Extract last assistant message as summary
+    const assistantMessages = entries.filter(
+      (e) => e.type === 'assistant_message' && !(e as { partial?: boolean }).partial,
+    );
+    if (assistantMessages.length > 0) {
+      const lastMsg = assistantMessages[assistantMessages.length - 1];
+      const text = (lastMsg as { content?: string }).content ?? '';
+      // Truncate to reasonable length for storage
+      result.summary = text.slice(0, 2000);
+    }
+
+    // Look for commit hash or PR URL in command outputs
+    const commandOutputs = entries.filter((e) => e.type === 'command_exec');
+    for (const entry of commandOutputs) {
+      const output = (entry as { output?: string }).output ?? '';
+
+      // Match git commit hash
+      const commitMatch = output.match(/\b([a-f0-9]{7,40})\b.*(?:commit|created)/i)
+        ?? output.match(/(?:commit|created).*\b([a-f0-9]{7,40})\b/i);
+      if (commitMatch && !result.commitHash) {
+        result.commitHash = commitMatch[1];
+      }
+
+      // Match PR URL
+      const prMatch = output.match(/(https:\/\/github\.com\/[^\s]+\/pull\/\d+)/);
+      if (prMatch && !result.prUrl) {
+        result.prUrl = prMatch[1];
+      }
+    }
+
+    return Object.keys(result).length > 0 ? result : undefined;
   }
 
   private async handleFailure(issueId: string, error: string): Promise<void> {
@@ -517,9 +649,11 @@ export class ExecutionScheduler {
     // 2. Process retry queue
     this.processRetries();
 
-    // 3. Auto-dispatch from backlog (priority mode)
+    // 3. Auto-dispatch from backlog
     if (this.config.strategy === 'priority') {
       await this.autoDispatchByPriority();
+    } else if (this.config.strategy === 'smart') {
+      await this.autoDispatchSmart();
     }
 
     // 4. Emit status
@@ -571,6 +705,59 @@ export class ExecutionScheduler {
         .sort((a, b) => (priorityOrder[a.priority] ?? 3) - (priorityOrder[b.priority] ?? 3));
 
       for (const issue of candidates) {
+        if (this.claim(issue.id)) {
+          this.queue.push(issue.id);
+          await this.updateIssueFields(issue.id, {
+            execution: { status: 'queued', retryCount: 0 },
+          });
+        }
+      }
+    }
+
+    await this.dispatchNext();
+  }
+
+  /**
+   * Smart strategy: priority + executor affinity + failure avoidance.
+   * - Prioritize issues matching idle executor types (spread load across agents)
+   * - Deprioritize issue types that have recently failed
+   */
+  private async autoDispatchSmart(): Promise<void> {
+    if (this.queue.length === 0) {
+      const issues = await readIssuesJsonl(this.jsonlPath);
+      const priorityOrder: Record<string, number> = {
+        urgent: 0, high: 1, medium: 2, low: 3,
+      };
+
+      // Determine which executor types are currently in use
+      const busyExecutors = new Map<string, number>();
+      for (const slot of this.runningSlots.values()) {
+        busyExecutors.set(slot.executor, (busyExecutors.get(slot.executor) ?? 0) + 1);
+      }
+
+      const candidates = issues
+        .filter(
+          (i) =>
+            i.status === 'open' &&
+            (!i.execution || i.execution.status === 'idle') &&
+            !this.claimed.has(i.id),
+        )
+        .map((issue) => {
+          const executor = issue.executor ?? this.config.defaultExecutor;
+          const priorityScore = priorityOrder[issue.priority] ?? 3;
+          // Prefer executors with fewer running slots (load balancing)
+          const affinityScore = busyExecutors.get(executor) ?? 0;
+          // Penalize if previous execution failed (avoid re-failing)
+          const failurePenalty = issue.execution?.lastError ? 2 : 0;
+
+          return {
+            issue,
+            score: priorityScore + affinityScore + failurePenalty,
+          };
+        })
+        .sort((a, b) => a.score - b.score);
+
+      for (const { issue } of candidates) {
         if (this.claim(issue.id)) {
           this.queue.push(issue.id);
           await this.updateIssueFields(issue.id, {

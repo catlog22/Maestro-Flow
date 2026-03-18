@@ -3,6 +3,7 @@ import { useExecutionStore } from '@/client/store/execution-store.js';
 import { useIssueStore } from '@/client/store/issue-store.js';
 import { useAgentStore } from '@/client/store/agent-store.js';
 import { MessageArea } from '@/client/pages/chat/MessageArea.js';
+import { ChatInput } from '@/client/pages/chat/ChatInput.js';
 import { sendWsMessage } from '@/client/hooks/useWebSocket.js';
 
 // ---------------------------------------------------------------------------
@@ -36,17 +37,12 @@ export function ExecutionCliPanel() {
     }
   }, [processId]);
 
-  const handleSendMessage = useCallback((content: string) => {
-    if (processId) {
-      sendWsMessage({ action: 'message', processId, content });
-    }
-  }, [processId]);
-
   if (!cliPanelIssueId || !issue) return null;
 
   const isRunning = process?.status === 'running' || process?.status === 'spawning';
   const executionStatus = issue.execution?.status ?? 'idle';
-  const executorLabel = EXECUTOR_LABELS[slot?.executor ?? issue.executor ?? 'claude-code'] ?? 'Agent';
+  const resolvedExecutor = slot?.executor ?? issue.executor ?? 'claude-code';
+  const executorLabel = EXECUTOR_LABELS[resolvedExecutor] ?? 'Agent';
 
   return (
     <div className="flex flex-col h-full border-l border-border-divider bg-bg-primary w-[480px] shrink-0">
@@ -103,46 +99,8 @@ export function ExecutionCliPanel() {
         <MessageArea processId={processId} />
       </div>
 
-      {/* Footer: minimal input for sending messages to agent */}
-      {isRunning && (
-        <div className="px-[var(--spacing-3)] py-[var(--spacing-2)] border-t border-border-divider shrink-0">
-          <ChatInputMini onSend={handleSendMessage} />
-        </div>
-      )}
+      {/* Footer: full ChatInput — executor prop disables input for non-interactive agents */}
+      <ChatInput processId={processId} executor={resolvedExecutor} />
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ChatInputMini — minimal input for sending messages
-// ---------------------------------------------------------------------------
-
-function ChatInputMini({ onSend }: { onSend: (content: string) => void }) {
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const input = form.elements.namedItem('message') as HTMLInputElement;
-    const value = input.value.trim();
-    if (!value) return;
-    onSend(value);
-    input.value = '';
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="flex gap-[var(--spacing-2)]">
-      <input
-        name="message"
-        type="text"
-        placeholder="Send message to agent..."
-        className="flex-1 px-[var(--spacing-2)] py-[var(--spacing-1)] rounded-[var(--radius-sm)] border border-border bg-bg-primary text-text-primary text-[length:var(--font-size-xs)] placeholder:text-text-tertiary focus:outline-none focus:border-accent-blue"
-        autoComplete="off"
-      />
-      <button
-        type="submit"
-        className="px-[var(--spacing-2)] py-[var(--spacing-1)] rounded-[var(--radius-sm)] bg-accent-blue text-white text-[length:var(--font-size-xs)] hover:opacity-90 transition-opacity"
-      >
-        Send
-      </button>
-    </form>
   );
 }

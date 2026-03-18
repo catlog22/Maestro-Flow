@@ -117,55 +117,52 @@ export function IssueCard({ issue, selected, onSelect, batchMode, isChecked, onT
           'hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:-translate-y-0.5',
           'focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-ring)]',
           'active:scale-[0.98] active:shadow-sm active:duration-[var(--duration-fast)]',
-          'bg-bg-card',
-          selected ? 'shadow-[inset_0_0_0_2px_var(--color-accent-blue)]' : '',
+          'bg-bg-card motion-safe:animate-[card-enter_200ms_ease-out_both]',
+          selected ? 'shadow-[inset_0_0_0_2px_var(--color-accent-blue)]' : 'shadow-[var(--shadow-sm)]',
         ].join(' ')}
       >
-        {/* Selection checkbox (visible in batch mode or on hover) */}
-        {(batchMode || hovered) && (
-          <div
-            className="absolute top-2 left-2 z-10"
-            onClick={handleCheckToggle}
-          >
+        {/* Row 1: Checkbox (inline) + Type badge + execution status + priority badge */}
+        <div className="flex items-center gap-[var(--spacing-1)]">
+          {/* Checkbox — inline, no overlap */}
+          {(batchMode || hovered) && (
             <div
+              onClick={handleCheckToggle}
               className={[
-                'w-4 h-4 rounded border-[1.5px] flex items-center justify-center text-[10px] transition-colors cursor-pointer',
+                'shrink-0 w-4 h-4 rounded border-[1.5px] flex items-center justify-center text-[9px] transition-all duration-100 cursor-pointer',
                 isChecked
-                  ? 'bg-accent-blue border-accent-blue text-white'
+                  ? 'bg-accent-blue border-accent-blue text-white scale-100'
                   : 'border-border hover:border-text-secondary',
               ].join(' ')}
+              style={isChecked ? { backgroundColor: 'var(--color-accent-blue)', borderColor: 'var(--color-accent-blue)' } : {}}
             >
               {isChecked && '✓'}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Row 1: Type badge + priority badge + execution status */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-[var(--spacing-1)]">
-            <span
-              className="text-[length:var(--font-size-xs)] font-[var(--font-weight-medium)] px-2 py-[var(--spacing-0-5)] rounded-full"
-              style={{ backgroundColor: `${typeColor}20`, color: typeColor }}
-            >
-              {issue.type}
-            </span>
-            {/* Execution status indicator */}
-            {statusInfo && (
-              <span
-                className={[
-                  'text-[length:var(--font-size-xs)] font-[var(--font-weight-medium)]',
-                  statusInfo.animate ? 'animate-pulse' : '',
-                ].join(' ')}
-                style={{ color: statusInfo.color }}
-                title={`Execution: ${executionStatus}`}
-                onClick={isRunning ? handleRunningClick : undefined}
-              >
-                {statusInfo.icon}
-              </span>
-            )}
-          </div>
           <span
             className="text-[length:var(--font-size-xs)] font-[var(--font-weight-medium)] px-2 py-[var(--spacing-0-5)] rounded-full"
+            style={{ backgroundColor: `${typeColor}20`, color: typeColor }}
+          >
+            {issue.type}
+          </span>
+
+          {/* Execution status indicator */}
+          {statusInfo && (
+            <span
+              className={[
+                'text-[length:var(--font-size-xs)] font-[var(--font-weight-medium)]',
+                statusInfo.animate ? 'animate-pulse' : '',
+              ].join(' ')}
+              style={{ color: statusInfo.color }}
+              title={`Execution: ${executionStatus}`}
+              onClick={isRunning ? handleRunningClick : undefined}
+            >
+              {statusInfo.icon}
+            </span>
+          )}
+
+          <span
+            className="text-[length:var(--font-size-xs)] font-[var(--font-weight-medium)] px-2 py-[var(--spacing-0-5)] rounded-full ml-auto"
             style={{ backgroundColor: `${priorityColor}20`, color: priorityColor }}
           >
             {issue.priority}
