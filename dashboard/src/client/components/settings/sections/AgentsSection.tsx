@@ -123,6 +123,19 @@ export function AgentsSection() {
                     type="password"
                   />
                 </SettingsField>
+
+                <SettingsField
+                  label="Settings File"
+                  description="Path to Claude Code settings JSON (maps model aliases, sets env vars)"
+                  htmlFor={`agent-settings-file-${type}`}
+                >
+                  <SettingsInput
+                    id={`agent-settings-file-${type}`}
+                    value={agent.settingsFile ?? ''}
+                    onChange={(v) => updateAgent(type, { settingsFile: v })}
+                    placeholder="D:\\settings-glm5.json"
+                  />
+                </SettingsField>
               </div>
             )}
           </SettingsCard>

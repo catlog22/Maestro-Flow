@@ -2,8 +2,7 @@
 // ExecutionScheduler — orchestrates issue execution via agent processes
 // ---------------------------------------------------------------------------
 
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { readIssuesJsonl, writeIssuesJsonl, withIssueWriteLock } from '../utils/issue-store.js';
 
 import type { AgentType, AgentProcess } from '../../shared/agent-types.js';
 import type { Issue, IssueStatus } from '../../shared/issue-types.js';
@@ -19,48 +18,6 @@ import type { AgentManager } from '../agents/agent-manager.js';
 import type { DashboardEventBus } from '../state/event-bus.js';
 import { WorkspaceManager, type WorkspaceConfig } from './workspace-manager.js';
 
-// ---------------------------------------------------------------------------
-// JSONL helpers
-// ---------------------------------------------------------------------------
-
-async function readIssuesJsonl(filePath: string): Promise<Issue[]> {
-  let raw: string;
-  try {
-    raw = await readFile(filePath, 'utf-8');
-  } catch {
-    return [];
-  }
-  const issues: Issue[] = [];
-  for (const line of raw.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      issues.push(JSON.parse(trimmed) as Issue);
-    } catch {
-      // skip malformed lines
-    }
-  }
-  return issues;
-}
-
-async function writeIssuesJsonl(filePath: string, issues: Issue[]): Promise<void> {
-  await mkdir(dirname(filePath), { recursive: true });
-  const content = issues.map((i) => JSON.stringify(i)).join('\n') + '\n';
-  await writeFile(filePath, content, 'utf-8');
-}
-
-// ---------------------------------------------------------------------------
-// Write lock — serialize all JSONL file operations to prevent data races
-// ---------------------------------------------------------------------------
-
-let writeLock: Promise<void> = Promise.resolve();
-
-function withWriteLock<T>(fn: () => Promise<T>): Promise<T> {
-  const prev = writeLock;
-  let resolve!: () => void;
-  writeLock = new Promise<void>((r) => { resolve = r; });
-  return prev.then(fn).finally(resolve);
-}
 
 // ---------------------------------------------------------------------------
 // Valid agent types for input validation
@@ -954,7 +911,7 @@ export class ExecutionScheduler {
       execution?: Partial<IssueExecution>;
     },
   ): Promise<void> {
-    await withWriteLock(async () => {
+    await withIssueWriteLock(async () => {
       const issues = await readIssuesJsonl(this.jsonlPath);
       const idx = issues.findIndex((i) => i.id === issueId);
       if (idx === -1) return;

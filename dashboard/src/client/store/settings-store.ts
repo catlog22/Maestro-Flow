@@ -11,6 +11,7 @@ export interface AgentSettingsEntry {
   approvalMode: 'suggest' | 'auto';
   baseUrl?: string;
   apiKey?: string;
+  settingsFile?: string;
 }
 
 /** General dashboard settings */
@@ -54,13 +55,13 @@ export interface SettingsStore {
 }
 
 const DEFAULT_AGENTS: Record<AgentType, AgentSettingsEntry> = {
-  'claude-code': { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '' },
-  codex: { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '' },
-  'codex-server': { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '' },
-  gemini: { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '' },
-  qwen: { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '' },
-  opencode: { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '' },
-  'agent-sdk': { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '' },
+  'claude-code': { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '', settingsFile: '' },
+  codex: { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '', settingsFile: '' },
+  'codex-server': { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '', settingsFile: '' },
+  gemini: { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '', settingsFile: '' },
+  qwen: { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '', settingsFile: '' },
+  opencode: { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '', settingsFile: '' },
+  'agent-sdk': { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '', settingsFile: '' },
 };
 
 const DEFAULT_CONFIG: SettingsConfig = {

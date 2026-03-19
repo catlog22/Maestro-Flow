@@ -64,7 +64,7 @@ async function main(): Promise<void> {
   agentManager.registerAdapter(new CodexCliAdapter());
   agentManager.registerAdapter(new CodexAppServerAdapter());
   agentManager.registerAdapter(new OpenCodeAdapter());
-  agentManager.registerAdapter(new AgentSdkAdapter());
+  agentManager.registerAdapter(new AgentSdkAdapter(workflowRoot));
 
   // ---------------------------------------------------------------------------
   // Execution Scheduler — orchestrates issue execution via agent processes

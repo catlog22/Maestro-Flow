@@ -112,6 +112,17 @@ ELSE (standard phase resolution):
          explorationContext.explorations = read_json("${PHASE_DIR}/explorations.json")
        IF file exists "${PHASE_DIR}/perspectives.json":
          explorationContext.perspectives = read_json("${PHASE_DIR}/perspectives.json")
+
+       // Extract implementation scope (from analyze Step 9 scoping)
+       IF conclusions.implementation_scope is not empty:
+         explorationContext.implementationScope = conclusions.implementation_scope
+         display "Found implementation scope: ${conclusions.implementation_scope.length} scoped items with acceptance criteria"
+         // Planner MUST use these as primary input:
+         //   scope.objective → task title/description
+         //   scope.acceptance_criteria → convergence.criteria (make grep-verifiable)
+         //   scope.target_files → files[] + read_first[]
+         //   scope.priority → task/wave ordering
+
        Skip step 5 (parallel exploration).
    ```
 
@@ -238,18 +249,25 @@ Spawn workflow-planner Agent:
     - spec-ref (if available)
     - doc-index.json (if available)
     - explorationContext (from P1)
+    - explorationContext.implementationScope (from P1, if present)
     - clarificationContext (from P2)
     - Phase goal + success_criteria from index.json
     - Templates: @templates/plan.json, @templates/task.json
 
   Agent responsibilities:
     1. Decompose goal into concrete tasks
+       - **When implementationScope exists**: use each scope item as primary task seed
+         (1 scope item → 1 task, group only if tightly coupled)
     2. Assign task IDs (TASK-001, TASK-002, ...)
     3. Determine dependencies between tasks
     4. Group tasks into execution waves
+       - **When implementationScope exists**: order by scope.priority (high first)
     5. Estimate complexity and time
     6. Set convergence.criteria (grep-verifiable) for each task
+       - **When implementationScope exists**: use scope.acceptance_criteria as seed,
+         then refine into grep-verifiable form
     7. Identify files to create/modify per task
+       - **When implementationScope exists**: use scope.target_files as starting point
     8. Populate read_first[] for each task
 
   Output:

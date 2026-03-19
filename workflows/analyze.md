@@ -584,9 +584,56 @@ Handle selection:
 | Choice | Action |
 |--------|--------|
 | 快速执行 | Build `taskDescription` from high/medium priority accepted recommendations. Assemble context from exploration. Invoke Skill immediately. |
-| 进入规划 | Invoke Skill({ skill: "maestro-plan", args: "{phase}" }) immediately. |
+| 进入规划 | **Implementation Scoping** (below), then invoke Skill. |
 | 产出Issue | For each accepted/modified recommendation: create issue. |
 | 完成 | No further action. |
+
+**Implementation Scoping** (for "进入规划" only):
+
+Before invoking maestro-plan, build and persist `implementation_scope` so the planner has concrete "what + done-when" specs:
+
+```
+// Step A: Build implementation scope from accepted/modified recommendations
+actionableRecs = conclusions.recommendations
+  .filter(r => r.review_status in ["accepted", "modified"])
+  .sort by priority (high first)
+
+implementation_scope = actionableRecs.map(rec => ({
+  objective: rec.action,                         // WHAT to do
+  rationale: rec.rationale,                       // WHY
+  priority: rec.priority,
+  target_files: rec.steps.flatMap(s => s.target)  // WHERE (from steps + code_anchors)
+    .concat(code_anchors matching rec),
+  acceptance_criteria: rec.steps.map(s =>         // DONE WHEN
+    s.verification || s.description),
+  change_summary: rec.steps.map(s =>              // HOW (brief)
+    "${s.target}: ${s.description}").join('; ')
+}))
+
+// Step B: User scope confirmation (skip in auto mode / quick mode)
+IF NOT AUTO_MODE:
+  Display implementation scope summary:
+    For each item: objective [priority], target files, "Done when: ..."
+  AskUserQuestion (single-select, header: "Scope确认"):
+    - "确认执行": Scope is clear, proceed to planning
+    - "调整范围": Narrow or expand scope
+    - "补充标准": Add/refine acceptance criteria
+  Handle adjustments, re-confirm if needed
+
+// Step C: Persist to conclusions.json
+conclusions.implementation_scope = implementation_scope
+Write updated conclusions.json to OUTPUT_DIR
+
+// Step D: Invoke plan
+Phase mode: Skill({ skill: "maestro-plan", args: "{phase}" })
+Scratch mode: Skill({ skill: "maestro-plan", args: "--dir {output_dir}" })
+```
+
+The planner reads `conclusions.json.implementation_scope` and maps:
+- `scope.objective` → task title/description
+- `scope.acceptance_criteria` → `convergence.criteria` (seed, planner makes grep-verifiable)
+- `scope.target_files` → `files[]` + `read_first[]`
+- `scope.priority` → task/wave ordering
 
 Update index.json timestamps.
 

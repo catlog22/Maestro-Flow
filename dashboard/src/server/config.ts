@@ -56,6 +56,7 @@ export interface SavedAgentSettings {
   approvalMode?: 'suggest' | 'auto';
   baseUrl?: string;
   apiKey?: string;
+  settingsFile?: string;
 }
 
 /**

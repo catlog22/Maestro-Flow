@@ -28,6 +28,7 @@ export interface AgentConfig {
   approvalMode?: 'suggest' | 'auto';
   baseUrl?: string;
   apiKey?: string;
+  settingsFile?: string;
 }
 
 /** Runtime state of a spawned agent process */

@@ -1,0 +1,449 @@
+{
+  "relevant_files": [
+    {
+      "path": "src/shared/issue-types.ts",
+      "relevance": 0.95,
+      "rationale": "Defines Issue interface with IssueStatus enum and IssueExecution sub-record -- the data model for issue monitoring",
+      "role": "type_definition",
+      "discovery_source": "bash-scan",
+      "topic_relation": "Agent SDK tool for issue monitoring operates on these types",
+      "key_code": [
+        {
+          "symbol": "IssueStatus",
+          "location": "L15",
+          "description": "Union: open|in_progress|resolved|closed"
+        },
+        {
+          "symbol": "IssueExecution",
+          "location": "L42-L50",
+          "description": "Embedded execution sub-record: status, processId, retryCount, result"
+        },
+        {
+          "symbol": "Issue",
+          "location": "L60-L78",
+          "description": "Full issue record in JSONL"
+        }
+      ]
+    },
+    {
+      "path": "src/shared/execution-types.ts",
+      "relevance": 0.9,
+      "rationale": "Defines IssueExecution, IssueExecutionStatus, ExecutionResult -- execution state model",
+      "role": "type_definition",
+      "discovery_source": "bash-scan",
+      "topic_relation": "IssueExecutionStatus is state a tool monitors; ExecutionResult defines writeback",
+      "key_code": [
+        {
+          "symbol": "IssueExecutionStatus",
+          "location": "L27-L33",
+          "description": "6-state: idle|queued|running|completed|failed|retrying"
+        },
+        {
+          "symbol": "ExecutionResult",
+          "location": "L35-L40",
+          "description": "summary, commitHash, prUrl, filesChanged"
+        },
+        {
+          "symbol": "IssueExecution",
+          "location": "L42-L50",
+          "description": "Full execution state in Issue"
+        }
+      ]
+    },
+    {
+      "path": "src/server/execution/execution-scheduler.ts",
+      "relevance": 0.95,
+      "rationale": "Central orchestrator: dispatch, completion/failure, JSONL updates, supervisor tick",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "topic_relation": "Owns issue lifecycle. New tools must integrate here",
+      "key_code": [
+        {
+          "symbol": "dispatch()",
+          "location": "L340-L415",
+          "description": "Sets in_progress, spawns agent"
+        },
+        {
+          "symbol": "handleCompletion()",
+          "location": "L569-L591",
+          "description": "Extracts result, sets resolved"
+        },
+        {
+          "symbol": "handleFailure()",
+          "location": "L639-L680",
+          "description": "Retry or mark failed"
+        },
+        {
+          "symbol": "updateIssueFields()",
+          "location": "L950-L982",
+          "description": "Atomic JSONL with write lock"
+        },
+        {
+          "symbol": "reconcileRunningIssues()",
+          "location": "L779-L812",
+          "description": "Detects externally resolved issues"
+        }
+      ]
+    },
+    {
+      "path": "src/server/execution/wave-executor.ts",
+      "relevance": 0.85,
+      "rationale": "Wave parallel execution -- limited tools, NO issue monitoring",
+      "role": "pattern_reference",
+      "discovery_source": "bash-scan",
+      "topic_relation": "Gap: decompose uses [Read, Glob, Grep] only",
+      "key_code": [
+        {
+          "symbol": "decompose()",
+          "location": "L385-L442",
+          "description": "SDK query with [Read, Glob, Grep]"
+        },
+        {
+          "symbol": "executeTask()",
+          "location": "L448-L513",
+          "description": "bypassPermissions, no issue monitoring"
+        },
+        {
+          "symbol": "execute()",
+          "location": "L191-L244",
+          "description": "Never updates Issue JSONL"
+        }
+      ]
+    },
+    {
+      "path": "src/server/agents/agent-sdk-adapter.ts",
+      "relevance": 0.85,
+      "rationale": "Agent SDK bridge -- injection point for tools. NO tools/allowedTools passed",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "topic_relation": "runAgentQuery() without tools -- where issue tools go",
+      "key_code": [
+        {
+          "symbol": "runAgentQuery()",
+          "location": "L143-L214",
+          "description": "Options without tools/allowedTools"
+        },
+        {
+          "symbol": "Options building",
+          "location": "L151-L178",
+          "description": "cwd, model, env, permissionMode -- no tools"
+        }
+      ]
+    },
+    {
+      "path": "src/server/agents/agent-manager.ts",
+      "relevance": 0.7,
+      "rationale": "Orchestrates adapters -- central hub",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "topic_relation": "spawn() is universal entry for tool injection",
+      "key_code": [
+        {
+          "symbol": "spawn()",
+          "location": "L32-L87",
+          "description": "Spawns via adapter, bridges EventBus"
+        },
+        {
+          "symbol": "getEntries()",
+          "location": "L194-L196",
+          "description": "Entry history for extractResult()"
+        }
+      ]
+    },
+    {
+      "path": "src/shared/ws-protocol.ts",
+      "relevance": 0.7,
+      "rationale": "WS protocol with execute/analyze/plan actions",
+      "role": "type_definition",
+      "discovery_source": "bash-scan",
+      "topic_relation": "No agent status push via WS",
+      "key_code": [
+        {
+          "symbol": "WsClientExecuteIssueMessage",
+          "location": "L132-L136",
+          "description": "execute:issue action"
+        },
+        {
+          "symbol": "Execution payloads",
+          "location": "L198-L213",
+          "description": "Lifecycle events"
+        }
+      ]
+    },
+    {
+      "path": "src/server/ws/ws-manager.ts",
+      "relevance": 0.7,
+      "rationale": "WS manager -- issue:analyze/plan use NL prompts",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "topic_relation": "NL prompts for JSONL manipulation",
+      "key_code": [
+        {
+          "symbol": "case issue:analyze",
+          "location": "L193-L218",
+          "description": "NL prompt for analysis"
+        },
+        {
+          "symbol": "case issue:plan",
+          "location": "L220-L245",
+          "description": "NL prompt for planning"
+        }
+      ]
+    },
+    {
+      "path": "src/server/routes/issues.ts",
+      "relevance": 0.8,
+      "rationale": "REST API for issue CRUD -- tool could proxy",
+      "role": "pattern_reference",
+      "discovery_source": "bash-scan",
+      "topic_relation": "Structured read/write exists",
+      "key_code": [
+        {
+          "symbol": "PATCH /api/issues/:id",
+          "location": "L181-L230",
+          "description": "Update status/priority"
+        },
+        {
+          "symbol": "PATCH analysis",
+          "location": "L249-L311",
+          "description": "Set IssueAnalysis"
+        },
+        {
+          "symbol": "JSONL helpers",
+          "location": "L37-L62",
+          "description": "Duplicated I/O"
+        }
+      ]
+    },
+    {
+      "path": "src/server/routes/execution.ts",
+      "relevance": 0.6,
+      "rationale": "REST for execution dispatch/cancel/status",
+      "role": "context_only",
+      "discovery_source": "bash-scan"
+    },
+    {
+      "path": "src/server/commander/commander-agent.ts",
+      "relevance": 0.7,
+      "rationale": "Commander SDK with [Read, Glob, Grep]",
+      "role": "pattern_reference",
+      "discovery_source": "bash-scan",
+      "topic_relation": "SDK gets file tools only",
+      "key_code": [
+        {
+          "symbol": "assess()",
+          "location": "L305-L336",
+          "description": "Read/Glob/Grep only"
+        }
+      ]
+    },
+    {
+      "path": "src/shared/wave-types.ts",
+      "relevance": 0.5,
+      "rationale": "WaveTask/WaveSession types",
+      "role": "context_only",
+      "discovery_source": "bash-scan"
+    },
+    {
+      "path": "src/shared/agent-types.ts",
+      "relevance": 0.6,
+      "rationale": "AgentConfig lacks tools fields",
+      "role": "type_definition",
+      "discovery_source": "bash-scan",
+      "topic_relation": "Extending needed for tool support"
+    },
+    {
+      "path": "src/client/store/issue-store.ts",
+      "relevance": 0.5,
+      "rationale": "Client issue store",
+      "role": "context_only",
+      "discovery_source": "bash-scan"
+    },
+    {
+      "path": "src/client/store/execution-store.ts",
+      "relevance": 0.5,
+      "rationale": "Client execution state",
+      "role": "context_only",
+      "discovery_source": "bash-scan"
+    }
+  ],
+  "patterns": [
+    {
+      "name": "JSONL-as-database with write-lock",
+      "description": "Issues in issues.jsonl. withWriteLock() for mutations. Duplicated in two files.",
+      "files": [
+        "src/server/routes/issues.ts",
+        "src/server/execution/execution-scheduler.ts"
+      ],
+      "significance": "Tool must use REST API or replicate withWriteLock."
+    },
+    {
+      "name": "Agent SDK query() restricted tools",
+      "description": "SDK calls restrict to [Read, Glob, Grep]. General adapter has NO tools.",
+      "files": [
+        "src/server/execution/wave-executor.ts",
+        "src/server/commander/commander-agent.ts",
+        "src/server/agents/agent-sdk-adapter.ts"
+      ],
+      "significance": "No mechanism to inject issue tools."
+    },
+    {
+      "name": "EventBus status propagation",
+      "description": "JSONL write -> EventBus -> WS broadcast.",
+      "files": [
+        "src/server/execution/execution-scheduler.ts",
+        "src/server/state/event-bus.ts",
+        "src/server/ws/ws-manager.ts"
+      ],
+      "significance": "Tool adds: Agent call -> REST/JSONL -> EventBus."
+    },
+    {
+      "name": "NL issue manipulation",
+      "description": "issue:analyze/plan spawn agents with NL prompts to manipulate JSONL.",
+      "files": [
+        "src/server/ws/ws-manager.ts"
+      ],
+      "significance": "The gap: unstructured file I/O for issue state."
+    }
+  ],
+  "key_findings": [
+    {
+      "finding": "NO issue-monitoring tools exist for agents",
+      "detail": "SDK queries only have file tools. No MCP provides issue CRUD.",
+      "evidence": "wave-executor.ts L405-406; agent-sdk-adapter.ts L151",
+      "impact": "Agents cannot read/update issue status via structured API."
+    },
+    {
+      "finding": "Status writeback by ExecutionScheduler only",
+      "detail": "Scheduler infers from entries after agent stops.",
+      "evidence": "execution-scheduler.ts L490-L543",
+      "impact": "No partial progress, sibling status, or blocked state."
+    },
+    {
+      "finding": "REST API provides structured issue CRUD",
+      "detail": "routes/issues.ts has GET/PATCH/DELETE with validation.",
+      "evidence": "routes/issues.ts L181-L230; L249-L311",
+      "impact": "Tool exposes existing API via SDK interface."
+    },
+    {
+      "finding": "SDK Options supports tools/allowedTools/mcpServers",
+      "detail": "Wave-executor already uses tools/allowedTools.",
+      "evidence": "wave-executor.ts L405-406 vs adapter L151",
+      "impact": "Infrastructure exists, missing issue tools."
+    },
+    {
+      "finding": "JSONL write duplication",
+      "detail": "I/O helpers duplicated across files.",
+      "evidence": "routes/issues.ts L37-L62; execution-scheduler.ts L26-L63",
+      "impact": "REST API as single writer avoids third copy."
+    }
+  ],
+  "code_anchors": [
+    {
+      "file": "src/server/execution/execution-scheduler.ts",
+      "lines": "L340-L415",
+      "snippet": "dispatch(): Sets in_progress, spawns agent. NO tools for self-reporting.",
+      "significance": "Agent spawned without status tool"
+    },
+    {
+      "file": "src/server/execution/execution-scheduler.ts",
+      "lines": "L569-L591",
+      "snippet": "handleCompletion(): Extracts result, sets resolved/completed.",
+      "significance": "Post-hoc writeback from agent exit"
+    },
+    {
+      "file": "src/server/execution/wave-executor.ts",
+      "lines": "L400-L414",
+      "snippet": "decompose() options: tools: [Read, Glob, Grep]",
+      "significance": "SDK tool restriction pattern"
+    },
+    {
+      "file": "src/server/agents/agent-sdk-adapter.ts",
+      "lines": "L143-L178",
+      "snippet": "runAgentQuery() Options without tools/allowedTools",
+      "significance": "Injection point for issue tools"
+    },
+    {
+      "file": "src/server/ws/ws-manager.ts",
+      "lines": "L193-L218",
+      "snippet": "issue:analyze spawns claude-code with NL prompt",
+      "significance": "Current NL approach"
+    },
+    {
+      "file": "src/server/routes/issues.ts",
+      "lines": "L181-L230",
+      "snippet": "PATCH /api/issues/:id with withWriteLock",
+      "significance": "Existing structured API"
+    }
+  ],
+  "call_chains": [
+    {
+      "entry": "WS execute:issue",
+      "chain": "ws-manager -> executeIssue() -> dispatch() -> updateIssueFields(in_progress) -> spawn() -> agent:stopped -> handleCompletion()/handleFailure() -> updateIssueFields(resolved/failed)",
+      "files": [
+        "src/server/ws/ws-manager.ts",
+        "src/server/execution/execution-scheduler.ts",
+        "src/server/agents/agent-manager.ts"
+      ]
+    },
+    {
+      "entry": "WS execute:wave",
+      "chain": "handleWaveExecute() -> waveExecutor.execute() -> decompose() [SDK] -> executeTask() [bypassPermissions]",
+      "files": [
+        "src/server/ws/ws-manager.ts",
+        "src/server/execution/wave-executor.ts",
+        "src/server/agents/agent-manager.ts"
+      ]
+    },
+    {
+      "entry": "Supervisor tick",
+      "chain": "tick() -> reconcile -> detectStalls -> processRetries -> autoDispatch -> dispatchNext",
+      "files": [
+        "src/server/execution/execution-scheduler.ts"
+      ]
+    },
+    {
+      "entry": "Agent SDK spawn",
+      "chain": "agentManager.spawn(agent-sdk) -> doSpawn() -> runAgentQuery() -> query() -> iterate -> stopped",
+      "files": [
+        "src/server/agents/agent-manager.ts",
+        "src/server/agents/agent-sdk-adapter.ts"
+      ]
+    }
+  ],
+  "questions_for_user": [
+    "Should tool be MCP server, custom inline tool, or REST API proxy?",
+    "All agent types or only Agent SDK?",
+    "Read-only or also write? Write risks conflicting with ExecutionScheduler.",
+    "Proxy REST API or write JSONL directly?",
+    "Should wave subtasks report to parent issue?",
+    "Should commander assessment have issue tools?"
+  ],
+  "_metadata": {
+    "analysis_id": "ANL-agent-sdk-issue-monitor-tool-2026-03-19",
+    "topic": "Agent SDK issue monitoring tool design",
+    "dimensions": [
+      "architecture",
+      "implementation",
+      "decision"
+    ],
+    "focus_areas": [
+      "execution_awareness",
+      "status_writeback",
+      "tool_api_design"
+    ],
+    "mode": "deep-scan",
+    "files_analyzed": 15,
+    "timestamp": "2026-03-19T00:00:00.000Z",
+    "discovery_sources": [
+      "bash-scan"
+    ],
+    "key_statistics": {
+      "total_agent_sdk_query_calls": 4,
+      "query_calls_with_issue_tools": 0,
+      "issue_status_update_locations": 8,
+      "jsonl_helper_duplications": 2,
+      "rest_api_issue_endpoints": 6
+    }
+  }
+}

@@ -16,7 +16,9 @@ import type { WaveTask, WaveSession, DecompositionResult } from '../../shared/wa
 import type { DashboardEventBus } from '../state/event-bus.js';
 import type { AgentManager } from '../agents/agent-manager.js';
 import { EntryNormalizer } from '../agents/entry-normalizer.js';
+import type { McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk';
 import { loadDashboardAgentSettings, type SavedAgentSettings } from '../config.js';
+import { createIssueMcpServer } from '../agents/tools/issue-mcp-server.js';
 
 // ---------------------------------------------------------------------------
 // Decomposition prompt + output schema
@@ -62,34 +64,13 @@ function buildDecomposePrompt(issue: Issue): string {
     '- Use contextFrom[] to specify which completed tasks should provide context',
     '- Task IDs should be short like "T1", "T2", etc.',
     '- Tasks with no dependencies can run in parallel (same wave)',
+    '',
+    'Respond with ONLY a valid JSON object. No markdown fences, no explanation before or after:',
+    '{"tasks": [{"id": "T1", "title": "...", "description": "...", "deps": [], "contextFrom": []}, ...]}',
   );
 
   return lines.join('\n');
 }
-
-const DECOMPOSE_OUTPUT_SCHEMA = {
-  type: 'json_schema' as const,
-  schema: {
-    type: 'object' as const,
-    properties: {
-      tasks: {
-        type: 'array' as const,
-        items: {
-          type: 'object' as const,
-          properties: {
-            id: { type: 'string' as const },
-            title: { type: 'string' as const },
-            description: { type: 'string' as const },
-            deps: { type: 'array' as const, items: { type: 'string' as const } },
-            contextFrom: { type: 'array' as const, items: { type: 'string' as const } },
-          },
-          required: ['id', 'title', 'description', 'deps', 'contextFrom'] as const,
-        },
-      },
-    },
-    required: ['tasks'] as const,
-  },
-};
 
 // ---------------------------------------------------------------------------
 // Task execution prompt
@@ -177,12 +158,15 @@ function assignWaves(tasks: WaveTask[]): number {
 export class WaveExecutor {
   private readonly sessions = new Map<string, WaveSession>();
   private readonly abortControllers = new Map<string, AbortController>();
+  private readonly issueMcpServer: McpSdkServerConfigWithInstance;
 
   constructor(
     private readonly eventBus: DashboardEventBus,
     private readonly agentManager: AgentManager,
     private readonly workDir: string,
-  ) {}
+  ) {
+    this.issueMcpServer = createIssueMcpServer(workDir);
+  }
 
   /**
    * Execute an issue using wave-based decomposition and parallel execution.
@@ -261,17 +245,18 @@ export class WaveExecutor {
   }
 
   /** Load saved agent-sdk settings and build env overrides */
-  private async loadSettings(): Promise<{ settings: SavedAgentSettings | undefined; env: Record<string, string> | undefined }> {
+  private async loadSettings(): Promise<{ settings: SavedAgentSettings | undefined; settingsFile: string | undefined; env: Record<string, string> | undefined }> {
     // workDir points to project root; .workflow is a sibling
     const workflowRoot = join(this.workDir, '.workflow');
     const settings = await loadDashboardAgentSettings(workflowRoot, 'agent-sdk');
+    const settingsFile = settings?.settingsFile || undefined;
     let env: Record<string, string> | undefined;
-    if (settings?.baseUrl || settings?.apiKey) {
+    if (!settingsFile && (settings?.baseUrl || settings?.apiKey)) {
       env = {};
       if (settings.baseUrl) env['ANTHROPIC_BASE_URL'] = settings.baseUrl;
       if (settings.apiKey) env['ANTHROPIC_API_KEY'] = settings.apiKey;
     }
-    return { settings, env };
+    return { settings, settingsFile, env };
   }
 
   // -------------------------------------------------------------------------
@@ -286,7 +271,7 @@ export class WaveExecutor {
     const session = this.sessions.get(processId)!;
 
     // Load settings once for the entire execution
-    const { settings, env } = await this.loadSettings();
+    const { settings, settingsFile, env } = await this.loadSettings();
 
     // --- Phase 1: Decompose ---
     this.emitEntry(processId, EntryNormalizer.assistantMessage(
@@ -295,7 +280,7 @@ export class WaveExecutor {
       false,
     ));
 
-    const decomposition = await this.decompose(processId, issue, abortController, settings, env);
+    const decomposition = await this.decompose(processId, issue, abortController, settings, settingsFile, env);
     if (!decomposition || abortController.signal.aborted) return;
 
     // Build WaveTask array
@@ -336,7 +321,7 @@ export class WaveExecutor {
       // Execute all tasks in this wave concurrently
       await Promise.allSettled(
         waveTasks.map((task) =>
-          this.executeTask(processId, task, issue, session.tasks, abortController, settings, env),
+          this.executeTask(processId, task, issue, session.tasks, abortController, settings, settingsFile, env),
         ),
       );
 
@@ -387,6 +372,7 @@ export class WaveExecutor {
     issue: Issue,
     abortController: AbortController,
     settings: SavedAgentSettings | undefined,
+    settingsFile: string | undefined,
     env: Record<string, string> | undefined,
   ): Promise<DecompositionResult | null> {
     const prompt = buildDecomposePrompt(issue);
@@ -397,21 +383,29 @@ export class WaveExecutor {
       processId, 'AgentSDK:decompose', { issueId: issue.id }, 'running',
     ));
 
+    // Build query options — use settings file path when available
+    const queryOptions: Record<string, unknown> = {
+      abortController,
+      tools: ['Read', 'Glob', 'Grep'],
+      allowedTools: ['Read', 'Glob', 'Grep'],
+      permissionMode: 'dontAsk',
+      cwd: this.workDir,
+      maxTurns: 6,
+      persistSession: false,
+      mcpServers: { 'issue-monitor': this.issueMcpServer },
+    };
+
+    if (settingsFile) {
+      queryOptions.settings = settingsFile;
+    } else {
+      queryOptions.model = settings?.model || 'sonnet';
+      if (env) queryOptions.env = { ...process.env, ...env };
+    }
+
     try {
       for await (const message of query({
         prompt,
-        options: {
-          abortController,
-          tools: ['Read', 'Glob', 'Grep'],
-          allowedTools: ['Read', 'Glob', 'Grep'],
-          permissionMode: 'dontAsk',
-          model: settings?.model || 'sonnet',
-          outputFormat: DECOMPOSE_OUTPUT_SCHEMA,
-          cwd: this.workDir,
-          maxTurns: 6,
-          persistSession: false,
-          ...(env ? { env: { ...process.env, ...env } } : {}),
-        },
+        options: queryOptions as import('@anthropic-ai/claude-agent-sdk').Options,
       })) {
         const msg = message as Record<string, unknown>;
         if (msg.type === 'result' && msg.subtype === 'success') {
@@ -428,7 +422,14 @@ export class WaveExecutor {
       throw err;
     }
 
-    const result = structuredResult ?? (resultText ? JSON.parse(resultText) as DecompositionResult : null);
+    // Parse result: prefer structured_output, then extract JSON from text via regex
+    let result = structuredResult;
+    if (!result && resultText) {
+      const jsonMatch = resultText.match(/\{[\s\S]*"tasks"[\s\S]*\}/);
+      if (jsonMatch) {
+        result = JSON.parse(jsonMatch[0]) as DecompositionResult;
+      }
+    }
     if (!result || !result.tasks || result.tasks.length === 0) {
       throw new Error('Decomposition returned no valid tasks');
     }
@@ -452,6 +453,7 @@ export class WaveExecutor {
     allTasks: WaveTask[],
     abortController: AbortController,
     settings: SavedAgentSettings | undefined,
+    settingsFile: string | undefined,
     env: Record<string, string> | undefined,
   ): Promise<void> {
     if (abortController.signal.aborted) return;
@@ -473,19 +475,29 @@ export class WaveExecutor {
 
     let resultText = '';
 
+    // Build query options — use settings file path when available
+    const taskOptions: Record<string, unknown> = {
+      abortController,
+      cwd: this.workDir,
+      maxTurns: 10,
+      persistSession: false,
+      mcpServers: { 'issue-monitor': this.issueMcpServer },
+    };
+
+    if (settingsFile) {
+      taskOptions.settings = settingsFile;
+      taskOptions.permissionMode = 'dontAsk';
+    } else {
+      taskOptions.permissionMode = 'bypassPermissions';
+      taskOptions.allowDangerouslySkipPermissions = true;
+      taskOptions.model = settings?.model || 'sonnet';
+      if (env) taskOptions.env = { ...process.env, ...env };
+    }
+
     try {
       for await (const message of query({
         prompt: taskPrompt,
-        options: {
-          abortController,
-          permissionMode: 'bypassPermissions',
-          allowDangerouslySkipPermissions: true,
-          model: settings?.model || 'sonnet',
-          cwd: this.workDir,
-          maxTurns: 10,
-          persistSession: false,
-          ...(env ? { env: { ...process.env, ...env } } : {}),
-        },
+        options: taskOptions as import('@anthropic-ai/claude-agent-sdk').Options,
       })) {
         const msg = message as Record<string, unknown>;
         if (msg.type === 'result' && msg.subtype === 'success') {

@@ -10,6 +10,7 @@ import type { ExecutionScheduler } from '../execution/execution-scheduler.js';
 import type { WaveExecutor } from '../execution/wave-executor.js';
 import type { CommanderAgent } from '../commander/commander-agent.js';
 import { loadDashboardAgentSettings } from '../config.js';
+import { readIssuesJsonl } from '../utils/issue-store.js';
 
 // ---------------------------------------------------------------------------
 // WebSocketManager — manages WS clients, bridges EventBus to WS broadcast
@@ -195,26 +196,7 @@ export class WebSocketManager {
           this.sendError(ws, 'issue:analyze', 'Missing issueId');
           break;
         }
-        this.agentManager.spawn('claude-code', {
-          type: 'claude-code',
-          prompt: `Analyze issue ${msg.issueId}: Read .workflow/issues/issues.jsonl, find the issue, explore codebase for root cause analysis, and update the issue with analysis results.`,
-          workDir: this.workflowRoot,
-          approvalMode: 'auto',
-        })
-          .then((proc) => {
-            const response: WsServerMessage = {
-              type: 'agent:spawned',
-              data: proc,
-              timestamp: new Date().toISOString(),
-            };
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify(response));
-            }
-          })
-          .catch((err: unknown) => {
-            const message = err instanceof Error ? err.message : String(err);
-            this.sendError(ws, 'issue:analyze', message);
-          });
+        this.handleIssueAnalyze(ws, msg.issueId);
         break;
 
       case 'issue:plan':
@@ -222,32 +204,17 @@ export class WebSocketManager {
           this.sendError(ws, 'issue:plan', 'Missing issueId');
           break;
         }
-        this.agentManager.spawn('claude-code', {
-          type: 'claude-code',
-          prompt: `Plan solution for issue ${msg.issueId}: Read the issue from .workflow/issues/issues.jsonl, use existing analysis, generate solution steps, and update the issue with the solution.`,
-          workDir: this.workflowRoot,
-          approvalMode: 'auto',
-        })
-          .then((proc) => {
-            const response: WsServerMessage = {
-              type: 'agent:spawned',
-              data: proc,
-              timestamp: new Date().toISOString(),
-            };
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify(response));
-            }
-          })
-          .catch((err: unknown) => {
-            const message = err instanceof Error ? err.message : String(err);
-            this.sendError(ws, 'issue:plan', message);
-          });
+        this.handleIssuePlan(ws, msg.issueId);
         break;
 
       // --- Wave execution (Agent SDK wave mode) ---------------------------
       case 'execute:wave':
         if (this.waveExecutor) {
-          this.handleWaveExecute(ws, msg.issueId);
+          this.handleWaveExecute(ws, msg.issueId)
+            .catch((err: unknown) => {
+              const message = err instanceof Error ? err.message : String(err);
+              this.sendError(ws, 'execute:wave', message);
+            });
         } else {
           this.sendError(ws, 'execute:wave', 'WaveExecutor not available');
         }
@@ -318,6 +285,7 @@ export class WebSocketManager {
           approvalMode: config.approvalMode ?? saved?.approvalMode ?? undefined,
           baseUrl: (config.baseUrl ?? saved?.baseUrl) || undefined,
           apiKey: (config.apiKey ?? saved?.apiKey) || undefined,
+          settingsFile: (config.settingsFile ?? saved?.settingsFile) || undefined,
         };
         return this.agentManager.spawn(mergedConfig.type, mergedConfig);
       })
@@ -340,51 +308,125 @@ export class WebSocketManager {
   /**
    * Handle wave execution: read issue from JSONL, launch WaveExecutor.
    */
-  private handleWaveExecute(ws: WebSocket, issueId: string): void {
+  private async handleWaveExecute(ws: WebSocket, issueId: string): Promise<void> {
     if (!issueId) {
       this.sendError(ws, 'execute:wave', 'Missing issueId');
       return;
     }
 
-    // Read issue from JSONL and launch wave execution
-    import('node:fs/promises').then(async ({ readFile }) => {
-      const { join } = await import('node:path');
-      const jsonlPath = join(this.workflowRoot, 'issues', 'issues.jsonl');
-      let raw: string;
-      try {
-        raw = await readFile(jsonlPath, 'utf-8');
-      } catch {
-        this.sendError(ws, 'execute:wave', 'Cannot read issues.jsonl');
-        return;
-      }
+    const { join } = await import('node:path');
+    const jsonlPath = join(this.workflowRoot, 'issues', 'issues.jsonl');
 
-      let issue: import('../../shared/issue-types.js').Issue | null = null;
-      for (const line of raw.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        try {
-          const parsed = JSON.parse(trimmed) as import('../../shared/issue-types.js').Issue;
-          if (parsed.id === issueId) {
-            issue = parsed;
-            break;
-          }
-        } catch { /* skip */ }
-      }
-
+    try {
+      const issues = await readIssuesJsonl(jsonlPath);
+      const issue = issues.find((i) => i.id === issueId);
       if (!issue) {
         this.sendError(ws, 'execute:wave', `Issue not found: ${issueId}`);
         return;
       }
-
-      try {
-        await this.waveExecutor!.execute(issue);
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        this.sendError(ws, 'execute:wave', message);
-      }
-    }).catch((err: unknown) => {
+      await this.waveExecutor!.execute(issue);
+    } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       this.sendError(ws, 'execute:wave', message);
+    }
+  }
+
+  /**
+   * Handle issue:analyze — read issue, spawn agent with type-aware prompt.
+   * agent-sdk: uses MCP tools (get_issue/update_issue).
+   * claude-code: pre-injected issue JSON + Bash curl for writeback.
+   */
+  private handleIssueAnalyze(ws: WebSocket, issueId: string): void {
+    this.buildIssuePromptAndSpawn(ws, 'issue:analyze', issueId, (issue, agentType) => {
+      const issueJson = JSON.stringify(issue, null, 2);
+      if (agentType === 'agent-sdk') {
+        return [
+          `Analyze issue ${issueId}.`,
+          `Use the get_issue MCP tool to read the full issue details.`,
+          `Explore the codebase for root cause analysis.`,
+          `Use the update_issue MCP tool to write back your analysis results (root_cause, impact, related_files, confidence, suggested_approach).`,
+        ].join('\n');
+      }
+      return [
+        `Analyze issue ${issueId}. The issue data is provided below.`,
+        '',
+        '## Issue Data',
+        '```json',
+        issueJson,
+        '```',
+        '',
+        'Explore the codebase for root cause analysis.',
+        'When done, write back analysis results using:',
+        `curl -s -X PATCH http://localhost:3001/api/issues/${issueId}/analysis \\`,
+        `  -H 'Content-Type: application/json' \\`,
+        `  -d '{"root_cause":"...","impact":"...","related_files":[...],"confidence":0.8,"suggested_approach":"..."}'`,
+      ].join('\n');
+    });
+  }
+
+  /**
+   * Handle issue:plan — read issue, spawn agent with type-aware prompt.
+   */
+  private handleIssuePlan(ws: WebSocket, issueId: string): void {
+    this.buildIssuePromptAndSpawn(ws, 'issue:plan', issueId, (issue, agentType) => {
+      const issueJson = JSON.stringify(issue, null, 2);
+      if (agentType === 'agent-sdk') {
+        return [
+          `Plan a solution for issue ${issueId}.`,
+          `Use the get_issue MCP tool to read the full issue details and existing analysis.`,
+          `Generate actionable solution steps with targets and verification criteria.`,
+          `Use the update_issue MCP tool to write back the solution (steps array with description, target, verification).`,
+        ].join('\n');
+      }
+      return [
+        `Plan a solution for issue ${issueId}. The issue data is provided below.`,
+        '',
+        '## Issue Data',
+        '```json',
+        issueJson,
+        '```',
+        '',
+        'Use existing analysis if available. Generate solution steps.',
+        'When done, write back the solution using:',
+        `curl -s -X PATCH http://localhost:3001/api/issues/${issueId}/solution \\`,
+        `  -H 'Content-Type: application/json' \\`,
+        `  -d '{"steps":[{"description":"...","target":"...","verification":"..."}],"context":"..."}'`,
+      ].join('\n');
+    });
+  }
+
+  /**
+   * Shared helper: read issue from JSONL, determine agent type from settings, build prompt, spawn.
+   */
+  private buildIssuePromptAndSpawn(
+    ws: WebSocket,
+    action: string,
+    issueId: string,
+    buildPrompt: (issue: import('../../shared/issue-types.js').Issue, agentType: import('../../shared/agent-types.js').AgentType) => string,
+  ): void {
+    import('node:path').then(async ({ join }) => {
+      const jsonlPath = join(this.workflowRoot, 'issues', 'issues.jsonl');
+      const issues = await readIssuesJsonl(jsonlPath);
+      const issue = issues.find((i) => i.id === issueId);
+      if (!issue) {
+        this.sendError(ws, action, `Issue not found: ${issueId}`);
+        return;
+      }
+
+      // Determine agent type from saved settings (default: claude-code)
+      const savedSettings = await loadDashboardAgentSettings(this.workflowRoot, 'agent-sdk');
+      const agentType = (savedSettings?.settingsFile || savedSettings?.baseUrl || savedSettings?.apiKey) ? 'agent-sdk' as const : 'claude-code' as const;
+
+      const prompt = buildPrompt(issue, agentType);
+      this.mergeSettingsAndSpawn(ws, {
+        type: agentType,
+        prompt,
+        workDir: this.workflowRoot,
+        approvalMode: 'auto',
+      });
+    }).catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      this.sendError(ws, action, message);
     });
   }
 

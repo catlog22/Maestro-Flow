@@ -17,9 +17,11 @@ import type {
   ApprovalDecision,
   ApprovalRequest,
 } from '../../shared/agent-types.js';
+import type { McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk';
 import { BaseAgentAdapter } from './base-adapter.js';
 import { EntryNormalizer } from './entry-normalizer.js';
 import { SdkMessageTranslator } from './sdk-message-translator.js';
+import { createIssueMcpServer } from './tools/issue-mcp-server.js';
 
 // ---------------------------------------------------------------------------
 // Pending approval tracking
@@ -44,6 +46,12 @@ export class AgentSdkAdapter extends BaseAgentAdapter {
 
   private readonly abortControllers = new Map<string, AbortController>();
   private readonly pendingApprovals = new Map<string, PendingApproval>();
+  private readonly issueMcpServer: McpSdkServerConfigWithInstance | null;
+
+  constructor(workflowRoot?: string) {
+    super();
+    this.issueMcpServer = workflowRoot ? createIssueMcpServer(workflowRoot) : null;
+  }
 
   // --- Lifecycle hooks -----------------------------------------------------
 
@@ -154,27 +162,39 @@ export class AgentSdkAdapter extends BaseAgentAdapter {
       model: config.model,
     };
 
-    if (config.env || config.baseUrl || config.apiKey) {
-      options.env = { ...process.env, ...config.env };
-    }
-    if (config.baseUrl) {
-      options.env = options.env ?? { ...process.env };
-      options.env.ANTHROPIC_BASE_URL = config.baseUrl;
-    }
-    if (config.apiKey) {
-      options.env = options.env ?? { ...process.env };
-      options.env.ANTHROPIC_API_KEY = config.apiKey;
-    }
-
-    // Set permission mode based on config
-    const permissionMode = this.resolvePermissionMode(config);
-    options.permissionMode = permissionMode;
-
-    // If not bypassing permissions, install the canUseTool callback
-    if (permissionMode !== 'bypassPermissions') {
-      options.canUseTool = this.createCanUseToolCallback(processId);
+    // When settingsFile is set, use settings file path and dontAsk mode
+    if (config.settingsFile) {
+      (options as Record<string, unknown>).settings = config.settingsFile;
+      options.permissionMode = 'dontAsk';
     } else {
-      options.allowDangerouslySkipPermissions = true;
+      // Existing env-based behavior
+      if (config.env || config.baseUrl || config.apiKey) {
+        options.env = { ...process.env, ...config.env };
+      }
+      if (config.baseUrl) {
+        options.env = options.env ?? { ...process.env };
+        options.env.ANTHROPIC_BASE_URL = config.baseUrl;
+      }
+      if (config.apiKey) {
+        options.env = options.env ?? { ...process.env };
+        options.env.ANTHROPIC_API_KEY = config.apiKey;
+      }
+
+      // Set permission mode based on config
+      const permissionMode = this.resolvePermissionMode(config);
+      options.permissionMode = permissionMode;
+
+      // If not bypassing permissions, install the canUseTool callback
+      if (permissionMode !== 'bypassPermissions') {
+        options.canUseTool = this.createCanUseToolCallback(processId);
+      } else {
+        options.allowDangerouslySkipPermissions = true;
+      }
+    }
+
+    // Inject issue MCP server if available
+    if (this.issueMcpServer) {
+      options.mcpServers = { 'issue-monitor': this.issueMcpServer };
     }
 
     // Start the query
