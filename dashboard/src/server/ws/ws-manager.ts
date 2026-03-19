@@ -11,6 +11,7 @@ import type { WaveExecutor } from '../execution/wave-executor.js';
 import type { CommanderAgent } from '../commander/commander-agent.js';
 import { loadDashboardAgentSettings } from '../config.js';
 import { readIssuesJsonl } from '../utils/issue-store.js';
+import { EntryNormalizer } from '../agents/entry-normalizer.js';
 
 // ---------------------------------------------------------------------------
 // WebSocketManager — manages WS clients, bridges EventBus to WS broadcast
@@ -159,6 +160,12 @@ export class WebSocketManager {
       case 'cli:spawned':
         this.agentManager.registerCliProcess(msg.process);
         this.eventBus.emit('agent:spawned', msg.process);
+        // Inject user_message so the prompt appears as the first chat entry
+        if (msg.process.config?.prompt) {
+          const userEntry = EntryNormalizer.userMessage(msg.process.id, msg.process.config.prompt);
+          this.agentManager.addCliEntry(msg.process.id, userEntry);
+          this.eventBus.emit('agent:entry', userEntry);
+        }
         break;
       case 'cli:entry':
         this.agentManager.addCliEntry(msg.entry.processId, msg.entry);

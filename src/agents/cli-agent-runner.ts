@@ -310,7 +310,10 @@ export class CliAgentRunner {
 
     // Optional Dashboard bridge — connect silently, don't block startup
     const bridge = new DashboardBridge();
-    await bridge.tryConnect(CliAgentRunner.getDashboardWsUrl(), 1000);
+    const bridgeConnected = await bridge.tryConnect(CliAgentRunner.getDashboardWsUrl(), 1000);
+    if (!bridgeConnected) {
+      process.stderr.write('[Dashboard not connected — real-time view unavailable]\n');
+    }
 
     const config: AgentConfig = {
       type: agentType,
@@ -323,6 +326,32 @@ export class CliAgentRunner {
     const agentProcess = await adapter.spawn(config);
     bridge.forwardSpawn(agentProcess as unknown as Parameters<typeof bridge.forwardSpawn>[0]);
 
+    // Safety net: if the process exits without a stopped event (e.g. Windows
+    // shell process tree doesn't fire exit/close reliably), write meta.json
+    // from the synchronous process.on('exit') handler as a last resort.
+    let metaWritten = false;
+
+    const saveMeta = (exitCode: number) => {
+      if (metaWritten) return;
+      metaWritten = true;
+      store.saveMeta(execId, {
+        execId,
+        tool: options.tool,
+        model: options.model,
+        mode: options.mode,
+        prompt: options.prompt.substring(0, 500),
+        workDir: options.workDir,
+        startedAt: agentProcess.startedAt,
+        completedAt: new Date().toISOString(),
+        exitCode,
+      });
+    };
+
+    const processExitHandler = () => {
+      saveMeta(0);
+    };
+    process.on('exit', processExitHandler);
+
     return new Promise<number>((resolvePromise) => {
       const unsubscribe = adapter.onEntry(agentProcess.id, (entry) => {
         // Persist entry to JSONL history before rendering
@@ -333,17 +362,8 @@ export class CliAgentRunner {
 
         // Resolve when the agent process stops
         if (entry.type === 'status_change' && entry.status === 'stopped') {
-          store.saveMeta(execId, {
-            execId,
-            tool: options.tool,
-            model: options.model,
-            mode: options.mode,
-            prompt: options.prompt.substring(0, 500),
-            workDir: options.workDir,
-            startedAt: agentProcess.startedAt,
-            completedAt: new Date().toISOString(),
-            exitCode: 0,
-          });
+          saveMeta(0);
+          process.removeListener('exit', processExitHandler);
           bridge.forwardStopped(agentProcess.id);
           bridge.close();
           unsubscribe();
@@ -352,17 +372,8 @@ export class CliAgentRunner {
 
         // Resolve with error code on error status
         if (entry.type === 'status_change' && entry.status === 'error') {
-          store.saveMeta(execId, {
-            execId,
-            tool: options.tool,
-            model: options.model,
-            mode: options.mode,
-            prompt: options.prompt.substring(0, 500),
-            workDir: options.workDir,
-            startedAt: agentProcess.startedAt,
-            completedAt: new Date().toISOString(),
-            exitCode: 1,
-          });
+          saveMeta(1);
+          process.removeListener('exit', processExitHandler);
           bridge.forwardStopped(agentProcess.id);
           bridge.close();
           unsubscribe();

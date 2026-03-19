@@ -211,6 +211,12 @@ export const DEFAULT_CONFIG = {
 } as const;
 
 // ---------------------------------------------------------------------------
+// CLI History directory name (shared constant for server-side path resolution)
+// ---------------------------------------------------------------------------
+
+export const CLI_HISTORY_DIR_NAME = 'cli-history';
+
+// ---------------------------------------------------------------------------
 // Status colors (Linear-inspired design tokens)
 // ---------------------------------------------------------------------------
 

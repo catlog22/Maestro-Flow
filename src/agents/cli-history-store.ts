@@ -71,6 +71,11 @@ export class CliHistoryStore {
     return join(this.dir, `${execId}.meta.json`);
   }
 
+  /** Expose JSONL file path for a given execution (used by watch). */
+  jsonlPathFor(execId: string): string {
+    return this.jsonlPath(execId);
+  }
+
   // ---- Write operations ---------------------------------------------------
 
   /** Append a single entry as one JSONL line. */

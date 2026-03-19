@@ -8,6 +8,7 @@ import { Hono } from 'hono';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { CLI_HISTORY_DIR_NAME } from '../../shared/constants.js';
 
 interface ExecutionMeta {
   execId: string;
@@ -23,7 +24,7 @@ interface ExecutionMeta {
 
 function getCliHistoryDir(): string {
   const maestroHome = process.env.MAESTRO_HOME ?? join(homedir(), '.maestro');
-  return join(maestroHome, 'cli-history');
+  return join(maestroHome, CLI_HISTORY_DIR_NAME);
 }
 
 /**

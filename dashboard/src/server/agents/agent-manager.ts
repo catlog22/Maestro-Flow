@@ -2,6 +2,9 @@
 // AgentManager — orchestrates adapters, bridges agent events to EventBus
 // ---------------------------------------------------------------------------
 
+import { appendFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import type {
   AgentType,
   AgentConfig,
@@ -12,6 +15,7 @@ import type {
 import type { AgentAdapter } from './base-adapter.js';
 import type { DashboardEventBus } from '../state/event-bus.js';
 import { EntryNormalizer } from './entry-normalizer.js';
+import { CLI_HISTORY_DIR_NAME } from '../../shared/constants.js';
 
 export class AgentManager {
   private readonly adapters = new Map<AgentType, AgentAdapter>();
@@ -19,9 +23,58 @@ export class AgentManager {
   private readonly entryHistory = new Map<string, NormalizedEntry[]>();
   private readonly unsubscribers = new Map<string, Array<() => void>>();
   private readonly cliProcesses = new Map<string, AgentProcess>();
+  private readonly cliCleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly processExecIds = new Map<string, string>(); // processId -> execId for JSONL persistence
+  private readonly processConfigs = new Map<string, { process: AgentProcess; config: AgentConfig }>(); // for meta persistence
   private readonly MAX_HISTORY = 1000;
+  private readonly CLI_CLEANUP_DELAY_MS = 5 * 60 * 1000; // 5 minutes
 
   constructor(private readonly eventBus: DashboardEventBus) {}
+
+  // --- CLI History persistence (write-through to ~/.maestro/cli-history/) ---
+
+  private get historyDir(): string {
+    const maestroHome = process.env.MAESTRO_HOME ?? join(homedir(), '.maestro');
+    return join(maestroHome, CLI_HISTORY_DIR_NAME);
+  }
+
+  private ensureHistoryDir(): void {
+    const dir = this.historyDir;
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  }
+
+  private persistEntry(processId: string, entry: NormalizedEntry): void {
+    const execId = this.processExecIds.get(processId);
+    if (!execId) return;
+    try {
+      this.ensureHistoryDir();
+      appendFileSync(join(this.historyDir, `${execId}.jsonl`), JSON.stringify(entry) + '\n', 'utf-8');
+    } catch {
+      // Best-effort — don't break agent flow
+    }
+  }
+
+  private persistMeta(processId: string, process: AgentProcess, config: AgentConfig, exitCode?: number): void {
+    const execId = this.processExecIds.get(processId);
+    if (!execId) return;
+    try {
+      this.ensureHistoryDir();
+      const meta = {
+        execId,
+        tool: config.type === 'claude-code' ? 'claude' : config.type,
+        model: config.model,
+        mode: config.approvalMode === 'auto' ? 'write' : 'analysis',
+        prompt: config.prompt.substring(0, 500),
+        workDir: config.workDir,
+        startedAt: process.startedAt,
+        completedAt: new Date().toISOString(),
+        exitCode,
+      };
+      writeFileSync(join(this.historyDir, `${execId}.meta.json`), JSON.stringify(meta, null, 2), 'utf-8');
+    } catch {
+      // Best-effort
+    }
+  }
 
   /** Register an adapter for a specific agent type */
   registerAdapter(adapter: AgentAdapter): void {
@@ -39,9 +92,17 @@ export class AgentManager {
     this.processToAdapter.set(process.id, adapter);
     this.entryHistory.set(process.id, []);
 
+    // Generate execId for CLI History persistence (dashboard-spawned sessions)
+    const prefix = config.type === 'claude-code' ? 'cld' : config.type.substring(0, 3);
+    const now = new Date();
+    const ts = `${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+    const execId = `${prefix}-${ts}-${process.id.substring(0, 4)}`;
+    this.processExecIds.set(process.id, execId);
+    this.processConfigs.set(process.id, { process, config });
+
     const unsubs: Array<() => void> = [];
 
-    // Subscribe to entry events -> buffer + emit to EventBus
+    // Subscribe to entry events -> buffer + persist + emit to EventBus
     const unsubEntry = adapter.onEntry(process.id, (entry) => {
       const history = this.entryHistory.get(process.id);
       if (history) {
@@ -50,6 +111,7 @@ export class AgentManager {
           history.shift();
         }
       }
+      this.persistEntry(process.id, entry);
       this.eventBus.emit('agent:entry', entry);
 
       // --- Lifecycle bridge: Detect agent completion from entries ---
@@ -80,6 +142,7 @@ export class AgentManager {
       const userEntry = EntryNormalizer.userMessage(process.id, config.prompt);
       const history = this.entryHistory.get(process.id);
       if (history) history.push(userEntry);
+      this.persistEntry(process.id, userEntry);
       this.eventBus.emit('agent:entry', userEntry);
     }
 
@@ -172,11 +235,19 @@ export class AgentManager {
     }
   }
 
-  /** Update status of a CLI-bridged process */
+  /** Update status of a CLI-bridged process and schedule delayed cleanup */
   updateCliProcessStatus(processId: string, status: 'stopped' | 'error'): void {
     const proc = this.cliProcesses.get(processId);
     if (proc) {
       proc.status = status;
+      // Delay cleanup so frontends can still load entries after reconnect
+      const existing = this.cliCleanupTimers.get(processId);
+      if (existing) clearTimeout(existing);
+      this.cliCleanupTimers.set(processId, setTimeout(() => {
+        this.entryHistory.delete(processId);
+        this.cliProcesses.delete(processId);
+        this.cliCleanupTimers.delete(processId);
+      }, this.CLI_CLEANUP_DELAY_MS));
     }
   }
 

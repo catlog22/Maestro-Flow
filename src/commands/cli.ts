@@ -6,9 +6,10 @@
 
 import type { Command } from 'commander';
 import { resolve } from 'node:path';
+import { readFileSync, statSync } from 'node:fs';
 import { CliAgentRunner } from '../agents/cli-agent-runner.js';
 import { CliHistoryStore } from '../agents/cli-history-store.js';
-import type { ExecutionMeta } from '../agents/cli-history-store.js';
+import type { ExecutionMeta, EntryLike } from '../agents/cli-history-store.js';
 import { loadCliToolsConfig, selectTool } from '../config/cli-tools-config.js';
 
 // ---------------------------------------------------------------------------
@@ -147,6 +148,113 @@ export function registerCliCommand(program: Command): void {
         ].join('  ');
         console.log(row);
       }
+    });
+
+  // ---- watch subcommand ---------------------------------------------------
+
+  cli
+    .command('watch <id>')
+    .description('Stream execution output in real-time until completion')
+    .option('--timeout <ms>', 'Auto-exit after N milliseconds', '120000')
+    .action(async (id: string, opts: { timeout: string }) => {
+      const store = new CliHistoryStore();
+      const jsonlPath = store.jsonlPathFor(id);
+      const timeoutMs = parseInt(opts.timeout, 10) || 120_000;
+
+      // Check if execution exists (meta or jsonl)
+      const meta = store.loadMeta(id);
+      if (!meta) {
+        // No meta yet — might still be starting; check if jsonl exists
+        try {
+          statSync(jsonlPath);
+        } catch {
+          console.error(`Execution not found: ${id}`);
+          process.exit(1);
+        }
+      }
+
+      // If already completed, just dump output and exit
+      if (meta?.completedAt) {
+        const output = store.getOutput(id);
+        if (output) process.stderr.write(output);
+        process.exit(meta.exitCode === 0 ? 0 : 1);
+        return;
+      }
+
+      // Tail the JSONL file, rendering entries to stderr
+      let offset = 0;
+      let finished = false;
+      let exitCode = 0;
+
+      const poll = () => {
+        let raw: string;
+        try {
+          raw = readFileSync(jsonlPath, 'utf-8');
+        } catch {
+          return; // file not ready yet
+        }
+
+        const lines = raw.split('\n');
+        for (let i = offset; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          try {
+            const entry = JSON.parse(line) as EntryLike;
+            // Render to stderr
+            if (entry.type === 'assistant_message' && entry.partial !== true) {
+              process.stderr.write(String(entry.content ?? ''));
+            } else if (entry.type === 'tool_use') {
+              if (entry.status === 'running') {
+                process.stderr.write(`[Tool: ${entry.name}]\n`);
+              } else if (entry.status === 'completed' || entry.status === 'failed') {
+                process.stderr.write(`[Tool ${entry.name}: ${entry.status}]\n`);
+              }
+            } else if (entry.type === 'error') {
+              process.stderr.write(`Error: ${entry.message}\n`);
+            } else if (entry.type === 'token_usage') {
+              process.stderr.write(`[Tokens: ${entry.inputTokens}in/${entry.outputTokens}out]\n`);
+            } else if (entry.type === 'status_change') {
+              if (entry.status === 'stopped') {
+                finished = true;
+                exitCode = 0;
+              } else if (entry.status === 'error') {
+                finished = true;
+                exitCode = 1;
+              }
+            }
+          } catch {
+            // skip malformed
+          }
+        }
+        offset = lines.length;
+      };
+
+      // Also check meta.json for completion (safety net when stopped event missing)
+      const checkMeta = () => {
+        const m = store.loadMeta(id);
+        if (m?.completedAt) {
+          finished = true;
+          exitCode = m.exitCode === 0 ? 0 : 1;
+        }
+      };
+
+      const startTime = Date.now();
+      await new Promise<void>((res) => {
+        const interval = setInterval(() => {
+          poll();
+          checkMeta();
+          if (finished || Date.now() - startTime > timeoutMs) {
+            clearInterval(interval);
+            if (!finished && Date.now() - startTime > timeoutMs) {
+              process.stderr.write('\n[watch timeout]\n');
+              exitCode = 2;
+            }
+            res();
+          }
+        }, 500);
+      });
+
+      process.exit(exitCode);
     });
 
   // ---- output subcommand --------------------------------------------------

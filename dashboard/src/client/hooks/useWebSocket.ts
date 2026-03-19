@@ -79,7 +79,19 @@ export function useWebSocket(): void {
         }).catch(() => {});
         fetch('/api/agents').then(r => r.ok ? r.json() : null).then((agents: unknown) => {
           if (Array.isArray(agents)) {
-            for (const proc of agents) addProcess(proc as AgentProcess);
+            for (const proc of agents) {
+              const agentProc = proc as AgentProcess;
+              addProcess(agentProc);
+              // Load buffered entries so chat history is visible after reconnect
+              fetch(`/api/agents/${encodeURIComponent(agentProc.id)}/entries`)
+                .then(r => r.ok ? r.json() : null)
+                .then((entries: unknown) => {
+                  if (Array.isArray(entries)) {
+                    for (const entry of entries) addEntry(agentProc.id, entry as NormalizedEntry);
+                  }
+                })
+                .catch(() => {});
+            }
           }
         }).catch(() => {});
       };

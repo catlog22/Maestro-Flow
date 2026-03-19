@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useAgentStore } from '@/client/store/agent-store.js';
 import { cn } from '@/client/lib/utils.js';
-import type { AgentProcess, AgentType } from '@/shared/agent-types.js';
+import type { AgentProcess, AgentType, NormalizedEntry } from '@/shared/agent-types.js';
 
 interface CliHistoryMeta {
   execId: string;
@@ -127,9 +127,9 @@ function HistoryItem({ meta, isActive }: { meta: CliHistoryMeta; isActive: boole
     try {
       const res = await fetch(`/api/cli-history/${encodeURIComponent(meta.execId)}/entries`);
       if (res.ok) {
-        const entries = await res.json() as Array<{ processId?: string; [key: string]: unknown }>;
+        const entries = await res.json() as NormalizedEntry[];
         for (const entry of entries) {
-          addEntry(processId, { ...entry, processId } as Parameters<typeof addEntry>[1]);
+          addEntry(processId, { ...entry, processId } as NormalizedEntry);
         }
       }
     } catch {
