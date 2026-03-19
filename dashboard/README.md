@@ -1,81 +1,135 @@
 # Maestro Dashboard
 
-A real-time project dashboard for the Maestro workflow orchestration system. Runs at `http://127.0.0.1:3001`.
+Real-time project orchestration dashboard with Linear-style Kanban board, multi-agent execution control, and autonomous Commander supervision. Runs at `http://127.0.0.1:3001`.
 
 ## Views
 
-The `/workflow` page provides four views:
+The Kanban page (`/kanban`) provides four views:
 
 | View | Shortcut | Description |
 |------|----------|-------------|
-| **Board** | `1` | Kanban-style pipeline with 6 status columns |
-| **Timeline** | `2` | Phase timeline with Gantt-style progress |
-| **Center** | `3` | Command Center — active execution panel, quality status, agent logs |
-| **Table** | `4` | Tabular phase list with all metadata |
+| **Board** | `K` | Kanban columns (Backlog → In Progress → Review → Done) with Phase cards, Issue cards, and Linear integration |
+| **Timeline** | `T` | Gantt-style phase timeline with progress indicators |
+| **Center** | `C` | Command center — active executions, Issue queue, quality summary |
+| **Table** | `L` | Sortable tabular view with all phase/issue metadata |
 
-## Phase Status ↔ Command Reference
+## Issue Lifecycle on Kanban
 
-Each phase moves through a lifecycle of statuses. The **ActiveExecutionPanel** (in the Center view) shows the recommended command for the current phase.
+Issues have a **dual status system**:
 
-| Status | Display Label | Recommended Command | Notes |
-|--------|--------------|---------------------|-------|
-| `pending` | Pending | `/maestro-analyze {N}` | Start phase exploration |
-| `exploring` | Explore | `/maestro-plan {N}` | Exploration in progress — run plan next |
-| `planning` | Plan | `/maestro-execute {N}` | Execution plan ready |
-| `executing` | Execute | *(running)* | Phase actively executing |
-| `verifying` | Verify | `/quality-review {N}` | Goal-backward verification |
-| `testing` | Test | `/quality-test {N}` | UAT + integration tests |
-| `completed` | Done | `/maestro-phase-transition` | Advance to next phase |
-| `blocked` | Blocked | `/quality-debug` | Debug and unblock |
+- **IssueStatus** (`open` / `in_progress` / `resolved` / `closed`) — determines which **column** the card appears in
+- **DisplayStatus** (`open` / `analyzing` / `planned` / `in_progress` / `resolved` / `closed`) — determines the **label color** on the card
 
-> **Note on naming**: The `exploring` status is *entered by* running `/maestro-analyze` on a `pending` phase. Once a phase is in `exploring` state, the next action is `/maestro-plan` — hence the table above. The label "explore" describes the phase state; "analyze" was the command that initiated it.
+An Issue with `status=open` always stays in the Backlog column, but its label changes from "open" → "analyzing" → "planned" as analysis and solution data are attached.
 
-## Pre-Pipeline Commands
+| Status | Kanban Column |
+|--------|---------------|
+| `open` | Backlog |
+| `in_progress` | In Progress |
+| `resolved` | Review |
+| `closed` | Done |
 
-Before any phases exist, run these setup commands in order:
+### Issue Card Actions
+
+- **Click** — Open detail modal (analysis, solution steps, execution results)
+- **Executor dropdown** — Select agent: Claude Code / Codex / Gemini
+- **Play button** — Dispatch execution via WebSocket
+- **Multi-select** — Batch execution with floating toolbar
+- **Create** — `C` shortcut or `+` button on column header
+
+## Commander Agent
+
+The autonomous supervisor runs a tick loop (`assess → decide → dispatch`) and automatically:
+
+- Analyzes un-analyzed Issues (`open` + no `analysis`)
+- Plans analyzed Issues (`analysis` exists, no `solution`)
+- Executes planned Issues via ExecutionScheduler
+- Profiles: `conservative` / `balanced` / `aggressive`
+
+## Phase Pipeline Commands
+
+| Status | Display Label | Recommended Command |
+|--------|--------------|---------------------|
+| `pending` | Pending | `/maestro-analyze {N}` |
+| `exploring` | Explore | `/maestro-plan {N}` |
+| `planning` | Plan | `/maestro-execute {N}` |
+| `executing` | Execute | *(running)* |
+| `verifying` | Verify | `/quality-review {N}` |
+| `testing` | Test | `/quality-test {N}` |
+| `completed` | Done | `/maestro-phase-transition` |
+| `blocked` | Blocked | `/quality-debug` |
+
+## Pre-Pipeline Setup
 
 | Step | Command | Purpose |
 |------|---------|---------|
-| 1 | `/maestro-init` | Initialize project workspace (`.workflow/` directory, `state.json`, `project.md`) |
-| 2 | `/maestro-brainstorm` *(optional)* | Multi-role brainstorming session for idea refinement |
-| 3a | `/maestro-roadmap` | Create a lightweight phase roadmap interactively |
+| 1 | `/maestro-init` | Initialize `.workflow/` directory |
+| 2 | `/maestro-brainstorm` *(optional)* | Multi-role brainstorming |
+| 3a | `/maestro-roadmap` | Lightweight interactive roadmap |
 | 3b | `/maestro-spec-generate` | Full spec pipeline (PRD → architecture → roadmap) |
-| 4 | `/maestro-ui-design` *(optional)* | Generate UI design prototypes |
-| 5 | `/maestro-plan 1` | Create execution plan for Phase 1 |
+| 4 | `/maestro-plan 1` | Create Phase 1 execution plan |
 
-After `/maestro-plan 1`, the dashboard will show your first phase in `planning` status and the full pipeline becomes visible.
-
-## Development Setup
+## Development
 
 ```bash
 cd dashboard
 npm install
-npm run dev        # Starts Vite dev server + Hono API server on port 3001
+npm run dev        # Vite dev server + Hono API on port 3001
 ```
 
 ### Build
 
 ```bash
-npm run build      # TypeScript compile + Vite build
-npm start          # Start production server
+npm run build      # TypeScript + Vite build
+npm start          # Production server
+```
+
+### Test
+
+```bash
+npm test           # Vitest
+npm run test:watch # Watch mode
 ```
 
 ## Architecture
 
 ```
-dashboard/
-├── src/
-│   ├── client/           # React frontend (Vite)
-│   │   ├── components/   # UI components
-│   │   │   └── workflow/ # Workflow-specific components
-│   │   ├── pages/        # Page-level components (WorkflowPage, etc.)
-│   │   ├── store/        # Zustand state (board-store)
-│   │   └── hooks/        # Custom React hooks
-│   ├── server/           # Hono API server
-│   │   └── state/        # StateManager — reads .workflow/ files
-│   └── shared/           # Shared types and constants
-│       ├── types.ts       # PhaseCard, BoardState, PhaseStatus, etc.
-│       └── constants.ts   # STATUS_COLORS, API endpoints, etc.
+dashboard/src/
+├── client/                  # React 19 + Zustand + Tailwind CSS 4
+│   ├── components/
+│   │   └── kanban/          # 19 components (Board, Column, PhaseCard, IssueCard, ...)
+│   ├── pages/               # KanbanPage, WorkflowPage, SpecsPage, ArtifactsPage, McpPage
+│   ├── store/               # 5 Zustand stores (board, issue, execution, linear, ui-prefs)
+│   └── hooks/               # Custom React hooks
+├── server/                  # Hono API + WebSocket + SSE
+│   ├── agents/              # AgentManager + adapters (Claude SDK, Codex CLI, OpenCode)
+│   ├── commander/           # CommanderAgent (tick loop, prompts, config, profiles)
+│   ├── execution/           # ExecutionScheduler + WaveExecutor + WorkspaceManager
+│   ├── routes/              # 14 route modules (issues, board, phases, agents, mcp, ...)
+│   ├── state/               # StateManager, EventBus, FSWatcher
+│   ├── ws/                  # WebSocket manager
+│   └── sse/                 # Server-Sent Events hub
+└── shared/                  # Types shared between client and server
+    ├── types.ts             # PhaseCard, BoardState, PhaseStatus
+    ├── issue-types.ts       # Issue, IssueAnalysis, IssueSolution
+    ├── agent-types.ts       # AgentType, AgentProcess, AgentConfig
+    ├── commander-types.ts   # CommanderConfig, PriorityAction, Assessment
+    └── constants.ts         # Status colors, display status derivation, API endpoints
 ```
 
-The server's `StateManager` reads `.workflow/state.json` and `.workflow/phases/*/index.json` to assemble the `BoardState` pushed to the client via Server-Sent Events (SSE).
+### Key Data Flow
+
+```
+.workflow/ files ──→ StateManager ──→ SSE ──→ Zustand stores ──→ React UI
+                                                      ↑
+WebSocket ←── IssueCard actions ←── User interaction ─┘
+    │
+    ↓
+AgentManager.spawn() / ExecutionScheduler.dispatch()
+    │
+    ↓
+Agent process (Claude SDK / Codex CLI / Gemini CLI)
+    │
+    ↓
+PATCH /api/issues/:id ──→ JSONL file ──→ StateManager ──→ SSE ──→ UI update
+```
