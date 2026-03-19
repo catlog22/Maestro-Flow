@@ -1,13 +1,30 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { readFile } from 'node:fs/promises';
 
 // Mock the Agent SDK before importing CommanderAgent
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   query: vi.fn(),
 }));
 
+// Mock fs/promises for readIssuesJsonl
+vi.mock('node:fs/promises', () => ({
+  readFile: vi.fn().mockRejectedValue(new Error('ENOENT')),
+}));
+
+// Mock commander-config
+vi.mock('./commander-config.js', () => ({
+  loadCommanderConfig: vi.fn().mockResolvedValue({}),
+  PROFILES: {
+    development: { pollIntervalMs: 15_000, autoApproveThreshold: 'medium', decisionModel: 'haiku', maxConcurrentWorkers: 2 },
+    production: { pollIntervalMs: 60_000, autoApproveThreshold: 'low', decisionModel: 'sonnet', maxConcurrentWorkers: 5 },
+  },
+}));
+
+import { query } from '@anthropic-ai/claude-agent-sdk';
 import { CommanderAgent } from './commander-agent.js';
 import { DEFAULT_COMMANDER_CONFIG } from '../../shared/commander-types.js';
 import type { CommanderConfig, Assessment, PriorityAction, Decision } from '../../shared/commander-types.js';
+import { loadCommanderConfig } from './commander-config.js';
 import type { DashboardEventBus } from '../state/event-bus.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { ExecutionScheduler } from '../execution/execution-scheduler.js';
@@ -368,16 +385,56 @@ describe('CommanderAgent', () => {
     });
   });
 
-  // --- Circuit breaker ---
-  describe('circuit breaker', () => {
+  // --- Circuit breaker and rate limiting ---
+  describe('circuit breaker and rate limiting', () => {
     it('tick is skipped when paused', async () => {
-      const { agent, scheduler } = createAgent();
+      const { agent } = createAgent();
       agent.pause();
 
       await (agent as any).tick('test');
 
-      // getStatus should not have been called during tick since it was skipped
       expect(agent.getState().tickCount).toBe(0);
+    });
+
+    it('circuit breaker trips after consecutive failures', async () => {
+      const { agent } = createAgent({
+        safety: {
+          circuitBreakerThreshold: 2,
+          eventDebounceMs: 5000,
+          maxTicksPerHour: 100,
+          maxTokensPerHour: 500000,
+          protectedPaths: [],
+        },
+      });
+
+      // Simulate consecutive failures by setting internal counter
+      (agent as any).consecutiveFailures = 2;
+
+      await (agent as any).tick('test');
+
+      // Should pause after hitting circuit breaker
+      expect(agent.getState().status).toBe('paused');
+    });
+
+    it('rate limit skips tick when max ticks per hour reached', async () => {
+      const { agent } = createAgent({
+        safety: {
+          circuitBreakerThreshold: 10,
+          eventDebounceMs: 5000,
+          maxTicksPerHour: 1,
+          maxTokensPerHour: 500000,
+          protectedPaths: [],
+        },
+      });
+
+      // Set ticksThisHour to max
+      (agent as any).ticksThisHour = 1;
+
+      const tickCountBefore = agent.getState().tickCount;
+      await (agent as any).tick('test');
+
+      // tickCount should not have incremented
+      expect(agent.getState().tickCount).toBe(tickCountBefore);
     });
   });
 
@@ -501,6 +558,82 @@ describe('CommanderAgent', () => {
       expect(decision.deferred).toHaveLength(0);
     });
 
+    it('dispatches execute_issue via executionScheduler', async () => {
+      const { agent, scheduler } = createAgent({ autoApproveThreshold: 'high' });
+
+      const decision = {
+        id: 'test-decision',
+        timestamp: new Date().toISOString(),
+        trigger: 'test',
+        assessment: { priority_actions: [], observations: [], risks: [] },
+        actions: [
+          { type: 'execute_issue', target: 'ISS-exec-1', reason: 'Fix', risk: 'low', executor: 'claude-code' },
+        ],
+        deferred: [],
+      };
+
+      await (agent as any).dispatch(decision);
+
+      expect(scheduler.executeIssue).toHaveBeenCalledTimes(1);
+      expect(scheduler.executeIssue).toHaveBeenCalledWith('ISS-exec-1', 'claude-code');
+    });
+
+    it('dispatches flag_blocker, create_issue, advance_phase as log-only', async () => {
+      const { agent, scheduler, agentManager } = createAgent({ autoApproveThreshold: 'high' });
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const decision = {
+        id: 'test-decision',
+        timestamp: new Date().toISOString(),
+        trigger: 'test',
+        assessment: { priority_actions: [], observations: [], risks: [] },
+        actions: [
+          { type: 'flag_blocker', target: 'ISS-B', reason: 'Blocked', risk: 'low', executor: '' },
+          { type: 'create_issue', target: 'new-bug', reason: 'Found bug', risk: 'low', executor: '' },
+          { type: 'advance_phase', target: 'phase-2', reason: 'Ready', risk: 'low', executor: '' },
+        ],
+        deferred: [],
+      };
+
+      await (agent as any).dispatch(decision);
+
+      // These should NOT call executeIssue or spawn
+      expect(scheduler.executeIssue).not.toHaveBeenCalled();
+      expect(agentManager.spawn).not.toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Blocker flagged'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Issue creation recommended'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Phase advancement recommended'));
+
+      consoleSpy.mockRestore();
+    });
+
+    it('handles dispatch errors gracefully', async () => {
+      const { agent, scheduler } = createAgent({ autoApproveThreshold: 'high' });
+      (scheduler.executeIssue as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('spawn failed'));
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const decision = {
+        id: 'test-decision',
+        timestamp: new Date().toISOString(),
+        trigger: 'test',
+        assessment: { priority_actions: [], observations: [], risks: [] },
+        actions: [
+          { type: 'execute_issue', target: 'ISS-fail', reason: 'Fix', risk: 'low', executor: 'claude-code' },
+        ],
+        deferred: [],
+      };
+
+      // Should not throw
+      await (agent as any).dispatch(decision);
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Dispatch failed'),
+        expect.stringContaining('spawn failed'),
+      );
+
+      errorSpy.mockRestore();
+    });
+
     it('prioritizes actions: execute > analyze > plan', () => {
       const { agent } = createAgent({ autoApproveThreshold: 'high' });
 
@@ -527,6 +660,456 @@ describe('CommanderAgent', () => {
       const types = decision.actions.map(a => a.type);
       expect(types.indexOf('execute_issue')).toBeLessThan(types.indexOf('analyze_issue'));
       expect(types.indexOf('analyze_issue')).toBeLessThan(types.indexOf('plan_issue'));
+    });
+  });
+
+  // --- start() method ---
+  describe('start', () => {
+    it('loads config from disk and starts tick timer', async () => {
+      const { agent, eventBus } = createAgent();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      await agent.start();
+
+      expect(loadCommanderConfig).toHaveBeenCalledWith('/tmp/test-workflow');
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[Commander] Started'));
+      expect(eventBus.emit).toHaveBeenCalled();
+
+      // Cleanup timers
+      agent.stop();
+      consoleSpy.mockRestore();
+    });
+
+    it('does not start again if already running', async () => {
+      const { agent } = createAgent();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      await agent.start();
+      const callCountAfterFirst = (loadCommanderConfig as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      await agent.start(); // second call
+      // loadCommanderConfig should NOT be called again
+      expect((loadCommanderConfig as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callCountAfterFirst);
+
+      agent.stop();
+      consoleSpy.mockRestore();
+    });
+  });
+
+  // --- stop() with active timers ---
+  describe('stop with active timers', () => {
+    it('clears tick and hour reset timers', async () => {
+      const { agent } = createAgent();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      await agent.start();
+      agent.stop();
+
+      expect(agent.getState().status).toBe('idle');
+      expect(consoleSpy).toHaveBeenCalledWith('[Commander] Stopped');
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  // --- updateConfig with timer restart ---
+  describe('updateConfig with timer restart', () => {
+    it('restarts tick timer when pollIntervalMs changes while running', async () => {
+      const { agent } = createAgent();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      await agent.start();
+
+      const prevInterval = agent.getConfig().pollIntervalMs;
+      agent.updateConfig({ pollIntervalMs: prevInterval + 1000 });
+
+      expect(agent.getConfig().pollIntervalMs).toBe(prevInterval + 1000);
+
+      agent.stop();
+      consoleSpy.mockRestore();
+    });
+
+    it('applies custom profile preset when switching to custom does nothing', () => {
+      const { agent } = createAgent();
+      // switching to 'custom' profile should skip preset application
+      agent.updateConfig({ profile: 'custom' });
+      // no error thrown, config still valid
+      expect(agent.getConfig().profile).toBe('custom');
+    });
+  });
+
+  // --- Full tick flow ---
+  describe('tick: full flow', () => {
+    it('runs full tick: gatherContext -> assess -> decide -> dispatch', async () => {
+      const mockQuery = query as ReturnType<typeof vi.fn>;
+      const mockReadFile = readFile as ReturnType<typeof vi.fn>;
+
+      // Mock readFile to return empty issues JSONL
+      mockReadFile.mockRejectedValue(new Error('ENOENT'));
+
+      // Mock query to yield a result message with valid assessment JSON
+      const assessmentResult: Assessment = {
+        priority_actions: [
+          { type: 'execute_issue', target: 'ISS-1', reason: 'Fix bug', risk: 'low', executor: 'claude-code' },
+        ],
+        observations: ['All healthy'],
+        risks: [],
+      };
+
+      mockQuery.mockReturnValue({
+        [Symbol.asyncIterator]: () => {
+          let done = false;
+          return {
+            async next() {
+              if (done) return { done: true, value: undefined };
+              done = true;
+              return {
+                done: false,
+                value: {
+                  type: 'result',
+                  subtype: 'success',
+                  result: JSON.stringify(assessmentResult),
+                },
+              };
+            },
+          };
+        },
+      });
+
+      const { agent, scheduler, eventBus } = createAgent({
+        autoApproveThreshold: 'high',
+      });
+
+      await (agent as any).tick('manual');
+
+      // tick should have incremented
+      expect(agent.getState().tickCount).toBe(1);
+      // execute_issue should have been dispatched
+      expect(scheduler.executeIssue).toHaveBeenCalledWith('ISS-1', 'claude-code');
+      // Status should be idle after tick
+      expect(agent.getState().status).toBe('idle');
+      // lastDecision should be set
+      expect(agent.getState().lastDecision).not.toBeNull();
+    });
+
+    it('handles assessment failure and increments consecutiveFailures', async () => {
+      const mockQuery = query as ReturnType<typeof vi.fn>;
+      const mockReadFile = readFile as ReturnType<typeof vi.fn>;
+
+      mockReadFile.mockRejectedValue(new Error('ENOENT'));
+
+      // Mock query to yield no result (empty assessment)
+      mockQuery.mockReturnValue({
+        [Symbol.asyncIterator]: () => ({
+          async next() {
+            return { done: true, value: undefined };
+          },
+        }),
+      });
+
+      const { agent } = createAgent();
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      await (agent as any).tick('test');
+
+      // Assessment should have failed (no result text)
+      // consecutiveFailures should be incremented
+      expect((agent as any).consecutiveFailures).toBe(1);
+      expect(agent.getState().status).toBe('idle');
+
+      errorSpy.mockRestore();
+    });
+
+    it('keeps last 5 decisions and shifts old ones', async () => {
+      const mockQuery = query as ReturnType<typeof vi.fn>;
+      const mockReadFile = readFile as ReturnType<typeof vi.fn>;
+
+      mockReadFile.mockRejectedValue(new Error('ENOENT'));
+
+      const assessmentResult: Assessment = {
+        priority_actions: [],
+        observations: [],
+        risks: [],
+      };
+
+      mockQuery.mockReturnValue({
+        [Symbol.asyncIterator]: () => {
+          let done = false;
+          return {
+            async next() {
+              if (done) return { done: true, value: undefined };
+              done = true;
+              return {
+                done: false,
+                value: { type: 'result', subtype: 'success', result: JSON.stringify(assessmentResult) },
+              };
+            },
+          };
+        },
+      });
+
+      const { agent } = createAgent({ autoApproveThreshold: 'high' });
+
+      // Run 6 ticks to exceed the 5-decision limit
+      for (let i = 0; i < 6; i++) {
+        await (agent as any).tick('test');
+      }
+
+      expect((agent as any).recentDecisions.length).toBe(5);
+      expect(agent.getState().tickCount).toBe(6);
+    });
+
+    it('resets consecutiveFailures on successful assessment', async () => {
+      const mockQuery = query as ReturnType<typeof vi.fn>;
+      const mockReadFile = readFile as ReturnType<typeof vi.fn>;
+
+      mockReadFile.mockRejectedValue(new Error('ENOENT'));
+
+      const assessmentResult: Assessment = {
+        priority_actions: [],
+        observations: [],
+        risks: [],
+      };
+
+      mockQuery.mockReturnValue({
+        [Symbol.asyncIterator]: () => {
+          let done = false;
+          return {
+            async next() {
+              if (done) return { done: true, value: undefined };
+              done = true;
+              return {
+                done: false,
+                value: { type: 'result', subtype: 'success', result: JSON.stringify(assessmentResult) },
+              };
+            },
+          };
+        },
+      });
+
+      const { agent } = createAgent();
+      (agent as any).consecutiveFailures = 2;
+
+      await (agent as any).tick('test');
+
+      expect((agent as any).consecutiveFailures).toBe(0);
+    });
+  });
+
+  // --- gatherContext ---
+  describe('gatherContext', () => {
+    it('reads issues from JSONL and builds context', async () => {
+      const mockReadFile = readFile as ReturnType<typeof vi.fn>;
+
+      // Return valid JSONL with two issues
+      mockReadFile.mockResolvedValueOnce(
+        '{"id":"ISS-1","status":"open","title":"Bug"}\n{"id":"ISS-2","status":"closed","title":"Done"}\n'
+      );
+
+      const { agent, stateManager } = createAgent();
+
+      const context = await (agent as any).gatherContext();
+
+      expect(context.project).toBeDefined();
+      expect(context.openIssues).toHaveLength(1); // only open issues
+      expect(context.openIssues[0].id).toBe('ISS-1');
+      expect(context.workDir).toBe('/tmp/test-workflow');
+    });
+
+    it('returns empty issues when JSONL file does not exist', async () => {
+      const mockReadFile = readFile as ReturnType<typeof vi.fn>;
+      mockReadFile.mockRejectedValueOnce(new Error('ENOENT'));
+
+      const { agent } = createAgent();
+      const context = await (agent as any).gatherContext();
+
+      expect(context.openIssues).toHaveLength(0);
+    });
+
+    it('includes currentPhase when project has current_phase', async () => {
+      const mockReadFile = readFile as ReturnType<typeof vi.fn>;
+      mockReadFile.mockRejectedValueOnce(new Error('ENOENT'));
+
+      const { agent, stateManager } = createAgent();
+      (stateManager.getProject as ReturnType<typeof vi.fn>).mockReturnValue({
+        name: 'test',
+        current_phase: 'phase-1',
+      });
+      (stateManager.getPhase as ReturnType<typeof vi.fn>).mockReturnValue({ id: 'phase-1', name: 'Alpha' });
+
+      const context = await (agent as any).gatherContext();
+
+      expect(context.currentPhase).toEqual({ id: 'phase-1', name: 'Alpha' });
+      expect(stateManager.getPhase).toHaveBeenCalledWith('phase-1');
+    });
+  });
+
+  // --- assess ---
+  describe('assess', () => {
+    it('throws when assessment returns no result', async () => {
+      const mockQuery = query as ReturnType<typeof vi.fn>;
+      mockQuery.mockReturnValue({
+        [Symbol.asyncIterator]: () => ({
+          async next() { return { done: true, value: undefined }; },
+        }),
+      });
+
+      const { agent } = createAgent();
+      const context = {
+        project: { name: 'test' },
+        openIssues: [],
+        runningWorkers: 0,
+        maxWorkers: 3,
+        recentDecisions: [],
+        workDir: '/tmp',
+      };
+
+      await expect((agent as any).assess(context)).rejects.toThrow('Assessment returned no result');
+    });
+
+    it('parses valid assessment JSON from query result', async () => {
+      const mockQuery = query as ReturnType<typeof vi.fn>;
+      const expected: Assessment = {
+        priority_actions: [],
+        observations: ['Healthy'],
+        risks: ['None'],
+      };
+
+      mockQuery.mockReturnValue({
+        [Symbol.asyncIterator]: () => {
+          let done = false;
+          return {
+            async next() {
+              if (done) return { done: true, value: undefined };
+              done = true;
+              return {
+                done: false,
+                value: { type: 'result', subtype: 'success', result: JSON.stringify(expected) },
+              };
+            },
+          };
+        },
+      });
+
+      const { agent } = createAgent();
+      const result = await (agent as any).assess({});
+
+      expect(result).toEqual(expected);
+    });
+
+    it('ignores non-result messages from query stream', async () => {
+      const mockQuery = query as ReturnType<typeof vi.fn>;
+      const expected: Assessment = {
+        priority_actions: [],
+        observations: [],
+        risks: [],
+      };
+
+      let call = 0;
+      mockQuery.mockReturnValue({
+        [Symbol.asyncIterator]: () => ({
+          async next() {
+            call++;
+            if (call === 1) {
+              // Non-result message (e.g., tool_use)
+              return { done: false, value: { type: 'tool_use', name: 'Read' } };
+            }
+            if (call === 2) {
+              return {
+                done: false,
+                value: { type: 'result', subtype: 'success', result: JSON.stringify(expected) },
+              };
+            }
+            return { done: true, value: undefined };
+          },
+        }),
+      });
+
+      const { agent } = createAgent();
+      const result = await (agent as any).assess({});
+      expect(result).toEqual(expected);
+    });
+  });
+
+  // --- dispatch error for agentManager.spawn ---
+  describe('dispatch: agentManager spawn error', () => {
+    it('handles analyze_issue spawn error gracefully', async () => {
+      const { agent, agentManager } = createAgent({ autoApproveThreshold: 'high' });
+      (agentManager.spawn as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Agent SDK unavailable'));
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const decision = {
+        id: 'test',
+        timestamp: new Date().toISOString(),
+        trigger: 'test',
+        assessment: { priority_actions: [], observations: [], risks: [] },
+        actions: [
+          { type: 'analyze_issue', target: 'ISS-fail', reason: 'Analyze', risk: 'low', executor: 'claude-code' },
+        ],
+        deferred: [],
+      };
+
+      await (agent as any).dispatch(decision);
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Dispatch failed'),
+        expect.stringContaining('Agent SDK unavailable'),
+      );
+
+      errorSpy.mockRestore();
+    });
+
+    it('handles plan_issue spawn error gracefully', async () => {
+      const { agent, agentManager } = createAgent({ autoApproveThreshold: 'high' });
+      (agentManager.spawn as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('spawn timeout'));
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const decision = {
+        id: 'test',
+        timestamp: new Date().toISOString(),
+        trigger: 'test',
+        assessment: { priority_actions: [], observations: [], risks: [] },
+        actions: [
+          { type: 'plan_issue', target: 'ISS-plan-fail', reason: 'Plan', risk: 'low', executor: 'gemini' },
+        ],
+        deferred: [],
+      };
+
+      await (agent as any).dispatch(decision);
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Dispatch failed'),
+        expect.stringContaining('spawn timeout'),
+      );
+
+      errorSpy.mockRestore();
+    });
+  });
+
+  // --- emitStatus and activeWorkers update ---
+  describe('dispatch updates activeWorkers', () => {
+    it('updates activeWorkers after dispatch completes', async () => {
+      const { agent, scheduler } = createAgent({ autoApproveThreshold: 'high' });
+      (scheduler.getStatus as ReturnType<typeof vi.fn>).mockReturnValue({
+        running: [{ id: 'ISS-1' }],
+        queued: [],
+        stats: { totalCompleted: 0, totalFailed: 0 },
+      });
+
+      const decision = {
+        id: 'test',
+        timestamp: new Date().toISOString(),
+        trigger: 'test',
+        assessment: { priority_actions: [], observations: [], risks: [] },
+        actions: [
+          { type: 'execute_issue', target: 'ISS-1', reason: 'Fix', risk: 'low', executor: 'claude-code' },
+        ],
+        deferred: [],
+      };
+
+      await (agent as any).dispatch(decision);
+
+      expect(agent.getState().activeWorkers).toBe(1);
     });
   });
 });

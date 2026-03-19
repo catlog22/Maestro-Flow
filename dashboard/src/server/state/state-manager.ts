@@ -217,7 +217,7 @@ async function findPhaseDir(
 
 async function readPhaseTasks(phaseDir: string): Promise<TaskCard[]> {
   const taskDir = join(phaseDir, '.task');
-  const entries = await safeReaddir(taskDir);
+  const entries = await safeReaddirFiles(taskDir);
   const tasks: TaskCard[] = [];
 
   for (const entry of entries) {
@@ -235,6 +235,15 @@ async function safeReaddir(dir: string): Promise<string[]> {
   try {
     const entries = await readdir(dir, { withFileTypes: true });
     return entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    return [];
+  }
+}
+
+async function safeReaddirFiles(dir: string): Promise<string[]> {
+  try {
+    const entries = await readdir(dir, { withFileTypes: true });
+    return entries.filter((e) => e.isFile()).map((e) => e.name);
   } catch {
     return [];
   }

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { resolveConfig, applyProfile, PROFILES } from './commander-config.js';
+import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { resolveConfig, applyProfile, loadCommanderConfig, PROFILES } from './commander-config.js';
 import { DEFAULT_COMMANDER_CONFIG } from '../../shared/commander-types.js';
 
 describe('Commander Config', () => {
@@ -148,6 +151,161 @@ describe('Commander Config', () => {
       expect(prod.safety!.maxTicksPerHour).toBeLessThan(dev.safety!.maxTicksPerHour!);
       expect(prod.safety!.circuitBreakerThreshold).toBeLessThan(dev.safety!.circuitBreakerThreshold!);
       expect(prod.pollIntervalMs!).toBeGreaterThan(dev.pollIntervalMs!);
+    });
+  });
+
+  // --- loadCommanderConfig (disk + env) ---
+  describe('loadCommanderConfig', () => {
+    let tempDir: string;
+
+    beforeEach(async () => {
+      tempDir = await mkdtemp(join(tmpdir(), 'cmdr-cfg-'));
+    });
+
+    afterEach(async () => {
+      await rm(tempDir, { recursive: true, force: true });
+    });
+
+    it('returns defaults when no config files exist', async () => {
+      const config = await loadCommanderConfig(tempDir);
+      expect(config.defaultExecutor).toBe(DEFAULT_COMMANDER_CONFIG.defaultExecutor);
+    });
+
+    it('reads project config from config.json commander section', async () => {
+      await writeFile(
+        join(tempDir, 'config.json'),
+        JSON.stringify({ commander: { maxConcurrentWorkers: 7 } }),
+      );
+
+      const config = await loadCommanderConfig(tempDir);
+      expect(config.maxConcurrentWorkers).toBe(7);
+    });
+
+    it('ignores config.json without commander section', async () => {
+      await writeFile(
+        join(tempDir, 'config.json'),
+        JSON.stringify({ other: 'stuff' }),
+      );
+
+      const config = await loadCommanderConfig(tempDir);
+      // Should still have default values
+      expect(config.defaultExecutor).toBe(DEFAULT_COMMANDER_CONFIG.defaultExecutor);
+    });
+
+    it('handles malformed config.json gracefully', async () => {
+      await writeFile(join(tempDir, 'config.json'), '{invalid json}}}');
+
+      const config = await loadCommanderConfig(tempDir);
+      // Should fall through to defaults
+      expect(config.defaultExecutor).toBe(DEFAULT_COMMANDER_CONFIG.defaultExecutor);
+    });
+
+    it('applies profile after loading config', async () => {
+      await writeFile(
+        join(tempDir, 'config.json'),
+        JSON.stringify({ commander: { profile: 'production' } }),
+      );
+
+      const config = await loadCommanderConfig(tempDir);
+      // Production profile should be applied
+      expect(config.profile).toBe('production');
+    });
+  });
+
+  // --- Environment variable overrides ---
+  describe('environment variable overrides', () => {
+    const envKeys = [
+      'COMMANDER_POLL_INTERVAL',
+      'COMMANDER_MAX_WORKERS',
+      'COMMANDER_MODEL',
+      'COMMANDER_PROFILE',
+      'COMMANDER_AUTO_APPROVE',
+    ];
+    const savedEnv: Record<string, string | undefined> = {};
+
+    beforeEach(() => {
+      for (const key of envKeys) {
+        savedEnv[key] = process.env[key];
+        delete process.env[key];
+      }
+    });
+
+    afterEach(async () => {
+      for (const key of envKeys) {
+        if (savedEnv[key] !== undefined) {
+          process.env[key] = savedEnv[key];
+        } else {
+          delete process.env[key];
+        }
+      }
+    });
+
+    it('COMMANDER_POLL_INTERVAL overrides pollIntervalMs', async () => {
+      const tempDir = await mkdtemp(join(tmpdir(), 'cmdr-env-'));
+      try {
+        process.env.COMMANDER_POLL_INTERVAL = '5000';
+        const config = await loadCommanderConfig(tempDir);
+        expect(config.pollIntervalMs).toBe(5000);
+      } finally {
+        await rm(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it('COMMANDER_MAX_WORKERS overrides maxConcurrentWorkers', async () => {
+      const tempDir = await mkdtemp(join(tmpdir(), 'cmdr-env-'));
+      try {
+        process.env.COMMANDER_MAX_WORKERS = '8';
+        const config = await loadCommanderConfig(tempDir);
+        expect(config.maxConcurrentWorkers).toBe(8);
+      } finally {
+        await rm(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it('COMMANDER_MODEL overrides decisionModel', async () => {
+      const tempDir = await mkdtemp(join(tmpdir(), 'cmdr-env-'));
+      try {
+        process.env.COMMANDER_MODEL = 'opus';
+        const config = await loadCommanderConfig(tempDir);
+        expect(config.decisionModel).toBe('opus');
+      } finally {
+        await rm(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it('COMMANDER_PROFILE overrides profile', async () => {
+      const tempDir = await mkdtemp(join(tmpdir(), 'cmdr-env-'));
+      try {
+        process.env.COMMANDER_PROFILE = 'staging';
+        const config = await loadCommanderConfig(tempDir);
+        expect(config.profile).toBe('staging');
+      } finally {
+        await rm(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it('COMMANDER_AUTO_APPROVE overrides autoApproveThreshold', async () => {
+      const tempDir = await mkdtemp(join(tmpdir(), 'cmdr-env-'));
+      try {
+        process.env.COMMANDER_AUTO_APPROVE = 'high';
+        const config = await loadCommanderConfig(tempDir);
+        expect(config.autoApproveThreshold).toBe('high');
+      } finally {
+        await rm(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it('ignores NaN for numeric env vars', async () => {
+      const tempDir = await mkdtemp(join(tmpdir(), 'cmdr-env-'));
+      try {
+        process.env.COMMANDER_POLL_INTERVAL = 'not-a-number';
+        process.env.COMMANDER_MAX_WORKERS = 'invalid';
+        const config = await loadCommanderConfig(tempDir);
+        // Should keep default values (with dev profile applied)
+        expect(config.pollIntervalMs).toBe(PROFILES.development.pollIntervalMs);
+      } finally {
+        await rm(tempDir, { recursive: true, force: true });
+      }
     });
   });
 });
