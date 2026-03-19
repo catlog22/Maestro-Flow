@@ -17,14 +17,14 @@ Event-driven pipeline coordination with Spawn-and-Stop pattern. Role names are r
 ## Strategy
 
 - **Delegation**: Inline execution with handler routing
-- **Beat model**: ONE_STEP_PER_INVOCATION -- one handler then STOP
+- **Beat model**: ONE_STEP_PER_INVOCATION — one handler then STOP
 - **Workers**: Spawned as team-worker via Agent() in background
 
 ## Constants
 
 | Constant | Value | Description |
 |----------|-------|-------------|
-| SPAWN_MODE | background | All workers spawned via `Agent(run_in_background: true)` |
+| SPAWN_MODE | background | All workers spawned via `Task(run_in_background: true)` |
 | ONE_STEP_PER_INVOCATION | true | Coordinator does one operation then STOPS |
 | FAST_ADVANCE_AWARE | true | Workers may skip coordinator for simple linear successors |
 | WORKER_AGENT | team-worker | All workers spawned as team-worker agents |
@@ -149,7 +149,7 @@ Ready tasks found?
       |   +- NO -> normal spawn below
       +- TaskUpdate -> in_progress
       +- team_msg log -> task_unblocked (session_id=<session-id>)
-      +- Spawn team-worker (see SKILL.md Worker Spawn Template)
+      +- Spawn team-worker (see spawn tool call below)
       +- Add to session.active_workers
       Update session file -> output summary -> STOP
 ```
@@ -285,7 +285,7 @@ handleCallback / handleResume detects:
 On every coordinator wake (handleCallback, handleResume, handleCheck):
 1. Read team_msg entries with `type="fast_advance"` since last coordinator wake
 2. For each entry: sync `active_workers` with the spawned successor
-3. This ensures coordinator state reflects fast-advance decisions even before the successor callback arrives
+3. This ensures coordinator's state reflects fast-advance decisions even before the successor's callback arrives
 
 ### Consensus-Blocked Handling
 

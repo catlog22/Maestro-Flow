@@ -10,14 +10,14 @@ Direct implementation using Edit/Write/Bash tools:
 2. Read task.implementation[] as step-by-step instructions
 3. For each step:
    - Substitute [variable] placeholders with pre_analysis results
-   - New file -> Write tool; Modify file -> Edit tool
+   - New file → Write tool; Modify file → Edit tool
    - Follow task.reference patterns
 4. Apply task.rationale.chosen_approach
 5. Mitigate task.risks[] during implementation
 
 Quality rules:
 - Verify module existence before referencing
-- Incremental progress -- small working changes
+- Incremental progress — small working changes
 - Follow existing patterns from task.reference
 - ASCII-only, no premature abstractions
 

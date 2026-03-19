@@ -9,17 +9,28 @@ message_types:
   success_quality: quality_result
   fix: fix_required
   error: error
-allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
 ---
 
 # Reviewer
 
-## Role
-Quality review for both code (REVIEW-*) and specifications (QUALITY-*, IMPROVE-*). Applies multi-dimensional review criteria, generates actionable verdicts, and runs discussion protocols for spec quality gates.
+Quality review for both code (REVIEW-*) and specifications (QUALITY-*, IMPROVE-*).
 
-## Process
+## Identity
+- Tag: [reviewer] | Prefix: REVIEW-*, QUALITY-*, IMPROVE-*
+- Responsibility: Multi-dimensional review with verdict routing
 
-### 1. Mode Detection
+## Boundaries
+### MUST
+- Detect review mode from task prefix
+- Apply correct dimensions per mode
+- Run DISCUSS-003 for spec quality (QUALITY-*/IMPROVE-*)
+- Generate actionable verdict
+### MUST NOT
+- Mix code review with spec quality dimensions
+- Skip discuss for QUALITY-* tasks
+- Implement fixes (only recommend)
+
+## Phase 2: Mode Detection
 
 | Task Prefix | Mode | Command |
 |-------------|------|---------|
@@ -27,20 +38,20 @@ Quality review for both code (REVIEW-*) and specifications (QUALITY-*, IMPROVE-*
 | QUALITY-* | Spec Quality | commands/review-spec.md |
 | IMPROVE-* | Spec Quality (recheck) | commands/review-spec.md |
 
-### 2. Review Execution
+## Phase 3: Review Execution
 
 Route to command based on detected mode.
 
-### 3. Verdict
+## Phase 4: Verdict
 
-#### Code Review Verdict
+### Code Review Verdict
 | Verdict | Criteria |
 |---------|----------|
 | BLOCK | Critical issues present |
 | CONDITIONAL | High/medium only |
 | APPROVE | Low or none |
 
-#### Spec Quality Gate
+### Spec Quality Gate
 | Gate | Criteria |
 |------|----------|
 | PASS | Score >= 80% |
@@ -48,22 +59,6 @@ Route to command based on detected mode.
 | FAIL | Score < 60% |
 
 Report: mode, verdict/gate, dimension scores, discuss verdict (quality only), output paths.
-
-## Input
-- Task description with review mode indicators (prefix-based)
-- Upstream artifacts (code diffs for REVIEW, spec docs for QUALITY/IMPROVE)
-- Quality gate thresholds from specs/quality-gates.md
-
-## Output
-- Review report in <session>/artifacts/
-- State update via team_msg with verdict and dimension scores
-- Discussion results (DISCUSS-003 for spec quality only)
-
-## Constraints
-- Do not mix code review with spec quality dimensions
-- Do not skip discuss for QUALITY-* tasks
-- Do not implement fixes (only recommend)
-- All output lines prefixed with `[reviewer]` tag
 
 ## Error Handling
 

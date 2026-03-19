@@ -13,10 +13,10 @@ Template for generating architecture decision documents as a directory of indivi
 
 ```
 {workDir}/architecture/
-+-- _index.md                      # Overview, components, tech stack, data model, security
-+-- ADR-001-{slug}.md              # Individual Architecture Decision Record
-+-- ADR-002-{slug}.md
-+-- ...
+├── _index.md                      # Overview, components, tech stack, data model, security
+├── ADR-001-{slug}.md              # Individual Architecture Decision Record
+├── ADR-002-{slug}.md
+└── ...
 ```
 
 ---

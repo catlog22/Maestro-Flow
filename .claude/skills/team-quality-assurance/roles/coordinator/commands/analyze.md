@@ -64,7 +64,7 @@ Write <session>/task-analysis.json:
   "task_description": "<original>",
   "pipeline_mode": "<discovery|testing|full>",
   "capabilities": [{ "name": "<cap>", "prefix": "<PREFIX>", "keywords": ["..."] }],
-  "dependency_graph": { "<TASK-ID>": { "role": "<role>", "blockedBy": ["..."], "priority": "P0|P1|P2" } },
+  "dependency_graph": { "<TASK-ID>": { "role": "<role>", "addBlockedBy": ["..."], "priority": "P0|P1|P2" } },
   "roles": [{ "name": "<role>", "prefix": "<PREFIX>", "inner_loop": false }],
   "complexity": { "score": 0, "level": "Low|Medium|High" },
   "gc_loop_enabled": true

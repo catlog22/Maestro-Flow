@@ -29,7 +29,7 @@ EXPECTED: <artifact path> + <quality criteria>
 CONSTRAINTS: <scope limits>
 ---
 InnerLoop: <true|false>
-RoleSpec: <project>/.claude/skills/team-lifecycle-v4/roles/<role>/role.md
+RoleSpec: ~  or <project>/.claude/skills/team-lifecycle-v4/roles/<role>/role.md
 ```
 
 ## InnerLoop Flag Rules
@@ -43,9 +43,9 @@ CHECKPOINT tasks are dispatched like regular tasks but handled differently at sp
 
 - Created via TaskCreate with proper blockedBy (upstream tasks that must complete first)
 - Owner: supervisor
-- **NOT spawned as team-worker** -- coordinator wakes the resident supervisor via SendMessage
+- **NOT spawned as team-worker** — coordinator wakes the resident supervisor via SendMessage
 - If `supervision: false` in team-session.json, skip creating CHECKPOINT tasks entirely
-- RoleSpec in description: `<project>/.claude/skills/team-lifecycle-v4/roles/supervisor/role.md`
+- RoleSpec in description: `~  or <project>/.claude/skills/team-lifecycle-v4/roles/supervisor/role.md`
 
 ## Dependency Validation
 

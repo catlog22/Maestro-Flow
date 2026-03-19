@@ -4,7 +4,7 @@
 
 Parse user task description -> detect required capabilities -> build dependency graph -> design dynamic roles with role-spec metadata. Outputs structured task-analysis.json with frontmatter fields for role-spec generation.
 
-## Critical Constraint
+## CRITICAL CONSTRAINT
 
 **TEXT-LEVEL analysis only. MUST NOT read source code or explore codebase.**
 
@@ -78,12 +78,12 @@ For each task, infer relevant files based on capability type and task keywords:
 
 | Capability | File Inference Strategy |
 |------------|------------------------|
-| researcher | Extract domain keywords -> map to likely directories |
-| developer | Extract feature/module keywords -> map to source files |
-| designer | Look for architecture/config keywords -> map to config/schema files |
-| analyst | Extract target keywords -> map to files under analysis |
-| tester | Extract test target keywords -> map to source + test files |
-| writer | Extract documentation target -> map to relevant source files for context |
+| researcher | Extract domain keywords → map to likely directories (e.g., "auth" → `src/auth/**`, `middleware/auth.ts`) |
+| developer | Extract feature/module keywords → map to source files (e.g., "payment" → `src/payments/**`, `types/payment.ts`) |
+| designer | Look for architecture/config keywords → map to config/schema files |
+| analyst | Extract target keywords → map to files under analysis |
+| tester | Extract test target keywords → map to source + test files |
+| writer | Extract documentation target → map to relevant source files for context |
 | planner | No specific files (planning is abstract) |
 
 **Inference rules:**
@@ -131,9 +131,9 @@ For each role, determine frontmatter and generation hints:
 |-------|------------|
 | `prefix` | From capability prefix (e.g., RESEARCH, DRAFT, IMPL) |
 | `inner_loop` | `true` if role has 2+ serial same-prefix tasks |
-| `CLI tools` | Suggested, not mandatory -- coordinator may adjust based on task needs |
-| `pattern_hint` | Reference pattern name from role-spec-template (research/document/code/analysis/validation) -- guides Phase 2-4 composition |
-| `output_type` | `artifact` (new files in session/artifacts/) / `codebase` (modify existing project files) / `mixed` (both) -- determines verification strategy |
+| `CLI tools` | Suggested, not mandatory — coordinator may adjust based on task needs |
+| `pattern_hint` | Reference pattern name from role-spec-template (research/document/code/analysis/validation) — guides coordinator's Phase 2-4 composition, NOT a rigid template selector |
+| `output_type` | `artifact` (new files in session/artifacts/) / `codebase` (modify existing project files) / `mixed` (both) — determines verification strategy in Behavioral Traits |
 | `message_types.success` | `<prefix>_complete` |
 | `message_types.error` | `error` |
 
@@ -230,6 +230,12 @@ Write `<session-folder>/task-analysis.json`:
 - Single-role tasks still spawn team-worker agent
 - Coordinator NEVER executes task work directly
 - Team infrastructure provides session management, message bus, fast-advance
+
+**Purpose of complexity score**:
+- ✅ Determine optimal role count (merge vs separate)
+- ✅ Guide dependency graph design
+- ✅ Inform user about task scope
+- ❌ NOT for deciding whether to use team workflow
 
 ## Error Handling
 

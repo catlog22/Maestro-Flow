@@ -66,17 +66,17 @@ TaskUpdate({ taskId: "<PREFIX>-<NNN>", addBlockedBy: [<dependency-list from grap
 Every task description includes structured fields for clarity:
 
 ```
-PURPOSE: <goal from task-analysis.json#tasks[].goal> | Success: <success_criteria>
+PURPOSE: <goal from task-analysis.json#tasks[].goal> | Success: <success_criteria from task-analysis.json#tasks[].success_criteria>
 TASK:
   - <step 1 from task-analysis.json#tasks[].steps[]>
-  - <step 2>
-  - <step 3>
+  - <step 2 from task-analysis.json#tasks[].steps[]>
+  - <step 3 from task-analysis.json#tasks[].steps[]>
 CONTEXT:
   - Session: <session-folder>
-  - Upstream artifacts: <comma-separated list from upstream_artifacts[]>
-  - Key files: <comma-separated list from key_files[]>
+  - Upstream artifacts: <comma-separated list from task-analysis.json#tasks[].upstream_artifacts[]>
+  - Key files: <comma-separated list from task-analysis.json#tasks[].key_files[]>
   - Shared state: team_msg(operation="get_state", session_id=<session-id>)
-EXPECTED: <artifact path> + <quality criteria based on capability type>
+EXPECTED: <artifact path from task-analysis.json#capabilities[].artifacts[]> + <quality criteria based on capability type>
 CONSTRAINTS: <constraints from task-analysis.json#tasks[].constraints>
 ---
 InnerLoop: <true|false>

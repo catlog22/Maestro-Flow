@@ -1,39 +1,80 @@
 ---
-role: executor
 prefix: TDFIX
+inner_loop: true
+cli_tools:
+  - gemini --mode write
+message_types:
+  success: fix_complete
+  progress: fix_progress
+  error: error
 ---
 
-# Tech Debt Executor Role Spec
+# Tech Debt Executor
 
-## Process
+Debt cleanup executor. Apply remediation plan actions in worktree: refactor code, update dependencies, add tests, add documentation. Batch-delegate to CLI tools, self-validate after each batch.
 
-### Phase 2: Load Remediation Plan
+## Phase 2: Load Remediation Plan
+
+| Input | Source | Required |
+|-------|--------|----------|
+| Session path | task description (regex: `session:\s*(.+)`) | Yes |
+| .msg/meta.json | <session>/.msg/meta.json | Yes |
+| Remediation plan | <session>/plan/remediation-plan.json | Yes |
+| Worktree info | meta.json:worktree.path, worktree.branch | Yes |
+| Context accumulator | From prior TDFIX tasks (inner loop) | Yes (inner loop) |
 
 1. Extract session path from task description
-2. Read worktree path from .msg/meta.json
-3. Read remediation-plan.json, extract actions
-4. Group by type: refactor, restructure, add-tests, update-deps, add-docs
-5. Batch order: refactor -> update-deps -> add-tests -> add-docs -> restructure
+2. Read .msg/meta.json for worktree path and branch
+3. Read remediation-plan.json, extract all actions from plan phases
+4. Group actions by type: refactor, restructure, add-tests, update-deps, add-docs
+5. Split large groups (> 10 items) into sub-batches of 10
+6. For inner loop (fix-verify cycle): load context_accumulator from prior TDFIX tasks, parse review/validation feedback for specific issues
 
-### Phase 3: Execute Fixes
+**Batch order**: refactor -> update-deps -> add-tests -> add-docs -> restructure
 
-- Per-batch CLI delegation via `ccw cli --tool gemini --mode write --cd "<worktree-path>"`
-- Wait for completion before next batch
-- Track: items_fixed, items_failed, items_remaining, files_modified
-- Verify modifications via `git diff --name-only` in worktree
+## Phase 3: Execute Fixes
 
-### Phase 4: Self-Validation
+For each batch, use CLI tool for implementation:
 
-- Syntax check: `tsc --noEmit` or `python -m py_compile`
-- Lint check: `eslint --no-error-on-unmatched-pattern`
-- Write `<session>/fixes/fix-log.json`
-- Update .msg/meta.json with fix_results
+**Worktree constraint**: ALL file operations and commands must execute within worktree path. Use `cd "<worktree-path>" && ...` prefix for all Bash commands.
 
-## Input
-- Remediation plan from planner output
-- Worktree path from .msg/meta.json
+**Per-batch delegation**:
 
-## Output
-- `<session>/fixes/fix-log.json` -- fix results
-- Modified files in worktree
-- Updated .msg/meta.json
+```bash
+ccw cli -p "PURPOSE: Apply tech debt fixes in batch; success = all items fixed without breaking changes
+TASK: <batch-type-specific-tasks>
+MODE: write
+CONTEXT: @<worktree-path>/**/* | Memory: Remediation plan context
+EXPECTED: Code changes that fix debt items, maintain backward compatibility, pass existing tests
+CONSTRAINTS: Minimal changes only | No new features | No suppressions | Read files before modifying
+Batch type: <refactor|update-deps|add-tests|add-docs|restructure>
+Items: <list-of-items-with-file-paths-and-descriptions>" --tool gemini --mode write --cd "<worktree-path>"
+```
+
+Wait for CLI completion before proceeding to next batch.
+
+**Fix Results Tracking**:
+
+| Field | Description |
+|-------|-------------|
+| items_fixed | Count of successfully fixed items |
+| items_failed | Count of failed items |
+| items_remaining | Remaining items count |
+| batches_completed | Completed batch count |
+| files_modified | Array of modified file paths |
+| errors | Array of error messages |
+
+After each batch, verify file modifications via `git diff --name-only` in worktree.
+
+## Phase 4: Self-Validation
+
+All commands in worktree:
+
+| Check | Command | Pass Criteria |
+|-------|---------|---------------|
+| Syntax | `tsc --noEmit` or `python -m py_compile` | No new errors |
+| Lint | `eslint --no-error-on-unmatched-pattern` | No new errors |
+
+Write `<session>/fixes/fix-log.json` with fix results. Update .msg/meta.json with `fix_results`.
+
+Append to context_accumulator for next TDFIX task (inner loop): files modified, fixes applied, validation results, discovered caveats.

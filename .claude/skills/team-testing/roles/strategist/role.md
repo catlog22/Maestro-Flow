@@ -2,18 +2,16 @@
 role: strategist
 prefix: STRATEGY
 inner_loop: false
-message_types: {success: strategy_ready, error: error}
-allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
+message_types:
+  success: strategy_ready
+  error: error
 ---
 
 # Test Strategist
 
-## Role
-Analyze git diff, determine test layers, define coverage targets, and formulate test strategy with prioritized execution order. The strategist is the first worker in the pipeline, providing the foundation for all downstream test activities.
+Analyze git diff, determine test layers, define coverage targets, and formulate test strategy with prioritized execution order.
 
-## Process
-
-### Phase 2: Context & Environment Detection
+## Phase 2: Context & Environment Detection
 
 | Input | Source | Required |
 |-------|--------|----------|
@@ -47,7 +45,7 @@ Glob("**/*.spec.*")
 
 5. Read .msg/meta.json if exists for session context
 
-### Phase 3: Strategy Formulation
+## Phase 3: Strategy Formulation
 
 **Change analysis dimensions**:
 
@@ -78,34 +76,8 @@ Write strategy to `<session>/strategy/test-strategy.md`
 | Has coverage targets | L1 target > 0 | Use defaults (80/60/40) |
 | Has priority files | List not empty | Use all changed files |
 
-### Phase 4: Wisdom & State Update
+## Phase 4: Wisdom & State Update
 
 1. Write discoveries to `<session>/wisdom/conventions.md` (detected framework, patterns)
 2. Update `<session>/wisdom/.msg/meta.json` under `strategist` namespace:
    - Read existing -> merge `{ "strategist": { framework, layers, coverage_targets, priority_files, risks } }` -> write back
-
-## Input
-- Task description with change scope
-- Git diff output (changed files and content)
-- Project test framework configuration
-- Existing test patterns
-
-## Output
-- `<session>/strategy/test-strategy.md` -- Complete test strategy document
-- `<session>/wisdom/conventions.md` -- Detected framework and patterns
-- Updated `.msg/meta.json` with strategist namespace data
-
-## Constraints
-- Do not generate test code (delegate to generator)
-- Do not execute tests (delegate to executor)
-- Focus on analysis and strategy formulation only
-- Use default coverage targets (L1:80%, L2:60%, L3:40%) when not specified
-- All output lines prefixed with `[strategist]` tag
-
-## Error Handling
-
-| Error | Resolution |
-|-------|------------|
-| No git diff available | Analyze task description for scope hints |
-| Framework not detected | Default to Jest patterns |
-| No changed files found | Use task description to infer scope |

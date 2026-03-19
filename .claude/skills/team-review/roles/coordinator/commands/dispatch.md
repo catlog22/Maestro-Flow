@@ -30,7 +30,7 @@ EXPECTED: <artifact path> + <quality criteria>
 CONSTRAINTS: <scope limits>
 ---
 InnerLoop: <true|false>
-RoleSpec: <project>/.claude/skills/team-review/roles/<role>/role.md
+RoleSpec: ~  or <project>/.claude/skills/team-review/roles/<role>/role.md
 ```
 
 ## Pipeline Task Registry

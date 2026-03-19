@@ -59,7 +59,7 @@ EXPECTED: Fixed test files | Improved coverage
 CONSTRAINTS: Only modify test files | No source changes
 ---
 InnerLoop: false
-RoleSpec: <project>/.claude/skills/team-quality-assurance/roles/generator/role.md"
+RoleSpec: ~  or <project>/.claude/skills/team-quality-assurance/roles/generator/role.md"
 })
 TaskCreate({
   subject: "QARUN-gc-<round>: Re-execute <layer> (GC #<round>)",
@@ -72,9 +72,9 @@ EXPECTED: <session>/results/run-<layer>-gc-<round>.json
 CONSTRAINTS: Read-only execution
 ---
 InnerLoop: false
-RoleSpec: <project>/.claude/skills/team-quality-assurance/roles/executor/role.md",
-  blockedBy: ["QAGEN-fix-<round>"]
+RoleSpec: ~  or <project>/.claude/skills/team-quality-assurance/roles/executor/role.md"
 })
+TaskUpdate({ taskId: "QARUN-gc-<round>", addBlockedBy: ["QAGEN-fix-<round>"] })
 ```
 
 6. -> handleSpawnNext
@@ -149,7 +149,7 @@ Agent({
   run_in_background: true,
   prompt: `## Role Assignment
 role: <role>
-role_spec: <project>/.claude/skills/team-quality-assurance/roles/<role>/role.md
+role_spec: ~  or <project>/.claude/skills/team-quality-assurance/roles/<role>/role.md
 session: <session-folder>
 session_id: <session-id>
 team_name: quality-assurance
@@ -160,8 +160,8 @@ inner_loop: <true|false>
 - Task ID: <task-id>
 - Task: <subject>
 
-Read role_spec file to load domain instructions.
-Execute built-in Phase 1 (task discovery) -> role Process -> built-in Phase 5 (report).`
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).`
 })
 ```
 
@@ -199,7 +199,7 @@ On every coordinator wake:
 2. Sync active_workers with spawned successors
 3. No duplicate spawns
 
-## State Persistence
+## Phase 4: State Persistence
 
 After every handler execution:
 1. Reconcile active_workers with actual TaskList states

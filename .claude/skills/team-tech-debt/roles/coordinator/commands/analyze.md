@@ -8,12 +8,12 @@ Parse user task -> detect tech debt signals -> assess complexity -> determine pi
 
 | Keywords | Signal | Mode Hint |
 |----------|--------|-----------|
-| scan, audit | debt-scan | scan |
-| assess, quantify | debt-assess | scan |
-| plan, roadmap | debt-plan | targeted |
-| fix, remediate, clean | debt-fix | remediate |
-| validate, verify | debt-validate | remediate |
-| targeted, specific | debt-targeted | targeted |
+| 扫描, scan, 审计, audit | debt-scan | scan |
+| 评估, assess, quantify | debt-assess | scan |
+| 规划, plan, roadmap | debt-plan | targeted |
+| 修复, fix, remediate, clean | debt-fix | remediate |
+| 验证, validate, verify | debt-validate | remediate |
+| 定向, targeted, specific | debt-targeted | targeted |
 
 ## Complexity Scoring
 

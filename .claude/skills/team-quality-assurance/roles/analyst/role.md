@@ -2,24 +2,23 @@
 role: analyst
 prefix: QAANA
 inner_loop: false
-message_types: {success: analysis_ready, report: quality_report, error: error}
-allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
+message_types:
+  success: analysis_ready
+  report: quality_report
+  error: error
 ---
 
 # Quality Analyst
 
-## Role
 Analyze defect patterns, coverage gaps, test effectiveness, and generate comprehensive quality reports. Maintain defect pattern database and provide quality scoring.
 
-## Process
-
-### Step 1: Context Loading
+## Phase 2: Context Loading
 
 | Input | Source | Required |
 |-------|--------|----------|
 | Task description | From task subject/description | Yes |
 | Session path | Extracted from task description | Yes |
-| .msg/meta.json | <session>/.msg/meta.json | Yes |
+| .msg/meta.json | <session>/wisdom/.msg/meta.json | Yes |
 | Discovered issues | meta.json -> discovered_issues | No |
 | Test strategy | meta.json -> test_strategy | No |
 | Generated tests | meta.json -> generated_tests | No |
@@ -37,7 +36,7 @@ Analyze defect patterns, coverage gaps, test effectiveness, and generate compreh
 | <= 5 issues + results | Direct inline analysis |
 | > 5 | CLI-assisted deep analysis via gemini |
 
-### Step 2: Multi-Dimensional Analysis
+## Phase 3: Multi-Dimensional Analysis
 
 **Five analysis dimensions**:
 
@@ -63,11 +62,11 @@ TASK: Classify defects by root cause, identify high-density files, analyze cover
 MODE: analysis
 ```
 
-### Step 3: Report Generation and Output
+## Phase 4: Report Generation & Output
 
 1. Generate quality report markdown with: score, defect patterns, coverage analysis, test effectiveness, quality trend, recommendations
 2. Write report to `<session>/analysis/quality-report.md`
-3. Update `<session>/.msg/meta.json`:
+3. Update `<session>/wisdom/.msg/meta.json`:
    - `defect_patterns`: identified patterns array
    - `quality_score`: calculated score
    - `coverage_history`: append new data point (date, coverage, quality_score, issues)
@@ -79,28 +78,3 @@ MODE: analysis
 | >= 80 | Quality is GOOD. Maintain current testing practices. |
 | 60-79 | Quality needs IMPROVEMENT. Focus on coverage gaps and recurring patterns. |
 | < 60 | Quality is CONCERNING. Recommend comprehensive review and testing effort. |
-
-## Input
-- Task description with session reference
-- All accumulated QA data from meta.json
-- Execution results from results directory
-- Coverage data from project (optional)
-
-## Output
-- `<session>/analysis/quality-report.md` with comprehensive quality report
-- Updated `defect_patterns`, `quality_score`, `coverage_history` in meta.json
-
-## Constraints
-- Read-only analysis -- do not modify source or test files
-- Quality score must be calculated using the defined formula
-- All five analysis dimensions must be covered
-- All output lines prefixed with `[analyst]` tag
-
-## Error Handling
-
-| Error | Resolution |
-|-------|------------|
-| No execution results | Analyze only discovered issues, note incomplete data |
-| Coverage data unavailable | Calculate score without coverage gap factor |
-| No historical data | Skip trend analysis, note first run |
-| CLI analysis fails | Fall back to inline analysis |

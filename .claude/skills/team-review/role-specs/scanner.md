@@ -1,13 +1,22 @@
 ---
-role: scanner
 prefix: SCAN
+inner_loop: false
+message_types:
+  success: scan_complete
+  error: error
 ---
 
-# Code Scanner Role Spec
+# Code Scanner
 
-## Process
+Toolchain + LLM semantic scan producing structured findings. Static analysis tools in parallel, then LLM for issues tools miss. Read-only -- never modifies source code. 4-dimension system: security (SEC), correctness (COR), performance (PRF), maintainability (MNT).
 
-### Phase 2: Context & Toolchain Detection
+## Phase 2: Context & Toolchain Detection
+
+| Input | Source | Required |
+|-------|--------|----------|
+| Task description | From task subject/description | Yes |
+| Session path | Extracted from task description | Yes |
+| .msg/meta.json | <session>/.msg/meta.json | No |
 
 1. Extract session path, target, dimensions, quick flag from task description
 2. Resolve target files (glob pattern or directory -> `**/*.{ts,tsx,js,jsx,py,go,java,rs}`)
@@ -25,33 +34,37 @@ prefix: SCAN
 
 5. Load wisdom files from `<session>/wisdom/` if they exist
 
-### Phase 3: Scan Execution
+## Phase 3: Scan Execution
 
 **Quick mode**: Single CLI call with analysis mode, max 20 findings, skip toolchain.
 
 **Standard mode** (sequential):
-- 3A: Toolchain Scan -- run detected tools in parallel, parse into normalized findings
-- 3B: Semantic Scan -- LLM via `ccw cli --tool gemini --mode analysis --rule analysis-review-code-quality`
 
-Per-dimension focus areas:
+### 3A: Toolchain Scan
+Run detected tools in parallel via Bash backgrounding. Each tool writes to `<session>/scan/tmp/<tool>.{json|txt}`. After `wait`, parse each output into normalized findings:
+- tsc: `file(line,col): error TSxxxx: msg` -> dimension=correctness, source=tool:tsc
+- eslint: JSON array -> severity 2=correctness/high, else=maintainability/medium
+- semgrep: `{results[]}` -> dimension=security, severity from extra.severity
+- ruff: `[{code,message,filename}]` -> S*=security, F*/B*=correctness, else=maintainability
+- mypy: `file:line: error: msg [code]` -> dimension=correctness
+- npm audit: `{vulnerabilities:{}}` -> dimension=security, category=dependency
+
+Write `<session>/scan/toolchain-findings.json`.
+
+### 3B: Semantic Scan (LLM via CLI)
+Build prompt with target file patterns, toolchain dedup summary, and per-dimension focus areas:
 - SEC: Business logic vulnerabilities, privilege escalation, sensitive data flow, auth bypass
 - COR: Logic errors, unhandled exception paths, state management bugs, race conditions
 - PRF: Algorithm complexity, N+1 queries, unnecessary sync, memory leaks, missing caching
 - MNT: Architectural coupling, abstraction leaks, convention violations, dead code
 
-### Phase 4: Aggregate & Output
+Execute via `ccw cli --tool gemini --mode analysis --rule analysis-review-code-quality` (fallback: qwen -> codex). Parse JSON array response, validate required fields (dimension, title, location.file), enforce per-dimension limit (max 5 each), filter minimum severity (medium+). Write `<session>/scan/semantic-findings.json`.
 
-1. Merge toolchain + semantic findings, deduplicate (same file + line + dimension)
+## Phase 4: Aggregate & Output
+
+1. Merge toolchain + semantic findings, deduplicate (same file + line + dimension = duplicate)
 2. Assign dimension-prefixed IDs: SEC-001, COR-001, PRF-001, MNT-001
-3. Write `<session>/scan/scan-results.json`
-4. Update `<session>/.msg/meta.json` with scan summary
-
-## Input
-- Task description with target path, dimensions, quick flag
-- Session path for artifact storage
-
-## Output
-- `<session>/scan/scan-results.json` -- merged findings
-- `<session>/scan/toolchain-findings.json` -- raw toolchain output
-- `<session>/scan/semantic-findings.json` -- LLM findings
-- Updated `<session>/.msg/meta.json`
+3. Write `<session>/scan/scan-results.json` with schema: `{scan_date, target, dimensions, quick_mode, total_findings, by_severity, by_dimension, findings[]}`
+4. Each finding: `{id, dimension, category, severity, title, description, location:{file,line}, source, suggested_fix, effort, confidence}`
+5. Update `<session>/.msg/meta.json` with scan summary (findings_count, by_severity, by_dimension)
+6. Contribute discoveries to `<session>/wisdom/` files

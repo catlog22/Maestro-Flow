@@ -1,13 +1,12 @@
 ---
 name: team-executor
-description: Lightweight session execution skill. Resumes existing team sessions for pure execution via team-worker agents. No analysis, no role generation -- only loads and executes. Session path required.
-argument-hint: "--session=<path-to-session-folder>"
+description: Lightweight session execution skill. Resumes existing team-coordinate sessions for pure execution via team-worker agents. No analysis, no role generation -- only loads and executes. Session path required. Triggers on "Team Executor".
 allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
 
 # Team Executor
 
-Lightweight session execution skill: load session -> reconcile state -> spawn team-worker agents -> execute -> deliver. **No analysis, no role generation** -- only executes existing team sessions.
+Lightweight session execution skill: load session -> reconcile state -> spawn team-worker agents -> execute -> deliver. **No analysis, no role generation** -- only executes existing team-coordinate sessions.
 
 
 ## Architecture
@@ -38,12 +37,12 @@ Lightweight session execution skill: load session -> reconcile state -> spawn te
 ### Parse Arguments
 
 Extract from `$ARGUMENTS`:
-- `--session=<path>`: Path to team session folder (REQUIRED)
+- `--session=<path>`: Path to team-coordinate session folder (REQUIRED)
 
 ### Validation Steps
 
 1. **Check `--session` provided**:
-   - If missing -> **ERROR**: "Session required. Usage: --session=<path-to-session-folder>"
+   - If missing -> **ERROR**: "Session required. Usage: --session=<path-to-TC-folder>"
 
 2. **Validate session structure** (see specs/session-schema.md):
    - Directory exists at path
@@ -54,7 +53,7 @@ Extract from `$ARGUMENTS`:
 
 3. **Validation failure**:
    - Report specific missing component
-   - Suggest re-running the originating team skill or checking path
+   - Suggest re-running team-coordinate or checking path
 
 ---
 
@@ -103,7 +102,7 @@ Validate session
 
 ## Executor Spawn Template
 
-### Worker Spawn (all roles)
+### v2 Worker Spawn (all roles)
 
 When executor spawns workers, use `team-worker` agent with role-spec path:
 
@@ -158,13 +157,13 @@ AskUserQuestion({
 
 ---
 
-## Integration with Team Skills
+## Integration with team-coordinate
 
 | Scenario | Skill |
 |----------|-------|
-| New task, no session | originating team skill (e.g., team-lifecycle-v4) |
+| New task, no session | team-coordinate |
 | Existing session, resume execution | **team-executor** |
-| Session needs new roles | originating team skill (with resume) |
+| Session needs new roles | team-coordinate (with resume) |
 | Pure execution, no analysis | **team-executor** |
 
 ---
@@ -175,9 +174,9 @@ AskUserQuestion({
 |----------|------------|
 | No --session provided | ERROR immediately with usage message |
 | Session directory not found | ERROR with path, suggest checking path |
-| team-session.json missing | ERROR, session incomplete, suggest re-running originating skill |
-| task-analysis.json missing | ERROR, session incomplete, suggest re-running originating skill |
-| No role-specs in session | ERROR, session incomplete, suggest re-running originating skill |
+| team-session.json missing | ERROR, session incomplete, suggest re-run team-coordinate |
+| task-analysis.json missing | ERROR, session incomplete, suggest re-run team-coordinate |
+| No role-specs in session | ERROR, session incomplete, suggest re-run team-coordinate |
 | Role-spec file not found | ERROR with expected path |
 | capability_gap reported | Warn only, cannot generate new role-specs |
 | Fast-advance spawns wrong task | Executor reconciles on next callback |

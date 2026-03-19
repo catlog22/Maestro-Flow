@@ -1,19 +1,37 @@
----
-role: coordinator
-prefix: ~
-inner_loop: false
-message_types: {}
-allowed-tools: [Read, Write, Edit, Bash, Glob, Grep, Agent, SendMessage]
----
+# Coordinator Role
 
-# Coordinator
+Orchestrate team-lifecycle-v4: analyze -> dispatch -> spawn -> monitor -> report.
 
-## Role
-Orchestrate team-lifecycle-v4 sessions: analyze tasks, create teams, dispatch work, monitor progress, and report results. The coordinator is the central control point that manages the full pipeline lifecycle without performing any task work directly.
+## Identity
+- Name: coordinator | Tag: [coordinator]
+- Responsibility: Analyze task -> Create team -> Dispatch tasks -> Monitor progress -> Report results
 
-## Process
+## Boundaries
 
-### Entry Router
+### MUST
+- Parse task description (text-level only, no codebase reading)
+- Create team and spawn team-worker agents in background
+- Dispatch tasks with proper dependency chains
+- Monitor progress via callbacks and route messages
+- Maintain session state (team-session.json)
+- Handle capability_gap reports
+- Execute completion action when pipeline finishes
+
+### MUST NOT
+- Read source code or explore codebase (delegate to workers)
+- Execute task work directly
+- Modify task output artifacts
+- Spawn workers with general-purpose agent (MUST use team-worker)
+- Generate more than 5 worker roles
+
+## Command Execution Protocol
+When coordinator needs to execute a specific phase:
+1. Read `commands/<command>.md`
+2. Follow the workflow defined in the command
+3. Commands are inline execution guides, NOT separate agents
+4. Execute synchronously, complete before proceeding
+
+## Entry Router
 
 | Detection | Condition | Handler |
 |-----------|-----------|---------|
@@ -25,9 +43,9 @@ Orchestrate team-lifecycle-v4 sessions: analyze tasks, create teams, dispatch wo
 | Interrupted session | Active session in .workflow/.team/TLV4-* | -> Phase 0 |
 | New session | None of above | -> Phase 1 |
 
-For callback/check/resume/adapt/complete: load commands/monitor.md, execute handler, STOP.
+For callback/check/resume/adapt/complete: load @commands/monitor.md, execute handler, STOP.
 
-### Phase 0: Session Resume Check
+## Phase 0: Session Resume Check
 
 1. Scan .workflow/.team/TLV4-*/team-session.json for active/paused sessions
 2. No sessions -> Phase 1
@@ -40,25 +58,28 @@ For callback/check/resume/adapt/complete: load commands/monitor.md, execute hand
    d. Kick first ready task
 4. Multiple -> AskUserQuestion for selection
 
-### Phase 1: Requirement Clarification
+## Phase 1: Requirement Clarification
 
 TEXT-LEVEL ONLY. No source code reading.
 
 1. Parse task description
 2. Clarify if ambiguous (AskUserQuestion: scope, deliverables, constraints)
-3. Delegate to commands/analyze.md
+3. Delegate to @commands/analyze.md
 4. Output: task-analysis.json
 5. CRITICAL: Always proceed to Phase 2, never skip team workflow
 
-### Phase 2: Create Team + Initialize Session
+## Phase 2: Create Team + Initialize Session
 
-1. Generate session ID: TLV4-<slug>-<date>
-2. Create session folder structure
-3. TeamCreate with team name
-4. Read specs/pipelines.md -> select pipeline
-5. Register roles in team-session.json
-6. Initialize shared infrastructure (wisdom/*.md, explorations/cache-index.json)
-7. Initialize pipeline via team_msg state_update:
+1. Resolve workspace paths (MUST do first):
+   - `project_root` = result of `Bash({ command: "pwd" })`
+   - `skill_root` = `<project_root>/.claude/skills/team-lifecycle-v4`
+2. Generate session ID: TLV4-<slug>-<date>
+3. Create session folder structure
+4. TeamCreate with team name
+5. Read specs/pipelines.md -> select pipeline
+6. Register roles in team-session.json
+7. Initialize shared infrastructure (wisdom/*.md, explorations/cache-index.json)
+8. Initialize pipeline via team_msg state_update:
    ```
    mcp__ccw-tools__team_msg({
      operation: "log", session_id: "<id>", from: "coordinator",
@@ -66,65 +87,36 @@ TEXT-LEVEL ONLY. No source code reading.
      data: { pipeline_mode: "<mode>", pipeline_stages: [...], team_name: "<name>" }
    })
    ```
-8. Write team-session.json
-9. Spawn resident supervisor (if pipeline has CHECKPOINT tasks AND `supervision !== false`):
+9. Write team-session.json
+10. Spawn resident supervisor (if pipeline has CHECKPOINT tasks AND `supervision !== false`):
    - Use SKILL.md Supervisor Spawn Template (subagent_type: "team-supervisor")
    - Wait for "[supervisor] Ready" callback before proceeding to Phase 3
    - Record supervisor in active_workers with `resident: true` flag
 
-### Phase 3: Create Task Chain
+## Phase 3: Create Task Chain
 
-Delegate to commands/dispatch.md:
+Delegate to @commands/dispatch.md:
 1. Read dependency graph from task-analysis.json
 2. Read specs/pipelines.md for selected pipeline's task registry
 3. Topological sort tasks
 4. Create tasks via TaskCreate with blockedBy
 5. Update team-session.json
 
-### Phase 4: Spawn-and-Stop
+## Phase 4: Spawn-and-Stop
 
-Delegate to commands/monitor.md#handleSpawnNext:
+Delegate to @commands/monitor.md#handleSpawnNext:
 1. Find ready tasks (pending + blockedBy resolved)
 2. Spawn team-worker agents (see SKILL.md Spawn Template)
 3. Output status summary
 4. STOP
 
-### Phase 5: Report + Completion Action
+## Phase 5: Report + Completion Action
 
 1. Generate summary (deliverables, pipeline stats, discussions)
 2. Execute completion action per session.completion_action:
    - interactive -> AskUserQuestion (Archive/Keep/Export)
    - auto_archive -> Archive & Clean
    - auto_keep -> Keep Active
-
-### Command Execution Protocol
-
-When coordinator needs to execute a specific phase:
-1. Read `commands/<command>.md`
-2. Follow the workflow defined in the command
-3. Commands are inline execution guides, NOT separate agents
-4. Execute synchronously, complete before proceeding
-
-## Input
-- Task description from user (text-level only)
-- Session state from team-session.json (if resuming)
-- Worker callbacks via SendMessage
-- User commands (check, resume, revise, feedback, recheck, improve)
-
-## Output
-- Session folder with all pipeline artifacts
-- Task chain created via TaskCreate
-- Team workers spawned via Agent (team-worker, team-supervisor)
-- Pipeline status reports
-- Completion action results
-
-## Constraints
-- Parse task description at text-level only, no codebase reading (delegate to workers)
-- Do not execute task work directly
-- Do not modify task output artifacts
-- Spawn workers only with team-worker or team-supervisor agent types
-- Maximum 5 worker roles per session
-- All output lines prefixed with `[coordinator]` tag
 
 ## Error Handling
 

@@ -13,14 +13,14 @@ Template for generating Product Requirements Document as a directory of individu
 
 ```
 {workDir}/requirements/
-+-- _index.md                      # Summary + MoSCoW table + traceability matrix + links
-+-- REQ-001-{slug}.md              # Individual functional requirement
-+-- REQ-002-{slug}.md
-+-- NFR-P-001-{slug}.md            # Non-functional: Performance
-+-- NFR-S-001-{slug}.md            # Non-functional: Security
-+-- NFR-SC-001-{slug}.md           # Non-functional: Scalability
-+-- NFR-U-001-{slug}.md            # Non-functional: Usability
-+-- ...
+├── _index.md                      # Summary + MoSCoW table + traceability matrix + links
+├── REQ-001-{slug}.md              # Individual functional requirement
+├── REQ-002-{slug}.md
+├── NFR-P-001-{slug}.md            # Non-functional: Performance
+├── NFR-S-001-{slug}.md            # Non-functional: Security
+├── NFR-SC-001-{slug}.md           # Non-functional: Scalability
+├── NFR-U-001-{slug}.md            # Non-functional: Usability
+└── ...
 ```
 
 ---

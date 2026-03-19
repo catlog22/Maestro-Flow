@@ -1,7 +1,6 @@
 ---
 name: team-quality-assurance
 description: Unified team skill for quality assurance. Full closed-loop QA combining issue discovery and software testing. Triggers on "team quality-assurance", "team qa".
-argument-hint: "<task description> [--mode=discovery|testing|full] [--role <name>]"
 allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
 
@@ -35,7 +34,7 @@ Skill(skill="team-quality-assurance", args="task description")
 
 | Role | Path | Prefix | Inner Loop |
 |------|------|--------|------------|
-| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | -- | -- |
+| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | — | — |
 | scout | [roles/scout/role.md](roles/scout/role.md) | SCOUT-* | false |
 | strategist | [roles/strategist/role.md](roles/strategist/role.md) | QASTRAT-* | false |
 | generator | [roles/generator/role.md](roles/generator/role.md) | QAGEN-* | false |
@@ -45,8 +44,8 @@ Skill(skill="team-quality-assurance", args="task description")
 ## Role Router
 
 Parse `$ARGUMENTS`:
-- Has `--role <name>` -> Read `roles/<name>/role.md`, execute Process steps
-- No `--role` -> Read `roles/coordinator/role.md`, execute entry router
+- Has `--role <name>` -> Read `roles/<name>/role.md`, execute Phase 2-4
+- No `--role` -> `@roles/coordinator/role.md`, execute entry router
 
 ## Shared Constants
 
@@ -69,15 +68,15 @@ Agent({
   run_in_background: true,
   prompt: `## Role Assignment
 role: <role>
-role_spec: <project>/.claude/skills/team-quality-assurance/roles/<role>/role.md
+role_spec: <skill_root>/roles/<role>/role.md
 session: <session-folder>
 session_id: <session-id>
 team_name: quality-assurance
 requirement: <task-description>
 inner_loop: <true|false>
 
-Read role_spec file to load domain instructions.
-Execute built-in Phase 1 (task discovery) -> role Process -> built-in Phase 5 (report).`
+Read role_spec file (@<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).`
 })
 ```
 
@@ -114,21 +113,20 @@ AskUserQuestion({
 
 ```
 .workflow/.team/QA-<slug>-<date>/
-+-- .msg/messages.jsonl     # Team message bus
-+-- .msg/meta.json          # Session state + shared memory
-+-- wisdom/                 # Cross-task knowledge
-+-- scan/                   # Scout output
-+-- strategy/               # Strategist output
-+-- tests/                  # Generator output (L1/, L2/, L3/)
-+-- results/                # Executor output
-+-- analysis/               # Analyst output
+├── .msg/messages.jsonl     # Team message bus
+├── .msg/meta.json          # Session state + shared memory
+├── wisdom/                 # Cross-task knowledge
+├── scan/                   # Scout output
+├── strategy/               # Strategist output
+├── tests/                  # Generator output (L1/, L2/, L3/)
+├── results/                # Executor output
+└── analysis/               # Analyst output
 ```
 
 ## Specs Reference
 
-- [specs/pipelines.md](specs/pipelines.md) -- Pipeline definitions and task registry
-- [specs/team-config.json](specs/team-config.json) -- Team configuration and shared memory schema
-- [specs/gc-loop.md](specs/gc-loop.md) -- Generator-Critic loop pattern documentation
+- [specs/pipelines.md](specs/pipelines.md) — Pipeline definitions and task registry
+- [specs/team-config.json](specs/team-config.json) — Team configuration and shared memory schema
 
 ## Error Handling
 

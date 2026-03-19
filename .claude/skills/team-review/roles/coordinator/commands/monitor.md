@@ -24,9 +24,9 @@ Event-driven pipeline coordination. Beat model: coordinator wake -> process -> s
 
 | Prefix | Role | Role Spec | inner_loop |
 |--------|------|-----------|------------|
-| SCAN-* | scanner | `<project>/.claude/skills/team-review/roles/scanner/role.md` | false |
-| REV-* | reviewer | `<project>/.claude/skills/team-review/roles/reviewer/role.md` | false |
-| FIX-* | fixer | `<project>/.claude/skills/team-review/roles/fixer/role.md` | true |
+| SCAN-* | scanner | `~  or <project>/.claude/skills/team-review/roles/scanner/role.md` | false |
+| REV-* | reviewer | `~  or <project>/.claude/skills/team-review/roles/reviewer/role.md` | false |
+| FIX-* | fixer | `~  or <project>/.claude/skills/team-review/roles/fixer/role.md` | true |
 
 ## handleCallback
 
@@ -123,7 +123,7 @@ Agent({
   run_in_background: true,
   prompt: `## Role Assignment
 role: <role>
-role_spec: <project>/.claude/skills/team-review/roles/<role>/role.md
+role_spec: ~  or <project>/.claude/skills/team-review/roles/<role>/role.md
 session: <session-folder>
 session_id: <session-id>
 team_name: review

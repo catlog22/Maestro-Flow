@@ -5,17 +5,13 @@ inner_loop: true
 message_types:
   success: fix_complete
   error: fix_failed
-allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
 ---
 
 # Code Fixer
 
-## Role
 Fix code based on reviewed findings. Load manifest, plan fix groups, apply with rollback-on-failure, verify. Code-generation role -- modifies source files.
 
-## Process
-
-### Phase 2: Context & Scope Resolution
+## Phase 2: Context & Scope Resolution
 
 | Input | Source | Required |
 |-------|--------|----------|
@@ -33,9 +29,9 @@ Fix code based on reviewed findings. Load manifest, plan fix groups, apply with 
 6. Detect verification tools: tsc (tsconfig.json), eslint (package.json), jest (package.json), pytest (pyproject.toml), semgrep (semgrep available)
 7. Load wisdom files from `<session>/wisdom/`
 
-### Phase 3: Plan + Execute
+## Phase 3: Plan + Execute
 
-#### 3A: Plan Fixes (deterministic, no CLI)
+### 3A: Plan Fixes (deterministic, no CLI)
 1. Group findings by primary file
 2. Merge groups with cross-file dependencies (union-find)
 3. Topological sort within each group (respect fix_dependencies, append cycles at end)
@@ -43,7 +39,7 @@ Fix code based on reviewed findings. Load manifest, plan fix groups, apply with 
 5. Determine execution path: quick_path (<=5 findings, <=1 group) or standard
 6. Write `<session>/fix/fix-plan.json`: `{plan_id, quick_path, groups[{id, files[], findings[], max_severity}], execution_order[], total_findings, total_groups}`
 
-#### 3B: Execute Fixes
+### 3B: Execute Fixes
 **Quick path**: Single code-developer agent for all findings.
 **Standard path**: One code-developer agent per group, in execution_order.
 
@@ -60,7 +56,7 @@ Fallback: check git diff per file if no structured output.
 
 Write `<session>/fix/execution-results.json`: `{fixed[], failed[], skipped[]}`
 
-### Phase 4: Post-Fix Verification
+## Phase 4: Post-Fix Verification
 
 1. Run available verification tools on modified files:
 
@@ -78,35 +74,3 @@ Write `<session>/fix/execution-results.json`: `{fixed[], failed[], skipped[]}`
 5. Generate `<session>/fix/fix-summary.md` (human-readable)
 6. Update `<session>/.msg/meta.json` with fix results
 7. Contribute discoveries to `<session>/wisdom/` files
-
-## Input
-- Task description with session path and fix manifest reference
-- Fix manifest from `<session>/fix/fix-manifest.json`
-- Review report from `<session>/review/review-report.json`
-- Existing wisdom files (if available)
-
-## Output
-- `<session>/fix/fix-plan.json` -- grouped and sorted fix plan
-- `<session>/fix/execution-results.json` -- per-finding fix results
-- `<session>/fix/verify-results.json` -- post-fix verification results
-- `<session>/fix/fix-summary.json` -- fix session summary
-- `<session>/fix/fix-summary.md` -- human-readable summary
-- Updated `<session>/.msg/meta.json` with fix results
-
-## Constraints
-- All output prefixed with `[fixer]` tag
-- Rollback on failure: git checkout -- {file} on test failure
-- No retry on failure: mark failed and move on
-- Skip findings dependent on previously failed fixes
-- Inner loop: may be re-invoked for additional fix cycles
-
-## Error Handling
-
-| Error | Resolution |
-|-------|------------|
-| Fix manifest missing | Report error, complete without fixes |
-| Review report missing | Report error, complete without fixes |
-| 0 fixable findings | Report complete immediately |
-| Test failure after fix | Rollback file, mark finding as failed |
-| Verification fails critically | Rollback last batch, report partial results |
-| Code-developer agent returns no output | Check git diff as fallback |

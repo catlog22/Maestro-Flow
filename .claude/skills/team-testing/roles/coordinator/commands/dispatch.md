@@ -31,7 +31,7 @@ EXPECTED: <deliverable path> + <quality criteria>
 CONSTRAINTS: <scope limits, focus areas>
 ---
 InnerLoop: <true|false>
-RoleSpec: <project>/.claude/skills/team-testing/roles/<role>/role.md
+RoleSpec: ~  or <project>/.claude/skills/team-testing/roles/<role>/role.md
 ```
 
 ## Pipeline Task Registry

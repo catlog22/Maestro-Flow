@@ -96,7 +96,7 @@ When a ready task has prefix `CHECKPOINT-*`:
      summary: "Checkpoint request: <CHECKPOINT-NNN>"
    })
    ```
-4. Do NOT TaskUpdate in_progress -- supervisor claims the task itself
+4. Do NOT TaskUpdate in_progress — supervisor claims the task itself
 5. Do NOT add duplicate entry to active_workers (supervisor already tracked)
 
 ## handleComplete
@@ -105,7 +105,7 @@ Pipeline done. Generate report and completion action.
 
 1. Shutdown resident supervisor (if active):
    ```
-   SendMessage({ type: "shutdown_request", recipient: "supervisor", content: "Pipeline complete" })
+   SendMessage({ to: "supervisor", message: { type: "shutdown_request", reason: "Pipeline complete" } })
    ```
 2. Generate summary (deliverables, stats, discussions)
 3. Read session.completion_action:

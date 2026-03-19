@@ -1,13 +1,12 @@
 ---
 name: team-lifecycle-v4
-description: Full lifecycle team skill with clean architecture. SKILL.md is a universal router -- all roles read it. Beat model is coordinator-only. Structure is roles/ + specs/ + templates/. Triggers on "team lifecycle v4".
-argument-hint: "[task description or session context]"
+description: Full lifecycle team skill with clean architecture. SKILL.md is a universal router — all roles read it. Beat model is coordinator-only. Structure is roles/ + specs/ + templates/. Triggers on "team lifecycle v4".
 allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
 
 # Team Lifecycle v4
 
-Orchestrate multi-agent software development: specification -> planning -> implementation -> testing -> review.
+Orchestrate multi-agent software development: specification → planning → implementation → testing → review.
 
 ## Architecture
 
@@ -23,7 +22,7 @@ Skill(skill="team-lifecycle-v4", args="task description")
   Coordinator                  Worker
   roles/coordinator/role.md    roles/<name>/role.md
      |
-     +-- analyze -> dispatch -> spawn -> STOP
+     +-- analyze → dispatch → spawn → STOP
                                  |
                     +--------+---+--------+
                     v        v            v
@@ -37,7 +36,7 @@ Skill(skill="team-lifecycle-v4", args="task description")
 
 | Role | Path | Prefix | Inner Loop |
 |------|------|--------|------------|
-| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | -- | -- |
+| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | — | — |
 | analyst | [roles/analyst/role.md](roles/analyst/role.md) | RESEARCH-* | false |
 | writer | [roles/writer/role.md](roles/writer/role.md) | DRAFT-* | true |
 | planner | [roles/planner/role.md](roles/planner/role.md) | PLAN-* | true |
@@ -49,8 +48,8 @@ Skill(skill="team-lifecycle-v4", args="task description")
 ## Role Router
 
 Parse `$ARGUMENTS`:
-- Has `--role <name>` -> Read `roles/<name>/role.md`, execute Phase 2-4
-- No `--role` -> Read `roles/coordinator/role.md`, execute entry router
+- Has `--role <name>` → Read `roles/<name>/role.md`, execute Phase 2-4
+- No `--role` → `@roles/coordinator/role.md`, execute entry router
 
 ## Shared Constants
 
@@ -72,14 +71,14 @@ Agent({
   run_in_background: true,
   prompt: `## Role Assignment
 role: <role>
-role_spec: <project>/.claude/skills/team-lifecycle-v4/roles/<role>/role.md
+role_spec: <skill_root>/roles/<role>/role.md
 session: <session-folder>
 session_id: <session-id>
 team_name: <team-name>
 requirement: <task-description>
 inner_loop: <true|false>
 
-Read role_spec file to load Phase 2-4 domain instructions.
+Read role_spec file (@<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.
 Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).`
 })
 ```
@@ -88,7 +87,7 @@ Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 
 
 Supervisor is a **resident agent** (independent from team-worker). Spawned once during session init, woken via SendMessage for each CHECKPOINT task.
 
-### Spawn (Phase 2 -- once per session)
+### Spawn (Phase 2 — once per session)
 
 ```
 Agent({
@@ -99,19 +98,19 @@ Agent({
   run_in_background: true,
   prompt: `## Role Assignment
 role: supervisor
-role_spec: <project>/.claude/skills/team-lifecycle-v4/roles/supervisor/role.md
+role_spec: <skill_root>/roles/supervisor/role.md
 session: <session-folder>
 session_id: <session-id>
 team_name: <team-name>
 requirement: <task-description>
 
-Read role_spec file to load checkpoint definitions.
+Read role_spec file (@<skill_root>/roles/supervisor/role.md) to load checkpoint definitions.
 Init: load baseline context, report ready, go idle.
 Wake cycle: coordinator sends checkpoint requests via SendMessage.`
 })
 ```
 
-### Wake (handleSpawnNext -- per CHECKPOINT task)
+### Wake (handleSpawnNext — per CHECKPOINT task)
 
 ```
 SendMessage({
@@ -167,22 +166,22 @@ AskUserQuestion({
 
 ## Specs Reference
 
-- [specs/pipelines.md](specs/pipelines.md) -- Pipeline definitions and task registry
-- [specs/quality-gates.md](specs/quality-gates.md) -- Quality gate criteria and scoring
-- [specs/knowledge-transfer.md](specs/knowledge-transfer.md) -- Artifact and state transfer protocols
+- [specs/pipelines.md](specs/pipelines.md) — Pipeline definitions and task registry
+- [specs/quality-gates.md](specs/quality-gates.md) — Quality gate criteria and scoring
+- [specs/knowledge-transfer.md](specs/knowledge-transfer.md) — Artifact and state transfer protocols
 
 ## Session Directory
 
 ```
 .workflow/.team/TLV4-<slug>-<date>/
-+-- team-session.json           # Session state + role registry
-+-- spec/                       # Spec phase outputs
-+-- plan/                       # Implementation plan + TASK-*.json
-+-- artifacts/                  # All deliverables
-+-- wisdom/                     # Cross-task knowledge
-+-- explorations/               # Shared explore cache
-+-- discussions/                # Discuss round records
-+-- .msg/                       # Team message bus
+├── team-session.json           # Session state + role registry
+├── spec/                       # Spec phase outputs
+├── plan/                       # Implementation plan + TASK-*.json
+├── artifacts/                  # All deliverables
+├── wisdom/                     # Cross-task knowledge
+├── explorations/               # Shared explore cache
+├── discussions/                # Discuss round records
+└── .msg/                       # Team message bus
 ```
 
 ## Error Handling

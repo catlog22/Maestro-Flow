@@ -23,7 +23,7 @@ RESEARCH-001(+D1) -> DRAFT-001 -> DRAFT-002(+D2) -> [CHECKPOINT-001] -> DRAFT-00
 | RESEARCH-001 | analyst | Research domain, competitors, constraints | D1: scope alignment |
 | DRAFT-001 | writer | Product brief, self-validate | - |
 | DRAFT-002 | writer | Requirements PRD | D2: requirements review |
-| CHECKPOINT-001 | supervisor | Brief<->PRD consistency, terminology alignment | - |
+| CHECKPOINT-001 | supervisor | Brief↔PRD consistency, terminology alignment | - |
 | DRAFT-003 | writer | Architecture design, self-validate | - |
 | DRAFT-004 | writer | Epics & stories, self-validate | - |
 | CHECKPOINT-002 | supervisor | Full spec consistency (4 docs), quality trend | - |
@@ -44,7 +44,7 @@ PLAN-001 -> [CHECKPOINT-003] -> IMPL-001 -> TEST-001 + REVIEW-001
 | Task | Role | Description |
 |------|------|-------------|
 | PLAN-001 | planner | Break down into implementation steps, assess complexity |
-| CHECKPOINT-003 | supervisor | Plan<->input alignment, complexity sanity check |
+| CHECKPOINT-003 | supervisor | Plan↔input alignment, complexity sanity check |
 | IMPL-001 | implementer | Execute implementation plan |
 | TEST-001 | tester | Validate against acceptance criteria |
 | REVIEW-001 | reviewer | Code review |

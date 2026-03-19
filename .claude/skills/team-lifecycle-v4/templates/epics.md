@@ -13,10 +13,10 @@ Template for generating epic/story breakdown as a directory of individual Epic f
 
 ```
 {workDir}/epics/
-+-- _index.md                      # Overview table + dependency map + MVP scope + execution order
-+-- EPIC-001-{slug}.md             # Individual Epic with its Stories
-+-- EPIC-002-{slug}.md
-+-- ...
+├── _index.md                      # Overview table + dependency map + MVP scope + execution order
+├── EPIC-001-{slug}.md             # Individual Epic with its Stories
+├── EPIC-002-{slug}.md
+└── ...
 ```
 
 ---

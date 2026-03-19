@@ -2,20 +2,14 @@
 role: executor
 prefix: TDFIX
 inner_loop: true
-message_types:
-  success: fix_complete
-  error: error
-allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
+message_types: [state_update]
 ---
 
 # Tech Debt Executor
 
-## Role
 Debt cleanup executor. Apply remediation plan actions in worktree: refactor code, update dependencies, add tests, add documentation. Batch-delegate to CLI tools, self-validate after each batch.
 
-## Process
-
-### Phase 2: Load Remediation Plan
+## Phase 2: Load Remediation Plan
 
 | Input | Source | Required |
 |-------|--------|----------|
@@ -34,7 +28,7 @@ Debt cleanup executor. Apply remediation plan actions in worktree: refactor code
 
 **Batch order**: refactor -> update-deps -> add-tests -> add-docs -> restructure
 
-### Phase 3: Execute Fixes
+## Phase 3: Execute Fixes
 
 For each batch, use CLI tool for implementation:
 
@@ -68,7 +62,7 @@ Wait for CLI completion before proceeding to next batch.
 
 After each batch, verify file modifications via `git diff --name-only` in worktree.
 
-### Phase 4: Self-Validation
+## Phase 4: Self-Validation
 
 All commands in worktree:
 
@@ -80,32 +74,3 @@ All commands in worktree:
 Write `<session>/fixes/fix-log.json` with fix results. Update .msg/meta.json with `fix_results`.
 
 Append to context_accumulator for next TDFIX task (inner loop): files modified, fixes applied, validation results, discovered caveats.
-
-## Input
-- Session path from task description
-- Remediation plan from planner output
-- Worktree path and branch from .msg/meta.json
-- Context accumulator from prior TDFIX tasks (inner loop)
-
-## Output
-- `<session>/fixes/fix-log.json` -- fix results with per-item status
-- Modified files in worktree
-- Updated .msg/meta.json with fix_results
-- Context accumulator for next TDFIX task
-
-## Constraints
-- All file operations within worktree path only
-- All output prefixed with `[executor]` tag
-- Batch order: refactor -> update-deps -> add-tests -> add-docs -> restructure
-- Wait for CLI completion before next batch
-- Inner loop: may be re-invoked for fix-verify cycles
-
-## Error Handling
-
-| Error | Resolution |
-|-------|------------|
-| Remediation plan missing | Report error, complete without fixes |
-| Worktree path invalid | Report error, request coordinator intervention |
-| CLI fix fails for batch | Log errors, continue with next batch |
-| Self-validation fails | Record failures, continue pipeline (validator will catch) |
-| Git operations fail in worktree | Log error, attempt recovery |

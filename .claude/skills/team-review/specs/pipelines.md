@@ -77,26 +77,26 @@ SCAN-001 (quick=true)
 
 ```
 .workflow/.team/RV-<slug>-<YYYY-MM-DD>/
-+-- .msg/messages.jsonl          # Message bus log
-+-- .msg/meta.json               # Session state + cross-role state
-+-- wisdom/                      # Cross-task knowledge
-|   +-- learnings.md
-|   +-- decisions.md
-|   +-- conventions.md
-|   +-- issues.md
-+-- scan/                        # Scanner output
-|   +-- toolchain-findings.json
-|   +-- semantic-findings.json
-|   +-- scan-results.json
-+-- review/                      # Reviewer output
-|   +-- enriched-findings.json
-|   +-- review-report.json
-|   +-- review-report.md
-+-- fix/                         # Fixer output
-    +-- fix-manifest.json
-    +-- fix-plan.json
-    +-- execution-results.json
-    +-- verify-results.json
-    +-- fix-summary.json
-    +-- fix-summary.md
+├── .msg/messages.jsonl          # Message bus log
+├── .msg/meta.json               # Session state + cross-role state
+├── wisdom/                     # Cross-task knowledge
+│   ├── learnings.md
+│   ├── decisions.md
+│   ├── conventions.md
+│   └── issues.md
+├── scan/                       # Scanner output
+│   ├── toolchain-findings.json
+│   ├── semantic-findings.json
+│   └── scan-results.json
+├── review/                     # Reviewer output
+│   ├── enriched-findings.json
+│   ├── review-report.json
+│   └── review-report.md
+└── fix/                        # Fixer output
+    ├── fix-manifest.json
+    ├── fix-plan.json
+    ├── execution-results.json
+    ├── verify-results.json
+    ├── fix-summary.json
+    └── fix-summary.md
 ```

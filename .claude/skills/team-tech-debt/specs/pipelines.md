@@ -40,8 +40,8 @@ Tech debt pipeline modes and task registry.
 
 | Task | Output Path |
 |------|-------------|
-| TDSCAN-001 | <session>/scan/debt-inventory.json |
-| TDEVAL-001 | <session>/assessment/priority-matrix.json |
+| TDSCAN-001 | <session>/scan/scan-report.json |
+| TDEVAL-001 | <session>/assessment/debt-assessment.json |
 | TDPLAN-001 | <session>/plan/remediation-plan.md |
-| TDFIX-001 | <session>/fixes/fix-log.json |
-| TDVAL-001 | <session>/validation/validation-report.json |
+| TDFIX-001 | <session>/fixes/ (worktree) |
+| TDVAL-001 | <session>/validation/validation-report.md |

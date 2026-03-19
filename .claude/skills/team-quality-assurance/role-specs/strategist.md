@@ -1,38 +1,70 @@
 ---
-role: strategist
 prefix: QASTRAT
+inner_loop: false
+message_types:
+  success: strategy_ready
+  error: error
 ---
 
-# Test Strategist Role Spec
+# Test Strategist
 
-## Process
+Analyze change scope, determine test layers (L1-L3), define coverage targets, and generate test strategy document. Create targeted test plans based on scout discoveries and code changes.
 
-1. Extract session path from task description
-2. Read .msg/meta.json for scout discoveries and historical patterns
-3. Analyze change scope via git diff, categorize files (source/test/config)
-4. Detect test framework from project files
-5. Check existing coverage baseline
-6. Select test layers based on change scope and issue severity:
-   - L1 Unit (80% target): any source changes
-   - L2 Integration (60% target): >= 3 source files or critical issues
-   - L3 E2E (40% target): >= 3 critical/high issues
-7. Build strategy document with layer configs, coverage targets, focus files
-8. Validate: layers exist, targets > 0, issues covered, framework detected
-9. Write test-strategy.md, update meta.json test_strategy
+## Phase 2: Context & Change Analysis
 
-## Input
-
-| Field | Source | Required |
+| Input | Source | Required |
 |-------|--------|----------|
-| Task description | task subject/description | Yes |
-| Session path | extracted from task | Yes |
+| Task description | From task subject/description | Yes |
+| Session path | Extracted from task description | Yes |
+| .msg/meta.json | <session>/wisdom/.msg/meta.json | Yes |
 | Discovered issues | meta.json -> discovered_issues | No |
 | Defect patterns | meta.json -> defect_patterns | No |
 
-## Output
+1. Extract session path from task description
+2. Read .msg/meta.json for scout discoveries and historical patterns
+3. Analyze change scope: `git diff --name-only HEAD~5`
+4. Categorize changed files:
 
-| Artifact | Path | Description |
-|----------|------|-------------|
-| Test strategy | `<session>/strategy/test-strategy.md` | Layer configs with coverage targets |
-| Meta update | `<session>/.msg/meta.json` | Merged test_strategy field |
-| Wisdom entry | `<session>/wisdom/decisions.md` | Layer selection rationale |
+| Category | Pattern |
+|----------|---------|
+| Source | `\.(ts|tsx|js|jsx|py|java|go|rs)$` |
+| Test | `\.(test|spec)\.(ts|tsx|js|jsx)$` or `test_` |
+| Config | `\.(json|yaml|yml|toml|env)$` |
+
+5. Detect test framework from package.json / project files
+6. Check existing coverage baseline from `coverage/coverage-summary.json`
+7. Select analysis mode:
+
+| Total Scope | Mode |
+|-------------|------|
+| <= 5 files + issues | Direct inline analysis |
+| 6-15 | Single CLI analysis |
+| > 15 | Multi-dimension CLI analysis |
+
+## Phase 3: Strategy Generation
+
+**Layer Selection Logic**:
+
+| Condition | Layer | Target |
+|-----------|-------|--------|
+| Has source file changes | L1: Unit Tests | 80% |
+| >= 3 source files OR critical issues | L2: Integration Tests | 60% |
+| >= 3 critical/high severity issues | L3: E2E Tests | 40% |
+| No changes but has scout issues | L1 focused on issue files | 80% |
+
+For CLI-assisted analysis, use:
+```
+PURPOSE: Analyze code changes and scout findings to determine optimal test strategy
+TASK: Classify changed files by risk, map issues to test requirements, identify integration points, recommend test layers with coverage targets
+MODE: analysis
+```
+
+Build strategy document with: scope analysis, layer configs (level, name, target_coverage, focus_files, rationale), priority issues list.
+
+**Validation**: Verify strategy has layers, targets > 0, covers discovered issues, and framework detected.
+
+## Phase 4: Output & Persistence
+
+1. Write strategy to `<session>/strategy/test-strategy.md`
+2. Update `<session>/wisdom/.msg/meta.json`: merge `test_strategy` field with scope, layers, coverage_targets, test_framework
+3. Contribute to wisdom/decisions.md with layer selection rationale

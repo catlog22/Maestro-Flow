@@ -1,14 +1,14 @@
-# Command: Monitor
+# Command: monitor
 
 ## Purpose
 
-Event-driven pipeline coordination with Spawn-and-Stop pattern for team-executor. Role names are read from `team-session.json#roles`. Workers are spawned as `team-worker` agents with role-spec paths. **handleAdapt is LIMITED**: only warns, cannot generate new role-specs. Includes `handleComplete` for pipeline completion action.
+Event-driven pipeline coordination with Spawn-and-Stop pattern for team-executor v2. Role names are read from `team-session.json#roles`. Workers are spawned as `team-worker` agents with role-spec paths. **handleAdapt is LIMITED**: only warns, cannot generate new role-specs. Includes `handleComplete` for pipeline completion action.
 
 ## Constants
 
 | Constant | Value | Description |
 |----------|-------|-------------|
-| SPAWN_MODE | background | All workers spawned via `Agent(run_in_background: true)` |
+| SPAWN_MODE | background | All workers spawned via `Task(run_in_background: true)` |
 | ONE_STEP_PER_INVOCATION | true | Executor does one operation then STOPS |
 | FAST_ADVANCE_AWARE | true | Workers may skip executor for simple linear successors |
 | ROLE_GENERATION | disabled | handleAdapt cannot generate new role-specs |
@@ -181,7 +181,7 @@ All tasks completed (no pending, no in_progress)
 
 ### Handler: handleAdapt (LIMITED)
 
-**UNLIKE originating team skills, executor CANNOT generate new role-specs.**
+**UNLIKE team-coordinate, executor CANNOT generate new role-specs.**
 
 ```
 Receive capability_gap from [<role>]
@@ -190,7 +190,7 @@ Receive capability_gap from [<role>]
   |   +- YES -> redirect to that role -> STOP
   |   +- NO -> genuine gap, report to user:
   |       "Capability gap detected. team-executor cannot generate new role-specs.
-  |        Options: 1. Continue  2. Re-run originating skill  3. Manually add role-spec"
+  |        Options: 1. Continue  2. Re-run team-coordinate  3. Manually add role-spec"
   +- Continue execution with existing roles
 ```
 
@@ -229,7 +229,7 @@ Route by severity:
 
 | Scenario | Resolution |
 |----------|------------|
-| Session file not found | Error, suggest re-running originating skill |
+| Session file not found | Error, suggest re-run team-coordinate |
 | Worker callback from unknown role | Log info, scan for other completions |
 | All workers still running on resume | Report status, suggest check later |
 | Pipeline stall | Check for missing tasks, report to user |

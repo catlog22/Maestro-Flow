@@ -70,7 +70,8 @@ Worker completed. Process and advance.
      Fix-Verify Task Creation:
      ```
      TaskCreate({ subject: "TDFIX-fix-<round>", description: "PURPOSE: Fix regressions | Session: <session>" })
-     TaskCreate({ subject: "TDVAL-recheck-<round>", description: "...", blockedBy: ["TDFIX-fix-<round>"] })
+     TaskCreate({ subject: "TDVAL-recheck-<round>", description: "..." })
+     TaskUpdate({ taskId: "TDVAL-recheck-<round>", addBlockedBy: ["TDFIX-fix-<round>"] })
      ```
 
 7. -> handleSpawnNext
@@ -123,7 +124,7 @@ Agent({
   run_in_background: true,
   prompt: `## Role Assignment
 role: <role>
-role_spec: <project>/.claude/skills/team-tech-debt/roles/<role>/role.md
+role_spec: ~  or <project>/.claude/skills/team-tech-debt/roles/<role>/role.md
 session: <session-folder>
 session_id: <session-id>
 team_name: tech-debt
@@ -164,9 +165,9 @@ Capability gap reported mid-pipeline.
 
 1. Parse gap description
 2. Check if existing role covers it -> redirect
-3. Role count < 6 -> generate dynamic role spec in <session>/role-specs/
+3. Role count < 5 -> generate dynamic role spec in <session>/role-specs/
 4. Create new task, spawn worker
-5. Role count >= 6 -> merge or pause
+5. Role count >= 5 -> merge or pause
 
 ## Fast-Advance Reconciliation
 

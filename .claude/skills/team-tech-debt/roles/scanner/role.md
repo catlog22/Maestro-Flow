@@ -2,20 +2,14 @@
 role: scanner
 prefix: TDSCAN
 inner_loop: false
-message_types:
-  success: scan_complete
-  error: error
-allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
+message_types: [state_update]
 ---
 
 # Tech Debt Scanner
 
-## Role
 Multi-dimension tech debt scanner. Scan codebase across 5 dimensions (code, architecture, testing, dependency, documentation), produce structured debt inventory with severity rankings.
 
-## Process
-
-### Phase 2: Context & Environment Detection
+## Phase 2: Context & Environment Detection
 
 | Input | Source | Required |
 |-------|--------|----------|
@@ -40,10 +34,10 @@ Multi-dimension tech debt scanner. Scan codebase across 5 dimensions (code, arch
 
 | Condition | Perspective |
 |-----------|-------------|
-| security, auth, inject, xss | security |
-| performance, speed, optimize | performance |
-| quality, clean, maintain, debt | code-quality |
-| architect, pattern, structure | architecture |
+| `security\|auth\|inject\|xss` | security |
+| `performance\|speed\|optimize` | performance |
+| `quality\|clean\|maintain\|debt` | code-quality |
+| `architect\|pattern\|structure` | architecture |
 | Default | code-quality + architecture |
 
 6. Assess complexity:
@@ -54,7 +48,7 @@ Multi-dimension tech debt scanner. Scan codebase across 5 dimensions (code, arch
 | 2-3 | Medium | Dual Fan-out: CLI explore + CLI 3 dimensions |
 | 0-1 | Low | Inline: ACE search + Grep |
 
-### Phase 3: Multi-Dimension Scan
+## Phase 3: Multi-Dimension Scan
 
 **Low Complexity** (inline):
 - Use `mcp__ace-tool__search_context` for code smells, TODO/FIXME, deprecated APIs, complex functions, dead code, missing tests
@@ -79,32 +73,9 @@ Multi-dimension tech debt scanner. Scan codebase across 5 dimensions (code, arch
 | `suggestion` | Fix suggestion |
 | `estimated_effort` | small, medium, large, unknown |
 
-### Phase 4: Aggregate & Save
+## Phase 4: Aggregate & Save
 
 1. Deduplicate findings across Fan-out layers (file:line key), merge cross-references
 2. Sort by severity (cross-referenced items boosted)
 3. Write `<session>/scan/debt-inventory.json` with scan_date, dimensions, total_items, by_dimension, by_severity, items
 4. Update .msg/meta.json with `debt_inventory` array and `debt_score_before` count
-
-## Input
-- Task description with scan scope and session path
-- Session metadata from .msg/meta.json
-
-## Output
-- `<session>/scan/debt-inventory.json` -- structured debt inventory
-- Updated .msg/meta.json with debt_inventory and debt_score_before
-
-## Constraints
-- Read-only: never modify source code files
-- All output prefixed with `[scanner]` tag
-- Cross-deduplicate findings by file:line key
-- Boost severity for multi-source findings
-
-## Error Handling
-
-| Error | Resolution |
-|-------|------------|
-| No source files found | Report empty inventory, complete cleanly |
-| CLI fan-out fails | Fallback to inline scan strategy |
-| ACE search unavailable | Fallback to Grep-based search |
-| Parse failure on CLI output | Log warning, skip that dimension |

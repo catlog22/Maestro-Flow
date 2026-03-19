@@ -20,7 +20,7 @@ STRATEGY-001 -> TESTGEN-001 -> TESTRUN-001
 
 | Task ID | Role | Dependencies | Layer | Description |
 |---------|------|-------------|-------|-------------|
-| STRATEGY-001 | strategist | (none) | -- | Analyze changes, define test strategy |
+| STRATEGY-001 | strategist | (none) | — | Analyze changes, define test strategy |
 | TESTGEN-001 | generator | STRATEGY-001 | L1 | Generate L1 unit tests |
 | TESTRUN-001 | executor | TESTGEN-001 | L1 | Execute L1 tests, collect coverage |
 
@@ -32,12 +32,12 @@ STRATEGY-001 -> TESTGEN-001 -> TESTRUN-001 -> TESTGEN-002 -> TESTRUN-002 -> TEST
 
 | Task ID | Role | Dependencies | Layer | Description |
 |---------|------|-------------|-------|-------------|
-| STRATEGY-001 | strategist | (none) | -- | Analyze changes, define test strategy |
+| STRATEGY-001 | strategist | (none) | — | Analyze changes, define test strategy |
 | TESTGEN-001 | generator | STRATEGY-001 | L1 | Generate L1 unit tests |
 | TESTRUN-001 | executor | TESTGEN-001 | L1 | Execute L1 tests, collect coverage |
 | TESTGEN-002 | generator | TESTRUN-001 | L2 | Generate L2 integration tests |
 | TESTRUN-002 | executor | TESTGEN-002 | L2 | Execute L2 tests, collect coverage |
-| TESTANA-001 | analyst | TESTRUN-002 | -- | Defect pattern analysis, quality report |
+| TESTANA-001 | analyst | TESTRUN-002 | — | Defect pattern analysis, quality report |
 
 ### Comprehensive Pipeline (8 tasks, parallel windows)
 
@@ -47,14 +47,14 @@ STRATEGY-001 -> [TESTGEN-001 || TESTGEN-002] -> [TESTRUN-001 || TESTRUN-002] -> 
 
 | Task ID | Role | Dependencies | Layer | Description |
 |---------|------|-------------|-------|-------------|
-| STRATEGY-001 | strategist | (none) | -- | Analyze changes, define test strategy |
+| STRATEGY-001 | strategist | (none) | — | Analyze changes, define test strategy |
 | TESTGEN-001 | generator-1 | STRATEGY-001 | L1 | Generate L1 unit tests (parallel) |
 | TESTGEN-002 | generator-2 | STRATEGY-001 | L2 | Generate L2 integration tests (parallel) |
 | TESTRUN-001 | executor-1 | TESTGEN-001 | L1 | Execute L1 tests (parallel) |
 | TESTRUN-002 | executor-2 | TESTGEN-002 | L2 | Execute L2 tests (parallel) |
 | TESTGEN-003 | generator | TESTRUN-001, TESTRUN-002 | L3 | Generate L3 E2E tests |
 | TESTRUN-003 | executor | TESTGEN-003 | L3 | Execute L3 tests, collect coverage |
-| TESTANA-001 | analyst | TESTRUN-003 | -- | Defect pattern analysis, quality report |
+| TESTANA-001 | analyst | TESTRUN-003 | — | Defect pattern analysis, quality report |
 
 ## GC Loop (Generator-Critic)
 

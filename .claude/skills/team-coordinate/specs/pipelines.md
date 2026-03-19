@@ -1,4 +1,4 @@
-# Pipeline Definitions -- Team Coordinate
+# Pipeline Definitions — Team Coordinate
 
 ## Dynamic Pipeline Model
 
@@ -52,7 +52,7 @@ task-analysis.json encodes the pipeline:
 
 ## Role-Worker Map
 
-Dynamic -- loaded from session role-specs at runtime:
+Dynamic — loaded from session role-specs at runtime:
 
 ```
 <session>/role-specs/<role-name>.md -> team-worker agent
@@ -80,9 +80,9 @@ message_types:
 
 ## Specs Reference
 
-- [role-spec-template.md](role-spec-template.md) -- Template for generating dynamic role-specs
-- [quality-gates.md](quality-gates.md) -- Quality thresholds and scoring dimensions
-- [knowledge-transfer.md](knowledge-transfer.md) -- Context transfer protocols between roles
+- [role-spec-template.md](role-spec-template.md) — Template for generating dynamic role-specs
+- [quality-gates.md](quality-gates.md) — Quality thresholds and scoring dimensions
+- [knowledge-transfer.md](knowledge-transfer.md) — Context transfer protocols between roles
 
 ## Quality Gate Integration
 

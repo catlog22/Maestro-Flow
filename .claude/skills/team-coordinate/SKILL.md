@@ -1,11 +1,10 @@
 ---
 name: team-coordinate
-description: Universal team coordination skill with dynamic role generation. Uses team-worker agent architecture with role-spec files. Only coordinator is built-in -- all worker roles are generated at runtime as role-specs and spawned via team-worker agent. Beat/cadence model for orchestration. Triggers on "Team Coordinate".
-argument-hint: "[task description or coordination context]"
+description: Universal team coordination skill with dynamic role generation. Uses team-worker agent architecture with role-spec files. Only coordinator is built-in -- all worker roles are generated at runtime as role-specs and spawned via team-worker agent. Beat/cadence model for orchestration. Triggers on "Team Coordinate ".
 allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
 
-# Team Coordinate
+# Team Coordinate 
 
 Universal team coordination skill: analyze task -> generate role-specs -> dispatch -> execute -> deliver. Only the **coordinator** is built-in. All worker roles are **dynamically generated** as lightweight role-spec files and spawned via the `team-worker` agent.
 
@@ -13,9 +12,10 @@ Universal team coordination skill: analyze task -> generate role-specs -> dispat
 ## Architecture
 
 ```
-Skill(skill="team-coordinate", args="task description")
-                    |
-         SKILL.md (this file) = Router
++---------------------------------------------------+
+|  Skill(skill="team-coordinate")                 |
+|  args="task description"                           |
++-------------------+-------------------------------+
                     |
          Orchestration Mode (auto -> coordinator)
                     |
@@ -56,7 +56,7 @@ Parse `$ARGUMENTS`. No `--role` needed -- always routes to coordinator.
 
 Only coordinator is statically registered. All other roles are dynamic, stored as role-specs in session.
 
-| Role | Path | Type |
+| Role | File | Type |
 |------|------|------|
 | coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | built-in orchestrator |
 | (dynamic) | `<session>/role-specs/<role-name>.md` | runtime-generated role-spec |
@@ -103,7 +103,9 @@ User provides task description
 
 ---
 
-## Worker Spawn Template
+## Coordinator Spawn Template
+
+### v2 Worker Spawn (all roles)
 
 When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
@@ -239,7 +241,7 @@ Coordinator supports `resume` / `continue` for interrupted sessions:
 3. Audit TaskList -> reconcile session state <-> task status
 4. Reset in_progress -> pending (interrupted tasks)
 5. Rebuild team and spawn needed workers only
-6. Create missing tasks with correct blockedBy
+6. Create missing tasks, set dependencies via TaskUpdate({ addBlockedBy })
 7. Kick first executable task -> Phase 4 coordination loop
 
 ---

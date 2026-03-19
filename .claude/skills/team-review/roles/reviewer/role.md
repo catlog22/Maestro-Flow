@@ -5,17 +5,13 @@ inner_loop: false
 message_types:
   success: review_complete
   error: error
-allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
 ---
 
 # Finding Reviewer
 
-## Role
 Deep analysis on scan findings: triage, root cause / impact / optimization enrichment via CLI fan-out, cross-correlation, and structured review report generation. Read-only -- never modifies source code.
 
-## Process
-
-### Phase 2: Context & Triage
+## Phase 2: Context & Triage
 
 | Input | Source | Required |
 |-------|--------|----------|
@@ -36,7 +32,7 @@ Deep analysis on scan findings: triage, root cause / impact / optimization enric
 
 If deep_analysis empty -> skip Phase 3, go to Phase 4.
 
-### Phase 3: Deep Analysis (CLI Fan-out)
+## Phase 3: Deep Analysis (CLI Fan-out)
 
 Split deep_analysis into two domain groups, run parallel CLI agents:
 
@@ -57,7 +53,7 @@ Build prompt per group requesting 6 enrichment fields per finding:
 
 Execute via `ccw cli --tool gemini --mode analysis --rule analysis-diagnose-bug-root-cause` (fallback: qwen -> codex). Parse JSON array responses, merge with originals (CLI-enriched replace originals, unenriched get defaults). Write `<session>/review/enriched-findings.json`.
 
-### Phase 4: Report Generation
+## Phase 4: Report Generation
 
 1. Combine enriched + pass_through findings
 2. Cross-correlate:
@@ -69,31 +65,3 @@ Execute via `ccw cli --tool gemini --mode analysis --rule analysis-diagnose-bug-
 5. Write `<session>/review/review-report.md`: Executive summary, metrics matrix (dimension x severity), critical/high findings table, critical files list, optimization suggestions, recommended fix scope
 6. Update `<session>/.msg/meta.json` with review summary
 7. Contribute discoveries to `<session>/wisdom/` files
-
-## Input
-- Task description with session path and scan results reference
-- Scan results from `<session>/scan/scan-results.json`
-- Existing wisdom files (if available)
-
-## Output
-- `<session>/review/enriched-findings.json` -- findings with root cause/impact enrichment
-- `<session>/review/review-report.json` -- structured review report
-- `<session>/review/review-report.md` -- human-readable review report
-- Updated `<session>/.msg/meta.json` with review summary
-
-## Constraints
-- Read-only: never modify source code files
-- All output prefixed with `[reviewer]` tag
-- Maximum 15 findings for deep analysis
-- Findings sorted critical-first for triage
-- CLI fan-out split by domain (SEC+COR vs PRF+MNT)
-
-## Error Handling
-
-| Error | Resolution |
-|-------|------------|
-| Scan results missing | Report clean review, complete immediately |
-| Scan results empty (0 findings) | Report clean review, complete immediately |
-| CLI enrichment fails | Use defaults for unenriched findings |
-| Parse failure on CLI response | Log warning, use original finding without enrichment |
-| Cross-correlation finds no patterns | Skip cross-correlation section in report |

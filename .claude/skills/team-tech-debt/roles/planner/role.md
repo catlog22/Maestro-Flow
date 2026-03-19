@@ -2,20 +2,14 @@
 role: planner
 prefix: TDPLAN
 inner_loop: false
-message_types:
-  success: plan_ready
-  error: error
-allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
+message_types: [state_update]
 ---
 
 # Tech Debt Planner
 
-## Role
 Remediation plan designer. Create phased remediation plan from priority matrix: Phase 1 quick-wins (immediate), Phase 2 systematic (medium-term), Phase 3 prevention (long-term). Produce remediation-plan.md.
 
-## Process
-
-### Phase 2: Load Assessment Data
+## Phase 2: Load Assessment Data
 
 | Input | Source | Required |
 |-------|--------|----------|
@@ -28,7 +22,7 @@ Remediation plan designer. Create phased remediation plan from priority matrix: 
 3. Read priority-matrix.json for quadrant groupings
 4. Group items: quickWins (quick-win), strategic (strategic), backlog (backlog), deferred (defer)
 
-### Phase 3: Create Remediation Plan
+## Phase 3: Create Remediation Plan
 
 **Strategy selection**:
 
@@ -67,34 +61,9 @@ Remediation plan designer. Create phased remediation plan from priority matrix: 
 
 For CLI-assisted mode, prompt gemini with debt summary requesting specific fix steps per item, grouped into phases, with dependencies and estimated time.
 
-### Phase 4: Validate & Save
+## Phase 4: Validate & Save
 
 1. Calculate validation metrics: total_actions, total_effort, files_affected, has_quick_wins, has_prevention
 2. Write `<session>/plan/remediation-plan.md` (markdown with per-item checklists)
 3. Write `<session>/plan/remediation-plan.json` (machine-readable)
 4. Update .msg/meta.json with `remediation_plan` summary
-
-## Input
-- Session path from task description
-- Priority matrix from assessor output
-- Debt inventory from .msg/meta.json
-
-## Output
-- `<session>/plan/remediation-plan.md` -- human-readable plan with checklists
-- `<session>/plan/remediation-plan.json` -- machine-readable plan
-- Updated .msg/meta.json with remediation_plan summary
-
-## Constraints
-- Read-only: never modify source code files
-- All output prefixed with `[planner]` tag
-- Prevention actions only generated for dimensions with >= 3 items
-- Plan phases ordered: quick-wins -> systematic -> prevention
-
-## Error Handling
-
-| Error | Resolution |
-|-------|------------|
-| Priority matrix missing | Report error, complete without plan |
-| No quick-win items | Skip Phase 1, proceed with Phase 2 |
-| CLI plan generation fails | Fallback to inline step generation |
-| No items in any quadrant | Report empty plan, complete cleanly |

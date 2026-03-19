@@ -1,8 +1,7 @@
 ---
 name: team-review
-description: Unified team skill for code review. 3-role pipeline (scanner, reviewer, fixer) with 4-dimension system (SEC/COR/PRF/MNT). Triggers on "team-review".
-argument-hint: "[target path or scope] [--full | --fix | -q | --dimensions=sec,cor,prf,mnt | -y]"
-allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
+description: Unified team skill for code review. 3-role pipeline: scanner, reviewer, fixer. Triggers on "team-review".
+allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), mcp__ace-tool__search_context(*)
 ---
 
 # Team Review
@@ -35,7 +34,7 @@ Skill(skill="team-review", args="task description")
 
 | Role | Path | Prefix | Inner Loop |
 |------|------|--------|------------|
-| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | -- | -- |
+| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | — | — |
 | scanner | [roles/scanner/role.md](roles/scanner/role.md) | SCAN-* | false |
 | reviewer | [roles/reviewer/role.md](roles/reviewer/role.md) | REV-* | false |
 | fixer | [roles/fixer/role.md](roles/fixer/role.md) | FIX-* | true |
@@ -44,7 +43,7 @@ Skill(skill="team-review", args="task description")
 
 Parse `$ARGUMENTS`:
 - Has `--role <name>` -> Read `roles/<name>/role.md`, execute Phase 2-4
-- No `--role` -> Read `roles/coordinator/role.md`, execute entry router
+- No `--role` -> `@roles/coordinator/role.md`, execute entry router
 
 ## Shared Constants
 
@@ -67,14 +66,14 @@ Agent({
   run_in_background: true,
   prompt: `## Role Assignment
 role: <role>
-role_spec: <project>/.claude/skills/team-review/roles/<role>/role.md
+role_spec: <skill_root>/roles/<role>/role.md
 session: <session-folder>
 session_id: <session-id>
 team_name: review
 requirement: <task-description>
 inner_loop: <true|false>
 
-Read role_spec file to load Phase 2-4 domain instructions.
+Read role_spec file (@<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.
 Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).`
 })
 ```
@@ -114,20 +113,20 @@ AskUserQuestion({
 
 ```
 .workflow/.team/RV-<slug>-<date>/
-+-- .msg/messages.jsonl     # Team message bus
-+-- .msg/meta.json          # Session state + cross-role state
-+-- wisdom/                 # Cross-task knowledge
-+-- scan/                   # Scanner output
-+-- review/                 # Reviewer output
-+-- fix/                    # Fixer output
+├── .msg/messages.jsonl     # Team message bus
+├── .msg/meta.json          # Session state + cross-role state
+├── wisdom/                 # Cross-task knowledge
+├── scan/                   # Scanner output
+├── review/                 # Reviewer output
+└── fix/                    # Fixer output
 ```
 
 ## Specs Reference
 
-- [specs/pipelines.md](specs/pipelines.md) -- Pipeline definitions and task registry
-- [specs/dimensions.md](specs/dimensions.md) -- Review dimension definitions (SEC/COR/PRF/MNT)
-- [specs/finding-schema.json](specs/finding-schema.json) -- Finding data schema
-- [specs/team-config.json](specs/team-config.json) -- Team configuration
+- [specs/pipelines.md](specs/pipelines.md) — Pipeline definitions and task registry
+- [specs/dimensions.md](specs/dimensions.md) — Review dimension definitions (SEC/COR/PRF/MNT)
+- [specs/finding-schema.json](specs/finding-schema.json) — Finding data schema
+- [specs/team-config.json](specs/team-config.json) — Team configuration
 
 ## Error Handling
 

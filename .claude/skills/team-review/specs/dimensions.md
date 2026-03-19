@@ -44,7 +44,7 @@ Inefficiencies, resource waste, and scalability issues.
 **LLM Focus**: Algorithm complexity, N+1 queries, unnecessary sync operations, memory leaks, missing caching
 
 **Severity Mapping**:
-- Critical: Memory leak in long-running process, O(n^3) on user data
+- Critical: Memory leak in long-running process, O(n³) on user data
 - High: N+1 query in hot path, blocking I/O in async context
 - Medium: Suboptimal algorithm, missing obvious cache
 - Low: Minor inefficiency, premature optimization opportunity
@@ -77,6 +77,6 @@ The original review-cycle used 7 dimensions with significant overlap:
 | Quality | Overlaps Maintainability + Best-Practices | **Maintainability** |
 | Best-Practices | Overlaps Quality + Maintainability | **Maintainability** |
 | Architecture | Overlaps Maintainability (coupling/layering) | **Maintainability** (structure) + **Security** (security architecture) |
-| Action-Items | Not a dimension -- it is a report format | Standard field on every finding |
+| Action-Items | Not a dimension — it's a report format | Standard field on every finding |
 
 4 dimensions = clear ownership, no overlap, each maps to distinct tooling.

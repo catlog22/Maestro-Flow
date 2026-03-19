@@ -34,12 +34,12 @@
 
   "pipelines": {
     "targeted": {
-      "description": "Small scope: strategy -> generate L1 -> run",
+      "description": "Small scope: strategy → generate L1 → run",
       "task_chain": ["STRATEGY-001", "TESTGEN-001", "TESTRUN-001"],
       "gc_loops": 0
     },
     "standard": {
-      "description": "Progressive: L1 -> L2 with analysis",
+      "description": "Progressive: L1 → L2 with analysis",
       "task_chain": ["STRATEGY-001", "TESTGEN-001", "TESTRUN-001", "TESTGEN-002", "TESTRUN-002", "TESTANA-001"],
       "gc_loops": 1
     },

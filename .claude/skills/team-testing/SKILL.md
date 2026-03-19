@@ -1,7 +1,6 @@
 ---
 name: team-testing
 description: Unified team skill for testing team. Progressive test coverage through Generator-Critic loops, shared memory, and dynamic layer selection. Triggers on "team testing".
-argument-hint: "<task description> [--role <coordinator|strategist|generator|executor|analyst>]"
 allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
 
@@ -35,7 +34,7 @@ Skill(skill="team-testing", args="task description")
 
 | Role | Path | Prefix | Inner Loop |
 |------|------|--------|------------|
-| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | -- | -- |
+| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | — | — |
 | strategist | [roles/strategist/role.md](roles/strategist/role.md) | STRATEGY-* | false |
 | generator | [roles/generator/role.md](roles/generator/role.md) | TESTGEN-* | true |
 | executor | [roles/executor/role.md](roles/executor/role.md) | TESTRUN-* | true |
@@ -45,7 +44,7 @@ Skill(skill="team-testing", args="task description")
 
 Parse `$ARGUMENTS`:
 - Has `--role <name>` -> Read `roles/<name>/role.md`, execute Phase 2-4
-- No `--role` -> Read `roles/coordinator/role.md`, execute entry router
+- No `--role` -> `@roles/coordinator/role.md`, execute entry router
 
 ## Shared Constants
 
@@ -68,14 +67,14 @@ Agent({
   run_in_background: true,
   prompt: `## Role Assignment
 role: <role>
-role_spec: <project>/.claude/skills/team-testing/roles/<role>/role.md
+role_spec: <skill_root>/roles/<role>/role.md
 session: <session-folder>
 session_id: <session-id>
 team_name: testing
 requirement: <task-description>
 inner_loop: <true|false>
 
-Read role_spec file to load Phase 2-4 domain instructions.
+Read role_spec file (@<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.
 Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).`
 })
 ```
@@ -123,8 +122,8 @@ AskUserQuestion({
 
 ## Specs Reference
 
-- [specs/pipelines.md](specs/pipelines.md) -- Pipeline definitions and task registry
-- [specs/team-config.json](specs/team-config.json) -- Team configuration
+- [specs/pipelines.md](specs/pipelines.md) — Pipeline definitions and task registry
+- [specs/team-config.json](specs/team-config.json) — Team configuration
 
 ## Error Handling
 

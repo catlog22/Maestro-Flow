@@ -25,10 +25,10 @@ Event-driven pipeline coordination. Beat model: coordinator wake -> process -> s
 
 | Prefix | Role | Role Spec | inner_loop |
 |--------|------|-----------|------------|
-| STRATEGY-* | strategist | `<project>/.claude/skills/team-testing/roles/strategist/role.md` | false |
-| TESTGEN-* | generator | `<project>/.claude/skills/team-testing/roles/generator/role.md` | true |
-| TESTRUN-* | executor | `<project>/.claude/skills/team-testing/roles/executor/role.md` | true |
-| TESTANA-* | analyst | `<project>/.claude/skills/team-testing/roles/analyst/role.md` | false |
+| STRATEGY-* | strategist | `~  or <project>/.claude/skills/team-testing/roles/strategist/role.md` | false |
+| TESTGEN-* | generator | `~  or <project>/.claude/skills/team-testing/roles/generator/role.md` | true |
+| TESTRUN-* | executor | `~  or <project>/.claude/skills/team-testing/roles/executor/role.md` | true |
+| TESTANA-* | analyst | `~  or <project>/.claude/skills/team-testing/roles/analyst/role.md` | false |
 
 ## handleCallback
 
@@ -68,7 +68,7 @@ EXPECTED: Revised test files in <session>/tests/<layer>/
 CONSTRAINTS: Only modify test files
 ---
 InnerLoop: true
-RoleSpec: <project>/.claude/skills/team-testing/roles/generator/role.md"
+RoleSpec: ~  or <project>/.claude/skills/team-testing/roles/generator/role.md"
 })
 TaskCreate({
   subject: "TESTRUN-<layer>-fix-<round>: Re-execute <layer> (GC #<round>)",
@@ -80,7 +80,7 @@ CONTEXT:
 EXPECTED: <session>/results/run-<N>-gc.json
 ---
 InnerLoop: true
-RoleSpec: <project>/.claude/skills/team-testing/roles/executor/role.md",
+RoleSpec: ~  or <project>/.claude/skills/team-testing/roles/executor/role.md",
   blockedBy: ["TESTGEN-<layer>-fix-<round>"]
 })
 ```
@@ -150,7 +150,7 @@ Agent({
   run_in_background: true,
   prompt: `## Role Assignment
 role: <role>
-role_spec: <project>/.claude/skills/team-testing/roles/<role>/role.md
+role_spec: ~  or <project>/.claude/skills/team-testing/roles/<role>/role.md
 session: <session-folder>
 session_id: <session-id>
 team_name: testing

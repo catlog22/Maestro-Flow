@@ -1,6 +1,6 @@
 # Session Schema
 
-Required session structure for team-executor. All components MUST exist for valid execution. Uses role-spec architecture (lightweight Phase 2-4 files instead of full role.md files).
+Required session structure for team-executor v2. All components MUST exist for valid execution. Updated for role-spec architecture (lightweight Phase 2-4 files instead of full role.md files).
 
 ## Directory Structure
 
@@ -35,7 +35,7 @@ team-executor validates the following before execution:
 
 | Component | Validation | Error Message |
 |-----------|------------|---------------|
-| `--session` argument | Must be provided | "Session required. Usage: --session=<path-to-session-folder>" |
+| `--session` argument | Must be provided | "Session required. Usage: --session=<path-to-TC-folder>" |
 | Directory | Must exist at path | "Session directory not found: <path>" |
 | `team-session.json` | Must exist, parse as JSON, and contain all required fields | "Invalid session: team-session.json missing, corrupt, or missing required fields" |
 | `task-analysis.json` | Must exist, parse as JSON, and contain all required fields | "Invalid session: task-analysis.json missing, corrupt, or missing required fields" |
@@ -47,7 +47,7 @@ team-executor validates the following before execution:
 
 ```
 1. Parse --session=<path> from arguments
-   +- Not provided -> ERROR: "Session required. Usage: --session=<path-to-session-folder>"
+   +- Not provided -> ERROR: "Session required. Usage: --session=<path-to-TC-folder>"
 
 2. Check directory exists
    +- Not exists -> ERROR: "Session directory not found: <path>"
@@ -89,7 +89,7 @@ team-executor validates the following before execution:
 
 ```json
 {
-  "session_id": "<PREFIX>-<slug>-<date>",
+  "session_id": "TC-<slug>-<date>",
   "task_description": "<original user input>",
   "status": "active | paused | completed",
   "team_name": "<team-name>",
@@ -193,7 +193,7 @@ message_types:
   error: error
 ---
 
-# <Role Name> -- Phase 2-4
+# <Role Name> — Phase 2-4
 
 ## Phase 2: <Name>
 <domain-specific context loading>
@@ -231,7 +231,7 @@ For each role-spec in role-specs/<role>.md:
 ## Example Valid Session
 
 ```
-.workflow/.team/TLV4-auth-feature-2026-02-27/
+.workflow/.team/TC-auth-feature-2026-02-27/
 +-- team-session.json           # Valid JSON with session metadata
 +-- task-analysis.json          # Valid JSON with dependency graph
 +-- role-specs/
@@ -255,10 +255,10 @@ For each role-spec in role-specs/<role>.md:
 
 If session validation fails:
 
-1. **Missing team-session.json**: Re-run originating team skill with original task
-2. **Missing task-analysis.json**: Re-run originating team skill with resume
-3. **Missing role-spec files**: Re-run originating team skill with resume
-4. **Invalid frontmatter**: Manual fix or re-run originating team skill
-5. **Corrupt JSON**: Manual inspection or re-run originating team skill
+1. **Missing team-session.json**: Re-run team-coordinate with original task
+2. **Missing task-analysis.json**: Re-run team-coordinate with resume
+3. **Missing role-spec files**: Re-run team-coordinate with resume
+4. **Invalid frontmatter**: Manual fix or re-run team-coordinate
+5. **Corrupt JSON**: Manual inspection or re-run team-coordinate
 
 **team-executor cannot fix invalid sessions** -- it can only report errors and suggest recovery steps.

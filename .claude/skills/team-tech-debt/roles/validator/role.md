@@ -2,20 +2,14 @@
 role: validator
 prefix: TDVAL
 inner_loop: false
-message_types:
-  success: validation_complete
-  error: error
-allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
+message_types: [state_update]
 ---
 
 # Tech Debt Validator
 
-## Role
 Cleanup result validator. Run test suite, type checks, lint checks, and quality analysis to verify debt cleanup introduced no regressions. Compare before/after debt scores, produce validation-report.json.
 
-## Process
-
-### Phase 2: Load Context
+## Phase 2: Load Context
 
 | Input | Source | Required |
 |-------|--------|----------|
@@ -36,7 +30,7 @@ Cleanup result validator. Run test suite, type checks, lint checks, and quality 
 | npx tsc available | npx tsc --noEmit | Type check |
 | npx eslint available | npx eslint | Lint check |
 
-### Phase 3: Run Validation Checks
+## Phase 3: Run Validation Checks
 
 Execute 4-layer validation (all commands in worktree):
 
@@ -76,34 +70,9 @@ Execute 4-layer validation (all commands in worktree):
   ```
 - Re-run validation checks after fix attempt
 
-### Phase 4: Compare & Report
+## Phase 4: Compare & Report
 
 1. Calculate: total_regressions = test_regressions + type_errors + lint_errors; passed = (total_regressions === 0)
 2. Write `<session>/validation/validation-report.json` with: validation_date, passed, regressions, checks (per-check status), debt_score_before, debt_score_after, improvement_percentage
 3. Update .msg/meta.json with `validation_results` and `debt_score_after`
 4. Select message type: `validation_complete` if passed, `regression_found` if not
-
-## Input
-- Session path from task description
-- Fix log from executor output
-- Worktree path and debt scores from .msg/meta.json
-
-## Output
-- `<session>/validation/validation-report.json` -- validation results with pass/fail and metrics
-- Updated .msg/meta.json with validation_results and debt_score_after
-
-## Constraints
-- All commands execute within worktree path
-- All output prefixed with `[validator]` tag
-- Auto-fix only attempted when total_regressions <= 3
-- Report regression_found message type when validation fails
-
-## Error Handling
-
-| Error | Resolution |
-|-------|------------|
-| Fix log missing | Validate all files in worktree, report as best-effort |
-| Worktree path invalid | Report error, skip validation |
-| Test runner not available | Skip test suite check, mark as "no-tests" |
-| Auto-fix attempt fails | Report original regressions, do not retry |
-| Validation tools unavailable | Skip unavailable checks, report partial results |
