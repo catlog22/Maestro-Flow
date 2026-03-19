@@ -172,7 +172,14 @@ function GlobalTabBar({
         {!splitOpen && (sortedProcesses.length > 0 || activeProcessId === null) && (
           <div
             className="flex items-center gap-[2px] overflow-x-auto"
-            style={{ scrollbarWidth: 'none', maxWidth: 'min(600px, 60vw)' }}
+            style={{ scrollbarWidth: 'thin', maxWidth: 'min(600px, 60vw)' }}
+            onWheel={(e) => {
+              // Convert vertical scroll to horizontal scroll for the tab list
+              if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                e.currentTarget.scrollLeft += e.deltaY;
+                e.preventDefault();
+              }
+            }}
           >
             {sortedProcesses.map((proc) => (
               <TabButton
@@ -275,7 +282,13 @@ function PaneTabBar({
       >
         <div
           className="flex items-center gap-[2px] overflow-x-auto"
-          style={{ scrollbarWidth: 'none', maxWidth: 'min(400px, 100%)' }}
+          style={{ scrollbarWidth: 'thin', maxWidth: 'min(400px, 100%)' }}
+          onWheel={(e) => {
+            if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+              e.currentTarget.scrollLeft += e.deltaY;
+              e.preventDefault();
+            }
+          }}
         >
           {sortedProcesses.map((proc) => (
             <TabButton
