@@ -125,7 +125,7 @@ export function TeamSessionDetail() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden relative">
+    <div className="-m-[var(--spacing-4)] max-sm:-m-[var(--spacing-2)] flex flex-col h-[calc(100%+var(--spacing-4)*2)] max-sm:h-[calc(100%+var(--spacing-2)*2)] overflow-hidden relative">
       {/* Top bar */}
       <div className="flex items-center gap-2.5 px-4 py-2 border-b border-border shrink-0 bg-bg-secondary">
         <button
@@ -314,7 +314,7 @@ export function TeamSessionDetail() {
           )}
 
           {/* Content area */}
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto p-4">
             {fileLoading && (
               <div className="text-[12px] text-text-tertiary">Loading file...</div>
             )}
