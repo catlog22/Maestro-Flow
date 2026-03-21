@@ -185,16 +185,19 @@ export function StatusTabPanel({ phaseId }: StatusTabPanelProps) {
     uat.test_count > 0 ? Math.round((uat.passed / uat.test_count) * 100) : null;
 
   // Collect all gaps
+  const gapText = (g: string | Record<string, unknown>): string =>
+    typeof g === 'string' ? g : (g.description ?? g.requirement ?? g.id ?? JSON.stringify(g)) as string;
+
   const verificationGaps: Array<{ text: string; category: GapCategory }> = (
     verification.gaps ?? []
-  ).map((g) => ({ text: g, category: 'verification' }));
+  ).map((g) => ({ text: gapText(g), category: 'verification' }));
 
   const validationGaps: Array<{ text: string; category: GapCategory }> = (
     validation.gaps ?? []
-  ).map((g) => ({ text: g, category: 'validation' }));
+  ).map((g) => ({ text: gapText(g), category: 'validation' }));
 
   const uatGaps: Array<{ text: string; category: GapCategory }> = (uat.gaps ?? []).map(
-    (g) => ({ text: g, category: 'uat' }),
+    (g) => ({ text: gapText(g), category: 'uat' }),
   );
 
   const allGaps = [...verificationGaps, ...validationGaps, ...uatGaps];

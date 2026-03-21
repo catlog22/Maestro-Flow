@@ -4,7 +4,7 @@ import { ViewSwitcherContext } from '@/client/hooks/useViewSwitcher.js';
 import type { ViewSwitcherConfig } from '@/client/hooks/useViewSwitcher.js';
 import { useBoardStore } from '@/client/store/board-store.js';
 import { PipelineBoardView } from '@/client/components/workflow/PipelineBoardView.js';
-import { PhaseTimelineView } from '@/client/components/workflow/PhaseTimelineView.js';
+import { TimelineView } from '@/client/components/kanban/TimelineView.js';
 import { CommandCenterView } from '@/client/components/workflow/CommandCenterView.js';
 import { WfTableView } from '@/client/components/workflow/WfTableView.js';
 import { SetupChecklist } from '@/client/components/workflow/SetupChecklist.js';
@@ -72,7 +72,7 @@ export function WorkflowPage() {
         ) : (
           <>
             {activeView === 'board' && <PipelineBoardView />}
-            {activeView === 'timeline' && <PhaseTimelineView />}
+            {activeView === 'timeline' && <TimelineView onSelectPhase={(id) => setSelectedPhase(selectedPhase === id ? null : id)} />}
             {activeView === 'center' && <CommandCenterView />}
             {activeView === 'table' && <WfTableView />}
           </>

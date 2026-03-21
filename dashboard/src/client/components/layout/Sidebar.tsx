@@ -1,5 +1,7 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useBoardStore } from '@/client/store/board-store.js';
+import { useIssueStore } from '@/client/store/issue-store.js';
 import { STATUS_COLORS } from '@/shared/constants.js';
 import type { PhaseCard } from '@/shared/types.js';
 import { useI18n } from '@/client/i18n/index.js';
@@ -37,7 +39,23 @@ export function Sidebar() {
   const phases = useBoardStore((s) => s.board?.phases ?? EMPTY_PHASES);
   const selectedPhase = useBoardStore((s) => s.selectedPhase);
   const setSelectedPhase = useBoardStore((s) => s.setSelectedPhase);
+  const issues = useIssueStore((s) => s.issues);
+  const fetchIssues = useIssueStore((s) => s.fetchIssues);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    void fetchIssues();
+  }, [fetchIssues]);
+
+  const issueCounts = useMemo(() => {
+    const counts = { open: 0, in_progress: 0, resolved: 0, total: 0 };
+    for (const issue of issues) {
+      counts.total++;
+      if (issue.status in counts) counts[issue.status as keyof typeof counts]++;
+    }
+    return counts;
+  }, [issues]);
 
   const isKanbanView = location.pathname === '/kanban' || location.pathname === '/';
 
@@ -67,35 +85,50 @@ export function Sidebar() {
         </nav>
       </div>
 
-      {/* Phase list (only visible in kanban view) */}
-      {isKanbanView && (
-        <div className="px-[var(--spacing-3)] py-[var(--spacing-3)]">
+      {/* Issues summary */}
+      {issues.length > 0 && (
+        <div className="px-[var(--spacing-3)] py-[var(--spacing-2)] border-b border-border-divider">
           <h2 className="text-[length:var(--font-size-xs)] font-[var(--font-weight-semibold)] text-text-tertiary uppercase tracking-[var(--letter-spacing-wide)] mb-[var(--spacing-2)]">
-            {t('sidebar.phases')}
+            Issues
           </h2>
-
-          <nav className="flex flex-col gap-[var(--spacing-0-5)]" aria-label="Project phases">
-            {phases.map((phase) => (
-              <PhaseItem
-                key={phase.phase}
-                phase={phase}
-                selected={selectedPhase === phase.phase}
-                onSelect={() =>
-                  setSelectedPhase(
-                    selectedPhase === phase.phase ? null : phase.phase,
-                  )
-                }
-              />
-            ))}
-          </nav>
-
-          {phases.length === 0 && (
-            <p className="text-[length:var(--font-size-xs)] text-text-secondary italic px-[var(--spacing-1)]">
-              {t('sidebar.no_phases_loaded')}
-            </p>
-          )}
+          <button
+            type="button"
+            onClick={() => navigate('/kanban')}
+            className={`${BASE_NAV_CLASSES} ${INACTIVE_NAV_CLASSES}`}
+          >
+            <span className="truncate">{issueCounts.total} issues</span>
+            {issueCounts.open > 0 && (
+              <span className="text-[length:10px] text-text-tertiary ml-auto">{issueCounts.open} open</span>
+            )}
+          </button>
         </div>
       )}
+
+      {/* Phase list */}
+      <div className="px-[var(--spacing-3)] py-[var(--spacing-3)]">
+        <h2 className="text-[length:var(--font-size-xs)] font-[var(--font-weight-semibold)] text-text-tertiary uppercase tracking-[var(--letter-spacing-wide)] mb-[var(--spacing-2)]">
+          {t('sidebar.phases')}
+        </h2>
+
+        <nav className="flex flex-col gap-[var(--spacing-0-5)]" aria-label="Project phases">
+          {phases.map((phase) => (
+            <PhaseItem
+              key={phase.phase}
+              phase={phase}
+              selected={selectedPhase === phase.phase}
+              onSelect={() => {
+                setSelectedPhase(selectedPhase === phase.phase ? null : phase.phase);
+              }}
+            />
+          ))}
+        </nav>
+
+        {phases.length === 0 && (
+          <p className="text-[length:var(--font-size-xs)] text-text-secondary italic px-[var(--spacing-1)]">
+            {t('sidebar.no_phases_loaded')}
+          </p>
+        )}
+      </div>
     </aside>
   );
 }

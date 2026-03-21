@@ -1,48 +1,34 @@
 import { useCallback, useEffect, useRef, useMemo } from 'react';
-import { useBoardStore } from '@/client/store/board-store.js';
 import { COLLAPSED_COLUMNS, STATUS_COLORS } from '@/shared/constants.js';
-import type { PhaseCard as PhaseCardType, PhaseStatus, SelectedKanbanItem } from '@/shared/types.js';
+import type { SelectedKanbanItem } from '@/shared/types.js';
 import type { LinearIssue } from '@/shared/linear-types.js';
 import type { Issue, IssueStatus } from '@/shared/issue-types.js';
 import { KanbanColumn } from '@/client/components/kanban/KanbanColumn.js';
 import { useI18n } from '@/client/i18n/index.js';
 
 // ---------------------------------------------------------------------------
-// KanbanBoard — groups phases into 4 collapsed columns with keyboard nav
+// KanbanBoard — issue-only kanban with 4 columns
 // ---------------------------------------------------------------------------
 
 /** Column header colors — use the first status color in each group */
 const COLUMN_COLORS: Record<string, string> = {
   backlog: STATUS_COLORS.pending,
+  triage: '#C8863A',
   'in-progress': STATUS_COLORS.executing,
   review: STATUS_COLORS.verifying,
   done: STATUS_COLORS.completed,
+  deferred: '#8B8685',
 };
 
 /** Translation keys for column labels */
 const COLUMN_LABEL_KEYS: Record<string, string> = {
   backlog: 'columns.backlog',
+  triage: 'columns.triage',
   'in-progress': 'columns.in_progress',
   review: 'columns.review',
   done: 'columns.done',
+  deferred: 'columns.deferred',
 };
-
-/** Group phases into columns based on COLLAPSED_COLUMNS mapping */
-function groupPhases(phases: PhaseCardType[]): Map<string, PhaseCardType[]> {
-  const groups = new Map<string, PhaseCardType[]>();
-  for (const col of COLLAPSED_COLUMNS) {
-    groups.set(col.id, []);
-  }
-  for (const phase of phases) {
-    const col = COLLAPSED_COLUMNS.find((c) =>
-      (c.statuses as readonly PhaseStatus[]).includes(phase.status),
-    );
-    if (col) {
-      groups.get(col.id)!.push(phase);
-    }
-  }
-  return groups;
-}
 
 /** Map Linear state.type → kanban column ID */
 const LINEAR_STATE_TO_COLUMN: Record<string, string> = {
@@ -55,9 +41,11 @@ const LINEAR_STATE_TO_COLUMN: Record<string, string> = {
 /** Map local issue status → kanban column ID */
 const ISSUE_STATUS_TO_COLUMN: Record<IssueStatus, string> = {
   open: 'backlog',
+  registered: 'triage',
   in_progress: 'in-progress',
   resolved: 'review',
   closed: 'done',
+  deferred: 'deferred',
 };
 
 function groupLocalIssues(issues: Issue[]): Map<string, Issue[]> {
@@ -85,7 +73,6 @@ function groupLinearIssues(issues: LinearIssue[]): Map<string, LinearIssue[]> {
 }
 
 interface KanbanBoardProps {
-  onSelectPhase: (id: number) => void;
   linearIssues?: LinearIssue[];
   localIssues?: Issue[];
   selectedItem?: SelectedKanbanItem | null;
@@ -100,13 +87,11 @@ interface KanbanBoardProps {
   onToggleIssueCheck?: (issueId: string) => void;
 }
 
-export function KanbanBoard({ onSelectPhase, linearIssues, localIssues, selectedItem, onSelectItem, composingColumnId, onStartCompose, onStopCompose, onIssueCreated, showDone = true, batchMode, selectedIssueIds, onToggleIssueCheck }: KanbanBoardProps) {
+export function KanbanBoard({ linearIssues, localIssues, selectedItem, onSelectItem, composingColumnId, onStartCompose, onStopCompose, onIssueCreated, showDone = true, batchMode, selectedIssueIds, onToggleIssueCheck }: KanbanBoardProps) {
   const { t } = useI18n();
-  const board = useBoardStore((s) => s.board);
-  const setSelectedPhase = useBoardStore((s) => s.setSelectedPhase);
   const boardRef = useRef<HTMLDivElement>(null);
 
-  // Keyboard navigation: arrow keys between focusable cards, Escape to deselect
+  // Keyboard navigation: arrow keys between focusable cards
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       const container = boardRef.current;
@@ -125,9 +110,6 @@ export function KanbanBoard({ onSelectPhase, linearIssues, localIssues, selected
       } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
         e.preventDefault();
         next = idx > 0 ? idx - 1 : cards.length - 1;
-      } else if (e.key === 'Escape') {
-        setSelectedPhase(null);
-        return;
       } else if (e.key === 'Home') {
         e.preventDefault();
         next = 0;
@@ -140,7 +122,7 @@ export function KanbanBoard({ onSelectPhase, linearIssues, localIssues, selected
         cards[next].focus();
       }
     },
-    [setSelectedPhase],
+    [],
   );
 
   useEffect(() => {
@@ -160,10 +142,6 @@ export function KanbanBoard({ onSelectPhase, linearIssues, localIssues, selected
     [localIssues],
   );
 
-  if (!board) return null;
-
-  const grouped = groupPhases(board.phases);
-
   return (
     <div
       ref={boardRef}
@@ -176,10 +154,10 @@ export function KanbanBoard({ onSelectPhase, linearIssues, localIssues, selected
           key={col.id}
           columnId={col.id}
           title={t(COLUMN_LABEL_KEYS[col.id])}
-          phases={grouped.get(col.id) ?? []}
+          phases={[]}
           color={COLUMN_COLORS[col.id] ?? STATUS_COLORS.pending}
           animationDelay={i * 50}
-          onSelectPhase={onSelectPhase}
+          onSelectPhase={() => {}}
           linearIssues={groupedLinear.get(col.id)}
           localIssues={groupedLocal.get(col.id)}
           selectedItem={selectedItem}

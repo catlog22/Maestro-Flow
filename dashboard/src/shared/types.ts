@@ -119,7 +119,7 @@ export interface PhaseCard {
     task_ids: string[];
     task_count: number;
     complexity: string | null;
-    waves: number[][];
+    waves: (string[] | { wave: number; tasks: string[] })[];
   };
   execution: {
     method: string;
@@ -128,24 +128,24 @@ export interface PhaseCard {
     tasks_completed: number;
     tasks_total: number;
     current_wave: number;
-    commits: string[];
+    commits: (string | { hash: string; task: string; message: string })[];
   };
   verification: {
     status: string;
     verified_at: string | null;
     must_haves: string[];
-    gaps: string[];
+    gaps: (string | { id?: string; severity?: string; description?: string })[];
   };
   validation: {
     status: string;
-    test_coverage: number | null;
-    gaps: string[];
+    test_coverage: number | { statements: number; branches: number; functions: number; lines: number } | null;
+    gaps: (string | { requirement?: string; status?: string; description?: string })[];
   };
   uat: {
     status: string;
     test_count: number;
     passed: number;
-    gaps: string[];
+    gaps: (string | { description?: string })[];
   };
   reflection: {
     rounds: number;

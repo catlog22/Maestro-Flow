@@ -1,6 +1,5 @@
 import { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { useBoardStore } from '@/client/store/board-store.js';
 import { useLinearStore } from '@/client/store/linear-store.js';
 import { useIssueStore } from '@/client/store/issue-store.js';
 import { useExecutionStore } from '@/client/store/execution-store.js';
@@ -8,7 +7,6 @@ import { ViewSwitcherContext } from '@/client/hooks/useViewSwitcher.js';
 import { FilterChipBar } from '@/client/components/common/FilterChipBar.js';
 import { DetailPanel } from '@/client/components/common/DetailPanel.js';
 import { KanbanBoard } from '@/client/components/kanban/KanbanBoard.js';
-import { TimelineView } from '@/client/components/kanban/TimelineView.js';
 import { KanbanTableView } from '@/client/components/kanban/KanbanTableView.js';
 import { KanbanCenterView } from '@/client/components/kanban/KanbanCenterView.js';
 import { KanbanDetailPanel } from '@/client/components/kanban/KanbanDetailPanel.js';
@@ -23,7 +21,6 @@ import type { SelectedKanbanItem } from '@/shared/types.js';
 import type { Issue } from '@/shared/issue-types.js';
 import type { LinearIssue } from '@/shared/linear-types.js';
 import LayoutGrid from 'lucide-react/dist/esm/icons/layout-grid.js';
-import Clock from 'lucide-react/dist/esm/icons/clock.js';
 import TableIcon from 'lucide-react/dist/esm/icons/table.js';
 import LayoutDashboard from 'lucide-react/dist/esm/icons/layout-dashboard.js';
 import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw.js';
@@ -31,14 +28,14 @@ import Download from 'lucide-react/dist/esm/icons/download.js';
 import Upload from 'lucide-react/dist/esm/icons/upload.js';
 
 // ---------------------------------------------------------------------------
-// KanbanPage — Kanban + Timeline views with execution controls
+// KanbanPage — Issue Kanban with execution controls
 // ---------------------------------------------------------------------------
 
-const FILTER_CHIPS = ['All', 'Executing', 'Planning', 'Pending'] as const;
+const FILTER_CHIPS = ['All', 'Open', 'In Progress', 'Resolved'] as const;
 
-type ActiveView = 'kanban' | 'timeline' | 'table' | 'center';
+type ActiveView = 'kanban' | 'table' | 'center';
 
-const VIEW_ORDER: ActiveView[] = ['kanban', 'timeline', 'table', 'center'];
+const VIEW_ORDER: ActiveView[] = ['kanban', 'table', 'center'];
 
 export function KanbanPage() {
   const [activeView, setActiveView] = useState<ActiveView>('kanban');
@@ -61,7 +58,6 @@ export function KanbanPage() {
   const detailStyle = useUIPrefsStore((s) => s.detailModalStyle);
 
   const { register, unregister } = useContext(ViewSwitcherContext);
-  const { selectedPhase, setSelectedPhase, board } = useBoardStore(useShallow((s) => ({ selectedPhase: s.selectedPhase, setSelectedPhase: s.setSelectedPhase, board: s.board })));
 
   // Issue store
   const { issues, fetchIssues } = useIssueStore(useShallow((s) => ({ issues: s.issues, fetchIssues: s.fetchIssues })));
@@ -127,7 +123,6 @@ export function KanbanPage() {
     register({
       items: [
         { label: 'Kanban', icon: <LayoutGrid size={14} />, shortcut: 'K' },
-        { label: 'Timeline', icon: <Clock size={14} />, shortcut: 'T' },
         { label: 'Table', icon: <TableIcon size={14} />, shortcut: 'L' },
         { label: 'Center', icon: <LayoutDashboard size={14} />, shortcut: 'C' },
       ],
@@ -156,33 +151,19 @@ export function KanbanPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  function handleSelectPhase(id: number) {
-    const isSame = selectedItem?.type === 'phase' && selectedItem.phaseId === id;
-    const next = isSame ? null : { type: 'phase' as const, phaseId: id };
-    setSelectedItem(next);
-    setSelectedPhase(isSame ? null : id);
-  }
-
   function handleSelectItem(item: SelectedKanbanItem) {
     // Local issues open the detail modal instead of the side panel
     if (item.type === 'issue') {
       setDetailIssue(item.issue);
       setSelectedItem(null);
-      setSelectedPhase(null);
       return;
     }
 
     const isSame =
       selectedItem?.type === item.type &&
-      (item.type === 'phase'
-        ? (selectedItem as { phaseId: number }).phaseId === item.phaseId
-        : (selectedItem as { issue: LinearIssue }).issue.id === item.issue.id);
+      item.type === 'linearIssue' &&
+      (selectedItem as { issue: LinearIssue }).issue.id === item.issue.id;
     setSelectedItem(isSame ? null : item);
-    if (item.type === 'phase') {
-      setSelectedPhase(isSame ? null : item.phaseId);
-    } else {
-      setSelectedPhase(null);
-    }
   }
 
   function handleOpenCreateModal(columnId: string) {
@@ -192,7 +173,6 @@ export function KanbanPage() {
 
   function handleCloseDetail() {
     setSelectedItem(null);
-    setSelectedPhase(null);
   }
 
   function handleIssueCreated() {
@@ -201,17 +181,7 @@ export function KanbanPage() {
 
   const detailTitle = selectedItem?.type === 'linearIssue'
     ? 'Linear Issue'
-    : selectedItem?.type === 'issue'
-      ? 'Issue Detail'
-      : 'Phase Detail';
-
-  if (!board) {
-    return (
-      <div className="flex items-center justify-center h-full text-text-secondary text-[length:var(--font-size-sm)]">
-        Loading...
-      </div>
-    );
-  }
+    : 'Issue Detail';
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -303,7 +273,6 @@ export function KanbanPage() {
         <div className="flex-1 overflow-auto min-w-0">
           {activeView === 'kanban' && (
             <KanbanBoard
-              onSelectPhase={handleSelectPhase}
               linearIssues={allLinearIssues}
               localIssues={issues}
               selectedItem={selectedItem}
@@ -318,16 +287,12 @@ export function KanbanPage() {
               onToggleIssueCheck={toggleSelect}
             />
           )}
-          {activeView === 'timeline' && (
-            <TimelineView onSelectPhase={handleSelectPhase} />
-          )}
           {activeView === 'table' && (
             <KanbanTableView
               localIssues={issues}
               linearIssues={allLinearIssues}
               selectedItem={selectedItem}
               onSelectItem={handleSelectItem}
-              onSelectPhase={handleSelectPhase}
             />
           )}
           {activeView === 'center' && (
@@ -336,7 +301,6 @@ export function KanbanPage() {
               linearIssues={allLinearIssues}
               selectedItem={selectedItem}
               onSelectItem={handleSelectItem}
-              onSelectPhase={handleSelectPhase}
             />
           )}
         </div>

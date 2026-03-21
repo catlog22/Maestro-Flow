@@ -12,7 +12,7 @@ export type IssueType = 'bug' | 'feature' | 'improvement' | 'task';
 export type IssuePriority = 'low' | 'medium' | 'high' | 'urgent';
 
 /** Issue lifecycle status */
-export type IssueStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+export type IssueStatus = 'open' | 'registered' | 'in_progress' | 'resolved' | 'closed' | 'deferred';
 
 // ---------------------------------------------------------------------------
 // Solution — pre-planned execution steps (from /issue:plan)
@@ -112,5 +112,5 @@ export const VALID_ISSUE_PRIORITIES: ReadonlySet<string> = new Set<string>([
 ]);
 
 export const VALID_ISSUE_STATUSES: ReadonlySet<string> = new Set<string>([
-  'open', 'in_progress', 'resolved', 'closed',
+  'open', 'registered', 'in_progress', 'resolved', 'closed', 'deferred',
 ]);

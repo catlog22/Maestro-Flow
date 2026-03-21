@@ -1,9 +1,9 @@
 {
   "nav": {
-    "kanban": "Kanban Board",
+    "kanban": "Issue Kanban",
     "artifacts": "Artifacts",
     "chat": "Chat",
-    "workflow": "Workflow Viewer",
+    "workflow": "Workflow Kanban",
     "mcp": "MCP Manager",
     "specs": "Specs Manager",
     "teams": "Team Sessions",

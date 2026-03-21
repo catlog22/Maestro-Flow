@@ -20,7 +20,10 @@ export function QualityPanel() {
 
   // Gather verification data from phases in verifying/testing
   const verifyingPhases = phases.filter((p) => p.status === 'verifying' || p.status === 'testing');
-  const allGaps = phases.flatMap((p) => p.verification.gaps.map((g) => ({ phase: p.phase, text: g })));
+  const allGaps = phases.flatMap((p) => p.verification.gaps.map((g) => ({
+    phase: p.phase,
+    text: typeof g === 'string' ? g : (g.description ?? g.id ?? JSON.stringify(g)) as string,
+  })));
 
   return (
     <div className="flex flex-col overflow-hidden border-b border-border-divider">
@@ -52,7 +55,8 @@ export function QualityPanel() {
                   Verification (P-{String(p.phase).padStart(2, '0')})
                 </div>
                 {p.verification.must_haves.map((item, i) => {
-                  const isGap = p.verification.gaps.includes(item);
+                  const gapTexts = p.verification.gaps.map((g) => typeof g === 'string' ? g : (g.description ?? g.id ?? ''));
+                  const isGap = gapTexts.includes(item);
                   return (
                     <div key={i} className="flex items-center gap-[var(--spacing-1-5)] py-1 border-b border-border-divider text-[length:var(--font-size-sm)]">
                       {isGap ? (

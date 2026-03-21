@@ -1,9 +1,9 @@
 {
   "nav": {
-    "kanban": "看板",
+    "kanban": "问题看板",
     "artifacts": "产物",
     "chat": "聊天",
-    "workflow": "工作流查看器",
+    "workflow": "工作流看板",
     "mcp": "MCP 管理器",
     "specs": "规范管理器",
     "teams": "团队会话",

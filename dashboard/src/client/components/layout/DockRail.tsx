@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import LayoutGrid from 'lucide-react/dist/esm/icons/layout-grid.js';
 import FileText from 'lucide-react/dist/esm/icons/file-text.js';
@@ -11,6 +11,7 @@ import PanelLeft from 'lucide-react/dist/esm/icons/panel-left.js';
 import Plus from 'lucide-react/dist/esm/icons/plus.js';
 import { useBoardStore } from '@/client/store/board-store.js';
 import { useAgentStore } from '@/client/store/agent-store.js';
+import { useIssueStore } from '@/client/store/issue-store.js';
 import { STATUS_COLORS, AGENT_DOT_COLORS } from '@/shared/constants.js';
 import type { PhaseCard } from '@/shared/types.js';
 import type { AgentProcess, AgentType } from '@/shared/agent-types.js';
@@ -56,8 +57,25 @@ export function DockRail({ isPinned, onTogglePin }: DockRailProps) {
   const activeProcessId = useAgentStore((s) => s.activeProcessId);
   const selectedPhase = useBoardStore((s) => s.selectedPhase);
   const setSelectedPhase = useBoardStore((s) => s.setSelectedPhase);
+  const issues = useIssueStore((s) => s.issues);
+  const fetchIssues = useIssueStore((s) => s.fetchIssues);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Fetch issues for sidebar display
+  useEffect(() => {
+    void fetchIssues();
+  }, [fetchIssues]);
+
+  // Issue summary counts
+  const issueCounts = useMemo(() => {
+    const counts = { open: 0, in_progress: 0, resolved: 0, closed: 0, total: 0 };
+    for (const issue of issues) {
+      counts.total++;
+      if (issue.status in counts) counts[issue.status as keyof typeof counts]++;
+    }
+    return counts;
+  }, [issues]);
 
   const railRef = useRef<HTMLElement>(null);
   const panelRef = useRef<HTMLElement>(null);
@@ -213,6 +231,35 @@ export function DockRail({ isPinned, onTogglePin }: DockRailProps) {
           </div>
         )}
 
+        {/* Issues section */}
+        {issues.length > 0 && (
+          <div className="px-2 py-2.5 border-b border-border-divider">
+            <h2 className="text-[length:var(--font-size-xs)] font-[var(--font-weight-semibold)] text-text-tertiary uppercase tracking-[var(--letter-spacing-wide)] px-2 mb-1">
+              Issues
+            </h2>
+            <button
+              type="button"
+              onClick={() => { navigate('/kanban'); setIsPanelOpen(false); }}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-[var(--radius-default)] text-left text-[length:var(--font-size-sm)] w-full hover:bg-bg-hover transition-colors"
+            >
+              <span className="flex-1 text-text-secondary">
+                {issueCounts.total} issues
+              </span>
+              <span className="flex items-center gap-1.5 text-[10px]">
+                {issueCounts.open > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-[#5B8DB820] text-[#5B8DB8]">{issueCounts.open} open</span>
+                )}
+                {issueCounts.in_progress > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-[#B8954020] text-[#B89540]">{issueCounts.in_progress} active</span>
+                )}
+                {issueCounts.resolved > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-[#5A9E7820] text-[#5A9E78]">{issueCounts.resolved} done</span>
+                )}
+              </span>
+            </button>
+          </div>
+        )}
+
         {/* Phases section */}
         <div className="px-2 py-2.5">
           <h2 className="text-[length:var(--font-size-xs)] font-[var(--font-weight-semibold)] text-text-tertiary uppercase tracking-[var(--letter-spacing-wide)] px-2 mb-1">
@@ -224,9 +271,10 @@ export function DockRail({ isPinned, onTogglePin }: DockRailProps) {
                 key={phase.phase}
                 phase={phase}
                 selected={selectedPhase === phase.phase}
-                onSelect={() =>
-                  setSelectedPhase(selectedPhase === phase.phase ? null : phase.phase)
-                }
+                onSelect={() => {
+                  setSelectedPhase(selectedPhase === phase.phase ? null : phase.phase);
+                  setIsPanelOpen(false);
+                }}
               />
             ))}
             {phases.length === 0 && (

@@ -1,27 +1,11 @@
-import { useState, useEffect } from 'react';
 import type { PhaseCard as PhaseCardType, SelectedKanbanItem } from '@/shared/types.js';
 import type { LinearIssue } from '@/shared/linear-types.js';
 import type { Issue } from '@/shared/issue-types.js';
 import { PhaseCard } from '@/client/components/kanban/PhaseCard.js';
-import { KanbanTaskRow } from '@/client/components/kanban/TaskRow.js';
 import { LinearIssueCard } from '@/client/components/kanban/LinearIssueCard.js';
 import { IssueCard } from '@/client/components/kanban/IssueCard.js';
 import { InlineIssueComposer } from '@/client/components/kanban/InlineIssueComposer.js';
 import { useI18n } from '@/client/i18n/index.js';
-
-// ---------------------------------------------------------------------------
-// KanbanColumn — header with count badge, color stripe, phase card list
-// ---------------------------------------------------------------------------
-
-/** Statuses that should show inline task rows */
-const ACTIVE_STATUSES = new Set(['executing', 'verifying', 'planning']);
-
-interface TaskRowData {
-  id: string;
-  title: string;
-  type: string;
-  status: string;
-}
 
 interface KanbanColumnProps {
   columnId: string;
@@ -47,38 +31,6 @@ export function KanbanColumn({ columnId, title, phases, color, animationDelay = 
   const { t } = useI18n();
   const noPhasesLabel = t('kanban.no_phases');
   const hasNoCards = phases.length === 0 && (!localIssues || localIssues.length === 0) && (!linearIssues || linearIssues.length === 0);
-
-  // Fetch tasks for active phases
-  const [tasksByPhase, setTasksByPhase] = useState<Record<number, TaskRowData[]>>({});
-
-  useEffect(() => {
-    const activePhases = phases.filter((p) => ACTIVE_STATUSES.has(p.status));
-    if (activePhases.length === 0) {
-      setTasksByPhase({});
-      return;
-    }
-
-    let cancelled = false;
-    const fetches = activePhases.map((p) =>
-      fetch(`/api/phases/${p.phase}/tasks`)
-        .then((res) => (res.ok ? res.json() : []))
-        .then((data: Array<{ id: string; title: string; type: string; meta: { status: string } }>) =>
-          [p.phase, data.map((t) => ({ id: t.id, title: t.title, type: t.type, status: t.meta.status }))] as const,
-        )
-        .catch(() => [p.phase, [] as TaskRowData[]] as const),
-    );
-
-    Promise.all(fetches).then((results) => {
-      if (cancelled) return;
-      const map: Record<number, TaskRowData[]> = {};
-      for (const [phaseNum, tasks] of results) {
-        if (tasks.length > 0) map[phaseNum] = tasks;
-      }
-      setTasksByPhase(map);
-    });
-
-    return () => { cancelled = true; };
-  }, [phases]);
 
   return (
     <section
@@ -132,14 +84,7 @@ export function KanbanColumn({ columnId, title, phases, color, animationDelay = 
           <>
             {/* Phase cards */}
             {phases.map((phase) => (
-              <div key={phase.phase}>
-                <PhaseCard phase={phase} />
-                {ACTIVE_STATUSES.has(phase.status) && tasksByPhase[phase.phase]?.map((task) => (
-                  <div key={task.id} className="mt-[var(--spacing-1)]">
-                    <KanbanTaskRow task={task} />
-                  </div>
-                ))}
-              </div>
+              <PhaseCard key={phase.phase} phase={phase} />
             ))}
 
             {/* Local issue cards */}

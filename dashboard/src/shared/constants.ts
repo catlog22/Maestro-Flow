@@ -38,9 +38,11 @@ export interface ColumnDefinition {
 
 export const COLLAPSED_COLUMNS: readonly ColumnDefinition[] = [
   { id: 'backlog', label: 'Backlog', statuses: ['pending'] },
+  { id: 'triage', label: 'Triage', statuses: [] },
   { id: 'in-progress', label: 'In Progress', statuses: ['exploring', 'planning', 'executing'] },
   { id: 'review', label: 'Review', statuses: ['verifying', 'testing'] },
   { id: 'done', label: 'Done', statuses: ['completed', 'blocked'] },
+  { id: 'deferred', label: 'Deferred', statuses: [] },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -284,19 +286,23 @@ export const AGENT_LABELS: Record<AgentType, string> = {
 /** UI-derived status that includes metadata-based states */
 export type DisplayStatus =
   | 'open'
+  | 'registered'
   | 'analyzing'
   | 'planned'
   | 'in_progress'
   | 'resolved'
-  | 'closed';
+  | 'closed'
+  | 'deferred';
 
 export const ISSUE_DISPLAY_STATUS_COLORS: Record<DisplayStatus, string> = {
   open: '#A09D97',
+  registered: '#C8863A',
   analyzing: '#5B8DB8',
   planned: '#9178B5',
   in_progress: '#B89540',
   resolved: '#5A9E78',
   closed: '#6B6966',
+  deferred: '#8B8685',
 } as const;
 
 /**
@@ -311,6 +317,12 @@ export function getDisplayStatus(issue: Issue): DisplayStatus {
       return 'resolved';
     case 'in_progress':
       return 'in_progress';
+    case 'deferred':
+      return 'deferred';
+    case 'registered':
+      if (issue.solution) return 'planned';
+      if (issue.analysis) return 'analyzing';
+      return 'registered';
     case 'open':
       if (issue.solution) return 'planned';
       if (issue.analysis) return 'analyzing';

@@ -114,19 +114,75 @@ function PhaseDetail({ phaseId }: { phaseId: number }) {
         </div>
       )}
 
+      {/* Success Criteria */}
+      {phase.success_criteria.length > 0 && (
+        <div>
+          <div className="text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[0.06em] text-text-tertiary mb-[var(--spacing-2)]">
+            Success Criteria
+          </div>
+          <div>
+            {phase.success_criteria.map((criteria, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-[var(--spacing-2)] py-[var(--spacing-1-5)] border-b border-border-divider last:border-b-0 text-[length:var(--font-size-xs)]"
+              >
+                <span className="text-text-tertiary shrink-0">•</span>
+                <span className="flex-1 text-text-secondary">{criteria}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Verification */}
+      {phase.verification.status !== 'pending' && (
+        <div>
+          <div className="text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[0.06em] text-text-tertiary mb-[var(--spacing-2)]">
+            Verification
+          </div>
+          <div className="space-y-[var(--spacing-1)]">
+            <div className="flex items-center gap-[var(--spacing-2)] text-[length:var(--font-size-xs)]">
+              <span className={`w-2 h-2 rounded-full ${phase.verification.status === 'passed' ? 'bg-[var(--color-status-completed)]' : 'bg-[var(--color-status-executing)]'}`} />
+              <span className="text-text-primary capitalize">{phase.verification.status}</span>
+            </div>
+            {phase.verification.gaps.length > 0 && (
+              <div className="text-[length:var(--font-size-xs)] text-text-secondary space-y-[var(--spacing-1)]">
+                {phase.verification.gaps.map((gap, i) => (
+                  <div key={i} className="flex items-start gap-[var(--spacing-1)] text-[#C46555]">
+                    <span className="shrink-0">⚠</span>
+                    <span>{typeof gap === 'string' ? gap : gap.description ?? gap.id ?? JSON.stringify(gap)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Tasks checklist */}
       <div>
         <div className="text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[0.06em] text-text-tertiary mb-[var(--spacing-2)]">
-          Tasks
+          Tasks {phase.plan.task_count > 0 ? `(${phase.execution.tasks_completed}/${phase.plan.task_count})` : ''}
         </div>
         {loading ? (
           <div className="text-[length:var(--font-size-xs)] text-text-tertiary py-[var(--spacing-2)]">
             Loading tasks...
           </div>
         ) : tasks.length === 0 ? (
-          <div className="text-[length:var(--font-size-xs)] text-text-tertiary py-[var(--spacing-2)]">
-            No tasks
-          </div>
+          phase.plan.task_ids.length > 0 ? (
+            <div className="text-[length:var(--font-size-xs)] text-text-secondary">
+              {phase.plan.task_ids.map((id) => (
+                <div key={id} className="flex items-center gap-[var(--spacing-2)] py-[var(--spacing-1-5)] border-b border-border-divider last:border-b-0">
+                  <span className="w-3.5 h-3.5 rounded-[4px] border-[1.5px] border-border shrink-0" />
+                  <span className="text-text-primary">{id}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-[length:var(--font-size-xs)] text-text-tertiary py-[var(--spacing-2)]">
+              No tasks
+            </div>
+          )
         ) : (
           <div>
             {tasks.map((task) => {
@@ -170,6 +226,164 @@ function PhaseDetail({ phaseId }: { phaseId: number }) {
           </div>
         )}
       </div>
+
+      {/* Requirements */}
+      {phase.requirements.length > 0 && (
+        <div>
+          <div className="text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[0.06em] text-text-tertiary mb-[var(--spacing-2)]">
+            Requirements
+          </div>
+          <div>
+            {phase.requirements.map((req, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-[var(--spacing-2)] py-[var(--spacing-1-5)] border-b border-border-divider last:border-b-0 text-[length:var(--font-size-xs)]"
+              >
+                <span className="text-text-tertiary shrink-0">•</span>
+                <span className="flex-1 text-text-secondary">{req}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Spec Reference */}
+      {phase.spec_ref && (
+        <div>
+          <div className="text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[0.06em] text-text-tertiary mb-[var(--spacing-2)]">
+            Spec Reference
+          </div>
+          <span className="text-[length:var(--font-size-xs)] text-text-secondary font-mono">
+            {phase.spec_ref}
+          </span>
+        </div>
+      )}
+
+      {/* Plan Details */}
+      {(phase.plan.complexity || phase.plan.waves.length > 0) && (
+        <div>
+          <div className="text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[0.06em] text-text-tertiary mb-[var(--spacing-2)]">
+            Plan Details
+          </div>
+          <div className="text-[length:var(--font-size-xs)] text-text-secondary space-y-[var(--spacing-1)]">
+            {phase.plan.complexity && (
+              <div>Complexity: <span className="text-text-primary">{phase.plan.complexity}</span></div>
+            )}
+            {phase.plan.waves.length > 0 && (
+              <div>Waves: <span className="text-text-primary">{phase.plan.waves.length}</span> ({phase.plan.waves.map((w, i) => {
+                const count = Array.isArray(w) ? w.length : (w as { tasks: string[] }).tasks?.length ?? 0;
+                return `W${i + 1}: ${count} tasks`;
+              }).join(', ')})</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Execution Details */}
+      {phase.execution.method && (
+        <div>
+          <div className="text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[0.06em] text-text-tertiary mb-[var(--spacing-2)]">
+            Execution
+          </div>
+          <div className="text-[length:var(--font-size-xs)] text-text-secondary space-y-[var(--spacing-1)]">
+            <div>Method: <span className="text-text-primary">{phase.execution.method}</span></div>
+            {phase.execution.commits.length > 0 && (
+              <div>
+                <span>Commits:</span>
+                <div className="mt-[var(--spacing-1)] space-y-[var(--spacing-0-5)]">
+                  {phase.execution.commits.map((commit, i) => (
+                    <div key={i} className="font-mono text-[length:10px] text-text-tertiary truncate">
+                      {typeof commit === 'string' ? commit : `${commit.hash.slice(0, 7)} ${commit.message}`}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Validation */}
+      {phase.validation.status !== 'pending' && (
+        <div>
+          <div className="text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[0.06em] text-text-tertiary mb-[var(--spacing-2)]">
+            Validation
+          </div>
+          <div className="text-[length:var(--font-size-xs)] text-text-secondary space-y-[var(--spacing-1)]">
+            <div className="flex items-center gap-[var(--spacing-2)]">
+              <span className={`w-2 h-2 rounded-full ${phase.validation.status === 'passed' ? 'bg-[var(--color-status-completed)]' : 'bg-[var(--color-status-executing)]'}`} />
+              <span className="text-text-primary capitalize">{phase.validation.status}</span>
+            </div>
+            {phase.validation.test_coverage !== null && (
+              <div>Test Coverage: <span className="text-text-primary">
+                {typeof phase.validation.test_coverage === 'number'
+                  ? `${phase.validation.test_coverage}%`
+                  : `${phase.validation.test_coverage.lines}%`}
+              </span></div>
+            )}
+            {phase.validation.gaps.length > 0 && (
+              <div className="space-y-[var(--spacing-1)]">
+                {phase.validation.gaps.map((gap, i) => (
+                  <div key={i} className="flex items-start gap-[var(--spacing-1)] text-[#C46555]">
+                    <span className="shrink-0">⚠</span>
+                    <span>{typeof gap === 'string' ? gap : gap.description ?? gap.requirement ?? JSON.stringify(gap)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* UAT */}
+      {phase.uat.test_count > 0 && (
+        <div>
+          <div className="text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[0.06em] text-text-tertiary mb-[var(--spacing-2)]">
+            UAT
+          </div>
+          <div className="text-[length:var(--font-size-xs)] text-text-secondary space-y-[var(--spacing-1)]">
+            <div className="flex items-center gap-[var(--spacing-2)]">
+              <span className="text-text-primary capitalize">{phase.uat.status}</span>
+              <span className="text-text-tertiary">({phase.uat.passed}/{phase.uat.test_count} passed)</span>
+            </div>
+            {phase.uat.gaps.length > 0 && (
+              <div className="space-y-[var(--spacing-1)]">
+                {phase.uat.gaps.map((gap, i) => (
+                  <div key={i} className="flex items-start gap-[var(--spacing-1)] text-[#C46555]">
+                    <span className="shrink-0">⚠</span>
+                    <span>{typeof gap === 'string' ? gap : gap.description ?? JSON.stringify(gap)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Reflection */}
+      {phase.reflection.rounds > 0 && (
+        <div>
+          <div className="text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[0.06em] text-text-tertiary mb-[var(--spacing-2)]">
+            Reflection
+          </div>
+          <div className="text-[length:var(--font-size-xs)] text-text-secondary space-y-[var(--spacing-1)]">
+            <div>Rounds: <span className="text-text-primary">{phase.reflection.rounds}</span></div>
+            {phase.reflection.strategy_adjustments.length > 0 && (
+              <div>
+                {phase.reflection.strategy_adjustments.map((adj, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-[var(--spacing-2)] py-[var(--spacing-1)] border-b border-border-divider last:border-b-0"
+                  >
+                    <span className="text-text-tertiary shrink-0">•</span>
+                    <span>{adj}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Activity log */}
       <div>

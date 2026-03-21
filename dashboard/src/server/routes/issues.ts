@@ -33,8 +33,8 @@ import {
 // ---------------------------------------------------------------------------
 
 const STATUS_MAP: Record<string, IssueStatus> = {
-  registered: 'open',
-  deferred: 'open',
+  registered: 'registered',
+  deferred: 'deferred',
   open: 'open',
   in_progress: 'in_progress',
   resolved: 'resolved',

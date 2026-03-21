@@ -423,3 +423,288 @@ describe('Full CRUD integration cycle', () => {
     expect(afterBody.entries.find((e) => e.id === id)).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Unified [type] [date] format parsing
+// ---------------------------------------------------------------------------
+
+describe('Unified [type] [date] format', () => {
+  const UNIFIED_SPEC = `---
+title: "learnings"
+category: general
+keywords: []
+---
+
+# Learnings
+
+### [bug] [2026-03-20] Off-by-one in pagination when page=0
+
+The pagination helper returns empty results for page 0 because
+it subtracts 1 before clamping.
+
+### [pattern] [2026-03-21] Use factory functions for test data
+
+Factory functions like \`makeIssue()\` reduce boilerplate.
+`;
+
+  it('parses unified format entries with correct type, date, and clean title', async () => {
+    await seedSpecFile('learnings.md', UNIFIED_SPEC);
+
+    const res = await app.request('/api/specs');
+    const body = (await res.json()) as { entries: SpecEntry[] };
+    expect(body.entries).toHaveLength(2);
+
+    expect(body.entries[0].type).toBe('bug');
+    expect(body.entries[0].timestamp).toBe('2026-03-20');
+    expect(body.entries[0].title).toBe('Off-by-one in pagination when page=0');
+
+    expect(body.entries[1].type).toBe('pattern');
+    expect(body.entries[1].timestamp).toBe('2026-03-21');
+    expect(body.entries[1].title).toBe('Use factory functions for test data');
+  });
+
+  it('POST writes unified format and round-trips correctly', async () => {
+    const res = await app.request('/api/specs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'decision',
+        content: 'Use Zod for runtime validation',
+        file: 'learnings',
+      }),
+    });
+    expect(res.status).toBe(201);
+
+    const listRes = await app.request('/api/specs');
+    const listBody = (await listRes.json()) as { entries: SpecEntry[] };
+    const entry = listBody.entries.find((e) => e.title === 'Use Zod for runtime validation');
+    expect(entry).toBeDefined();
+    expect(entry!.type).toBe('decision');
+    expect(entry!.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('DELETE removes unified format entry via reconstructed exact match', async () => {
+    await seedSpecFile('learnings.md', UNIFIED_SPEC);
+
+    const listRes = await app.request('/api/specs/file/learnings.md');
+    const listBody = (await listRes.json()) as { entries: SpecEntry[] };
+    expect(listBody.entries).toHaveLength(2);
+
+    const targetId = listBody.entries[0].id;
+    const deleteRes = await app.request(`/api/specs/${targetId}`, { method: 'DELETE' });
+    expect(deleteRes.status).toBe(200);
+
+    const afterRes = await app.request('/api/specs/file/learnings.md');
+    const afterBody = (await afterRes.json()) as { entries: SpecEntry[] };
+    expect(afterBody.entries).toHaveLength(1);
+    expect(afterBody.entries[0].title).toBe('Use factory functions for test data');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Extended types (debug, test, review, validation)
+// ---------------------------------------------------------------------------
+
+describe('Extended entry types', () => {
+  it('parses all 8 entry types from [type] bracket format', async () => {
+    const allTypes = `---
+title: "all-types"
+category: general
+keywords: []
+---
+
+# All Types
+
+### [bug] [2026-01-01] Bug entry
+bug content
+
+### [pattern] [2026-01-02] Pattern entry
+pattern content
+
+### [decision] [2026-01-03] Decision entry
+decision content
+
+### [rule] [2026-01-04] Rule entry
+rule content
+
+### [debug] [2026-01-05] Debug entry
+debug content
+
+### [test] [2026-01-06] Test entry
+test content
+
+### [review] [2026-01-07] Review entry
+review content
+
+### [validation] [2026-01-08] Validation entry
+validation content
+`;
+    await seedSpecFile('all-types.md', allTypes);
+
+    const res = await app.request('/api/specs');
+    const body = (await res.json()) as { entries: SpecEntry[] };
+    expect(body.entries).toHaveLength(8);
+
+    const types = body.entries.map((e) => e.type);
+    expect(types).toEqual(['bug', 'pattern', 'decision', 'rule', 'debug', 'test', 'review', 'validation']);
+  });
+
+  it('POST accepts extended types', async () => {
+    for (const type of ['debug', 'test', 'review', 'validation'] as const) {
+      const res = await app.request('/api/specs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, content: `${type} entry content`, file: 'learnings' }),
+      });
+      expect(res.status).toBe(201);
+    }
+
+    const listRes = await app.request('/api/specs');
+    const listBody = (await listRes.json()) as { entries: SpecEntry[] };
+    expect(listBody.entries).toHaveLength(4);
+
+    const types = listBody.entries.map((e) => e.type);
+    expect(types).toContain('debug');
+    expect(types).toContain('test');
+    expect(types).toContain('review');
+    expect(types).toContain('validation');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// detectEntryType word boundary — no substring collisions
+// ---------------------------------------------------------------------------
+
+describe('Type detection word boundary', () => {
+  it('debug: heading is detected as debug, not bug', async () => {
+    const spec = `---
+title: "wb"
+category: general
+keywords: []
+---
+
+# WB
+
+### debug: Fix crash on startup
+
+Fixed null pointer in init sequence.
+`;
+    await seedSpecFile('wb.md', spec);
+
+    const res = await app.request('/api/specs');
+    const body = (await res.json()) as { entries: SpecEntry[] };
+    expect(body.entries).toHaveLength(1);
+    expect(body.entries[0].type).toBe('debug');
+  });
+
+  it('preview: heading is not misdetected as review', async () => {
+    const spec = `---
+title: "wb2"
+category: general
+keywords: []
+---
+
+# WB2
+
+### Preview: New dashboard layout
+
+Showing the new layout concept.
+`;
+    await seedSpecFile('wb2.md', spec);
+
+    const res = await app.request('/api/specs');
+    const body = (await res.json()) as { entries: SpecEntry[] };
+    expect(body.entries).toHaveLength(1);
+    expect(body.entries[0].type).toBe('general');
+  });
+
+  it('latest: heading is not misdetected as test', async () => {
+    const spec = `---
+title: "wb3"
+category: general
+keywords: []
+---
+
+# WB3
+
+### Latest: Performance improvements
+
+Upgraded the rendering pipeline.
+`;
+    await seedSpecFile('wb3.md', spec);
+
+    const res = await app.request('/api/specs');
+    const body = (await res.json()) as { entries: SpecEntry[] };
+    expect(body.entries).toHaveLength(1);
+    expect(body.entries[0].type).toBe('general');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Clean title extraction
+// ---------------------------------------------------------------------------
+
+describe('Clean title extraction', () => {
+  it('strips [type] and [date] markers from title', async () => {
+    const spec = `---
+title: "ct"
+category: general
+keywords: []
+---
+
+# CT
+
+### [bug] [2026-03-20] Memory leak in WebSocket handler
+
+Leak details here.
+`;
+    await seedSpecFile('ct.md', spec);
+
+    const res = await app.request('/api/specs');
+    const body = (await res.json()) as { entries: SpecEntry[] };
+    expect(body.entries[0].title).toBe('Memory leak in WebSocket handler');
+  });
+
+  it('strips legacy "type:" prefix from title', async () => {
+    const spec = `---
+title: "ct2"
+category: general
+keywords: []
+---
+
+# CT2
+
+## [2026-01-15] bug: Connection timeout on slow networks
+
+Details here.
+`;
+    await seedSpecFile('ct2.md', spec);
+
+    const res = await app.request('/api/specs');
+    const body = (await res.json()) as { entries: SpecEntry[] };
+    expect(body.entries[0].title).toBe('Connection timeout on slow networks');
+  });
+
+  it('strips bare ISO timestamp from title', async () => {
+    const spec = `---
+title: "ct3"
+category: general
+keywords: []
+---
+
+# CT3
+
+### [BUG] 2026-03-21T10:30:00Z
+
+Bare timestamp format from old spec-add.
+`;
+    await seedSpecFile('ct3.md', spec);
+
+    const res = await app.request('/api/specs');
+    const body = (await res.json()) as { entries: SpecEntry[] };
+    expect(body.entries[0].type).toBe('bug');
+    expect(body.entries[0].timestamp).toBe('2026-03-21');
+    // Title should be empty after stripping, so falls back to raw heading
+    expect(body.entries[0].title).toBe('[BUG] 2026-03-21T10:30:00Z');
+  });
+});

@@ -5,7 +5,7 @@ import type { BoardState, PhaseCard, TaskCard } from '@/shared/types.js';
 // Board store — global state for dashboard
 // ---------------------------------------------------------------------------
 
-/** Coerce gap entries (may be strings or {description} objects) to string[] */
+/** Coerce gap entries (may be strings or {description/requirement/id} objects) to string[] */
 function normalizeGaps(gaps: unknown): string[] {
   if (!Array.isArray(gaps)) return [];
   return gaps.map((g) => {
@@ -13,6 +13,7 @@ function normalizeGaps(gaps: unknown): string[] {
     if (g && typeof g === 'object') {
       const obj = g as Record<string, unknown>;
       if (typeof obj.description === 'string') return obj.description;
+      if (typeof obj.requirement === 'string') return obj.requirement;
       if (typeof obj.text === 'string') return obj.text;
       if (typeof obj.id === 'string') return `Gap ${obj.id}`;
     }
@@ -42,7 +43,11 @@ function normalizePhase(p: PhaseCard): PhaseCard {
     },
     validation: {
       status: String(validation.status ?? 'pending'),
-      test_coverage: typeof validation.test_coverage === 'number' ? validation.test_coverage : null,
+      test_coverage: typeof validation.test_coverage === 'number'
+        ? validation.test_coverage
+        : (validation.test_coverage && typeof validation.test_coverage === 'object')
+          ? validation.test_coverage as { statements: number; branches: number; functions: number; lines: number }
+          : null,
       gaps: normalizeGaps(validation.gaps),
     },
     uat: {
