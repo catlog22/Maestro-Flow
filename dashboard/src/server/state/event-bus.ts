@@ -25,6 +25,11 @@ import type {
   CoordinateAnalysisPayload,
 } from '../../shared/coordinate-types.js';
 import type {
+  RequirementProgressPayload,
+  RequirementExpandedPayload,
+  RequirementCommittedPayload,
+} from '../../shared/requirement-types.js';
+import type {
   ExecutionStartedPayload,
   ExecutionCompletedPayload,
   ExecutionFailedPayload,
@@ -60,6 +65,10 @@ const ALL_EVENT_TYPES: SSEEventType[] = [
   'coordinate:status',
   'coordinate:step',
   'coordinate:analysis',
+  'requirement:expanded',
+  'requirement:refined',
+  'requirement:committed',
+  'requirement:progress',
   'workspace:switched',
 ];
 
@@ -97,6 +106,11 @@ export interface DashboardEventMap {
   'coordinate:status': CoordinateStatusPayload;
   'coordinate:step': CoordinateStepPayload;
   'coordinate:analysis': CoordinateAnalysisPayload;
+  // Requirement events
+  'requirement:expanded': RequirementExpandedPayload;
+  'requirement:refined': RequirementExpandedPayload;
+  'requirement:committed': RequirementCommittedPayload;
+  'requirement:progress': RequirementProgressPayload;
   // Workspace events
   'workspace:switched': { workspace: string };
 }

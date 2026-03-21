@@ -5,6 +5,7 @@
 import type { AgentConfig, AgentProcess, AgentType, NormalizedEntry, ApprovalRequest, AgentStatusPayload, AgentStoppedPayload } from './agent-types.js';
 import type { CommanderConfig } from './commander-types.js';
 import type { SupervisorConfig, SupervisorStatus } from './execution-types.js';
+import type { ExpansionDepth } from './requirement-types.js';
 
 // ---------------------------------------------------------------------------
 // WS event types — discriminator values for server messages
@@ -35,6 +36,11 @@ export type WsEventType =
   | 'coordinate:status'
   | 'coordinate:step'
   | 'coordinate:analysis'
+  // Requirement events
+  | 'requirement:expanded'
+  | 'requirement:refined'
+  | 'requirement:committed'
+  | 'requirement:progress'
   // Board events (mirrored from SSE for WS clients)
   | 'board:full'
   | 'phase:updated'
@@ -89,7 +95,10 @@ export type WsClientMessage =
   | WsClientWaveExecuteMessage
   | WsClientCoordinateStartMessage
   | WsClientCoordinateStopMessage
-  | WsClientCoordinateResumeMessage;
+  | WsClientCoordinateResumeMessage
+  | WsClientRequirementExpandMessage
+  | WsClientRequirementRefineMessage
+  | WsClientRequirementCommitMessage;
 
 export interface WsClientSpawnMessage {
   action: 'spawn';
@@ -217,6 +226,28 @@ export interface WsClientCoordinateStopMessage {
 export interface WsClientCoordinateResumeMessage {
   action: 'coordinate:resume';
   sessionId?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Requirement client messages
+// ---------------------------------------------------------------------------
+
+export interface WsClientRequirementExpandMessage {
+  action: 'requirement:expand';
+  text: string;
+  depth?: ExpansionDepth;
+}
+
+export interface WsClientRequirementRefineMessage {
+  action: 'requirement:refine';
+  requirementId: string;
+  feedback: string;
+}
+
+export interface WsClientRequirementCommitMessage {
+  action: 'requirement:commit';
+  requirementId: string;
+  mode: 'issues' | 'coordinate';
 }
 
 // ---------------------------------------------------------------------------

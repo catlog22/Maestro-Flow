@@ -10,9 +10,11 @@ import { useIssueStore } from '@/client/store/issue-store.js';
 /** Map column ID → default issue status */
 const COLUMN_TO_STATUS: Record<string, IssueStatus> = {
   backlog: 'open',
+  triage: 'registered',
   'in-progress': 'in_progress',
   review: 'resolved',
   done: 'closed',
+  deferred: 'deferred',
 };
 
 const TYPES: { value: IssueType; label: string; color: string }[] = [

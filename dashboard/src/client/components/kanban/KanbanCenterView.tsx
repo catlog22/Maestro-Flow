@@ -33,11 +33,11 @@ interface KanbanCenterViewProps {
 
 export function KanbanCenterView({ localIssues, linearIssues, selectedItem, onSelectItem }: KanbanCenterViewProps) {
   const openIssues = useMemo(
-    () => (localIssues ?? []).filter((i) => i.status === 'open' || i.status === 'in_progress'),
+    () => (localIssues ?? []).filter((i) => i.status === 'open' || i.status === 'registered' || i.status === 'in_progress'),
     [localIssues],
   );
   const closedIssues = useMemo(
-    () => (localIssues ?? []).filter((i) => i.status === 'resolved' || i.status === 'closed'),
+    () => (localIssues ?? []).filter((i) => i.status === 'resolved' || i.status === 'closed' || i.status === 'deferred'),
     [localIssues],
   );
 

@@ -4,6 +4,7 @@ import { useAgentStore } from '@/client/store/agent-store.js';
 import { useExecutionStore } from '@/client/store/execution-store.js';
 import { useCoordinateStore } from '@/client/store/coordinate-store.js';
 import { useIssueStore } from '@/client/store/issue-store.js';
+import { useRequirementStore } from '@/client/store/requirement-store.js';
 import { WS_EVENT_TYPES } from '@/shared/constants.js';
 import type { BoardState, PhaseCard } from '@/shared/types.js';
 import type { WsServerMessage, WsClientMessage, ExecutionStartedPayload, ExecutionCompletedPayload, ExecutionFailedPayload } from '@/shared/ws-protocol.js';
@@ -11,6 +12,7 @@ import type { AgentProcess, NormalizedEntry, ApprovalRequest, AgentStatusPayload
 import type { SupervisorStatus } from '@/shared/execution-types.js';
 import type { CommanderState, Decision } from '@/shared/commander-types.js';
 import type { CoordinateStatusPayload, CoordinateStepPayload, CoordinateAnalysisPayload } from '@/shared/coordinate-types.js';
+import type { RequirementProgressPayload, RequirementExpandedPayload, RequirementCommittedPayload, RequirementErrorPayload } from '@/shared/requirement-types.js';
 
 // ---------------------------------------------------------------------------
 // useWebSocket — connect to /ws, dispatch to stores, auto-reconnect
@@ -64,6 +66,12 @@ export function useWebSocket(): void {
       onAnalysis: coordinateOnAnalysis,
     } = useCoordinateStore.getState();
     const { fetchIssues } = useIssueStore.getState();
+    const {
+      onProgress: requirementOnProgress,
+      onExpanded: requirementOnExpanded,
+      onCommitted: requirementOnCommitted,
+      onError: requirementOnError,
+    } = useRequirementStore.getState();
 
     function connect() {
       if (disposed) return;
@@ -265,6 +273,19 @@ export function useWebSocket(): void {
             coordinateOnAnalysis(analysisData);
             break;
           }
+
+          // --- Requirement events ---
+          case WS_EVENT_TYPES.REQUIREMENT_PROGRESS:
+            requirementOnProgress(msg.data as RequirementProgressPayload);
+            break;
+
+          case WS_EVENT_TYPES.REQUIREMENT_EXPANDED:
+            requirementOnExpanded(msg.data as RequirementExpandedPayload);
+            break;
+
+          case WS_EVENT_TYPES.REQUIREMENT_COMMITTED:
+            requirementOnCommitted(msg.data as RequirementCommittedPayload);
+            break;
 
           default:
             // Ignore unknown event types

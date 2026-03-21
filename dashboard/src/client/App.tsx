@@ -34,6 +34,14 @@ const TeamsPage = lazy(() =>
   import('@/client/pages/TeamsPage.js').then((m) => ({ default: m.TeamsPage })),
 );
 
+const RequirementPage = lazy(() =>
+  import('@/client/pages/RequirementPage.js').then((m) => ({ default: m.RequirementPage })),
+);
+
+const RequirementBoardPage = lazy(() =>
+  import('@/client/pages/RequirementBoardPage.js').then((m) => ({ default: m.RequirementBoardPage })),
+);
+
 // ---------------------------------------------------------------------------
 // App — root component with React Router v6 layout routes
 // ---------------------------------------------------------------------------
@@ -105,6 +113,22 @@ export function App() {
             element={
               <Suspense fallback={<LazyFallback />}>
                 <TeamsPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="requirement"
+            element={
+              <Suspense fallback={<LazyFallback />}>
+                <RequirementPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="requirement/:id/board"
+            element={
+              <Suspense fallback={<LazyFallback />}>
+                <RequirementBoardPage />
               </Suspense>
             }
           />

@@ -10,6 +10,7 @@ import type { ExecutionScheduler } from '../execution/execution-scheduler.js';
 import type { WaveExecutor } from '../execution/wave-executor.js';
 import type { CommanderAgent } from '../commander/commander-agent.js';
 import type { CoordinateRunner } from '../coordinator/coordinate-runner.js';
+import type { RequirementExpander } from '../requirement/requirement-expander.js';
 import { loadDashboardAgentSettings } from '../config.js';
 import { readIssuesJsonl } from '../utils/issue-store.js';
 import { EntryNormalizer } from '../agents/entry-normalizer.js';
@@ -31,12 +32,13 @@ export class WebSocketManager {
     private readonly workflowRoot: string = process.cwd(),
     private readonly waveExecutor?: WaveExecutor,
     private readonly coordinateRunner?: CoordinateRunner,
+    private readonly requirementExpander?: RequirementExpander,
   ) {
     this.wss = new WebSocketServer({ noServer: true });
 
     // Subscribe to all EventBus events and broadcast as WsServerMessage
     this.eventListener = (event: SSEEvent) => {
-      this.broadcast(event.type as WsEventType, event.data);
+      this.broadcast(event.type , event.data);
     };
     this.eventBus.onAny(this.eventListener);
 
@@ -304,6 +306,71 @@ export class WebSocketManager {
               const message = err instanceof Error ? err.message : String(err);
               this.sendError(ws, 'coordinate:resume', message);
             });
+        }
+        break;
+
+      // --- Requirement actions ---------------------------------------------------
+      case 'requirement:expand':
+        if (this.requirementExpander) {
+          this.requirementExpander.expand(msg.text, msg.depth)
+            .then((requirement) => {
+              this.broadcast('requirement:expanded', { requirement });
+            })
+            .catch((err: unknown) => {
+              const message = err instanceof Error ? err.message : String(err);
+              this.sendError(ws, 'requirement:expand', message);
+            });
+        } else {
+          this.sendError(ws, 'requirement:expand', 'RequirementExpander not available');
+        }
+        break;
+
+      case 'requirement:refine':
+        if (this.requirementExpander) {
+          this.requirementExpander.refine(msg.requirementId, msg.feedback)
+            .then((requirement) => {
+              this.broadcast('requirement:expanded', { requirement });
+            })
+            .catch((err: unknown) => {
+              const message = err instanceof Error ? err.message : String(err);
+              this.sendError(ws, 'requirement:refine', message);
+            });
+        } else {
+          this.sendError(ws, 'requirement:refine', 'RequirementExpander not available');
+        }
+        break;
+
+      case 'requirement:commit':
+        if (this.requirementExpander) {
+          if (msg.mode === 'issues') {
+            this.requirementExpander.commitAsIssues(msg.requirementId)
+              .then((issueIds) => {
+                this.broadcast('requirement:committed', {
+                  requirementId: msg.requirementId,
+                  mode: 'issues',
+                  issueIds,
+                });
+              })
+              .catch((err: unknown) => {
+                const message = err instanceof Error ? err.message : String(err);
+                this.sendError(ws, 'requirement:commit', message);
+              });
+          } else {
+            this.requirementExpander.commitAsCoordinate(msg.requirementId)
+              .then((coordinateSessionId) => {
+                this.broadcast('requirement:committed', {
+                  requirementId: msg.requirementId,
+                  mode: 'coordinate',
+                  coordinateSessionId,
+                });
+              })
+              .catch((err: unknown) => {
+                const message = err instanceof Error ? err.message : String(err);
+                this.sendError(ws, 'requirement:commit', message);
+              });
+          }
+        } else {
+          this.sendError(ws, 'requirement:commit', 'RequirementExpander not available');
         }
         break;
 

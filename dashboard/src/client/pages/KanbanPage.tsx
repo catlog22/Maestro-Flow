@@ -31,7 +31,7 @@ import Upload from 'lucide-react/dist/esm/icons/upload.js';
 // KanbanPage — Issue Kanban with execution controls
 // ---------------------------------------------------------------------------
 
-const FILTER_CHIPS = ['All', 'Open', 'In Progress', 'Resolved'] as const;
+const FILTER_CHIPS = ['All', 'Open', 'Registered', 'In Progress', 'Resolved', 'Deferred'] as const;
 
 type ActiveView = 'kanban' | 'table' | 'center';
 

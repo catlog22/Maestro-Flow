@@ -22,6 +22,8 @@ import { createSpecsRoutes } from './specs.js';
 import { createLinearRoutes } from './linear.js';
 import { createTeamRoutes } from './teams.js';
 import { createCommanderRoutes } from '../commander/commander-routes.js';
+import { createRequirementRoutes } from './requirements.js';
+import type { RequirementExpander } from '../requirement/requirement-expander.js';
 
 /**
  * Aggregate all route modules into a single Hono app.
@@ -40,6 +42,7 @@ export function createRoutes(
   agentManager: AgentManager,
   executionScheduler?: ExecutionScheduler,
   commanderAgent?: CommanderAgent,
+  requirementExpander?: RequirementExpander,
 ): Hono {
   const routes = new Hono();
 
@@ -92,6 +95,11 @@ export function createRoutes(
   // Commander routes (depends on CommanderAgent)
   if (commanderAgent) {
     routes.route('/', createCommanderRoutes(commanderAgent));
+  }
+
+  // Requirement routes (depends on RequirementExpander)
+  if (requirementExpander) {
+    routes.route('/', createRequirementRoutes(requirementExpander));
   }
 
   return routes;

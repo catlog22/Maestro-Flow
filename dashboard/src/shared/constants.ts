@@ -147,6 +147,11 @@ export const WS_EVENT_TYPES: Record<string, WsEventType> = {
   COORDINATE_STATUS: 'coordinate:status',
   COORDINATE_STEP: 'coordinate:step',
   COORDINATE_ANALYSIS: 'coordinate:analysis',
+  // Requirement events
+  REQUIREMENT_EXPANDED: 'requirement:expanded',
+  REQUIREMENT_REFINED: 'requirement:refined',
+  REQUIREMENT_COMMITTED: 'requirement:committed',
+  REQUIREMENT_PROGRESS: 'requirement:progress',
   // Board events (shared with SSE)
   BOARD_FULL: 'board:full',
   PHASE_UPDATED: 'phase:updated',

@@ -57,9 +57,11 @@
   },
   "columns": {
     "backlog": "待办",
+    "triage": "已登记",
     "in_progress": "进行中",
     "review": "审查",
-    "done": "完成"
+    "done": "完成",
+    "deferred": "已推迟"
   },
   "kanban": {
     "wave": "波次",

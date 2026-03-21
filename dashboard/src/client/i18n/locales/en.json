@@ -57,9 +57,11 @@
   },
   "columns": {
     "backlog": "Backlog",
+    "triage": "Triage",
     "in_progress": "In Progress",
     "review": "Review",
-    "done": "Done"
+    "done": "Done",
+    "deferred": "Deferred"
   },
   "kanban": {
     "wave": "Wave",

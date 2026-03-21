@@ -26,6 +26,7 @@ import { WaveExecutor } from './execution/wave-executor.js';
 import { CommanderAgent } from './commander/commander-agent.js';
 import { loadCommanderConfig } from './commander/commander-config.js';
 import { CoordinateRunner } from './coordinator/coordinate-runner.js';
+import { RequirementExpander } from './requirement/requirement-expander.js';
 import { createRoutes } from './routes/index.js';
 
 async function main(): Promise<void> {
@@ -99,9 +100,19 @@ async function main(): Promise<void> {
   const coordinateRunner = new CoordinateRunner(eventBus, agentManager, workflowRoot);
 
   // ---------------------------------------------------------------------------
+  // Requirement Expander — expand user requirements into structured checklists
+  // ---------------------------------------------------------------------------
+  const requirementExpander = new RequirementExpander(coordinateRunner, jsonlPath);
+
+  // Forward requirement progress events to EventBus for WS broadcast
+  requirementExpander.onProgress((payload) => {
+    eventBus.emit('requirement:progress', payload);
+  });
+
+  // ---------------------------------------------------------------------------
   // WebSocket Manager — broadcasts EventBus events to connected WS clients
   // ---------------------------------------------------------------------------
-  const wsManager = new WebSocketManager(eventBus, agentManager, executionScheduler, commanderAgent, workflowRoot, waveExecutor, coordinateRunner);
+  const wsManager = new WebSocketManager(eventBus, agentManager, executionScheduler, commanderAgent, workflowRoot, waveExecutor, coordinateRunner, requirementExpander);
 
   // ---------------------------------------------------------------------------
   // Hono application
