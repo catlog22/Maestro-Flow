@@ -127,6 +127,7 @@ export function DockRail({ isPinned, onTogglePin }: DockRailProps) {
                   key={proc.id}
                   process={proc}
                   isActive={proc.id === activeProcessId}
+                  onSelect={() => { useAgentStore.getState().setActiveProcessId(proc.id); navigate('/chat'); }}
                 />
               ))
             : phases.map((phase) => (
@@ -305,9 +306,11 @@ function NavIcon({ icon }: { icon: DockNavItem['icon'] }) {
 function SessionDot({
   process,
   isActive,
+  onSelect,
 }: {
   process: AgentProcess;
   isActive: boolean;
+  onSelect: () => void;
 }) {
   const color = AGENT_DOT_COLORS[process.type] ?? 'var(--color-text-tertiary)';
   const isRunning = process.status === 'running' || process.status === 'spawning';
@@ -316,6 +319,7 @@ function SessionDot({
     <span
       role="listitem"
       title={`${process.type} — ${process.status}`}
+      onClick={onSelect}
       className={[
         'relative w-2 h-2 rounded-full cursor-pointer transition-transform duration-150 hover:scale-[1.4]',
         isActive ? 'ring-2 ring-offset-2 ring-offset-bg-secondary' : '',
@@ -374,12 +378,13 @@ function SessionItem({
 }) {
   const color = AGENT_DOT_COLORS[process.type] ?? 'var(--color-text-tertiary)';
   const setActive = useAgentStore((s) => s.setActiveProcessId);
+  const navigate = useNavigate();
   const elapsed = getElapsed(process.startedAt);
 
   return (
     <button
       type="button"
-      onClick={() => setActive(process.id)}
+      onClick={() => { setActive(process.id); navigate('/chat'); }}
       className={[
         'flex items-center gap-2 px-2.5 py-1.5 rounded-[8px] text-left text-[12px] w-full',
         'transition-all duration-150',

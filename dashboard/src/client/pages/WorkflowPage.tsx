@@ -7,18 +7,20 @@ import { PhaseTimelineView } from '@/client/components/workflow/PhaseTimelineVie
 import { CommandCenterView } from '@/client/components/workflow/CommandCenterView.js';
 import { WfTableView } from '@/client/components/workflow/WfTableView.js';
 import { SetupChecklist } from '@/client/components/workflow/SetupChecklist.js';
+import { CoordinatePanel } from '@/client/components/workflow/CoordinatePanel.js';
 import ColumnsIcon from 'lucide-react/dist/esm/icons/columns-3.js';
 import ListIcon from 'lucide-react/dist/esm/icons/list.js';
 import ActivityIcon from 'lucide-react/dist/esm/icons/activity.js';
 import TableIcon from 'lucide-react/dist/esm/icons/table.js';
+import PlayIcon from 'lucide-react/dist/esm/icons/play.js';
 
 // ---------------------------------------------------------------------------
 // WorkflowPage -- 3-view switcher: Board / Timeline / Center
 // ---------------------------------------------------------------------------
 
-type ActiveView = 'board' | 'timeline' | 'center' | 'table';
+type ActiveView = 'board' | 'timeline' | 'center' | 'table' | 'coordinate';
 
-const VIEW_ORDER: ActiveView[] = ['board', 'timeline', 'center', 'table'];
+const VIEW_ORDER: ActiveView[] = ['board', 'timeline', 'center', 'table', 'coordinate'];
 
 export function WorkflowPage() {
   const [activeView, setActiveView] = useState<ActiveView>('board');
@@ -36,6 +38,7 @@ export function WorkflowPage() {
       { label: 'Timeline', icon: <ListIcon size={14} strokeWidth={2} />, shortcut: '2' },
       { label: 'Center', icon: <ActivityIcon size={14} strokeWidth={2} />, shortcut: '3' },
       { label: 'Table', icon: <TableIcon size={14} strokeWidth={2} />, shortcut: '4' },
+      { label: 'Coordinate', icon: <PlayIcon size={14} strokeWidth={2} />, shortcut: '5' },
     ],
     activeIndex: VIEW_ORDER.indexOf(activeView),
     onSwitch: handleSwitch,
@@ -60,6 +63,7 @@ export function WorkflowPage() {
             {activeView === 'timeline' && <PhaseTimelineView />}
             {activeView === 'center' && <CommandCenterView />}
             {activeView === 'table' && <WfTableView />}
+            {activeView === 'coordinate' && <CoordinatePanel />}
           </>
         )}
       </div>

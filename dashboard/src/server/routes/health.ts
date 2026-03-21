@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { Hono } from 'hono';
 
@@ -12,7 +12,7 @@ export function createHealthRoute(workflowRoot: string, stateManager?: StateMana
     return c.json({
       status: 'ok',
       version: '0.1.0',
-      workspace: workflowRoot,
+      workspace: resolve(workflowRoot, '..'),
     });
   });
 

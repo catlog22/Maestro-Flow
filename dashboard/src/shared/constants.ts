@@ -141,6 +141,10 @@ export const WS_EVENT_TYPES: Record<string, WsEventType> = {
   COMMANDER_TICK: 'commander:tick',
   COMMANDER_DECISION: 'commander:decision',
   COMMANDER_CONFIG: 'commander:config',
+  // Coordinate events
+  COORDINATE_STATUS: 'coordinate:status',
+  COORDINATE_STEP: 'coordinate:step',
+  COORDINATE_ANALYSIS: 'coordinate:analysis',
   // Board events (shared with SSE)
   BOARD_FULL: 'board:full',
   PHASE_UPDATED: 'phase:updated',

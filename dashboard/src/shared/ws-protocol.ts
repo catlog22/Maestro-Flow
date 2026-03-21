@@ -31,6 +31,10 @@ export type WsEventType =
   | 'commander:tick'
   | 'commander:decision'
   | 'commander:config'
+  // Coordinate events
+  | 'coordinate:status'
+  | 'coordinate:step'
+  | 'coordinate:analysis'
   // Board events (mirrored from SSE for WS clients)
   | 'board:full'
   | 'phase:updated'
@@ -81,7 +85,10 @@ export type WsClientMessage =
   | WsClientCommanderStopMessage
   | WsClientCommanderPauseMessage
   | WsClientCommanderConfigMessage
-  | WsClientWaveExecuteMessage;
+  | WsClientWaveExecuteMessage
+  | WsClientCoordinateStartMessage
+  | WsClientCoordinateStopMessage
+  | WsClientCoordinateResumeMessage;
 
 export interface WsClientSpawnMessage {
   action: 'spawn';
@@ -189,6 +196,26 @@ export interface WsClientCommanderConfigMessage {
 export interface WsClientWaveExecuteMessage {
   action: 'execute:wave';
   issueId: string;
+}
+
+// ---------------------------------------------------------------------------
+// Coordinate client messages
+// ---------------------------------------------------------------------------
+
+export interface WsClientCoordinateStartMessage {
+  action: 'coordinate:start';
+  intent: string;
+  tool?: string;
+  autoMode?: boolean;
+}
+
+export interface WsClientCoordinateStopMessage {
+  action: 'coordinate:stop';
+}
+
+export interface WsClientCoordinateResumeMessage {
+  action: 'coordinate:resume';
+  sessionId?: string;
 }
 
 // ---------------------------------------------------------------------------

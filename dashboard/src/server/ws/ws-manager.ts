@@ -9,6 +9,7 @@ import type { AgentManager } from '../agents/agent-manager.js';
 import type { ExecutionScheduler } from '../execution/execution-scheduler.js';
 import type { WaveExecutor } from '../execution/wave-executor.js';
 import type { CommanderAgent } from '../commander/commander-agent.js';
+import type { CoordinateRunner } from '../coordinator/coordinate-runner.js';
 import { loadDashboardAgentSettings } from '../config.js';
 import { readIssuesJsonl } from '../utils/issue-store.js';
 import { EntryNormalizer } from '../agents/entry-normalizer.js';
@@ -29,6 +30,7 @@ export class WebSocketManager {
     private readonly commanderAgent?: CommanderAgent,
     private readonly workflowRoot: string = process.cwd(),
     private readonly waveExecutor?: WaveExecutor,
+    private readonly coordinateRunner?: CoordinateRunner,
   ) {
     this.wss = new WebSocketServer({ noServer: true });
 
@@ -271,6 +273,37 @@ export class WebSocketManager {
       case 'commander:config':
         if (this.commanderAgent) {
           this.commanderAgent.updateConfig(msg.config);
+        }
+        break;
+
+      // --- Coordinate actions ---------------------------------------------------
+      case 'coordinate:start':
+        if (this.coordinateRunner) {
+          this.coordinateRunner.start(msg.intent, { tool: msg.tool, autoMode: msg.autoMode })
+            .catch((err: unknown) => {
+              const message = err instanceof Error ? err.message : String(err);
+              this.sendError(ws, 'coordinate:start', message);
+            });
+        }
+        break;
+
+      case 'coordinate:stop':
+        if (this.coordinateRunner) {
+          this.coordinateRunner.stop()
+            .catch((err: unknown) => {
+              const message = err instanceof Error ? err.message : String(err);
+              this.sendError(ws, 'coordinate:stop', message);
+            });
+        }
+        break;
+
+      case 'coordinate:resume':
+        if (this.coordinateRunner) {
+          this.coordinateRunner.resume(msg.sessionId)
+            .catch((err: unknown) => {
+              const message = err instanceof Error ? err.message : String(err);
+              this.sendError(ws, 'coordinate:resume', message);
+            });
         }
         break;
 

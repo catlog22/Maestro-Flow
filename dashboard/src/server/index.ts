@@ -25,6 +25,7 @@ import { ExecutionScheduler } from './execution/execution-scheduler.js';
 import { WaveExecutor } from './execution/wave-executor.js';
 import { CommanderAgent } from './commander/commander-agent.js';
 import { loadCommanderConfig } from './commander/commander-config.js';
+import { CoordinateRunner } from './coordinator/coordinate-runner.js';
 import { createRoutes } from './routes/index.js';
 
 async function main(): Promise<void> {
@@ -93,9 +94,14 @@ async function main(): Promise<void> {
   const waveExecutor = new WaveExecutor(eventBus, agentManager, projectRoot);
 
   // ---------------------------------------------------------------------------
+  // Coordinate Runner — intent classification + chain execution
+  // ---------------------------------------------------------------------------
+  const coordinateRunner = new CoordinateRunner(eventBus, agentManager, workflowRoot);
+
+  // ---------------------------------------------------------------------------
   // WebSocket Manager — broadcasts EventBus events to connected WS clients
   // ---------------------------------------------------------------------------
-  const wsManager = new WebSocketManager(eventBus, agentManager, executionScheduler, commanderAgent, workflowRoot, waveExecutor);
+  const wsManager = new WebSocketManager(eventBus, agentManager, executionScheduler, commanderAgent, workflowRoot, waveExecutor, coordinateRunner);
 
   // ---------------------------------------------------------------------------
   // Hono application
@@ -150,6 +156,7 @@ async function main(): Promise<void> {
 
   // Graceful shutdown
   const shutdown = async (): Promise<void> => {
+    coordinateRunner.destroy();
     commanderAgent.stop();
     await executionScheduler.destroy();
     await agentManager.stopAll();

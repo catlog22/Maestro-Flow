@@ -20,6 +20,11 @@ import type {
 import type { SupervisorStatus } from '../../shared/execution-types.js';
 import type { CommanderState, Decision, CommanderConfig } from '../../shared/commander-types.js';
 import type {
+  CoordinateStatusPayload,
+  CoordinateStepPayload,
+  CoordinateAnalysisPayload,
+} from '../../shared/coordinate-types.js';
+import type {
   ExecutionStartedPayload,
   ExecutionCompletedPayload,
   ExecutionFailedPayload,
@@ -52,6 +57,9 @@ const ALL_EVENT_TYPES: SSEEventType[] = [
   'commander:tick',
   'commander:decision',
   'commander:config',
+  'coordinate:status',
+  'coordinate:step',
+  'coordinate:analysis',
   'workspace:switched',
 ];
 
@@ -85,6 +93,10 @@ export interface DashboardEventMap {
   'commander:tick': CommanderState;
   'commander:decision': Decision;
   'commander:config': CommanderConfig;
+  // Coordinate events
+  'coordinate:status': CoordinateStatusPayload;
+  'coordinate:step': CoordinateStepPayload;
+  'coordinate:analysis': CoordinateAnalysisPayload;
   // Workspace events
   'workspace:switched': { workspace: string };
 }

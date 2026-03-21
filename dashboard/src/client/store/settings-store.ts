@@ -110,8 +110,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     try {
       const res = await fetch('/api/settings');
       if (!res.ok) throw new Error(`Failed to load settings: ${res.status}`);
-      const data = (await res.json()) as SettingsConfig;
-      const config = { ...DEFAULT_CONFIG, ...data };
+      const data = (await res.json()) as Partial<SettingsConfig>;
+      const mergedAgents = Object.fromEntries(
+        Object.entries(DEFAULT_AGENTS).map(([key, defaults]) => [
+          key,
+          { ...defaults, ...((data.agents as Record<string, AgentSettingsEntry>)?.[key] || {}) },
+        ]),
+      ) as Record<AgentType, AgentSettingsEntry>;
+      const config: SettingsConfig = { ...DEFAULT_CONFIG, ...data, agents: mergedAgents };
       set({ config, draft: deepClone(config), loading: false });
     } catch (err) {
       const config = deepClone(DEFAULT_CONFIG);

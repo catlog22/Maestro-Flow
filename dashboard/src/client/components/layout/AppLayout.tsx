@@ -9,6 +9,7 @@ import { useWebSocket } from '@/client/hooks/useWebSocket.js';
 import { API_ENDPOINTS } from '@/shared/constants.js';
 import { useI18n } from '@/client/i18n/index.js';
 import { SettingsDialog } from '@/client/components/settings/SettingsDialog.js';
+import { OrchestratorStatusBar } from '@/client/components/kanban/OrchestratorStatusBar.js';
 import { ViewSwitcherContext, useViewSwitcherProvider } from '@/client/hooks/useViewSwitcher.js';
 import type { BoardState } from '@/shared/types.js';
 
@@ -95,6 +96,7 @@ export function AppLayout() {
         <DockRail isPinned={isPinned} onTogglePin={togglePin} />
         <MainContent>
           <Outlet />
+          <OrchestratorStatusBar />
         </MainContent>
       </div>
     </div>

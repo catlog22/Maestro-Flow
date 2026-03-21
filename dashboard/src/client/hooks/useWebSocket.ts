@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useBoardStore } from '@/client/store/board-store.js';
 import { useAgentStore } from '@/client/store/agent-store.js';
 import { useExecutionStore } from '@/client/store/execution-store.js';
+import { useCoordinateStore } from '@/client/store/coordinate-store.js';
 import { useIssueStore } from '@/client/store/issue-store.js';
 import { WS_EVENT_TYPES } from '@/shared/constants.js';
 import type { BoardState, PhaseCard } from '@/shared/types.js';
@@ -9,6 +10,7 @@ import type { WsServerMessage, WsClientMessage, ExecutionStartedPayload, Executi
 import type { AgentProcess, NormalizedEntry, ApprovalRequest, AgentStatusPayload, AgentStoppedPayload, AgentThoughtPayload, AgentStreamingPayload, TokenUsageEntry } from '@/shared/agent-types.js';
 import type { SupervisorStatus } from '@/shared/execution-types.js';
 import type { CommanderState, Decision } from '@/shared/commander-types.js';
+import type { CoordinateStatusPayload, CoordinateStepPayload, CoordinateAnalysisPayload } from '@/shared/coordinate-types.js';
 
 // ---------------------------------------------------------------------------
 // useWebSocket — connect to /ws, dispatch to stores, auto-reconnect
@@ -56,6 +58,11 @@ export function useWebSocket(): void {
       setCommanderState,
       addDecision,
     } = useExecutionStore.getState();
+    const {
+      onStatus: coordinateOnStatus,
+      onStep: coordinateOnStep,
+      onAnalysis: coordinateOnAnalysis,
+    } = useCoordinateStore.getState();
     const { fetchIssues } = useIssueStore.getState();
 
     function connect() {
@@ -237,6 +244,25 @@ export function useWebSocket(): void {
           case WS_EVENT_TYPES.COMMANDER_DECISION: {
             const decision = msg.data as Decision;
             addDecision(decision);
+            break;
+          }
+
+          // --- Coordinate events ---
+          case WS_EVENT_TYPES.COORDINATE_STATUS: {
+            const statusData = msg.data as CoordinateStatusPayload;
+            coordinateOnStatus(statusData.session);
+            break;
+          }
+
+          case WS_EVENT_TYPES.COORDINATE_STEP: {
+            const stepData = msg.data as CoordinateStepPayload;
+            coordinateOnStep(stepData);
+            break;
+          }
+
+          case WS_EVENT_TYPES.COORDINATE_ANALYSIS: {
+            const analysisData = msg.data as CoordinateAnalysisPayload;
+            coordinateOnAnalysis(analysisData);
             break;
           }
 

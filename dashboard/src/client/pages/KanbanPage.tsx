@@ -16,7 +16,6 @@ import { LinearImportDialog } from '@/client/components/kanban/LinearImportDialo
 import { LinearExportDialog } from '@/client/components/kanban/LinearExportDialog.js';
 import { ExecutionCliPanel } from '@/client/components/kanban/ExecutionCliPanel.js';
 import { ExecutionToolbar } from '@/client/components/kanban/ExecutionToolbar.js';
-import { OrchestratorStatusBar } from '@/client/components/kanban/OrchestratorStatusBar.js';
 import { IssueCreateModal } from '@/client/components/kanban/IssueCreateModal.js';
 import { IssueDetailModal } from '@/client/components/kanban/IssueDetailModal.js';
 import { useUIPrefsStore } from '@/client/store/ui-prefs-store.js';
@@ -360,9 +359,6 @@ export function KanbanPage() {
           </DetailPanel>
         )}
       </div>
-
-      {/* Orchestrator status bar */}
-      <OrchestratorStatusBar />
 
       {/* Batch execution toolbar (floating) */}
       <ExecutionToolbar />
