@@ -1,5 +1,5 @@
-import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import { join, resolve, dirname } from 'node:path';
 
 import { Hono } from 'hono';
 
@@ -12,7 +12,7 @@ export function createHealthRoute(workflowRoot: string, stateManager?: StateMana
     return c.json({
       status: 'ok',
       version: '0.1.0',
-      workspace: resolve(workflowRoot, '..'),
+      workspace: stateManager ? stateManager.getWorkspaceRoot() : resolve(workflowRoot, '..'),
     });
   });
 
@@ -43,7 +43,7 @@ export function createHealthRoute(workflowRoot: string, stateManager?: StateMana
     }
 
     try {
-      await stateManager.resetForNewWorkspace(newPath);
+      await stateManager.resetForNewWorkspace(join(newPath, '.workflow'));
     } catch (err) {
       if (err instanceof Error && err.message.includes('already in progress')) {
         return c.json({ error: 'Workspace switch already in progress' }, 429);
@@ -51,6 +51,44 @@ export function createHealthRoute(workflowRoot: string, stateManager?: StateMana
       throw err;
     }
     return c.json({ status: 'ok', workspace: newPath });
+  });
+
+  // Browse directories for workspace selection
+  app.get('/api/workspace/browse', (c) => {
+    const target = c.req.query('path') || resolve(workflowRoot, '..');
+    const resolved = resolve(target);
+
+    if (!existsSync(resolved)) {
+      return c.json({ error: 'Path does not exist' }, 400);
+    }
+
+    try {
+      const stat = statSync(resolved);
+      if (!stat.isDirectory()) {
+        return c.json({ error: 'Not a directory' }, 400);
+      }
+
+      const entries = readdirSync(resolved, { withFileTypes: true })
+        .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+        .map((d) => {
+          const fullPath = join(resolved, d.name);
+          const hasWorkflow = existsSync(join(fullPath, '.workflow'));
+          return { name: d.name, path: fullPath, hasWorkflow };
+        })
+        .sort((a, b) => {
+          // Workspaces first, then alphabetical
+          if (a.hasWorkflow !== b.hasWorkflow) return a.hasWorkflow ? -1 : 1;
+          return a.name.localeCompare(b.name);
+        });
+
+      return c.json({
+        current: resolved,
+        parent: dirname(resolved) !== resolved ? dirname(resolved) : null,
+        entries,
+      });
+    } catch {
+      return c.json({ error: 'Cannot read directory' }, 400);
+    }
   });
 
   return app;

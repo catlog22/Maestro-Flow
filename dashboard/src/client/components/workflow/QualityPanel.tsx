@@ -84,7 +84,8 @@ export function QualityPanel() {
             {phases
               .filter((p) => p.validation.test_coverage !== null)
               .map((p) => {
-                const cov = p.validation.test_coverage!;
+                const raw = p.validation.test_coverage!;
+                const cov = typeof raw === 'number' ? raw : typeof raw === 'object' && raw !== null ? ((raw as Record<string, number>).statements ?? 0) : 0;
                 const covColor = cov >= 80 ? STATUS_COLORS.completed : cov >= 60 ? STATUS_COLORS.executing : STATUS_COLORS.verifying;
                 return (
                   <div key={p.phase} className="flex items-center gap-[var(--spacing-2)] text-[length:var(--font-size-xs)] mb-1">

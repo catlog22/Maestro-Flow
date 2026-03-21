@@ -17,9 +17,11 @@ function getConfigPaths(workflowRoot: string) {
   };
 }
 
-export function createSettingsRoutes(workflowRoot: string): Hono {
+export function createSettingsRoutes(workflowRoot: string | (() => string)): Hono {
   const app = new Hono();
-  const paths = getConfigPaths(workflowRoot);
+  const getPaths = () => getConfigPaths(typeof workflowRoot === 'function' ? workflowRoot() : workflowRoot);
+  // Startup-only paths for initial LINEAR_API_KEY load
+  const paths = getPaths();
 
   // Load LINEAR_API_KEY from config at startup
   void (async () => {
@@ -41,6 +43,7 @@ export function createSettingsRoutes(workflowRoot: string): Hono {
   // GET /api/settings — read all config
   // -----------------------------------------------------------------------
   app.get('/api/settings', async (c) => {
+    const p = getPaths();
     const result: Record<string, unknown> = {
       general: { theme: 'system', language: 'en' },
       agents: {},
@@ -49,7 +52,7 @@ export function createSettingsRoutes(workflowRoot: string): Hono {
 
     // Read dashboard config
     try {
-      const raw = await readFile(paths.dashboardConfig, 'utf-8');
+      const raw = await readFile(p.dashboardConfig, 'utf-8');
       const json = JSON.parse(raw) as Record<string, unknown>;
       if (json['settings']) {
         const settings = json['settings'] as Record<string, unknown>;
@@ -62,7 +65,7 @@ export function createSettingsRoutes(workflowRoot: string): Hono {
 
     // Read cli-tools.json
     try {
-      const raw = await readFile(paths.cliTools, 'utf-8');
+      const raw = await readFile(p.cliTools, 'utf-8');
       // Validate it's valid JSON
       JSON.parse(raw);
       result['cliTools'] = raw;
@@ -72,7 +75,7 @@ export function createSettingsRoutes(workflowRoot: string): Hono {
 
     // Read linear settings
     try {
-      const raw = await readFile(paths.dashboardConfig, 'utf-8');
+      const raw = await readFile(p.dashboardConfig, 'utf-8');
       const json = JSON.parse(raw) as Record<string, unknown>;
       if (json['settings']) {
         const settings = json['settings'] as Record<string, unknown>;
@@ -100,12 +103,13 @@ export function createSettingsRoutes(workflowRoot: string): Hono {
   // -----------------------------------------------------------------------
   app.put('/api/settings/general', async (c) => {
     try {
+      const p = getPaths();
       const body = await c.req.json();
 
       // Read existing config
       let config: Record<string, unknown> = {};
       try {
-        const raw = await readFile(paths.dashboardConfig, 'utf-8');
+        const raw = await readFile(p.dashboardConfig, 'utf-8');
         config = JSON.parse(raw) as Record<string, unknown>;
       } catch {
         // Start with empty config
@@ -116,7 +120,7 @@ export function createSettingsRoutes(workflowRoot: string): Hono {
       settings['general'] = body;
       config['settings'] = settings;
 
-      await writeFile(paths.dashboardConfig, JSON.stringify(config, null, 2), 'utf-8');
+      await writeFile(p.dashboardConfig, JSON.stringify(config, null, 2), 'utf-8');
       return c.json({ ok: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Write failed';
@@ -129,11 +133,12 @@ export function createSettingsRoutes(workflowRoot: string): Hono {
   // -----------------------------------------------------------------------
   app.put('/api/settings/agents', async (c) => {
     try {
+      const p = getPaths();
       const body = await c.req.json();
 
       let config: Record<string, unknown> = {};
       try {
-        const raw = await readFile(paths.dashboardConfig, 'utf-8');
+        const raw = await readFile(p.dashboardConfig, 'utf-8');
         config = JSON.parse(raw) as Record<string, unknown>;
       } catch {
         // Start with empty config
@@ -143,7 +148,7 @@ export function createSettingsRoutes(workflowRoot: string): Hono {
       settings['agents'] = body;
       config['settings'] = settings;
 
-      await writeFile(paths.dashboardConfig, JSON.stringify(config, null, 2), 'utf-8');
+      await writeFile(p.dashboardConfig, JSON.stringify(config, null, 2), 'utf-8');
       return c.json({ ok: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Write failed';
@@ -156,6 +161,7 @@ export function createSettingsRoutes(workflowRoot: string): Hono {
   // -----------------------------------------------------------------------
   app.put('/api/settings/cli-tools', async (c) => {
     try {
+      const p = getPaths();
       const body = (await c.req.json()) as { content: string };
       const content = body.content;
 
@@ -167,7 +173,7 @@ export function createSettingsRoutes(workflowRoot: string): Hono {
 
       // Check write permission
       try {
-        await access(paths.cliTools, constants.W_OK);
+        await access(p.cliTools, constants.W_OK);
       } catch {
         return c.json(
           { ok: false, error: 'Cannot write to cli-tools.json: file is read-only or inaccessible' },
@@ -175,7 +181,7 @@ export function createSettingsRoutes(workflowRoot: string): Hono {
         );
       }
 
-      await writeFile(paths.cliTools, JSON.stringify(parsed, null, 2), 'utf-8');
+      await writeFile(p.cliTools, JSON.stringify(parsed, null, 2), 'utf-8');
       return c.json({ ok: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Write failed';
@@ -191,12 +197,13 @@ export function createSettingsRoutes(workflowRoot: string): Hono {
   // -----------------------------------------------------------------------
   app.put('/api/settings/linear', async (c) => {
     try {
+      const p = getPaths();
       const body = await c.req.json() as { apiKey?: string };
       const apiKey = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
 
       let config: Record<string, unknown> = {};
       try {
-        const raw = await readFile(paths.dashboardConfig, 'utf-8');
+        const raw = await readFile(p.dashboardConfig, 'utf-8');
         config = JSON.parse(raw) as Record<string, unknown>;
       } catch {
         // Start with empty config
@@ -206,7 +213,7 @@ export function createSettingsRoutes(workflowRoot: string): Hono {
       settings['linear'] = { apiKey };
       config['settings'] = settings;
 
-      await writeFile(paths.dashboardConfig, JSON.stringify(config, null, 2), 'utf-8');
+      await writeFile(p.dashboardConfig, JSON.stringify(config, null, 2), 'utf-8');
 
       // Also set the env var so linear routes pick it up immediately
       if (apiKey) {
@@ -227,12 +234,13 @@ export function createSettingsRoutes(workflowRoot: string): Hono {
   // -----------------------------------------------------------------------
   app.get('/api/settings/specs', async (c) => {
     try {
-      const entries = await readdir(paths.specDir, { withFileTypes: true }).catch(() => []);
+      const p = getPaths();
+      const entries = await readdir(p.specDir, { withFileTypes: true }).catch(() => []);
       const specs: { name: string; path: string; createdAt?: string }[] = [];
 
       for (const entry of entries) {
         if (entry.isDirectory()) {
-          const fullPath = join(paths.specDir, entry.name);
+          const fullPath = join(p.specDir, entry.name);
           let createdAt: string | undefined;
           try {
             const info = await stat(fullPath);

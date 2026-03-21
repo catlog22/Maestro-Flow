@@ -43,14 +43,14 @@ import {
  * PATCH  /api/issues/:id/solution - set issue solution plan
  * DELETE /api/issues/:id          - delete an issue
  */
-export function createIssueRoutes(workflowRoot: string): Hono {
+export function createIssueRoutes(workflowRoot: string | (() => string)): Hono {
   const app = new Hono();
-  const jsonlPath = join(workflowRoot, 'issues', 'issues.jsonl');
+  const getJsonlPath = () => join(typeof workflowRoot === 'function' ? workflowRoot() : workflowRoot, 'issues', 'issues.jsonl');
 
   // GET /api/issues
   app.get('/api/issues', async (c) => {
     try {
-      let issues = await readIssuesJsonl(jsonlPath);
+      let issues = (await readIssuesJsonl(getJsonlPath())).map(normalizeIssue);
 
       const statusFilter = c.req.query('status');
       if (statusFilter && VALID_ISSUE_STATUSES.has(statusFilter)) {
@@ -110,7 +110,7 @@ export function createIssueRoutes(workflowRoot: string): Hono {
         issue.source_process_id = body.source_process_id;
       }
 
-      await withIssueWriteLock(() => appendIssueJsonl(jsonlPath, issue));
+      await withIssueWriteLock(() => appendIssueJsonl(getJsonlPath(), issue));
       return c.json(issue, 201);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -138,7 +138,7 @@ export function createIssueRoutes(workflowRoot: string): Hono {
       let updated: Issue | null = null;
 
       await withIssueWriteLock(async () => {
-        const issues = await readIssuesJsonl(jsonlPath);
+        const issues = await readIssuesJsonl(getJsonlPath());
         const idx = issues.findIndex((i) => i.id === id);
         if (idx === -1) return;
 
@@ -157,7 +157,7 @@ export function createIssueRoutes(workflowRoot: string): Hono {
           updated_at: new Date().toISOString(),
         };
         updated = issues[idx];
-        await writeIssuesJsonl(jsonlPath, issues);
+        await writeIssuesJsonl(getJsonlPath(), issues);
       });
 
       if (!updated) {
@@ -174,7 +174,7 @@ export function createIssueRoutes(workflowRoot: string): Hono {
   app.get('/api/issues/:id', async (c) => {
     try {
       const id = c.req.param('id');
-      const issues = await readIssuesJsonl(jsonlPath);
+      const issues = await readIssuesJsonl(getJsonlPath());
       const issue = issues.find((i) => i.id === id);
       if (!issue) {
         return c.json({ error: `Issue not found: ${id}` }, 404);
@@ -228,7 +228,7 @@ export function createIssueRoutes(workflowRoot: string): Hono {
       let updated: Issue | null = null;
 
       await withIssueWriteLock(async () => {
-        const issues = await readIssuesJsonl(jsonlPath);
+        const issues = await readIssuesJsonl(getJsonlPath());
         const idx = issues.findIndex((i) => i.id === id);
         if (idx === -1) return;
 
@@ -238,7 +238,7 @@ export function createIssueRoutes(workflowRoot: string): Hono {
           updated_at: new Date().toISOString(),
         };
         updated = issues[idx];
-        await writeIssuesJsonl(jsonlPath, issues);
+        await writeIssuesJsonl(getJsonlPath(), issues);
       });
 
       if (!updated) {
@@ -284,7 +284,7 @@ export function createIssueRoutes(workflowRoot: string): Hono {
       let updated: Issue | null = null;
 
       await withIssueWriteLock(async () => {
-        const issues = await readIssuesJsonl(jsonlPath);
+        const issues = await readIssuesJsonl(getJsonlPath());
         const idx = issues.findIndex((i) => i.id === id);
         if (idx === -1) return;
 
@@ -294,7 +294,7 @@ export function createIssueRoutes(workflowRoot: string): Hono {
           updated_at: new Date().toISOString(),
         };
         updated = issues[idx];
-        await writeIssuesJsonl(jsonlPath, issues);
+        await writeIssuesJsonl(getJsonlPath(), issues);
       });
 
       if (!updated) {
@@ -314,11 +314,11 @@ export function createIssueRoutes(workflowRoot: string): Hono {
       let found = false;
 
       await withIssueWriteLock(async () => {
-        const issues = await readIssuesJsonl(jsonlPath);
+        const issues = await readIssuesJsonl(getJsonlPath());
         const filtered = issues.filter((i) => i.id !== id);
         if (filtered.length < issues.length) {
           found = true;
-          await writeIssuesJsonl(jsonlPath, filtered);
+          await writeIssuesJsonl(getJsonlPath(), filtered);
         }
       });
 

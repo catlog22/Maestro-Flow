@@ -152,6 +152,7 @@ export const WS_EVENT_TYPES: Record<string, WsEventType> = {
   SCRATCH_UPDATED: 'scratch:updated',
   PROJECT_UPDATED: 'project:updated',
   WATCHER_ERROR: 'watcher:error',
+  WORKSPACE_SWITCHED: 'workspace:switched',
   HEARTBEAT: 'heartbeat',
   CONNECTED: 'connected',
 } as const;

@@ -13,7 +13,7 @@ function makeProject(overrides: Partial<ProjectState> = {}): ProjectState {
     project_name: 'test-project',
     current_milestone: 'M1',
     current_phase: 1,
-    status: 'active',
+    status: 'executing',
     phases_summary: { total: 2, completed: 0, in_progress: 1, pending: 1 },
     last_updated: '2026-01-01T00:00:00Z',
     accumulated_context: { key_decisions: [], blockers: [], deferred: [] },
@@ -64,7 +64,7 @@ describe('commander-prompts', () => {
     it('includes project name and status', () => {
       const prompt = buildAssessmentPrompt(makeContext());
       expect(prompt).toContain('test-project');
-      expect(prompt).toContain('active');
+      expect(prompt).toContain('executing');
     });
 
     it('includes worker capacity info', () => {

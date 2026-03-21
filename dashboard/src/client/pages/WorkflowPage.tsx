@@ -55,7 +55,9 @@ export function WorkflowPage() {
   return (
     <div className="flex h-full overflow-hidden">
       <div className="flex-1 min-w-0 overflow-hidden">
-        {phases.length === 0 ? (
+        {activeView === 'coordinate' ? (
+          <CoordinatePanel />
+        ) : phases.length === 0 ? (
           <SetupChecklist project={board?.project} />
         ) : (
           <>
@@ -63,7 +65,6 @@ export function WorkflowPage() {
             {activeView === 'timeline' && <PhaseTimelineView />}
             {activeView === 'center' && <CommandCenterView />}
             {activeView === 'table' && <WfTableView />}
-            {activeView === 'coordinate' && <CoordinatePanel />}
           </>
         )}
       </div>

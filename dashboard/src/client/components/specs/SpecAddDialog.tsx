@@ -25,6 +25,10 @@ const TYPE_CHIPS: {
   { value: 'pattern', label: 'Pattern', activeBg: 'var(--color-tint-exploring)', activeText: '#5B8DB8', activeBorder: '#5B8DB8' },
   { value: 'decision', label: 'Decision', activeBg: 'var(--color-tint-planning)', activeText: '#9178B5', activeBorder: '#9178B5' },
   { value: 'rule', label: 'Rule', activeBg: 'var(--color-tint-completed)', activeText: '#5A9E78', activeBorder: '#5A9E78' },
+  { value: 'debug', label: 'Debug', activeBg: 'rgba(196,101,85,0.10)', activeText: '#B85B4A', activeBorder: '#B85B4A' },
+  { value: 'test', label: 'Test', activeBg: 'rgba(90,158,120,0.10)', activeText: '#3D8B5F', activeBorder: '#3D8B5F' },
+  { value: 'review', label: 'Review', activeBg: 'rgba(219,176,108,0.12)', activeText: '#C4A055', activeBorder: '#C4A055' },
+  { value: 'validation', label: 'Validation', activeBg: 'rgba(91,141,184,0.10)', activeText: '#4A7DA8', activeBorder: '#4A7DA8' },
 ];
 
 export function SpecAddDialog({ open, onOpenChange }: SpecAddDialogProps) {
@@ -103,7 +107,7 @@ export function SpecAddDialog({ open, onOpenChange }: SpecAddDialogProps) {
               <label className="block text-[11px] font-semibold text-text-tertiary uppercase tracking-[0.04em] mb-[6px]">
                 Type
               </label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 {TYPE_CHIPS.map((chip) => {
                   const active = type === chip.value;
                   return (
@@ -112,7 +116,7 @@ export function SpecAddDialog({ open, onOpenChange }: SpecAddDialogProps) {
                       type="button"
                       onClick={() => setType(chip.value)}
                       className={cn(
-                        'flex-1 py-[10px] rounded-[10px] border-[1.5px] bg-bg-card cursor-pointer',
+                        'py-[10px] rounded-[10px] border-[1.5px] bg-bg-card cursor-pointer',
                         'text-center text-[11px] font-semibold font-sans transition-all',
                       )}
                       style={

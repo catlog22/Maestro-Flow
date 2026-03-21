@@ -27,7 +27,8 @@ import { createCommanderRoutes } from '../commander/commander-routes.js';
  * Aggregate all route modules into a single Hono app.
  *
  * Routes that need StateManager receive it via factory functions.
- * The artifact route receives the workflow root path directly.
+ * Routes that depend on workflowRoot receive a getter so they follow
+ * workspace switches at runtime.
  * The events route receives StateManager, EventBus, and SSEHub.
  * The agent routes receive the AgentManager.
  */
@@ -42,6 +43,9 @@ export function createRoutes(
 ): Hono {
   const routes = new Hono();
 
+  // Dynamic getter — follows workspace switches
+  const getRoot = () => stateManager.getWorkflowRoot();
+
   // Health (reports workspace) + workspace switch endpoint
   routes.route('/', createHealthRoute(workflowRoot, stateManager));
 
@@ -50,8 +54,8 @@ export function createRoutes(
   routes.route('/', createPhaseRoutes(stateManager));
   routes.route('/', createScratchRoutes(stateManager));
 
-  // Artifact route (depends on workflow root path)
-  routes.route('/', createArtifactRoutes(workflowRoot));
+  // Artifact route (dynamic root for workspace switch)
+  routes.route('/', createArtifactRoutes(getRoot));
 
   // SSE events route (depends on StateManager, EventBus, SSEHub)
   routes.route('/', createEventsRoute(stateManager, eventBus, sseHub));
@@ -60,10 +64,10 @@ export function createRoutes(
   routes.route('/', createAgentRoutes(agentManager));
 
   // Settings routes (depends on workflow root for config paths)
-  routes.route('/', createSettingsRoutes(workflowRoot));
+  routes.route('/', createSettingsRoutes(getRoot));
 
-  // Issue routes (depends on workflow root for JSONL storage)
-  routes.route('/', createIssueRoutes(workflowRoot));
+  // Issue routes (dynamic root for workspace switch)
+  routes.route('/', createIssueRoutes(getRoot));
 
   // Execution routes (depends on ExecutionScheduler)
   if (executionScheduler) {
@@ -73,17 +77,17 @@ export function createRoutes(
   // CLI history routes (reads from ~/.maestro/cli-history/)
   routes.route('/', createCliHistoryRoutes());
 
-  // Specs CRUD routes (depends on workflow root for .workflow/specs/)
-  routes.route('/', createSpecsRoutes(workflowRoot));
+  // Specs CRUD routes (dynamic root for workspace switch)
+  routes.route('/', createSpecsRoutes(getRoot));
 
   // MCP server management routes
   routes.route('/', createMcpRoutes());
 
-  // Linear API proxy routes (needs workflowRoot for import/export)
-  routes.route('/', createLinearRoutes(workflowRoot));
+  // Linear API proxy routes (dynamic root for workspace switch)
+  routes.route('/', createLinearRoutes(getRoot));
 
-  // Team session routes (reads from .workflow/.team/)
-  routes.route('/', createTeamRoutes(workflowRoot));
+  // Team session routes (dynamic root for workspace switch)
+  routes.route('/', createTeamRoutes(getRoot));
 
   // Commander routes (depends on CommanderAgent)
   if (commanderAgent) {

@@ -28,13 +28,14 @@ interface TreeNode {
   children?: TreeNode[];
 }
 
-export function createArtifactRoutes(workflowRoot: string): Hono {
+export function createArtifactRoutes(workflowRoot: string | (() => string)): Hono {
   const app = new Hono();
-  const resolvedRoot = resolve(workflowRoot);
+  const getRoot = () => resolve(typeof workflowRoot === 'function' ? workflowRoot() : workflowRoot);
 
   // GET /api/artifacts?tree=true — directory tree
   // GET /api/artifacts/*path    — serve file
   app.get('/api/artifacts/*', async (c) => {
+    const resolvedRoot = getRoot();
     const tree = c.req.query('tree');
 
     // Extract file path from the URL (Hono wildcard param may be empty in v4)

@@ -176,22 +176,22 @@ export function registerViewCommand(program: Command): void {
 
         const currentWorkspace = health.workspace ?? '';
         const normalizedCurrent = currentWorkspace.replace(/[\\/]+$/, '').toLowerCase();
-        const normalizedRequested = workflowRoot.replace(/[\\/]+$/, '').toLowerCase();
+        const normalizedRequested = workDir.replace(/[\\/]+$/, '').toLowerCase();
 
-        if (opts.path && normalizedCurrent !== normalizedRequested) {
+        if (normalizedCurrent !== normalizedRequested && existsSync(workflowRoot)) {
           // Hot-switch workspace via API
           try {
             const res = await fetch(`http://${host}:${port}/api/workspace`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ path: workflowRoot }),
+              body: JSON.stringify({ path: workDir }),
             });
             if (!res.ok) {
               const text = await res.text().catch(() => res.statusText);
               console.error(`  Error: Failed to switch workspace — ${text}`);
               process.exit(1);
             }
-            console.error(`  Workspace switched to ${workflowRoot}`);
+            console.error(`  Workspace switched to ${workDir}`);
           } catch (err) {
             console.error(`  Error: Failed to switch workspace — ${(err as Error).message}`);
             process.exit(1);

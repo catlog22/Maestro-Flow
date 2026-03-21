@@ -1,5 +1,5 @@
 import { readdir } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 
 import type {
   BoardState,
@@ -28,6 +28,16 @@ export class StateManager {
     private readonly eventBus: DashboardEventBus,
   ) {
     this.board = emptyBoard();
+  }
+
+  /** Return current workspace project root (parent of .workflow/) */
+  getWorkspaceRoot(): string {
+    return resolve(this.workflowRoot, '..');
+  }
+
+  /** Return current .workflow/ directory path (updates on workspace switch) */
+  getWorkflowRoot(): string {
+    return this.workflowRoot;
   }
 
   /** Return current board state snapshot */
@@ -97,7 +107,7 @@ export class StateManager {
       this.phaseDirCache.clear();
       this.workflowRoot = newRoot;
       await this.buildInitialState();
-      this.eventBus.emit(SSE_EVENT_TYPES.WORKSPACE_SWITCHED, { workspace: newRoot });
+      this.eventBus.emit(SSE_EVENT_TYPES.WORKSPACE_SWITCHED, { workspace: resolve(newRoot, '..') });
     } finally {
       this.isSwitching = false;
     }
@@ -162,6 +172,7 @@ export class StateManager {
   // -------------------------------------------------------------------------
 
   private upsertPhase(phase: PhaseCard): void {
+    phase = normalizePhase(phase);
     const idx = this.board.phases.findIndex((p) => p.phase === phase.phase);
     if (idx >= 0) {
       this.board.phases[idx] = phase;
@@ -191,7 +202,7 @@ export class StateManager {
       const indexPath = join(dirPath, 'index.json');
       const phase = await readJsonSafe<PhaseCard>(indexPath);
       if (phase) {
-        phases.push(phase);
+        phases.push(normalizePhase(phase));
         this.phaseDirCache.set(phase.phase, dirPath);
       }
     }
@@ -292,5 +303,43 @@ function emptyBoard(): BoardState {
     phases: [],
     scratch: [],
     lastUpdated: new Date().toISOString(),
+  };
+}
+
+/** Fill missing fields in PhaseCard so components never crash on partial data */
+function normalizePhase(p: PhaseCard): PhaseCard {
+  const raw = p as unknown as Record<string, unknown>;
+  if (p.execution && raw.verification && raw.validation && raw.uat && raw.reflection
+    && Array.isArray(p.success_criteria) && Array.isArray(p.requirements)
+    && Array.isArray((raw.verification as Record<string, unknown>)?.must_haves)) return p;
+  return {
+    ...p,
+    goal: p.goal ?? '',
+    success_criteria: p.success_criteria ?? [],
+    requirements: p.requirements ?? [],
+    spec_ref: p.spec_ref ?? null,
+    plan: p.plan ?? { task_ids: [], task_count: 0, complexity: null, waves: [] },
+    execution: p.execution ?? { method: '', started_at: null, completed_at: null, tasks_completed: 0, tasks_total: 0, current_wave: 0, commits: [] },
+    verification: {
+      status: (raw.verification as any)?.status ?? 'pending',
+      verified_at: (raw.verification as any)?.verified_at ?? null,
+      must_haves: (raw.verification as any)?.must_haves ?? [],
+      gaps: (raw.verification as any)?.gaps ?? [],
+    },
+    validation: {
+      status: (raw.validation as any)?.status ?? 'pending',
+      test_coverage: (raw.validation as any)?.test_coverage ?? null,
+      gaps: (raw.validation as any)?.gaps ?? [],
+    },
+    uat: {
+      status: (raw.uat as any)?.status ?? 'pending',
+      test_count: (raw.uat as any)?.test_count ?? 0,
+      passed: (raw.uat as any)?.passed ?? 0,
+      gaps: (raw.uat as any)?.gaps ?? [],
+    },
+    reflection: {
+      rounds: (raw.reflection as any)?.rounds ?? 0,
+      strategy_adjustments: (raw.reflection as any)?.strategy_adjustments ?? [],
+    },
   };
 }

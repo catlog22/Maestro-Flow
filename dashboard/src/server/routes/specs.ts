@@ -4,9 +4,13 @@
  * Each .md file has YAML frontmatter (title, readMode, priority, category, keywords)
  * and contains entries as heading-delimited sections within the markdown body.
  *
- * Entry format in .md files:
- *   ### [YYYY-MM-DD] type: Title text
+ * Unified entry format (written by dashboard POST and spec-add SKILL):
+ *   ### [type] [YYYY-MM-DD] Title text
  *   Content paragraph(s)...
+ *
+ * Legacy formats also parsed (backward-compatible):
+ *   ### [YYYY-MM-DD] type: Title text
+ *   ### [TYPE] 2025-01-15T10:30:00Z
  *
  * Follows the Hono factory pattern used by issues.ts and mcp.ts.
  */
@@ -20,7 +24,7 @@ import { Hono } from 'hono';
 
 export interface SpecEntry {
   id: string;
-  type: 'bug' | 'pattern' | 'decision' | 'rule' | 'general';
+  type: 'bug' | 'pattern' | 'decision' | 'rule' | 'debug' | 'test' | 'review' | 'validation' | 'general';
   title: string;
   content: string;
   file: string;
@@ -41,7 +45,7 @@ interface SpecFileMeta {
 // Entry type detection
 // ---------------------------------------------------------------------------
 
-const ENTRY_TYPES = ['bug', 'pattern', 'decision', 'rule'] as const;
+const ENTRY_TYPES = ['bug', 'pattern', 'decision', 'rule', 'debug', 'test', 'review', 'validation'] as const;
 type EntryType = typeof ENTRY_TYPES[number];
 
 /** Map file basenames to default entry types when heading lacks a marker. */
@@ -50,6 +54,10 @@ const FILE_TYPE_MAP: Record<string, EntryType> = {
   'coding-conventions': 'pattern',
   'architecture-constraints': 'rule',
   'quality-rules': 'rule',
+  'debug-notes': 'debug',
+  'test-conventions': 'test',
+  'review-standards': 'review',
+  'validation-rules': 'validation',
 };
 
 /** Detect entry type from heading text or fall back to file-based default. */
@@ -60,6 +68,16 @@ function detectEntryType(heading: string, fileName: string): SpecEntry['type'] {
   }
   const stem = basename(fileName, extname(fileName));
   return FILE_TYPE_MAP[stem] ?? 'general';
+}
+
+/** Strip [type], [date], and legacy "type:" prefix from heading to get clean title. */
+function extractCleanTitle(heading: string): string {
+  return heading
+    .replace(/\[(bug|pattern|decision|rule|debug|test|review|validation)\]\s*/gi, '')
+    .replace(/\[\d{4}-\d{2}-\d{2}\]\s*/g, '')
+    .replace(/\d{4}-\d{2}-\d{2}T[\d:.Z+-]*/g, '')
+    .replace(/^(bug|pattern|decision|rule|debug|test|review|validation)\s*:\s*/i, '')
+    .trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -155,13 +173,14 @@ function parseEntries(body: string, fileName: string, frontmatter?: Record<strin
     const type = detectEntryType(sec.heading, fileName);
     const id = `${stem}-${String(i + 1).padStart(3, '0')}`;
 
-    // Try to extract date from heading: ### [2025-01-15] ...
-    const dateMatch = sec.heading.match(/\[(\d{4}-\d{2}-\d{2})\]/);
+    // Extract date: [YYYY-MM-DD] in brackets, or bare ISO timestamp
+    const dateMatch = sec.heading.match(/\[(\d{4}-\d{2}-\d{2})\]/) ?? sec.heading.match(/(\d{4}-\d{2}-\d{2})/);
     const timestamp = dateMatch ? dateMatch[1] : '';
 
+    const title = extractCleanTitle(sec.heading) || sec.heading;
     const category = typeof frontmatter?.category === 'string' ? frontmatter.category : 'general';
     const keywords = Array.isArray(frontmatter?.keywords) ? frontmatter.keywords.map(String) : [];
-    entries.push({ id, type, title: sec.heading, content, file: fileName, timestamp, category, keywords });
+    entries.push({ id, type, title, content, file: fileName, timestamp, category, keywords });
   }
 
   return entries;
@@ -219,8 +238,9 @@ function withWriteLock<T>(fn: () => Promise<T>): Promise<T> {
  * POST   /api/specs           - add a new entry to a spec file
  * DELETE /api/specs/:id       - remove an entry by ID
  */
-export function createSpecsRoutes(workflowRoot: string): Hono {
+export function createSpecsRoutes(workflowRoot: string | (() => string)): Hono {
   const app = new Hono();
+  const resolveRoot = () => typeof workflowRoot === 'function' ? workflowRoot() : workflowRoot;
 
   // -------------------------------------------------------------------------
   // GET /api/specs — list all entries across all spec files
@@ -228,7 +248,7 @@ export function createSpecsRoutes(workflowRoot: string): Hono {
 
   app.get('/api/specs', async (c) => {
     try {
-      const specsDir = await getSpecsDir(workflowRoot);
+      const specsDir = await getSpecsDir(resolveRoot());
       const files = await listSpecFiles(specsDir);
       const allEntries: SpecEntry[] = [];
 
@@ -252,7 +272,7 @@ export function createSpecsRoutes(workflowRoot: string): Hono {
 
   app.get('/api/specs/files', async (c) => {
     try {
-      const specsDir = await getSpecsDir(workflowRoot);
+      const specsDir = await getSpecsDir(resolveRoot());
       const fileNames = await listSpecFiles(specsDir);
       const files: SpecFileMeta[] = [];
 
@@ -288,7 +308,7 @@ export function createSpecsRoutes(workflowRoot: string): Hono {
         return c.json({ error: 'Invalid file name' }, 400);
       }
 
-      const specsDir = await getSpecsDir(workflowRoot);
+      const specsDir = await getSpecsDir(resolveRoot());
       let raw: string;
       try {
         raw = await readSpecFile(specsDir, name);
@@ -330,13 +350,13 @@ export function createSpecsRoutes(workflowRoot: string): Hono {
       const entryType = typeof type === 'string' && ENTRY_TYPES.includes(type as EntryType) ? type : 'general';
       const date = new Date().toISOString().slice(0, 10);
       const firstLine = content.trim().split('\n')[0].substring(0, 80);
-      const heading = `### [${date}] ${entryType}: ${firstLine}`;
+      const heading = `### [${entryType}] [${date}] ${firstLine}`;
       const entryBlock = `\n${heading}\n\n${content.trim()}\n`;
 
       let newId = '';
 
       await withWriteLock(async () => {
-        const specsDir = await getSpecsDir(workflowRoot);
+        const specsDir = await getSpecsDir(resolveRoot());
         let existing = '';
         try {
           existing = await readSpecFile(specsDir, fileName);
@@ -385,7 +405,7 @@ export function createSpecsRoutes(workflowRoot: string): Hono {
       let found = false;
 
       await withWriteLock(async () => {
-        const specsDir = await getSpecsDir(workflowRoot);
+        const specsDir = await getSpecsDir(resolveRoot());
         let raw: string;
         try {
           raw = await readSpecFile(specsDir, fileName);
@@ -401,29 +421,17 @@ export function createSpecsRoutes(workflowRoot: string): Hono {
         found = true;
 
         // Remove the section from the raw file content.
-        // Rebuild: find heading in raw content, remove heading + body until next heading.
+        // Match heading lines that contain the clean title text.
         const rawLines = raw.split('\n');
-        const headingLine = `### ${target.title}`;
-        // Also try ## prefix
-        const headingLine2 = `## ${target.title}`;
 
         let startLine = -1;
         for (let i = 0; i < rawLines.length; i++) {
           const trimmed = rawLines[i].trim();
-          if (trimmed === headingLine || trimmed === headingLine2) {
+          if (!HEADING_RE.test(trimmed)) continue;
+          // Match by clean title: the raw heading should contain the title text
+          if (trimmed.includes(target.title)) {
             startLine = i;
             break;
-          }
-        }
-
-        if (startLine === -1) {
-          // Fallback: match by partial heading content
-          for (let i = 0; i < rawLines.length; i++) {
-            const trimmed = rawLines[i].trim();
-            if (HEADING_RE.test(trimmed) && trimmed.includes(target.title)) {
-              startLine = i;
-              break;
-            }
           }
         }
 

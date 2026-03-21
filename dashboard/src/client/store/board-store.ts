@@ -5,6 +5,30 @@ import type { BoardState, PhaseCard, TaskCard } from '@/shared/types.js';
 // Board store — global state for dashboard
 // ---------------------------------------------------------------------------
 
+function needsNormalization(p: PhaseCard): boolean {
+  const raw = p as Record<string, unknown>;
+  return !p.execution || !('verification' in raw) || !('validation' in raw) || !('uat' in raw) || !('reflection' in raw);
+}
+
+/** Fill missing optional-in-practice fields so components never crash on partial data */
+function normalizePhase(p: PhaseCard): PhaseCard {
+  if (!needsNormalization(p)) return p;
+  const raw = p as Record<string, unknown>;
+  return {
+    ...p,
+    goal: p.goal ?? '',
+    success_criteria: p.success_criteria ?? [],
+    requirements: p.requirements ?? [],
+    spec_ref: p.spec_ref ?? null,
+    plan: p.plan ?? { task_ids: [], task_count: 0, complexity: null, waves: [] },
+    execution: p.execution ?? { method: '', started_at: null, completed_at: null, tasks_completed: 0, tasks_total: 0, current_wave: 0, commits: [] },
+    verification: (raw.verification as PhaseCard['verification']) ?? { status: 'pending', verified_at: null, must_haves: [], gaps: [] },
+    validation: (raw.validation as PhaseCard['validation']) ?? { status: 'pending', test_coverage: null, gaps: [] },
+    uat: (raw.uat as PhaseCard['uat']) ?? { status: 'pending', test_count: 0, passed: 0, gaps: [] },
+    reflection: (raw.reflection as PhaseCard['reflection']) ?? { rounds: 0, strategy_adjustments: [] },
+  };
+}
+
 export interface BoardStore {
   board: BoardState | null;
   connected: boolean;
@@ -25,7 +49,15 @@ export const useBoardStore = create<BoardStore>((set) => ({
   selectedPhase: null,
   workspace: null,
 
-  setBoard: (board) => set({ board }),
+  setBoard: (board) => {
+    if (board && board.phases.some((p) => needsNormalization(p))) {
+      board = {
+        ...board,
+        phases: board.phases.map((p) => normalizePhase(p)),
+      };
+    }
+    set({ board });
+  },
 
   updatePhase: (phase, data) =>
     set((state) => {

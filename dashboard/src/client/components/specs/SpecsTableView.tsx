@@ -17,6 +17,10 @@ const BADGE_STYLES: Record<SpecType, { bg: string; text: string }> = {
   pattern: { bg: 'var(--color-tint-exploring)', text: '#5B8DB8' },
   decision: { bg: 'var(--color-tint-planning)', text: '#9178B5' },
   rule: { bg: 'var(--color-tint-completed)', text: '#5A9E78' },
+  debug: { bg: 'rgba(196,101,85,0.10)', text: '#B85B4A' },
+  test: { bg: 'rgba(90,158,120,0.10)', text: '#3D8B5F' },
+  review: { bg: 'rgba(219,176,108,0.12)', text: '#C4A055' },
+  validation: { bg: 'rgba(91,141,184,0.10)', text: '#4A7DA8' },
   general: { bg: 'var(--color-tint-pending)', text: '#A09D97' },
 };
 
@@ -25,6 +29,10 @@ const DOT_COLORS: Record<SpecType, string> = {
   pattern: '#5B8DB8',
   decision: '#9178B5',
   rule: '#5A9E78',
+  debug: '#B85B4A',
+  test: '#3D8B5F',
+  review: '#C4A055',
+  validation: '#4A7DA8',
   general: '#A09D97',
 };
 
@@ -46,6 +54,10 @@ const FILTER_CHIPS: { value: FilterType; label: string }[] = [
   { value: 'pattern', label: 'Pattern' },
   { value: 'decision', label: 'Decision' },
   { value: 'rule', label: 'Rule' },
+  { value: 'debug', label: 'Debug' },
+  { value: 'test', label: 'Test' },
+  { value: 'review', label: 'Review' },
+  { value: 'validation', label: 'Validation' },
   { value: 'general', label: 'General' },
 ];
 
@@ -410,6 +422,10 @@ export function SpecsTableView() {
                           <option value="pattern">pattern</option>
                           <option value="decision">decision</option>
                           <option value="rule">rule</option>
+                          <option value="debug">debug</option>
+                          <option value="test">test</option>
+                          <option value="review">review</option>
+                          <option value="validation">validation</option>
                           <option value="general">general</option>
                         </select>
                       </td>

@@ -244,13 +244,14 @@ function buildPipelineWaves(sessionData: Record<string, unknown>, meta: Record<s
 // Route factory
 // ---------------------------------------------------------------------------
 
-export function createTeamRoutes(workflowRoot: string): Hono {
+export function createTeamRoutes(workflowRoot: string | (() => string)): Hono {
   const app = new Hono();
-  const teamDir = join(workflowRoot, '.team');
+  const getTeamDir = () => join(typeof workflowRoot === 'function' ? workflowRoot() : workflowRoot, '.team');
 
   // GET /api/teams/sessions
   app.get('/api/teams/sessions', async (c) => {
     try {
+      const teamDir = getTeamDir();
       if (!existsSync(teamDir)) {
         return c.json([]);
       }
@@ -295,7 +296,7 @@ export function createTeamRoutes(workflowRoot: string): Hono {
   app.get('/api/teams/sessions/:sessionId', async (c) => {
     try {
       const sessionId = c.req.param('sessionId');
-      const sessionDir = join(teamDir, sessionId);
+      const sessionDir = join(getTeamDir(), sessionId);
 
       if (!existsSync(sessionDir)) {
         return c.json({ error: `Session not found: ${sessionId}` }, 404);
@@ -336,7 +337,7 @@ export function createTeamRoutes(workflowRoot: string): Hono {
   app.get('/api/teams/sessions/:sessionId/messages', async (c) => {
     try {
       const sessionId = c.req.param('sessionId');
-      const sessionDir = join(teamDir, sessionId);
+      const sessionDir = join(getTeamDir(), sessionId);
 
       if (!existsSync(sessionDir)) {
         return c.json({ error: `Session not found: ${sessionId}` }, 404);
@@ -372,7 +373,7 @@ export function createTeamRoutes(workflowRoot: string): Hono {
   app.get('/api/teams/sessions/:sessionId/files/*', async (c) => {
     try {
       const sessionId = c.req.param('sessionId');
-      const sessionDir = join(teamDir, sessionId);
+      const sessionDir = join(getTeamDir(), sessionId);
 
       if (!existsSync(sessionDir)) {
         return c.json({ error: `Session not found: ${sessionId}` }, 404);

@@ -42,6 +42,7 @@ export type WsEventType =
   | 'scratch:updated'
   | 'project:updated'
   | 'watcher:error'
+  | 'workspace:switched'
   | 'heartbeat'
   | 'connected';
 

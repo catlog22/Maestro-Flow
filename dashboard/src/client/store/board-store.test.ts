@@ -15,13 +15,27 @@ function makePhaseCard(phase: number, overrides: Partial<PhaseCard> = {}): Phase
     requirements: [],
     spec_ref: null,
     plan: { task_ids: [], task_count: 0, complexity: null, waves: [] },
+    execution: { method: '', started_at: null, completed_at: null, tasks_completed: 0, tasks_total: 0, current_wave: 0, commits: [] },
+    verification: { status: '', verified_at: null, must_haves: [], gaps: [] },
+    validation: { status: '', test_coverage: null, gaps: [] },
+    uat: { status: '', test_count: 0, passed: 0, gaps: [] },
+    reflection: { rounds: 0, strategy_adjustments: [] },
     ...overrides,
   };
 }
 
 function makeBoardState(phases: PhaseCard[] = []): BoardState {
   return {
-    project: { name: 'test', description: 'test project', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' } as BoardState['project'],
+    project: {
+      version: '1.0',
+      project_name: 'test',
+      current_milestone: '',
+      current_phase: 0,
+      status: 'idle',
+      phases_summary: { total: 0, completed: 0, in_progress: 0, pending: 0 },
+      last_updated: '2026-01-01T00:00:00Z',
+      accumulated_context: { key_decisions: [], blockers: [], deferred: [] },
+    },
     phases,
     scratch: [],
     lastUpdated: '2026-01-01T00:00:00Z',

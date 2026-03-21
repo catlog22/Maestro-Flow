@@ -49,12 +49,15 @@ test -d .workflow/specs || exit 1  # E002: not initialized
 
 ### Step 4: Append Entry
 
-Append timestamped entry to `.workflow/specs/learnings.md`:
+Append timestamped entry to `.workflow/specs/learnings.md` using the unified `[type] [date]` format:
 
 ```markdown
-### [{TYPE}] {ISO timestamp}
+### [{type}] [{YYYY-MM-DD}] {first line of content}
+
 {content}
 ```
+
+Example: `### [bug] [2026-03-21] Off-by-one in pagination when page=0`
 
 If type has a secondary file, also update that file with the new convention/rule/decision.
 

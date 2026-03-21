@@ -89,7 +89,7 @@ describe('Board routes + StateManager + EventBus integration', () => {
       title: 'Setup',
       status: 'executing',
       success_criteria: 'Project initialized',
-    } as PhaseCard);
+    } as unknown as PhaseCard);
 
     await stateManager.buildInitialState();
 

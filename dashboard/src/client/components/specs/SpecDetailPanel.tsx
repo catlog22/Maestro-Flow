@@ -14,6 +14,10 @@ const BADGE_STYLES: Record<SpecType, { bg: string; text: string }> = {
   pattern: { bg: 'var(--color-tint-exploring)', text: '#5B8DB8' },
   decision: { bg: 'var(--color-tint-planning)', text: '#9178B5' },
   rule: { bg: 'var(--color-tint-completed)', text: '#5A9E78' },
+  debug: { bg: 'rgba(196,101,85,0.10)', text: '#B85B4A' },
+  test: { bg: 'rgba(90,158,120,0.10)', text: '#3D8B5F' },
+  review: { bg: 'rgba(219,176,108,0.12)', text: '#C4A055' },
+  validation: { bg: 'rgba(91,141,184,0.10)', text: '#4A7DA8' },
   general: { bg: 'var(--color-tint-pending)', text: '#A09D97' },
 };
 

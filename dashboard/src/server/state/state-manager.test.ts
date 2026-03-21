@@ -71,7 +71,7 @@ describe('StateManager', () => {
       await mkdir(join(tempDir, 'phases', 'phase-1-setup'), { recursive: true });
       const phaseCard = {
         phase: 1,
-        name: 'Setup',
+        title: 'Setup',
         slug: 'phase-1-setup',
         status: 'executing',
         tasks_summary: { total: 2, completed: 1, in_progress: 1, pending: 0, failed: 0 },
@@ -83,15 +83,15 @@ describe('StateManager', () => {
 
       const board = await manager.buildInitialState();
       expect(board.phases).toHaveLength(1);
-      expect(board.phases[0].name).toBe('Setup');
-      expect(manager.getPhase(1)?.name).toBe('Setup');
+      expect(board.phases[0].title).toBe('Setup');
+      expect(manager.getPhase(1)?.title).toBe('Setup');
     });
 
     it('reads scratch cards from scratch/ directory', async () => {
       await mkdir(join(tempDir, 'scratch', 'quick-fix'), { recursive: true });
       const scratchCard = {
         id: 'scratch-quick-fix',
-        name: 'Quick Fix',
+        title: 'Quick Fix',
         slug: 'quick-fix',
         status: 'active',
       };
@@ -102,7 +102,7 @@ describe('StateManager', () => {
 
       const board = await manager.buildInitialState();
       expect(board.scratch).toHaveLength(1);
-      expect(board.scratch[0].name).toBe('Quick Fix');
+      expect(board.scratch[0].title).toBe('Quick Fix');
     });
 
     it('handles missing phases/ directory gracefully', async () => {
@@ -116,11 +116,11 @@ describe('StateManager', () => {
       await mkdir(join(tempDir, 'phases', 'phase-1-setup'), { recursive: true });
       await writeFile(
         join(tempDir, 'phases', 'phase-2-impl', 'index.json'),
-        JSON.stringify({ phase: 2, name: 'Impl', slug: 'phase-2-impl', status: 'pending' }),
+        JSON.stringify({ phase: 2, title: 'Impl', slug: 'phase-2-impl', status: 'pending' }),
       );
       await writeFile(
         join(tempDir, 'phases', 'phase-1-setup', 'index.json'),
-        JSON.stringify({ phase: 1, name: 'Setup', slug: 'phase-1-setup', status: 'completed' }),
+        JSON.stringify({ phase: 1, title: 'Setup', slug: 'phase-1-setup', status: 'completed' }),
       );
 
       const board = await manager.buildInitialState();
@@ -134,7 +134,7 @@ describe('StateManager', () => {
       await mkdir(join(tempDir, 'phases', 'phase-1-setup', '.task'), { recursive: true });
       await writeFile(
         join(tempDir, 'phases', 'phase-1-setup', 'index.json'),
-        JSON.stringify({ phase: 1, name: 'Setup', slug: 'phase-1-setup', status: 'executing' }),
+        JSON.stringify({ phase: 1, title: 'Setup', slug: 'phase-1-setup', status: 'executing' }),
       );
       await writeFile(
         join(tempDir, 'phases', 'phase-1-setup', '.task', 'TASK-001.json'),
@@ -158,7 +158,7 @@ describe('StateManager', () => {
       await mkdir(join(tempDir, 'phases', 'phase-1-setup', '.task'), { recursive: true });
       await writeFile(
         join(tempDir, 'phases', 'phase-1-setup', 'index.json'),
-        JSON.stringify({ phase: 1, name: 'Setup', slug: 'phase-1-setup', status: 'executing' }),
+        JSON.stringify({ phase: 1, title: 'Setup', slug: 'phase-1-setup', status: 'executing' }),
       );
       await writeFile(
         join(tempDir, 'phases', 'phase-1-setup', '.task', 'TASK-001.json'),
@@ -177,7 +177,7 @@ describe('StateManager', () => {
       await mkdir(join(tempDir, 'phases', 'phase-1-setup', '.task'), { recursive: true });
       await writeFile(
         join(tempDir, 'phases', 'phase-1-setup', 'index.json'),
-        JSON.stringify({ phase: 1, name: 'Setup', slug: 'phase-1-setup', status: 'executing' }),
+        JSON.stringify({ phase: 1, title: 'Setup', slug: 'phase-1-setup', status: 'executing' }),
       );
       await writeFile(
         join(tempDir, 'phases', 'phase-1-setup', '.task', 'TASK-001.json'),
@@ -225,7 +225,7 @@ describe('StateManager', () => {
       await manager.buildInitialState();
 
       await mkdir(join(tempDir, 'phases', 'phase-1-setup'), { recursive: true });
-      const phaseCard = { phase: 1, name: 'Setup', slug: 'phase-1-setup', status: 'completed' };
+      const phaseCard = { phase: 1, title: 'Setup', slug: 'phase-1-setup', status: 'completed' };
       await writeFile(
         join(tempDir, 'phases', 'phase-1-setup', 'index.json'),
         JSON.stringify(phaseCard),
@@ -244,7 +244,7 @@ describe('StateManager', () => {
       await mkdir(join(tempDir, 'phases', 'phase-1-setup'), { recursive: true });
       await writeFile(
         join(tempDir, 'phases', 'phase-1-setup', 'index.json'),
-        JSON.stringify({ phase: 1, name: 'Setup', slug: 'phase-1-setup', status: 'pending' }),
+        JSON.stringify({ phase: 1, title: 'Setup', slug: 'phase-1-setup', status: 'pending' }),
       );
 
       await manager.applyFileChange(join(tempDir, 'phases', 'phase-1-setup', 'index.json'));
@@ -274,7 +274,7 @@ describe('StateManager', () => {
       await manager.buildInitialState();
 
       await mkdir(join(tempDir, 'scratch', 'quick-fix'), { recursive: true });
-      const scratchCard = { id: 'scratch-quick-fix', name: 'Quick Fix', slug: 'quick-fix', status: 'active' };
+      const scratchCard = { id: 'scratch-quick-fix', title: 'Quick Fix', slug: 'quick-fix', status: 'active' };
       await writeFile(
         join(tempDir, 'scratch', 'quick-fix', 'index.json'),
         JSON.stringify(scratchCard),
@@ -325,14 +325,14 @@ describe('StateManager', () => {
       await mkdir(join(tempDir, 'phases', 'phase-3-verify'), { recursive: true });
       await writeFile(
         join(tempDir, 'phases', 'phase-3-verify', 'index.json'),
-        JSON.stringify({ phase: 3, name: 'Verify', slug: 'phase-3-verify', status: 'pending' }),
+        JSON.stringify({ phase: 3, title: 'Verify', slug: 'phase-3-verify', status: 'pending' }),
       );
       await manager.applyFileChange(join(tempDir, 'phases', 'phase-3-verify', 'index.json'));
 
       await mkdir(join(tempDir, 'phases', 'phase-1-setup'), { recursive: true });
       await writeFile(
         join(tempDir, 'phases', 'phase-1-setup', 'index.json'),
-        JSON.stringify({ phase: 1, name: 'Setup', slug: 'phase-1-setup', status: 'pending' }),
+        JSON.stringify({ phase: 1, title: 'Setup', slug: 'phase-1-setup', status: 'pending' }),
       );
       await manager.applyFileChange(join(tempDir, 'phases', 'phase-1-setup', 'index.json'));
 
@@ -347,7 +347,7 @@ describe('StateManager', () => {
       await mkdir(join(tempDir, 'phases', 'phase-1-setup'), { recursive: true });
       await writeFile(
         join(tempDir, 'phases', 'phase-1-setup', 'index.json'),
-        JSON.stringify({ phase: 1, name: 'Setup', slug: 'phase-1-setup', status: 'pending' }),
+        JSON.stringify({ phase: 1, title: 'Setup', slug: 'phase-1-setup', status: 'pending' }),
       );
       await manager.applyFileChange(join(tempDir, 'phases', 'phase-1-setup', 'index.json'));
       expect(manager.getPhase(1)?.status).toBe('pending');
@@ -355,7 +355,7 @@ describe('StateManager', () => {
       // Update same phase
       await writeFile(
         join(tempDir, 'phases', 'phase-1-setup', 'index.json'),
-        JSON.stringify({ phase: 1, name: 'Setup', slug: 'phase-1-setup', status: 'completed' }),
+        JSON.stringify({ phase: 1, title: 'Setup', slug: 'phase-1-setup', status: 'completed' }),
       );
       await manager.applyFileChange(join(tempDir, 'phases', 'phase-1-setup', 'index.json'));
       expect(manager.getPhase(1)?.status).toBe('completed');
@@ -370,18 +370,18 @@ describe('StateManager', () => {
       await mkdir(join(tempDir, 'scratch', 'quick-fix'), { recursive: true });
       await writeFile(
         join(tempDir, 'scratch', 'quick-fix', 'index.json'),
-        JSON.stringify({ id: 'scratch-quick-fix', name: 'Quick Fix v1', slug: 'quick-fix', status: 'active' }),
+        JSON.stringify({ id: 'scratch-quick-fix', title: 'Quick Fix v1', slug: 'quick-fix', status: 'active' }),
       );
       await manager.applyFileChange(join(tempDir, 'scratch', 'quick-fix', 'index.json'));
 
       await writeFile(
         join(tempDir, 'scratch', 'quick-fix', 'index.json'),
-        JSON.stringify({ id: 'scratch-quick-fix', name: 'Quick Fix v2', slug: 'quick-fix', status: 'completed' }),
+        JSON.stringify({ id: 'scratch-quick-fix', title: 'Quick Fix v2', slug: 'quick-fix', status: 'completed' }),
       );
       await manager.applyFileChange(join(tempDir, 'scratch', 'quick-fix', 'index.json'));
 
       expect(manager.getBoard().scratch).toHaveLength(1);
-      expect(manager.getBoard().scratch[0].name).toBe('Quick Fix v2');
+      expect(manager.getBoard().scratch[0].title).toBe('Quick Fix v2');
     });
   });
 });

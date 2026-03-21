@@ -5,7 +5,7 @@ import { SPECS_API_ENDPOINTS } from '@/shared/constants.js';
 // Types
 // ---------------------------------------------------------------------------
 
-export type SpecType = 'bug' | 'pattern' | 'decision' | 'rule' | 'general';
+export type SpecType = 'bug' | 'pattern' | 'decision' | 'rule' | 'debug' | 'test' | 'review' | 'validation' | 'general';
 
 export interface SpecEntry {
   id: string;
@@ -176,6 +176,10 @@ export const useSpecsStore = create<SpecsStore>((set, get) => ({
       pattern: [],
       decision: [],
       rule: [],
+      debug: [],
+      test: [],
+      review: [],
+      validation: [],
       general: [],
     };
     for (const e of entries) {
@@ -186,7 +190,7 @@ export const useSpecsStore = create<SpecsStore>((set, get) => ({
 
   typeCounts: () => {
     const { entries } = get();
-    const counts: Record<string, number> = { all: entries.length, bug: 0, pattern: 0, decision: 0, rule: 0, general: 0 };
+    const counts: Record<string, number> = { all: entries.length, bug: 0, pattern: 0, decision: 0, rule: 0, debug: 0, test: 0, review: 0, validation: 0, general: 0 };
     for (const e of entries) counts[e.type] = (counts[e.type] ?? 0) + 1;
     return counts as Record<SpecType | 'all', number>;
   },

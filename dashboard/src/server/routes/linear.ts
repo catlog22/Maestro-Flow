@@ -174,9 +174,12 @@ const ISSUE_CREATE_MUTATION = `
   }
 `;
 
-export function createLinearRoutes(workflowRoot?: string): Hono {
+export function createLinearRoutes(workflowRoot?: string | (() => string)): Hono {
   const app = new Hono();
-  const jsonlPath = workflowRoot ? join(workflowRoot, 'issues', 'issues.jsonl') : '';
+  const getJsonlPath = () => {
+    const root = typeof workflowRoot === 'function' ? workflowRoot() : workflowRoot;
+    return root ? join(root, 'issues', 'issues.jsonl') : '';
+  };
 
   // GET /api/linear/status -- check if API key is configured
   app.get('/api/linear/status', (c) => {
@@ -317,7 +320,8 @@ export function createLinearRoutes(workflowRoot?: string): Hono {
   // POST /api/linear/import -- import Linear issues → local issues.jsonl
   app.post('/api/linear/import', async (c) => {
     try {
-      if (!jsonlPath) {
+      const jp = getJsonlPath();
+      if (!jp) {
         return c.json({ error: 'Workflow root not configured' }, 500);
       }
 
@@ -329,7 +333,7 @@ export function createLinearRoutes(workflowRoot?: string): Hono {
       // Read existing issues to avoid duplicates
       let existing: Issue[] = [];
       try {
-        const raw = await readFile(jsonlPath, 'utf-8');
+        const raw = await readFile(jp, 'utf-8');
         for (const line of raw.split('\n')) {
           const trimmed = line.trim();
           if (trimmed) {
@@ -361,12 +365,12 @@ export function createLinearRoutes(workflowRoot?: string): Hono {
       }
 
       if (imported.length > 0) {
-        await mkdir(dirname(jsonlPath), { recursive: true });
+        await mkdir(dirname(jp), { recursive: true });
         const lines = imported.map((i) => JSON.stringify(i)).join('\n');
         let existingContent = '';
-        try { existingContent = await readFile(jsonlPath, 'utf-8'); } catch { /* ok */ }
+        try { existingContent = await readFile(jp, 'utf-8'); } catch { /* ok */ }
         const sep = existingContent.length > 0 && !existingContent.endsWith('\n') ? '\n' : '';
-        await writeFile(jsonlPath, existingContent + sep + lines + '\n', 'utf-8');
+        await writeFile(jp, existingContent + sep + lines + '\n', 'utf-8');
       }
 
       return c.json({ imported: imported.length, errors });
