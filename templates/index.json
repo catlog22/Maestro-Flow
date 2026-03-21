@@ -2,9 +2,13 @@
   "phase": 0,
   "slug": "{{SLUG}}",
   "title": "{{TITLE}}",
+  "milestone": "{{MILESTONE_NAME}}",
   "status": "pending",
   "created_at": "{{TIMESTAMP}}",
   "updated_at": "{{TIMESTAMP}}",
+  "completed_at": null,
+  "force_transition": false,
+  "depends_on": [],
 
   "goal": "{{GOAL}}",
   "success_criteria": [],

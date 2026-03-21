@@ -161,6 +161,7 @@ When invoked with `quick` flag:
 - All generated plan JSON must conform to templates/plan.json structure
 - Field `done_when` is deprecated; use `convergence.criteria` (array of testable strings)
 - Field `files: ["path"]` is deprecated; use `files: [{path, action, target, change}]`
+- **related_success_criteria**: Each task MUST include a `related_success_criteria` array referencing the Success Criteria ID(s) (e.g. `["SC-001", "SC-002"]`) from `roadmap.md` that the task addresses. This provides SC-to-Task traceability so every roadmap Success Criterion can be traced to the tasks that fulfill it.
 
 ## Output Location
 - **Phase-scoped planning**: `.workflow/phases/{NN}-{slug}/plan.json` and `.workflow/phases/{NN}-{slug}/.task/TASK-{NNN}.json`

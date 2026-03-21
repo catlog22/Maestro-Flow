@@ -59,6 +59,8 @@ You implement a single task from the execution plan. Each task is executed atomi
   - All specs with `readMode: required` and `category: execution`
   - **Must comply**: All generated code must follow loaded spec constraints
 - Prior task summaries from `.summaries/` (for context on dependencies)
+- `context.md` -- Phase context with Locked/Free/Deferred decisions (read to understand constraints before implementing)
+- `analysis.md` -- Phase analysis with 6-dimension scores (reference for quality expectations)
 - Codebase access for implementation
 
 ## Output

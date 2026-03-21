@@ -123,6 +123,15 @@ For each wave in execution_queue (sequential):
     execution.current_wave = wave.wave
     execution.started_at = execution.started_at || now()
 
+  # State tracking (once, on first wave entry)
+  If first_wave_entry (current_wave == execution_queue[0].wave):
+    Read .workflow/state.json
+    If state.json.status != "executing":
+      state.json.status = "executing"
+      state.json.phases_summary.in_progress += 1
+      state.json.last_updated = now()
+      Write .workflow/state.json
+
   For each task_id in wave.tasks (parallel):
 
     # --- Per-task execution ---
@@ -137,6 +146,8 @@ For each wave in execution_queue (sequential):
          - Relevant summaries from prior waves (.summaries/ of deps)
          - Execution method override (if --method cli)
          - Project specs (specs_content from E1.5 — coding conventions, architecture constraints, quality rules)
+        - Phase context decisions (context.md — Locked/Free/Deferred classification)
+        - Phase analysis scores (analysis.md — 6-dimension evaluation)
 
        Agent responsibilities:
          a. Read task definition (read_first, files, action, convergence.criteria)
@@ -250,6 +261,14 @@ Else:
   Log "{completed}/{total} tasks completed. Re-run /workflow:execute to resume."
 
 index.json.updated_at = now()
+
+# Update project state.json (skip in SCRATCH_MODE)
+If NOT SCRATCH_MODE:
+  Read .workflow/state.json
+  If all_completed:
+    state.json.status = "verifying"
+  state.json.last_updated = now()
+  Write .workflow/state.json
 ```
 
 ---

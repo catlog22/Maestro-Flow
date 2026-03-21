@@ -78,6 +78,8 @@
     "adr_ids": []
   },
 
+  "related_success_criteria": ["{{SC-NNN}}"],
+
   "meta": {
     "estimated_time": null,
     "risk": "low",

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "project_name": "{{PROJECT_NAME}}",
-  "current_milestone": "v1.0",
+  "current_milestone": "{{MILESTONE_NAME}}",
   "current_phase": 1,
   "status": "idle",
   "phases_summary": {
@@ -14,6 +14,25 @@
   "accumulated_context": {
     "key_decisions": [],
     "blockers": [],
-    "deferred": []
-  }
+    "deferred": [
+      {
+        "id": "{{DEFERRED_ID}}",
+        "severity": "{{critical|high|medium|low}}",
+        "fix_direction": "{{FIX_DIRECTION}}",
+        "description": "{{DESCRIPTION}}"
+      }
+    ]
+  },
+  "milestones": [
+    {
+      "name": "{{MILESTONE_NAME}}",
+      "slug": "{{MILESTONE_SLUG}}",
+      "status": "{{pending|in_progress|completed}}",
+      "completed_at": null,
+      "phases": [],
+      "audit_verdict": null,
+      "force_completed": false,
+      "archive_path": null
+    }
+  ]
 }

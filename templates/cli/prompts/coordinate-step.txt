@@ -1,0 +1,24 @@
+# Coordinate Step {{STEP_N}} — {{CHAIN_NAME}}
+
+Execute the following command:
+
+{{COMMAND}} {{ARGS}}
+
+{{AUTO_DIRECTIVE}}
+
+## Return Format
+
+Output MUST end with this exact block (fill each field on its own line):
+
+```
+--- COORDINATE RESULT ---
+STATUS: <SUCCESS or FAILURE>
+PHASE: <number, or "none">
+ARTIFACTS: <comma-separated file paths, or "none">
+SUMMARY: <one-line what was accomplished, include session IDs if any>
+```
+
+Rules:
+- Execute the command as-is — it is a maestro slash command with arguments
+- Do not modify files outside the command's intended scope
+- PHASE must reflect the phase number referenced during execution
