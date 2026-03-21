@@ -7,6 +7,7 @@
     "mcp": "MCP 管理器",
     "specs": "规范管理器",
     "teams": "团队会话",
+    "requirement": "需求扩展",
     "views": "视图"
   },
   "sidebar": {
@@ -22,6 +23,7 @@
     "mcp_tooltip": "MCP 管理器",
     "specs_tooltip": "规范管理器",
     "teams_tooltip": "团队",
+    "requirement_tooltip": "需求",
     "views_label": "视图",
     "phases_label": "阶段",
     "phase_dot_aria": "阶段 {{phase}}：{{title}} — {{status}}"

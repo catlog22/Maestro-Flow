@@ -35,7 +35,8 @@ import type { Issue } from './issue-types.js';
 export type SelectedKanbanItem =
   | { type: 'phase'; phaseId: number }
   | { type: 'linearIssue'; issue: LinearIssue }
-  | { type: 'issue'; issue: Issue };
+  | { type: 'issue'; issue: Issue }
+  | { type: 'task'; task: TaskCard; phaseId: number };
 
 // ---------------------------------------------------------------------------
 // Re-export agent types for convenience

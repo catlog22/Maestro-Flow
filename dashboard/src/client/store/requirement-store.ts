@@ -23,16 +23,18 @@ export interface CommittedResult {
 
 export interface RequirementStore {
   currentRequirement: ExpandedRequirement | null;
+  history: ExpandedRequirement[];
   isLoading: boolean;
   error: string | null;
   progressMessage: string | null;
   committedResult: CommittedResult | null;
 
   // Actions that send WS messages
-  expand: (text: string, depth?: ExpansionDepth) => void;
+  expand: (text: string, depth?: ExpansionDepth, method?: string) => void;
   refine: (feedback: string) => void;
   commit: (mode: 'issues' | 'coordinate') => void;
   resetRequirement: () => void;
+  loadHistory: (id: string) => void;
 
   // WS event handlers (called from useWebSocket)
   onProgress: (payload: RequirementProgressPayload) => void;
@@ -44,18 +46,31 @@ export interface RequirementStore {
   updateItem: (itemId: string, updates: Partial<ExpandedRequirement['items'][number]>) => void;
 }
 
+/** Add or update a requirement in the history array */
+function upsertHistory(history: ExpandedRequirement[], req: ExpandedRequirement): ExpandedRequirement[] {
+  const idx = history.findIndex((h) => h.id === req.id);
+  if (idx >= 0) {
+    const next = [...history];
+    next[idx] = req;
+    return next;
+  }
+  return [req, ...history];
+}
+
 export const useRequirementStore = create<RequirementStore>((set, get) => ({
   currentRequirement: null,
+  history: [],
   isLoading: false,
   error: null,
   progressMessage: null,
   committedResult: null,
 
-  expand: (text, depth) => {
+  expand: (text, depth, method) => {
     set({
       isLoading: true,
       error: null,
       progressMessage: null,
+      committedResult: null,
       currentRequirement: {
         id: '',
         status: 'expanding',
@@ -73,6 +88,7 @@ export const useRequirementStore = create<RequirementStore>((set, get) => ({
         action: 'requirement:expand',
         text,
         depth,
+        method: (method ?? 'sdk') as 'sdk' | 'cli',
       });
     } catch (e) {
       set({ isLoading: false, error: e instanceof Error ? e.message : String(e) });
@@ -129,31 +145,52 @@ export const useRequirementStore = create<RequirementStore>((set, get) => ({
     });
   },
 
+  loadHistory: (id) => {
+    const item = get().history.find((h) => h.id === id);
+    if (item) {
+      set({
+        currentRequirement: item,
+        isLoading: false,
+        error: null,
+        progressMessage: null,
+        committedResult: null,
+      });
+    }
+  },
+
   onProgress: (payload) => {
     set((state) => {
       const req = state.currentRequirement;
       if (!req) return state;
+      const isFailed = payload.status === 'failed';
       return {
-        currentRequirement: { ...req, status: payload.status },
+        currentRequirement: {
+          ...req,
+          status: payload.status,
+          ...(isFailed && payload.message ? { error: payload.message } : {}),
+        },
         progressMessage: payload.message ?? null,
+        ...(isFailed ? { isLoading: false, error: payload.message ?? 'Expansion failed' } : {}),
       };
     });
   },
 
   onExpanded: (payload) => {
-    set({
+    set((state) => ({
       currentRequirement: payload.requirement,
       isLoading: false,
       progressMessage: null,
-    });
+      history: upsertHistory(state.history, payload.requirement),
+    }));
   },
 
   onCommitted: (payload) => {
     set((state) => {
       const req = state.currentRequirement;
       if (!req || req.id !== payload.requirementId) return state;
+      const updated = { ...req, status: 'done' as const };
       return {
-        currentRequirement: { ...req, status: 'done' },
+        currentRequirement: updated,
         isLoading: false,
         progressMessage: null,
         committedResult: {
@@ -162,6 +199,7 @@ export const useRequirementStore = create<RequirementStore>((set, get) => ({
           issueIds: payload.issueIds,
           coordinateSessionId: payload.coordinateSessionId,
         },
+        history: upsertHistory(state.history, updated),
       };
     });
   },

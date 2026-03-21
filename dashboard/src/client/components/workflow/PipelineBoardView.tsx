@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useBoardStore } from '@/client/store/board-store.js';
 import { STATUS_COLORS } from '@/shared/constants.js';
-import type { PhaseCard, PhaseStatus } from '@/shared/types.js';
+import type { PhaseCard, PhaseStatus, SelectedKanbanItem } from '@/shared/types.js';
 import { PipelineHeader } from './PipelineHeader.js';
 import { PipelineColumn } from './PipelineColumn.js';
 import { SummaryBar } from './SummaryBar.js';
@@ -40,7 +40,11 @@ function groupPhases(phases: PhaseCard[]): Map<PhaseStatus, PhaseCard[]> {
   return grouped;
 }
 
-export function PipelineBoardView() {
+interface PipelineBoardViewProps {
+  onSelectTask?: (item: SelectedKanbanItem) => void;
+}
+
+export function PipelineBoardView({ onSelectTask }: PipelineBoardViewProps) {
   const phases = useBoardStore((s) => s.board?.phases ?? []);
   const grouped = useMemo(() => groupPhases(phases), [phases]);
 
@@ -55,6 +59,7 @@ export function PipelineBoardView() {
             color={STATUS_COLORS[col.status]}
             label={col.label}
             phases={grouped.get(col.status) ?? []}
+            onSelectTask={onSelectTask}
           />
         ))}
       </div>

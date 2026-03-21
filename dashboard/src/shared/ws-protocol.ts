@@ -236,6 +236,7 @@ export interface WsClientRequirementExpandMessage {
   action: 'requirement:expand';
   text: string;
   depth?: ExpansionDepth;
+  method?: 'sdk' | 'cli';
 }
 
 export interface WsClientRequirementRefineMessage {

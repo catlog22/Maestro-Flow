@@ -11,6 +11,7 @@ import { SetupChecklist } from '@/client/components/workflow/SetupChecklist.js';
 import { CoordinatePanel } from '@/client/components/workflow/CoordinatePanel.js';
 import { DetailPanel } from '@/client/components/common/DetailPanel.js';
 import { KanbanDetailPanel } from '@/client/components/kanban/KanbanDetailPanel.js';
+import type { SelectedKanbanItem } from '@/shared/types.js';
 import ColumnsIcon from 'lucide-react/dist/esm/icons/columns-3.js';
 import ListIcon from 'lucide-react/dist/esm/icons/list.js';
 import ActivityIcon from 'lucide-react/dist/esm/icons/activity.js';
@@ -27,6 +28,7 @@ const VIEW_ORDER: ActiveView[] = ['board', 'timeline', 'center', 'table', 'coord
 
 export function WorkflowPage() {
   const [activeView, setActiveView] = useState<ActiveView>('board');
+  const [selectedItem, setSelectedItem] = useState<SelectedKanbanItem | null>(null);
   const { register, unregister } = useContext(ViewSwitcherContext);
   const { phases, board, selectedPhase, setSelectedPhase } = useBoardStore(useShallow((s) => ({
     phases: s.board?.phases ?? [],
@@ -37,6 +39,12 @@ export function WorkflowPage() {
 
   const handleSwitch = useCallback((index: number) => {
     setActiveView(VIEW_ORDER[index]);
+    setSelectedPhase(null);
+    setSelectedItem(null);
+  }, [setSelectedPhase]);
+
+  const handleSelectTask = useCallback((item: SelectedKanbanItem) => {
+    setSelectedItem(item);
     setSelectedPhase(null);
   }, [setSelectedPhase]);
 
@@ -60,7 +68,10 @@ export function WorkflowPage() {
     return () => unregister();
   }, [unregister]);
 
-  const detailOpen = selectedPhase !== null;
+  // Determine what to show in the detail panel: selectedItem (task) takes priority, then selectedPhase
+  const activeDetail: SelectedKanbanItem | null = selectedItem ?? (selectedPhase !== null ? { type: 'phase', phaseId: selectedPhase } : null);
+  const detailOpen = activeDetail !== null;
+  const detailTitle = activeDetail?.type === 'task' ? 'Task Detail' : 'Phase Detail';
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -71,22 +82,27 @@ export function WorkflowPage() {
           <SetupChecklist project={board?.project} />
         ) : (
           <>
-            {activeView === 'board' && <PipelineBoardView />}
-            {activeView === 'timeline' && <TimelineView onSelectPhase={(id) => setSelectedPhase(selectedPhase === id ? null : id)} />}
+            {activeView === 'board' && <PipelineBoardView onSelectTask={handleSelectTask} />}
+            {activeView === 'timeline' && (
+              <TimelineView
+                onSelectPhase={(id) => { setSelectedItem(null); setSelectedPhase(selectedPhase === id ? null : id); }}
+                onSelectTask={handleSelectTask}
+              />
+            )}
             {activeView === 'center' && <CommandCenterView />}
-            {activeView === 'table' && <WfTableView />}
+            {activeView === 'table' && <WfTableView onSelectTask={handleSelectTask} />}
           </>
         )}
       </div>
 
-      {/* Phase detail panel */}
+      {/* Detail panel */}
       <DetailPanel
         open={detailOpen}
-        onClose={() => setSelectedPhase(null)}
-        title="Phase Detail"
+        onClose={() => { setSelectedPhase(null); setSelectedItem(null); }}
+        title={detailTitle}
       >
-        {selectedPhase !== null && (
-          <KanbanDetailPanel selectedItem={{ type: 'phase', phaseId: selectedPhase }} />
+        {activeDetail !== null && (
+          <KanbanDetailPanel selectedItem={activeDetail} />
         )}
       </DetailPanel>
     </div>

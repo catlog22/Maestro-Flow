@@ -7,6 +7,7 @@
     "mcp": "MCP Manager",
     "specs": "Specs Manager",
     "teams": "Team Sessions",
+    "requirement": "Requirement",
     "views": "Views"
   },
   "sidebar": {
@@ -22,6 +23,7 @@
     "mcp_tooltip": "MCP Manager",
     "specs_tooltip": "Specs Manager",
     "teams_tooltip": "Teams",
+    "requirement_tooltip": "Requirement",
     "views_label": "Views",
     "phases_label": "Phases",
     "phase_dot_aria": "Phase {{phase}}: {{title}} — {{status}}"

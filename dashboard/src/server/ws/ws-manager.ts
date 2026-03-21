@@ -312,7 +312,7 @@ export class WebSocketManager {
       // --- Requirement actions ---------------------------------------------------
       case 'requirement:expand':
         if (this.requirementExpander) {
-          this.requirementExpander.expand(msg.text, msg.depth)
+          this.requirementExpander.expand(msg.text, msg.depth, msg.method)
             .then((requirement) => {
               this.broadcast('requirement:expanded', { requirement });
             })

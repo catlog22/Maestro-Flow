@@ -21,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Artifacts', path: '/artifacts', labelKey: 'nav.artifacts' },
   { label: 'Chat', path: '/chat', labelKey: 'nav.chat' },
   { label: 'Workflow', path: '/workflow', labelKey: 'nav.workflow' },
+  { label: 'Requirement', path: '/requirement', labelKey: 'nav.requirement' },
 ];
 
 const EMPTY_PHASES: PhaseCard[] = [];

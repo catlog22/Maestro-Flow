@@ -6,6 +6,8 @@
 // ---------------------------------------------------------------------------
 
 import { randomUUID } from 'node:crypto';
+import { writeFile, readFile, mkdir } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { SDKResultSuccess } from '@anthropic-ai/claude-agent-sdk';
@@ -26,10 +28,31 @@ import {
 } from '../utils/issue-store.js';
 import {
   REQUIREMENT_SYSTEM_PROMPT,
-  REQUIREMENT_OUTPUT_SCHEMA,
   buildExpandPrompt,
   buildRefinePrompt,
 } from './requirement-prompts.js';
+
+// ---------------------------------------------------------------------------
+// JSON extraction helper
+// ---------------------------------------------------------------------------
+
+/** Extract a JSON object from text that may contain markdown fences or preamble */
+function extractJson(text: string): string | null {
+  // Try 1: Strip markdown fences
+  const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/i);
+  if (fenced) return fenced[1].trim();
+
+  // Try 2: Find outermost { ... } pair
+  const first = text.indexOf('{');
+  const last = text.lastIndexOf('}');
+  if (first !== -1 && last > first) return text.slice(first, last + 1);
+
+  // Try 3: Raw text might already be valid JSON
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{')) return trimmed;
+
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Agent SDK result shape (internal)
@@ -51,18 +74,24 @@ export type RequirementProgressListener = (payload: RequirementProgressPayload) 
 // RequirementExpander
 // ---------------------------------------------------------------------------
 
+export type ExpansionMethod = 'sdk' | 'cli';
+
 export class RequirementExpander {
   private readonly store = new Map<string, ExpandedRequirement>();
   private readonly coordinateRunner: CoordinateRunner;
   private readonly issueJsonlPath: string;
+  private readonly requirementDir: string;
   private readonly progressListeners = new Set<RequirementProgressListener>();
 
   constructor(
     coordinateRunner: CoordinateRunner,
     issueJsonlPath: string,
+    requirementDir?: string,
   ) {
     this.coordinateRunner = coordinateRunner;
     this.issueJsonlPath = issueJsonlPath;
+    this.requirementDir = requirementDir ?? join(dirname(issueJsonlPath), 'requirements');
+    void this.loadPersistedRequirements();
   }
 
   /** Subscribe to progress events (used by WS handler to forward to clients) */
@@ -94,7 +123,7 @@ export class RequirementExpander {
   // -------------------------------------------------------------------------
 
   /** Expand user text into a structured requirement checklist */
-  async expand(text: string, depth: ExpansionDepth = 'standard'): Promise<ExpandedRequirement> {
+  async expand(text: string, depth: ExpansionDepth = 'standard', method: ExpansionMethod = 'sdk'): Promise<ExpandedRequirement> {
     const id = `REQ-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
     const now = new Date().toISOString();
 
@@ -128,6 +157,7 @@ export class RequirementExpander {
       requirement.updatedAt = new Date().toISOString();
 
       this.store.set(id, requirement);
+      void this.persistRequirement(requirement);
       this.emitProgress(id, 'reviewing', 'Expansion complete. Ready for review.');
 
       return requirement;
@@ -136,6 +166,7 @@ export class RequirementExpander {
       requirement.error = err instanceof Error ? err.message : String(err);
       requirement.updatedAt = new Date().toISOString();
       this.store.set(id, requirement);
+      void this.persistRequirement(requirement);
       this.emitProgress(id, 'failed', requirement.error);
       throw err;
     }
@@ -175,6 +206,7 @@ export class RequirementExpander {
       requirement.updatedAt = new Date().toISOString();
 
       this.store.set(id, requirement);
+      void this.persistRequirement(requirement);
       this.emitProgress(id, 'reviewing', 'Refinement complete. Ready for review.');
 
       return requirement;
@@ -183,6 +215,7 @@ export class RequirementExpander {
       requirement.error = err instanceof Error ? err.message : String(err);
       requirement.updatedAt = new Date().toISOString();
       this.store.set(id, requirement);
+      void this.persistRequirement(requirement);
       this.emitProgress(id, 'failed', requirement.error);
       throw err;
     }
@@ -240,6 +273,7 @@ export class RequirementExpander {
       requirement.status = 'done';
       requirement.updatedAt = new Date().toISOString();
       this.store.set(id, requirement);
+      void this.persistRequirement(requirement);
       this.emitProgress(id, 'done', `Created ${issueIds.length} issues.`);
 
       return issueIds;
@@ -297,6 +331,7 @@ export class RequirementExpander {
       requirement.status = 'done';
       requirement.updatedAt = new Date().toISOString();
       this.store.set(id, requirement);
+      void this.persistRequirement(requirement);
       this.emitProgress(id, 'done', `Coordinate session started: ${session.sessionId}`);
 
       return session.sessionId;
@@ -325,11 +360,10 @@ export class RequirementExpander {
         for await (const message of query({
           prompt,
           options: {
-            tools: ['Read', 'Glob', 'Grep'],
-            allowedTools: ['Read', 'Glob', 'Grep'],
+            tools: [],
+            allowedTools: [],
             permissionMode: 'dontAsk',
             systemPrompt: REQUIREMENT_SYSTEM_PROMPT,
-            outputFormat: REQUIREMENT_OUTPUT_SCHEMA,
             maxTurns: 3,
             persistSession: false,
           },
@@ -345,7 +379,12 @@ export class RequirementExpander {
           throw new Error('Expansion query succeeded but returned an empty result from the model.');
         }
 
-        const parsed = JSON.parse(resultText) as ExpansionResult;
+        // Extract JSON from response — model may wrap in markdown fences or add preamble text
+        const jsonStr = extractJson(resultText);
+        if (!jsonStr) {
+          throw new Error(`Could not extract JSON from model response: ${resultText.substring(0, 100)}...`);
+        }
+        const parsed = JSON.parse(jsonStr) as ExpansionResult;
 
         // Validate parsed result
         if (!parsed || typeof parsed !== 'object') {
@@ -394,6 +433,42 @@ export class RequirementExpander {
       } catch {
         // Listener errors must not break the expansion flow
       }
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // File persistence
+  // -------------------------------------------------------------------------
+
+  /** Persist an ExpandedRequirement to a JSON file */
+  private async persistRequirement(requirement: ExpandedRequirement): Promise<void> {
+    try {
+      await mkdir(this.requirementDir, { recursive: true });
+      const filePath = join(this.requirementDir, `${requirement.id}.json`);
+      await writeFile(filePath, JSON.stringify(requirement, null, 2), 'utf-8');
+    } catch {
+      // Persistence failures are non-fatal
+    }
+  }
+
+  /** Load all persisted requirements from the requirement directory */
+  private async loadPersistedRequirements(): Promise<void> {
+    try {
+      await mkdir(this.requirementDir, { recursive: true });
+      const { readdir } = await import('node:fs/promises');
+      const files = await readdir(this.requirementDir);
+      for (const file of files) {
+        if (!file.endsWith('.json')) continue;
+        try {
+          const data = await readFile(join(this.requirementDir, file), 'utf-8');
+          const req = JSON.parse(data) as ExpandedRequirement;
+          if (req.id) this.store.set(req.id, req);
+        } catch {
+          // Skip malformed files
+        }
+      }
+    } catch {
+      // Directory may not exist yet — that's fine
     }
   }
 }

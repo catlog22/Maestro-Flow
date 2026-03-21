@@ -1,4 +1,4 @@
-import type { PhaseCard } from '@/shared/types.js';
+import type { PhaseCard, SelectedKanbanItem } from '@/shared/types.js';
 import { WfPhaseCard } from './WfPhaseCard.js';
 
 // ---------------------------------------------------------------------------
@@ -10,9 +10,10 @@ interface PipelineColumnProps {
   color: string;
   phases: PhaseCard[];
   label: string;
+  onSelectTask?: (item: SelectedKanbanItem) => void;
 }
 
-export function PipelineColumn({ color, phases, label }: PipelineColumnProps) {
+export function PipelineColumn({ color, phases, label, onSelectTask }: PipelineColumnProps) {
   return (
     <div className="flex flex-col min-w-[220px] flex-1 bg-bg-secondary rounded-[12px] overflow-hidden">
       {/* Column header */}
@@ -32,7 +33,7 @@ export function PipelineColumn({ color, phases, label }: PipelineColumnProps) {
       {/* Cards */}
       <div className="flex-1 overflow-y-auto px-[var(--spacing-2)] pb-[var(--spacing-2)] flex flex-col gap-[var(--spacing-2)]">
         {phases.map((phase) => (
-          <WfPhaseCard key={phase.phase} phase={phase} />
+          <WfPhaseCard key={phase.phase} phase={phase} onSelectTask={onSelectTask} />
         ))}
       </div>
     </div>

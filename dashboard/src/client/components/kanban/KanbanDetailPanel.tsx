@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
 import { useBoardStore } from '@/client/store/board-store.js';
 import { StatusBadge } from '@/client/components/common/StatusBadge.js';
 import { ProgressBar } from '@/client/components/common/ProgressBar.js';
 import { STATUS_COLORS } from '@/shared/constants.js';
 import type { TaskCard, SelectedKanbanItem } from '@/shared/types.js';
 import { LINEAR_PRIORITY_LABELS, LINEAR_PRIORITY_COLORS } from '@/shared/linear-types.js';
+import { usePhaseTasks } from '@/client/hooks/usePhaseTasks.js';
 
 // ---------------------------------------------------------------------------
 // KanbanDetailPanel — phase or linear issue detail for the right-side panel
@@ -21,6 +21,9 @@ export function KanbanDetailPanel({ selectedItem }: KanbanDetailPanelProps) {
   if (selectedItem.type === 'issue') {
     return <IssueDetail issue={selectedItem.issue} />;
   }
+  if (selectedItem.type === 'task') {
+    return <TaskDetail task={selectedItem.task} />;
+  }
   return <PhaseDetail phaseId={selectedItem.phaseId} />;
 }
 
@@ -31,31 +34,7 @@ export function KanbanDetailPanel({ selectedItem }: KanbanDetailPanelProps) {
 function PhaseDetail({ phaseId }: { phaseId: number }) {
   const board = useBoardStore((s) => s.board);
   const phase = board?.phases.find((p) => p.phase === phaseId);
-  const [tasks, setTasks] = useState<TaskCard[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setTasks([]);
-
-    fetch(`/api/phases/${phaseId}/tasks`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data: TaskCard[]) => {
-        if (!cancelled) {
-          setTasks(data);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [phaseId]);
+  const { tasks, loading } = usePhaseTasks(phaseId);
 
   if (!phase) {
     return (
@@ -427,8 +406,174 @@ function PhaseDetail({ phaseId }: { phaseId: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// LinearIssueDetail — detail view for a Linear issue
+// TaskDetail — detail view for a task within a phase
 // ---------------------------------------------------------------------------
+
+const TASK_TYPE_COLORS: Record<string, string> = {
+  feature: '#5B8DB8',
+  fix: '#C46555',
+  refactor: '#9178B5',
+  test: '#5B8DB8',
+  docs: '#A09D97',
+};
+
+const TASK_STATUS_COLORS: Record<string, string> = {
+  pending: '#A09D97',
+  in_progress: '#C99B2D',
+  completed: '#5A9E78',
+  failed: '#C46555',
+};
+
+function TaskDetail({ task }: { task: TaskCard }) {
+  const typeColor = TASK_TYPE_COLORS[task.type] ?? '#A09D97';
+  const statusColor = TASK_STATUS_COLORS[task.meta.status] ?? '#A09D97';
+
+  return (
+    <div className="space-y-[var(--spacing-4)]">
+      {/* ID + Title */}
+      <div>
+        <span className="text-[length:var(--font-size-xs)] font-mono text-text-tertiary">
+          {task.id}
+        </span>
+        <h3 className="text-[length:var(--font-size-lg)] font-[var(--font-weight-bold)] text-text-primary mt-[var(--spacing-1)]">
+          {task.title}
+        </h3>
+      </div>
+
+      {/* Badges: type, priority, status, wave */}
+      <div className="flex flex-wrap gap-[var(--spacing-2)]">
+        <span
+          className="text-[length:10px] font-[var(--font-weight-semibold)] px-[var(--spacing-2)] py-[2px] rounded-full"
+          style={{ backgroundColor: `${typeColor}20`, color: typeColor }}
+        >
+          {task.type}
+        </span>
+        <span
+          className="text-[length:10px] font-[var(--font-weight-semibold)] px-[var(--spacing-2)] py-[2px] rounded-full"
+          style={{ backgroundColor: `${statusColor}20`, color: statusColor }}
+        >
+          {task.meta.status.replace('_', ' ')}
+        </span>
+        <span
+          className="text-[length:10px] font-[var(--font-weight-semibold)] px-[var(--spacing-2)] py-[2px] rounded-full"
+          style={{ backgroundColor: 'var(--color-bg-hover)', color: 'var(--color-text-secondary)' }}
+        >
+          {task.priority}
+        </span>
+        <span
+          className="text-[length:10px] font-[var(--font-weight-semibold)] px-[var(--spacing-2)] py-[2px] rounded-full"
+          style={{ backgroundColor: 'var(--color-bg-hover)', color: 'var(--color-text-secondary)' }}
+        >
+          Wave {task.meta.wave}
+        </span>
+      </div>
+
+      {/* Description */}
+      {task.description && (
+        <div>
+          <SectionLabel>Description</SectionLabel>
+          <p className="text-[length:var(--font-size-sm)] text-text-secondary leading-[1.6] whitespace-pre-wrap">
+            {task.description}
+          </p>
+        </div>
+      )}
+
+      {/* Convergence Criteria */}
+      {task.convergence.criteria.length > 0 && (
+        <div>
+          <SectionLabel>Convergence Criteria</SectionLabel>
+          <div>
+            {task.convergence.criteria.map((c, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-[var(--spacing-2)] py-[var(--spacing-1-5)] border-b border-border-divider last:border-b-0 text-[length:var(--font-size-xs)]"
+              >
+                <span className="text-text-tertiary shrink-0">•</span>
+                <span className="flex-1 text-text-secondary font-mono">{c}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Files */}
+      {task.files.length > 0 && (
+        <div>
+          <SectionLabel>Files ({task.files.length})</SectionLabel>
+          <div>
+            {task.files.map((f, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-[var(--spacing-2)] py-[var(--spacing-1-5)] border-b border-border-divider last:border-b-0 text-[length:var(--font-size-xs)]"
+              >
+                <span className="font-mono text-text-primary shrink-0">{f.path}</span>
+                <span className="text-text-tertiary shrink-0">{f.action}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Implementation Steps */}
+      {task.implementation.length > 0 && (
+        <div>
+          <SectionLabel>Implementation</SectionLabel>
+          <div>
+            {task.implementation.map((step, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-[var(--spacing-2)] py-[var(--spacing-1-5)] border-b border-border-divider last:border-b-0 text-[length:var(--font-size-xs)]"
+              >
+                <span className="text-text-tertiary shrink-0 tabular-nums">{i + 1}.</span>
+                <span className="flex-1 text-text-secondary">{step}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Risks */}
+      {task.risks.length > 0 && (
+        <div>
+          <SectionLabel>Risks</SectionLabel>
+          <div>
+            {task.risks.map((risk, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-[var(--spacing-1)] py-[var(--spacing-1)] text-[length:var(--font-size-xs)] text-[#C46555]"
+              >
+                <span className="shrink-0">⚠</span>
+                <span>{risk}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Dependencies */}
+      {task.depends_on.length > 0 && (
+        <div>
+          <SectionLabel>Dependencies</SectionLabel>
+          <div className="flex flex-wrap gap-[var(--spacing-1)]">
+            {task.depends_on.map((dep) => (
+              <span key={dep} className="text-[length:var(--font-size-xs)] font-mono text-text-secondary bg-bg-hover px-[var(--spacing-1-5)] py-[1px] rounded">
+                {dep}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[0.06em] text-text-tertiary mb-[var(--spacing-2)]">
+      {children}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // IssueDetail — detail view for a local issue
