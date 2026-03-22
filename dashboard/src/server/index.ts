@@ -25,7 +25,7 @@ import { ExecutionScheduler } from './execution/execution-scheduler.js';
 import { WaveExecutor } from './execution/wave-executor.js';
 import { CommanderAgent } from './commander/commander-agent.js';
 import { loadCommanderConfig } from './commander/commander-config.js';
-import { CoordinateRunner } from './coordinator/coordinate-runner.js';
+import { WorkflowCoordinator } from './coordinator/workflow-coordinator.js';
 import { RequirementExpander } from './requirement/requirement-expander.js';
 import { createRoutes } from './routes/index.js';
 
@@ -95,9 +95,9 @@ async function main(): Promise<void> {
   const waveExecutor = new WaveExecutor(eventBus, agentManager, projectRoot);
 
   // ---------------------------------------------------------------------------
-  // Coordinate Runner — intent classification + chain execution
+  // Workflow Coordinator — multi-agent intent classification + chain execution
   // ---------------------------------------------------------------------------
-  const coordinateRunner = new CoordinateRunner(eventBus, agentManager, workflowRoot);
+  const coordinateRunner = new WorkflowCoordinator(eventBus, agentManager, stateManager, workflowRoot);
 
   // ---------------------------------------------------------------------------
   // Requirement Expander — expand user requirements into structured checklists

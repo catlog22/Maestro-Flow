@@ -11,7 +11,7 @@ import type { WsServerMessage, WsClientMessage, ExecutionStartedPayload, Executi
 import type { AgentProcess, NormalizedEntry, ApprovalRequest, AgentStatusPayload, AgentStoppedPayload, AgentThoughtPayload, AgentStreamingPayload, TokenUsageEntry } from '@/shared/agent-types.js';
 import type { SupervisorStatus } from '@/shared/execution-types.js';
 import type { CommanderState, Decision } from '@/shared/commander-types.js';
-import type { CoordinateStatusPayload, CoordinateStepPayload, CoordinateAnalysisPayload } from '@/shared/coordinate-types.js';
+import type { CoordinateStatusPayload, CoordinateStepPayload, CoordinateAnalysisPayload, CoordinateClarificationPayload } from '@/shared/coordinate-types.js';
 import type { RequirementProgressPayload, RequirementExpandedPayload, RequirementCommittedPayload, RequirementErrorPayload } from '@/shared/requirement-types.js';
 
 // ---------------------------------------------------------------------------
@@ -64,6 +64,7 @@ export function useWebSocket(): void {
       onStatus: coordinateOnStatus,
       onStep: coordinateOnStep,
       onAnalysis: coordinateOnAnalysis,
+      onClarificationNeeded: coordinateOnClarificationNeeded,
     } = useCoordinateStore.getState();
     const { fetchIssues } = useIssueStore.getState();
     const {
@@ -271,6 +272,12 @@ export function useWebSocket(): void {
           case WS_EVENT_TYPES.COORDINATE_ANALYSIS: {
             const analysisData = msg.data as CoordinateAnalysisPayload;
             coordinateOnAnalysis(analysisData);
+            break;
+          }
+
+          case WS_EVENT_TYPES.COORDINATE_CLARIFICATION_NEEDED: {
+            const clarificationData = msg.data as CoordinateClarificationPayload;
+            coordinateOnClarificationNeeded(clarificationData);
             break;
           }
 

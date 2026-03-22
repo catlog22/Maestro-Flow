@@ -147,6 +147,7 @@ export const WS_EVENT_TYPES: Record<string, WsEventType> = {
   COORDINATE_STATUS: 'coordinate:status',
   COORDINATE_STEP: 'coordinate:step',
   COORDINATE_ANALYSIS: 'coordinate:analysis',
+  COORDINATE_CLARIFICATION_NEEDED: 'coordinate:clarification_needed',
   // Requirement events
   REQUIREMENT_EXPANDED: 'requirement:expanded',
   REQUIREMENT_REFINED: 'requirement:refined',

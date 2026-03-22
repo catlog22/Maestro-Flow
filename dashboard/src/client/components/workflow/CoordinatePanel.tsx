@@ -9,6 +9,8 @@ import XCircleIcon from 'lucide-react/dist/esm/icons/x-circle.js';
 import MinusIcon from 'lucide-react/dist/esm/icons/minus.js';
 import CircleIcon from 'lucide-react/dist/esm/icons/circle.js';
 import LoaderIcon from 'lucide-react/dist/esm/icons/loader.js';
+import SendIcon from 'lucide-react/dist/esm/icons/send.js';
+import MessageCircleIcon from 'lucide-react/dist/esm/icons/message-circle.js';
 
 // ---------------------------------------------------------------------------
 // CoordinatePanel -- control bar + chain progress + step detail
@@ -58,32 +60,55 @@ function StepItem({
         {step.cmd}
         {step.args ? ` ${step.args}` : ''}
       </span>
-      {step.analysis != null && (
+      {step.qualityScore != null && (
         <span
-          className="text-[length:var(--font-size-xs)] shrink-0"
-          style={{ color: 'var(--color-text-secondary)' }}
+          className="text-[length:var(--font-size-xs)] shrink-0 px-[var(--spacing-1)] rounded"
+          style={{
+            color: '#fff',
+            background:
+              step.qualityScore >= 70
+                ? 'var(--color-accent-green)'
+                : step.qualityScore >= 40
+                  ? 'var(--color-accent-orange, #B89540)'
+                  : 'var(--color-accent-red)',
+          }}
         >
-          {/* Extract quality score from analysis if present */}
-          {step.summary ?? ''}
+          {step.qualityScore}
         </span>
       )}
     </button>
   );
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  idle: 'Idle',
+  analyzing_state: 'Analyzing State…',
+  classifying: 'Classifying…',
+  classifying_intent: 'Classifying Intent…',
+  awaiting_clarification: 'Needs Clarification',
+  running: 'Running',
+  reviewing: 'Reviewing…',
+  paused: 'Paused',
+  completed: 'Completed',
+  failed: 'Failed',
+};
+
 export function CoordinatePanel() {
   const session = useCoordinateStore((s) => s.session);
   const selectedStepIndex = useCoordinateStore((s) => s.selectedStepIndex);
+  const clarificationQuestion = useCoordinateStore((s) => s.clarificationQuestion);
   const start = useCoordinateStore((s) => s.start);
   const stop = useCoordinateStore((s) => s.stop);
   const resume = useCoordinateStore((s) => s.resume);
   const selectStep = useCoordinateStore((s) => s.selectStep);
+  const sendClarification = useCoordinateStore((s) => s.sendClarification);
 
   const [intent, setIntent] = useState('');
   const [tool, setTool] = useState<string>('claude');
   const [autoMode, setAutoMode] = useState(true);
+  const [clarifyResponse, setClarifyResponse] = useState('');
 
-  const isRunning = session?.status === 'running' || session?.status === 'classifying';
+  const isRunning = session?.status === 'running' || session?.status === 'classifying' || session?.status === 'analyzing_state' || session?.status === 'classifying_intent' || session?.status === 'reviewing';
   const isIdle = !session || session.status === 'idle' || session.status === 'completed' || session.status === 'failed';
 
   const handleStart = useCallback(() => {
@@ -216,11 +241,22 @@ export function CoordinatePanel() {
               className="px-[var(--spacing-4)] py-[var(--spacing-3)] shrink-0"
               style={{ borderBottom: '1px solid var(--color-border)' }}
             >
-              <div
-                className="text-[length:var(--font-size-sm)] font-medium"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                {session.chainName ?? 'Classifying...'}
+              <div className="flex items-center gap-[var(--spacing-2)]">
+                <div
+                  className="text-[length:var(--font-size-sm)] font-medium"
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  {session.chainName ?? 'Classifying...'}
+                </div>
+                <span
+                  className="text-[length:var(--font-size-xs)] px-[var(--spacing-2)] py-px rounded-full"
+                  style={{
+                    background: isRunning ? 'var(--color-accent-blue)' : session.status === 'awaiting_clarification' ? 'var(--color-accent-orange, #B89540)' : session.status === 'completed' ? 'var(--color-accent-green)' : session.status === 'failed' ? 'var(--color-accent-red)' : 'var(--color-bg-tertiary)',
+                    color: isRunning || session.status === 'awaiting_clarification' || session.status === 'completed' || session.status === 'failed' ? '#fff' : 'var(--color-text-secondary)',
+                  }}
+                >
+                  {STATUS_LABELS[session.status] ?? session.status}
+                </span>
               </div>
               <div
                 className="text-[length:var(--font-size-xs)] mt-[var(--spacing-1)]"
@@ -228,6 +264,55 @@ export function CoordinatePanel() {
               >
                 Step {session.currentStep + 1} / {session.steps.length || '?'}
                 {session.avgQuality != null && ` | Quality: ${session.avgQuality}`}
+              </div>
+            </div>
+          )}
+
+          {/* Clarification dialog */}
+          {clarificationQuestion && session && (
+            <div
+              className="px-[var(--spacing-4)] py-[var(--spacing-3)] shrink-0 flex flex-col gap-[var(--spacing-2)]"
+              style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-secondary)' }}
+            >
+              <div className="flex items-start gap-[var(--spacing-2)]">
+                <MessageCircleIcon size={14} className="shrink-0 mt-0.5" style={{ color: 'var(--color-accent-orange, #B89540)' }} />
+                <span className="text-[length:var(--font-size-sm)]" style={{ color: 'var(--color-text-primary)' }}>
+                  {clarificationQuestion}
+                </span>
+              </div>
+              <div className="flex items-center gap-[var(--spacing-2)]">
+                <input
+                  type="text"
+                  value={clarifyResponse}
+                  onChange={(e) => setClarifyResponse(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && clarifyResponse.trim()) {
+                      sendClarification(session.sessionId, clarifyResponse.trim());
+                      setClarifyResponse('');
+                    }
+                  }}
+                  placeholder="Type your response..."
+                  className="flex-1 px-[var(--spacing-2)] py-[var(--spacing-1)] rounded-[var(--radius-sm)] text-[length:var(--font-size-sm)] outline-none"
+                  style={{
+                    background: 'var(--color-bg-primary)',
+                    color: 'var(--color-text-primary)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (clarifyResponse.trim()) {
+                      sendClarification(session.sessionId, clarifyResponse.trim());
+                      setClarifyResponse('');
+                    }
+                  }}
+                  disabled={!clarifyResponse.trim()}
+                  className="p-[var(--spacing-1)] rounded-[var(--radius-sm)] transition-opacity disabled:opacity-40"
+                  style={{ color: 'var(--color-accent-blue)' }}
+                >
+                  <SendIcon size={14} />
+                </button>
               </div>
             </div>
           )}
@@ -274,6 +359,31 @@ export function CoordinatePanel() {
                   </span>
                 )}
               </div>
+
+              {selectedStep.qualityScore != null && (
+                <div className="flex items-center gap-[var(--spacing-2)]">
+                  <span
+                    className="text-[length:var(--font-size-xs)]"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    Quality
+                  </span>
+                  <span
+                    className="text-[length:var(--font-size-sm)] font-medium px-[var(--spacing-2)] py-px rounded"
+                    style={{
+                      color: '#fff',
+                      background:
+                        selectedStep.qualityScore >= 70
+                          ? 'var(--color-accent-green)'
+                          : selectedStep.qualityScore >= 40
+                            ? 'var(--color-accent-orange, #B89540)'
+                            : 'var(--color-accent-red)',
+                    }}
+                  >
+                    {selectedStep.qualityScore}/100
+                  </span>
+                </div>
+              )}
 
               {selectedStep.summary && (
                 <div>

@@ -16,6 +16,10 @@ export type CoordinateStepStatus =
 export type CoordinateSessionStatus =
   | 'idle'
   | 'classifying'
+  | 'analyzing_state'
+  | 'classifying_intent'
+  | 'awaiting_clarification'
+  | 'reviewing'
   | 'running'
   | 'paused'
   | 'completed'
@@ -30,10 +34,12 @@ export interface CoordinateStep {
   index: number;
   cmd: string;
   args: string;
+  rawArgs?: string;
   status: CoordinateStepStatus;
   processId: string | null;
   analysis: string | null;
   summary: string | null;
+  qualityScore?: number | null;
 }
 
 /** Full coordinate session state */
@@ -47,6 +53,8 @@ export interface CoordinateSession {
   currentStep: number;
   steps: CoordinateStep[];
   avgQuality: number | null;
+  snapshot?: unknown | null;
+  classification?: unknown | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -70,4 +78,10 @@ export interface CoordinateAnalysisPayload {
   intent: string;
   chainName: string;
   steps: Array<{ cmd: string; args: string }>;
+}
+
+/** Payload for 'coordinate:clarification_needed' — intent needs user input */
+export interface CoordinateClarificationPayload {
+  sessionId: string;
+  question: string;
 }

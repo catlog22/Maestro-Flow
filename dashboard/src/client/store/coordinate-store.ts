@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { sendWsMessage } from '@/client/hooks/useWebSocket.js';
-import type { CoordinateSession, CoordinateStep, CoordinateStepPayload, CoordinateAnalysisPayload } from '@/shared/coordinate-types.js';
+import type { CoordinateSession, CoordinateStep, CoordinateStepPayload, CoordinateAnalysisPayload, CoordinateClarificationPayload } from '@/shared/coordinate-types.js';
 
 // ---------------------------------------------------------------------------
 // Coordinate store -- session state for coordinate runner UI
@@ -9,16 +9,19 @@ import type { CoordinateSession, CoordinateStep, CoordinateStepPayload, Coordina
 export interface CoordinateStore {
   session: CoordinateSession | null;
   selectedStepIndex: number | null;
+  clarificationQuestion: string | null;
 
   // WS event handlers (called from useWebSocket)
   onStatus: (session: CoordinateSession) => void;
   onStep: (payload: CoordinateStepPayload) => void;
   onAnalysis: (payload: CoordinateAnalysisPayload) => void;
+  onClarificationNeeded: (payload: CoordinateClarificationPayload) => void;
 
   // Actions that send WS messages
   start: (intent: string, tool?: string, autoMode?: boolean) => void;
   stop: () => void;
   resume: (sessionId?: string) => void;
+  sendClarification: (sessionId: string, response: string) => void;
 
   // UI actions
   selectStep: (index: number | null) => void;
@@ -27,9 +30,13 @@ export interface CoordinateStore {
 export const useCoordinateStore = create<CoordinateStore>((set) => ({
   session: null,
   selectedStepIndex: null,
+  clarificationQuestion: null,
 
   onStatus: (session) =>
-    set({ session }),
+    set({
+      session,
+      clarificationQuestion: session.status !== 'awaiting_clarification' ? null : undefined,
+    }),
 
   onStep: (payload) =>
     set((state) => {
@@ -68,6 +75,12 @@ export const useCoordinateStore = create<CoordinateStore>((set) => ({
       };
     }),
 
+  onClarificationNeeded: (payload) =>
+    set((state) => {
+      if (!state.session || state.session.sessionId !== payload.sessionId) return state;
+      return { clarificationQuestion: payload.question };
+    }),
+
   start: (intent, tool, autoMode) => {
     sendWsMessage({
       action: 'coordinate:start',
@@ -84,6 +97,11 @@ export const useCoordinateStore = create<CoordinateStore>((set) => ({
   resume: (sessionId) => {
     const sid = sessionId ?? useCoordinateStore.getState().session?.sessionId;
     sendWsMessage({ action: 'coordinate:resume', sessionId: sid });
+  },
+
+  sendClarification: (sessionId, response) => {
+    sendWsMessage({ action: 'coordinate:clarify', sessionId, response });
+    set({ clarificationQuestion: null });
   },
 
   selectStep: (index) =>

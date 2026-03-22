@@ -23,6 +23,7 @@ import type {
   CoordinateStatusPayload,
   CoordinateStepPayload,
   CoordinateAnalysisPayload,
+  CoordinateClarificationPayload,
 } from '../../shared/coordinate-types.js';
 import type {
   RequirementProgressPayload,
@@ -65,6 +66,7 @@ const ALL_EVENT_TYPES: SSEEventType[] = [
   'coordinate:status',
   'coordinate:step',
   'coordinate:analysis',
+  'coordinate:clarification_needed',
   'requirement:expanded',
   'requirement:refined',
   'requirement:committed',
@@ -106,6 +108,7 @@ export interface DashboardEventMap {
   'coordinate:status': CoordinateStatusPayload;
   'coordinate:step': CoordinateStepPayload;
   'coordinate:analysis': CoordinateAnalysisPayload;
+  'coordinate:clarification_needed': CoordinateClarificationPayload;
   // Requirement events
   'requirement:expanded': RequirementExpandedPayload;
   'requirement:refined': RequirementExpandedPayload;

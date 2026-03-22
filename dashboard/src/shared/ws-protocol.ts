@@ -36,6 +36,7 @@ export type WsEventType =
   | 'coordinate:status'
   | 'coordinate:step'
   | 'coordinate:analysis'
+  | 'coordinate:clarification_needed'
   // Requirement events
   | 'requirement:expanded'
   | 'requirement:refined'
@@ -96,6 +97,7 @@ export type WsClientMessage =
   | WsClientCoordinateStartMessage
   | WsClientCoordinateStopMessage
   | WsClientCoordinateResumeMessage
+  | WsClientCoordinateClarifyMessage
   | WsClientRequirementExpandMessage
   | WsClientRequirementRefineMessage
   | WsClientRequirementCommitMessage;
@@ -226,6 +228,12 @@ export interface WsClientCoordinateStopMessage {
 export interface WsClientCoordinateResumeMessage {
   action: 'coordinate:resume';
   sessionId?: string;
+}
+
+export interface WsClientCoordinateClarifyMessage {
+  action: 'coordinate:clarify';
+  sessionId: string;
+  response: string;
 }
 
 // ---------------------------------------------------------------------------

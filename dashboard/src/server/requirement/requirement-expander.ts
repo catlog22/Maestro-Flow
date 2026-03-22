@@ -20,7 +20,7 @@ import type {
   RequirementProgressPayload,
 } from '../../shared/requirement-types.js';
 import type { Issue } from '../../shared/issue-types.js';
-import type { CoordinateRunner, CoordinateStartOpts } from '../coordinator/coordinate-runner.js';
+import type { WorkflowCoordinator, CoordinateStartOpts } from '../coordinator/workflow-coordinator.js';
 import {
   appendIssueJsonl,
   withIssueWriteLock,
@@ -78,13 +78,13 @@ export type ExpansionMethod = 'sdk' | 'cli';
 
 export class RequirementExpander {
   private readonly store = new Map<string, ExpandedRequirement>();
-  private readonly coordinateRunner: CoordinateRunner;
+  private readonly coordinateRunner: WorkflowCoordinator;
   private readonly issueJsonlPath: string;
   private readonly requirementDir: string;
   private readonly progressListeners = new Set<RequirementProgressListener>();
 
   constructor(
-    coordinateRunner: CoordinateRunner,
+    coordinateRunner: WorkflowCoordinator,
     issueJsonlPath: string,
     requirementDir?: string,
   ) {
@@ -291,7 +291,7 @@ export class RequirementExpander {
   // Commit as Coordinate session
   // -------------------------------------------------------------------------
 
-  /** Build intent from requirement and start a CoordinateRunner session */
+  /** Build intent from requirement and start a WorkflowCoordinator session */
   async commitAsCoordinate(id: string): Promise<string> {
     const requirement = this.store.get(id);
     if (!requirement) {

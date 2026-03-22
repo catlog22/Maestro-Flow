@@ -9,7 +9,7 @@ import type { AgentManager } from '../agents/agent-manager.js';
 import type { ExecutionScheduler } from '../execution/execution-scheduler.js';
 import type { WaveExecutor } from '../execution/wave-executor.js';
 import type { CommanderAgent } from '../commander/commander-agent.js';
-import type { CoordinateRunner } from '../coordinator/coordinate-runner.js';
+import type { WorkflowCoordinator } from '../coordinator/workflow-coordinator.js';
 import type { RequirementExpander } from '../requirement/requirement-expander.js';
 import { loadDashboardAgentSettings } from '../config.js';
 import { readIssuesJsonl } from '../utils/issue-store.js';
@@ -31,7 +31,7 @@ export class WebSocketManager {
     private readonly commanderAgent?: CommanderAgent,
     private readonly workflowRoot: string = process.cwd(),
     private readonly waveExecutor?: WaveExecutor,
-    private readonly coordinateRunner?: CoordinateRunner,
+    private readonly coordinateRunner?: WorkflowCoordinator,
     private readonly requirementExpander?: RequirementExpander,
   ) {
     this.wss = new WebSocketServer({ noServer: true });
@@ -305,6 +305,16 @@ export class WebSocketManager {
             .catch((err: unknown) => {
               const message = err instanceof Error ? err.message : String(err);
               this.sendError(ws, 'coordinate:resume', message);
+            });
+        }
+        break;
+
+      case 'coordinate:clarify':
+        if (this.coordinateRunner) {
+          this.coordinateRunner.clarify(msg.sessionId, msg.response)
+            .catch((err: unknown) => {
+              const message = err instanceof Error ? err.message : String(err);
+              this.sendError(ws, 'coordinate:clarify', message);
             });
         }
         break;

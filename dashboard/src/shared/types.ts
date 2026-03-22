@@ -42,11 +42,11 @@ export type SelectedKanbanItem =
 // Re-export agent types for convenience
 // ---------------------------------------------------------------------------
 export type { AgentProcess, NormalizedEntry, ApprovalRequest, AgentStatusPayload, AgentStoppedPayload } from './agent-types.js';
-import type { AgentProcess, NormalizedEntry, ApprovalRequest, AgentStatusPayload, AgentStoppedPayload } from './agent-types.js';
+import type { AgentProcess, NormalizedEntry, ApprovalRequest, AgentStatusPayload, AgentStoppedPayload, AgentTurnCompletedPayload } from './agent-types.js';
 import type { SupervisorStatus } from './execution-types.js';
 import type { CommanderState, Decision, CommanderConfig } from './commander-types.js';
 import type { ExecutionStartedPayload, ExecutionCompletedPayload, ExecutionFailedPayload } from './ws-protocol.js';
-import type { CoordinateStatusPayload, CoordinateStepPayload, CoordinateAnalysisPayload } from './coordinate-types.js';
+import type { CoordinateStatusPayload, CoordinateStepPayload, CoordinateAnalysisPayload, CoordinateClarificationPayload } from './coordinate-types.js';
 import type { RequirementProgressPayload, RequirementExpandedPayload, RequirementCommittedPayload, RequirementErrorPayload } from './requirement-types.js';
 
 // ---------------------------------------------------------------------------
@@ -78,6 +78,7 @@ export type SSEEventType =
   | 'coordinate:status'
   | 'coordinate:step'
   | 'coordinate:analysis'
+  | 'coordinate:clarification_needed'
   | 'requirement:expanded'
   | 'requirement:refined'
   | 'requirement:committed'
@@ -243,6 +244,6 @@ export interface BoardState {
 /** SSE event envelope */
 export interface SSEEvent {
   type: SSEEventType;
-  data: BoardState | PhaseCard | TaskCard | ScratchCard | ProjectState | AgentProcess | NormalizedEntry | ApprovalRequest | AgentStatusPayload | AgentStoppedPayload | ExecutionStartedPayload | ExecutionCompletedPayload | ExecutionFailedPayload | SupervisorStatus | CommanderState | Decision | CommanderConfig | CoordinateStatusPayload | CoordinateStepPayload | CoordinateAnalysisPayload | RequirementProgressPayload | RequirementExpandedPayload | RequirementCommittedPayload | RequirementErrorPayload | { workspace: string } | string | null;
+  data: BoardState | PhaseCard | TaskCard | ScratchCard | ProjectState | AgentProcess | NormalizedEntry | ApprovalRequest | AgentStatusPayload | AgentStoppedPayload | AgentTurnCompletedPayload | ExecutionStartedPayload | ExecutionCompletedPayload | ExecutionFailedPayload | SupervisorStatus | CommanderState | Decision | CommanderConfig | CoordinateStatusPayload | CoordinateStepPayload | CoordinateAnalysisPayload | CoordinateClarificationPayload | RequirementProgressPayload | RequirementExpandedPayload | RequirementCommittedPayload | RequirementErrorPayload | { workspace: string } | string | null;
   timestamp: string;
 }
