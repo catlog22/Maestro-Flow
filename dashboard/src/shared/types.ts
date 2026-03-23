@@ -45,7 +45,7 @@ export type { AgentProcess, NormalizedEntry, ApprovalRequest, AgentStatusPayload
 import type { AgentProcess, NormalizedEntry, ApprovalRequest, AgentStatusPayload, AgentStoppedPayload, AgentTurnCompletedPayload } from './agent-types.js';
 import type { SupervisorStatus } from './execution-types.js';
 import type { LearningStats } from './learning-types.js';
-import type { CommanderState, Decision, CommanderConfig } from './commander-types.js';
+import type { CommanderState, Decision, CommanderConfig, AssessMetrics } from './commander-types.js';
 import type { ExecutionStartedPayload, ExecutionCompletedPayload, ExecutionFailedPayload } from './ws-protocol.js';
 import type { CoordinateStatusPayload, CoordinateStepPayload, CoordinateAnalysisPayload, CoordinateClarificationPayload } from './coordinate-types.js';
 import type { RequirementProgressPayload, RequirementExpandedPayload, RequirementCommittedPayload, RequirementErrorPayload } from './requirement-types.js';
@@ -73,6 +73,7 @@ export type SSEEventType =
   | 'execution:started'
   | 'execution:completed'
   | 'execution:failed'
+  | 'execution:scheduler_status'
   | 'supervisor:status'
   | 'supervisor:learning_update'
   | 'supervisor:schedule_triggered'
@@ -83,10 +84,14 @@ export type SSEEventType =
   | 'commander:tick'
   | 'commander:decision'
   | 'commander:config'
+  | 'commander:assess_metrics'
+  | 'commander:error'
   | 'coordinate:status'
+  | 'coordinate:analyze_metrics'
   | 'coordinate:step'
   | 'coordinate:analysis'
   | 'coordinate:clarification_needed'
+  | 'coordinate:error'
   | 'requirement:expanded'
   | 'requirement:refined'
   | 'requirement:committed'
@@ -252,6 +257,6 @@ export interface BoardState {
 /** SSE event envelope */
 export interface SSEEvent {
   type: SSEEventType;
-  data: BoardState | PhaseCard | TaskCard | ScratchCard | ProjectState | AgentProcess | NormalizedEntry | ApprovalRequest | AgentStatusPayload | AgentStoppedPayload | AgentTurnCompletedPayload | ExecutionStartedPayload | ExecutionCompletedPayload | ExecutionFailedPayload | SupervisorStatus | CommanderState | Decision | CommanderConfig | CoordinateStatusPayload | CoordinateStepPayload | CoordinateAnalysisPayload | CoordinateClarificationPayload | RequirementProgressPayload | RequirementExpandedPayload | RequirementCommittedPayload | RequirementErrorPayload | LearningStats | { taskId: string; taskName: string; taskType: string } | { tasks: ScheduledTask[] } | { extensions: ExtensionInfo[] } | { name: string; error: string } | { workspace: string } | string | null;
+  data: BoardState | PhaseCard | TaskCard | ScratchCard | ProjectState | AgentProcess | NormalizedEntry | ApprovalRequest | AgentStatusPayload | AgentStoppedPayload | AgentTurnCompletedPayload | ExecutionStartedPayload | ExecutionCompletedPayload | ExecutionFailedPayload | SupervisorStatus | CommanderState | Decision | CommanderConfig | AssessMetrics | CoordinateStatusPayload | CoordinateStepPayload | CoordinateAnalysisPayload | CoordinateClarificationPayload | RequirementProgressPayload | RequirementExpandedPayload | RequirementCommittedPayload | RequirementErrorPayload | LearningStats | { taskId: string; taskName: string; taskType: string } | { tasks: ScheduledTask[] } | { extensions: ExtensionInfo[] } | { name: string; error: string } | { workspace: string } | string | null;
   timestamp: string;
 }

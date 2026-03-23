@@ -13,6 +13,7 @@ import type {
   CommanderConfig,
   CommanderState,
   Assessment,
+  AssessMetrics,
   PriorityAction,
   Decision,
 } from '../../shared/commander-types.js';
@@ -246,17 +247,28 @@ export class CommanderAgent {
 
     // --- Step 2: Assess (Agent SDK query) ---
     let assessment: Assessment;
+    let assessMetrics: AssessMetrics | undefined;
     this.state.status = 'thinking';
     this.emitStatus();
 
     const assessStart = Date.now();
     try {
-      assessment = await this.assess(context);
+      const result = await this.assess(context);
+      assessment = result.assessment;
+      assessMetrics = result.metrics;
       this.consecutiveFailures = 0;
+
+      // Emit SDK token/latency metrics
+      this.eventBus.emit('commander:assess_metrics', assessMetrics);
     } catch (err) {
       this.consecutiveFailures++;
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[Commander] Assessment failed (${this.consecutiveFailures}x):`, message);
+      this.eventBus.emit('commander:error', {
+        error: message,
+        context: 'assess',
+        timestamp: Date.now(),
+      });
       this.state.status = 'idle';
       this.emitStatus();
       return;
@@ -274,6 +286,9 @@ export class CommanderAgent {
       decideDurationMs,
       totalDurationMs: Date.now() - tickStart,
     };
+
+    // Attach SDK assess metrics
+    decision.assessMetrics = assessMetrics;
 
     // --- Step 4: Dispatch ---
     this.state.status = 'dispatching';
@@ -295,7 +310,7 @@ export class CommanderAgent {
     await this.persistDecision(decision);
 
     this.emitStatus();
-    this.eventBus.emit('supervisor:status', this.executionScheduler.getStatus());
+    this.eventBus.emit('execution:scheduler_status', this.executionScheduler.getStatus());
   }
 
   // -------------------------------------------------------------------------
@@ -331,9 +346,13 @@ export class CommanderAgent {
   // Step 2: Assess (Agent SDK query, read-only)
   // -------------------------------------------------------------------------
 
-  private async assess(context: AssessmentContext): Promise<Assessment> {
+  private async assess(context: AssessmentContext): Promise<{ assessment: Assessment; metrics: AssessMetrics }> {
     const prompt = buildAssessmentPrompt(context);
     let resultText = '';
+    let inputTokens = 0;
+    let outputTokens = 0;
+
+    const start = Date.now();
 
     for await (const message of query({
       prompt,
@@ -354,14 +373,30 @@ export class CommanderAgent {
       if (msg.type === 'result' && msg.subtype === 'success') {
         const successMsg = message as unknown as SDKResultSuccess;
         resultText = successMsg.result;
+        // Extract token usage from SDK response if available
+        const usage = (successMsg as Record<string, unknown>).usage as
+          | { input_tokens?: number; output_tokens?: number }
+          | undefined;
+        if (usage) {
+          inputTokens = usage.input_tokens ?? 0;
+          outputTokens = usage.output_tokens ?? 0;
+        }
       }
     }
+
+    const latencyMs = Date.now() - start;
 
     if (!resultText) {
       throw new Error('Assessment returned no result');
     }
 
-    return JSON.parse(resultText) as Assessment;
+    const metrics: AssessMetrics = {
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      latency_ms: latencyMs,
+    };
+
+    return { assessment: JSON.parse(resultText) as Assessment, metrics };
   }
 
   // -------------------------------------------------------------------------
@@ -512,7 +547,7 @@ export class CommanderAgent {
   // -------------------------------------------------------------------------
 
   private emitStatus(): void {
-    this.eventBus.emit('supervisor:status', this.executionScheduler.getStatus());
+    this.eventBus.emit('execution:scheduler_status', this.executionScheduler.getStatus());
     this.eventBus.emit('commander:status', this.state);
   }
 }

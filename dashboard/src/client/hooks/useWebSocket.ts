@@ -238,7 +238,8 @@ export function useWebSocket(): void {
             break;
           }
 
-          case WS_EVENT_TYPES.SUPERVISOR_STATUS: {
+          case WS_EVENT_TYPES.SUPERVISOR_STATUS:
+          case WS_EVENT_TYPES.EXECUTION_SCHEDULER_STATUS: {
             const status = msg.data as SupervisorStatus;
             setSupervisorStatus(status);
             break;

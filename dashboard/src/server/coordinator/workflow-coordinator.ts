@@ -68,7 +68,7 @@ export class WorkflowCoordinator {
     private readonly workflowRoot: string,
   ) {
     setPromptsDir(workflowRoot);
-    this.stateAnalyzer = new StateAnalyzerAgent(stateManager, workflowRoot);
+    this.stateAnalyzer = new StateAnalyzerAgent(stateManager, workflowRoot, eventBus);
     this.intentClassifier = new IntentClassifierAgent();
     this.qualityReviewer = new QualityReviewerAgent();
 
@@ -328,6 +328,12 @@ export class WorkflowCoordinator {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[WorkflowCoordinator] Failed to spawn agent for step ${index}: ${message}`);
+      this.eventBus.emit('coordinate:error', {
+        error: message,
+        context: 'spawn',
+        step: index,
+        timestamp: Date.now(),
+      });
 
       step.status = 'failed';
       step.summary = `Spawn failed: ${message}`;

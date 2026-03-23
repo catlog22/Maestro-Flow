@@ -137,6 +137,7 @@ export const WS_EVENT_TYPES: Record<string, WsEventType> = {
   EXECUTION_STARTED: 'execution:started',
   EXECUTION_COMPLETED: 'execution:completed',
   EXECUTION_FAILED: 'execution:failed',
+  EXECUTION_SCHEDULER_STATUS: 'execution:scheduler_status',
   SUPERVISOR_STATUS: 'supervisor:status',
   SUPERVISOR_LEARNING_UPDATE: 'supervisor:learning_update',
   SUPERVISOR_SCHEDULE_TRIGGERED: 'supervisor:schedule_triggered',
@@ -148,11 +149,15 @@ export const WS_EVENT_TYPES: Record<string, WsEventType> = {
   COMMANDER_TICK: 'commander:tick',
   COMMANDER_DECISION: 'commander:decision',
   COMMANDER_CONFIG: 'commander:config',
+  COMMANDER_ASSESS_METRICS: 'commander:assess_metrics',
+  COMMANDER_ERROR: 'commander:error',
   // Coordinate events
   COORDINATE_STATUS: 'coordinate:status',
+  COORDINATE_ANALYZE_METRICS: 'coordinate:analyze_metrics',
   COORDINATE_STEP: 'coordinate:step',
   COORDINATE_ANALYSIS: 'coordinate:analysis',
   COORDINATE_CLARIFICATION_NEEDED: 'coordinate:clarification_needed',
+  COORDINATE_ERROR: 'coordinate:error',
   // Requirement events
   REQUIREMENT_EXPANDED: 'requirement:expanded',
   REQUIREMENT_REFINED: 'requirement:refined',

@@ -6,6 +6,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { SDKResultSuccess } from '@anthropic-ai/claude-agent-sdk';
 
 import type { StateManager } from '../../state/state-manager.js';
+import type { DashboardEventBus } from '../../state/event-bus.js';
 import type { WorkflowSnapshot } from '../types.js';
 import { loadPrompt } from '../prompts/index.js';
 import { createWorkflowMcpServer } from '../tools/workflow-mcp-server.js';
@@ -56,6 +57,7 @@ export class StateAnalyzerAgent {
   constructor(
     private readonly stateManager: StateManager,
     workflowRoot: string,
+    private readonly eventBus?: DashboardEventBus,
   ) {
     this.mcpServer = createWorkflowMcpServer(stateManager, workflowRoot);
   }
@@ -68,6 +70,10 @@ export class StateAnalyzerAgent {
       const userPrompt = `Analyze the current workflow state. Project: ${project.project_name || 'unknown'}, current phase: ${project.current_phase ?? 'none'}, status: ${project.status || 'unknown'}. Use the MCP tools to gather detailed state information.`;
 
       let resultText = '';
+      let inputTokens = 0;
+      let outputTokens = 0;
+
+      const start = Date.now();
 
       for await (const message of query({
         prompt: userPrompt,
@@ -84,7 +90,26 @@ export class StateAnalyzerAgent {
         const msg = message as Record<string, unknown>;
         if (msg.type === 'result' && msg.subtype === 'success') {
           resultText = (message as unknown as SDKResultSuccess).result;
+          // Extract token usage from SDK response if available
+          const usage = (message as Record<string, unknown>).usage as
+            | { input_tokens?: number; output_tokens?: number }
+            | undefined;
+          if (usage) {
+            inputTokens = usage.input_tokens ?? 0;
+            outputTokens = usage.output_tokens ?? 0;
+          }
         }
+      }
+
+      const latencyMs = Date.now() - start;
+
+      // Emit SDK token/latency metrics
+      if (this.eventBus) {
+        this.eventBus.emit('coordinate:analyze_metrics', {
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
+          latency_ms: latencyMs,
+        });
       }
 
       if (!resultText) {

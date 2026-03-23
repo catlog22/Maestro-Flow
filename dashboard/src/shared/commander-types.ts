@@ -99,6 +99,12 @@ export interface DecisionMetrics {
   totalDurationMs: number;
 }
 
+export interface AssessMetrics {
+  input_tokens: number;
+  output_tokens: number;
+  latency_ms: number;
+}
+
 export interface Decision {
   id: string;
   timestamp: string;
@@ -111,6 +117,8 @@ export interface Decision {
   deferred: PriorityAction[];
   /** Timing metrics for observability */
   metrics?: DecisionMetrics;
+  /** Agent SDK token/latency metrics from the assess() call */
+  assessMetrics?: AssessMetrics;
 }
 
 // ---------------------------------------------------------------------------

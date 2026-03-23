@@ -26,6 +26,7 @@ export type WsEventType =
   | 'execution:started'
   | 'execution:completed'
   | 'execution:failed'
+  | 'execution:scheduler_status'
   | 'supervisor:status'
   | 'supervisor:learning_update'
   | 'supervisor:schedule_triggered'
@@ -37,11 +38,15 @@ export type WsEventType =
   | 'commander:tick'
   | 'commander:decision'
   | 'commander:config'
+  | 'commander:assess_metrics'
+  | 'commander:error'
   // Coordinate events
   | 'coordinate:status'
+  | 'coordinate:analyze_metrics'
   | 'coordinate:step'
   | 'coordinate:analysis'
   | 'coordinate:clarification_needed'
+  | 'coordinate:error'
   // Requirement events
   | 'requirement:expanded'
   | 'requirement:refined'

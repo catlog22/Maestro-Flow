@@ -6,6 +6,7 @@ import type { SSEHub } from '../sse/sse-hub.js';
 import type { AgentManager } from '../agents/agent-manager.js';
 import type { ExecutionScheduler } from '../execution/execution-scheduler.js';
 import type { CommanderAgent } from '../commander/commander-agent.js';
+import type { WorkflowCoordinator } from '../coordinator/workflow-coordinator.js';
 import { createHealthRoute } from './health.js';
 import { createBoardRoutes } from './board.js';
 import { createPhaseRoutes } from './phases.js';
@@ -23,8 +24,10 @@ import { createSpecsRoutes } from './specs.js';
 import { createLinearRoutes } from './linear.js';
 import { createTeamRoutes } from './teams.js';
 import { createCommanderRoutes } from '../commander/commander-routes.js';
+import { createCoordinatorRoutes } from '../coordinator/coordinator-routes.js';
 import { createRequirementRoutes } from './requirements.js';
 import { createSupervisorRoutes } from './supervisor.js';
+import { createObservabilityRoutes } from '../observability/observability-routes.js';
 import type { RequirementExpander } from '../requirement/requirement-expander.js';
 import type { SelfLearningService } from '../supervisor/self-learning-service.js';
 import type { TaskSchedulerService } from '../supervisor/task-scheduler-service.js';
@@ -48,6 +51,7 @@ export function createRoutes(
   agentManager: AgentManager,
   executionScheduler?: ExecutionScheduler,
   commanderAgent?: CommanderAgent,
+  coordinator?: WorkflowCoordinator,
   requirementExpander?: RequirementExpander,
   supervisorDeps?: {
     learningService: SelfLearningService;
@@ -119,10 +123,18 @@ export function createRoutes(
     routes.route('/', createCommanderRoutes(commanderAgent, workflowRoot));
   }
 
+  // Coordinator routes (depends on WorkflowCoordinator)
+  if (coordinator) {
+    routes.route('/', createCoordinatorRoutes(coordinator));
+  }
+
   // Requirement routes (depends on RequirementExpander)
   if (requirementExpander) {
     routes.route('/', createRequirementRoutes(requirementExpander));
   }
+
+  // Observability routes (cross-component event timeline)
+  routes.route('/', createObservabilityRoutes(workflowRoot));
 
   // Supervisor routes (depends on learning, scheduler, extensions, prompts)
   if (supervisorDeps) {

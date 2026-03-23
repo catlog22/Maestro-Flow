@@ -21,7 +21,7 @@ import type { SupervisorStatus } from '../../shared/execution-types.js';
 import type { LearningStats } from '../../shared/learning-types.js';
 import type { ScheduledTask } from '../../shared/schedule-types.js';
 import type { ExtensionInfo } from '../../shared/extension-types.js';
-import type { CommanderState, Decision, CommanderConfig } from '../../shared/commander-types.js';
+import type { CommanderState, Decision, CommanderConfig, AssessMetrics } from '../../shared/commander-types.js';
 import type {
   CoordinateStatusPayload,
   CoordinateStepPayload,
@@ -61,6 +61,7 @@ const ALL_EVENT_TYPES: SSEEventType[] = [
   'execution:started',
   'execution:completed',
   'execution:failed',
+  'execution:scheduler_status',
   'supervisor:status',
   'supervisor:learning_update',
   'supervisor:schedule_triggered',
@@ -71,10 +72,14 @@ const ALL_EVENT_TYPES: SSEEventType[] = [
   'commander:tick',
   'commander:decision',
   'commander:config',
+  'commander:assess_metrics',
+  'commander:error',
   'coordinate:status',
+  'coordinate:analyze_metrics',
   'coordinate:step',
   'coordinate:analysis',
   'coordinate:clarification_needed',
+  'coordinate:error',
   'requirement:expanded',
   'requirement:refined',
   'requirement:committed',
@@ -106,6 +111,7 @@ export interface DashboardEventMap {
   'execution:started': ExecutionStartedPayload;
   'execution:completed': ExecutionCompletedPayload;
   'execution:failed': ExecutionFailedPayload;
+  'execution:scheduler_status': SupervisorStatus;
   'supervisor:status': SupervisorStatus;
   'supervisor:learning_update': LearningStats;
   'supervisor:schedule_triggered': { taskId: string; taskName: string; taskType: string };
@@ -117,11 +123,15 @@ export interface DashboardEventMap {
   'commander:tick': CommanderState;
   'commander:decision': Decision;
   'commander:config': CommanderConfig;
+  'commander:assess_metrics': AssessMetrics;
+  'commander:error': { error: string; context: string; timestamp: number };
   // Coordinate events
   'coordinate:status': CoordinateStatusPayload;
   'coordinate:step': CoordinateStepPayload;
   'coordinate:analysis': CoordinateAnalysisPayload;
   'coordinate:clarification_needed': CoordinateClarificationPayload;
+  'coordinate:analyze_metrics': AssessMetrics;
+  'coordinate:error': { error: string; context: string; step: number; timestamp: number };
   // Requirement events
   'requirement:expanded': RequirementExpandedPayload;
   'requirement:refined': RequirementExpandedPayload;

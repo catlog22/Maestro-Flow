@@ -38,6 +38,7 @@ import { SelfLearningService } from './supervisor/self-learning-service.js';
 import { TaskSchedulerService } from './supervisor/task-scheduler-service.js';
 import { ExtensionManager } from './supervisor/extension-manager.js';
 import { SupervisorWsHandler } from './ws/handlers/supervisor-handler.js';
+import { ObservabilityService } from './observability/observability-service.js';
 import { createRoutes } from './routes/index.js';
 
 async function main(): Promise<void> {
@@ -130,6 +131,11 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------------
   const requirementExpander = new RequirementExpander(coordinateRunner, jsonlPath);
 
+  // ---------------------------------------------------------------------------
+  // Observability — cross-component event timeline (timeline.jsonl)
+  // ---------------------------------------------------------------------------
+  const _observability = new ObservabilityService(eventBus, workflowRoot);
+
   // Forward requirement progress events to EventBus for WS broadcast
   requirementExpander.onProgress((payload) => {
     eventBus.emit('requirement:progress', payload);
@@ -165,7 +171,7 @@ async function main(): Promise<void> {
   app.use('*', logger());
 
   // API routes
-  const routes = createRoutes(stateManager, workflowRoot, eventBus, sseHub, agentManager, executionScheduler, commanderAgent, undefined, {
+  const routes = createRoutes(stateManager, workflowRoot, eventBus, sseHub, agentManager, executionScheduler, commanderAgent, coordinateRunner, undefined, {
     learningService,
     schedulerService: taskSchedulerService,
     extensionManager,
