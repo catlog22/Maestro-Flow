@@ -62,8 +62,8 @@ export function createSupervisorRoutes(
   app.post('/api/supervisor/prompts/preview', async (c) => {
     try {
       const body = await c.req.json<Record<string, unknown>>();
-      const builderName = body.builder as string | undefined;
-      if (!builderName || typeof builderName !== 'string') {
+      const builderName = typeof body.builder === 'string' ? body.builder : undefined;
+      if (!builderName) {
         return c.json({ error: 'Missing or invalid "builder" (must be string)' }, 400);
       }
 
@@ -72,13 +72,19 @@ export function createSupervisorRoutes(
         return c.json({ error: `Builder not found: ${builderName}` }, 404);
       }
 
-      const context = body.context as Record<string, unknown> | undefined;
-      if (!context || typeof context !== 'object') {
+      const context = body.context;
+      if (!context || typeof context !== 'object' || Array.isArray(context)) {
         return c.json({ error: 'Missing or invalid "context" (must be object)' }, 400);
       }
 
-      // Build prompt with provided context (caller is responsible for shape)
-      const result = await builder.build(context as unknown as Parameters<typeof builder.build>[0]);
+      // Build prompt with provided context — builder.build validates its own shape
+      let result: string;
+      try {
+        result = await builder.build(context as Parameters<typeof builder.build>[0]);
+      } catch (buildErr) {
+        const msg = buildErr instanceof Error ? buildErr.message : String(buildErr);
+        return c.json({ error: `Builder failed: ${msg}` }, 400);
+      }
       return c.json({ ok: true, preview: result });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -99,21 +105,20 @@ export function createSupervisorRoutes(
   app.post('/api/supervisor/schedules', async (c) => {
     try {
       const body = await c.req.json<Record<string, unknown>>();
-      const { name, cronExpression, taskType, enabled, config } = body as {
-        name?: string;
-        cronExpression?: string;
-        taskType?: string;
-        enabled?: boolean;
-        config?: Record<string, unknown>;
-      };
+      const name = typeof body.name === 'string' ? body.name : undefined;
+      const cronExpression = typeof body.cronExpression === 'string' ? body.cronExpression : undefined;
+      const taskType = typeof body.taskType === 'string' ? body.taskType : undefined;
+      const enabled = typeof body.enabled === 'boolean' ? body.enabled : true;
+      const config = body.config && typeof body.config === 'object' && !Array.isArray(body.config)
+        ? body.config as Record<string, unknown> : {};
 
-      if (!name || typeof name !== 'string') {
+      if (!name) {
         return c.json({ error: 'Missing or invalid "name" (must be string)' }, 400);
       }
-      if (!cronExpression || typeof cronExpression !== 'string') {
+      if (!cronExpression) {
         return c.json({ error: 'Missing or invalid "cronExpression" (must be string)' }, 400);
       }
-      if (!taskType || typeof taskType !== 'string') {
+      if (!taskType) {
         return c.json({ error: 'Missing or invalid "taskType" (must be string)' }, 400);
       }
 
@@ -121,8 +126,8 @@ export function createSupervisorRoutes(
         name,
         cronExpression,
         taskType: taskType as Parameters<typeof schedulerService.createTask>[0]['taskType'],
-        enabled: enabled ?? true,
-        config: config ?? {},
+        enabled,
+        config,
       });
 
       return c.json({ ok: true, task });
@@ -137,7 +142,15 @@ export function createSupervisorRoutes(
     try {
       const id = c.req.param('id');
       const body = await c.req.json<Record<string, unknown>>();
-      const task = await schedulerService.updateTask(id, body as Parameters<typeof schedulerService.updateTask>[1]);
+      // Extract only known fields to avoid passing arbitrary data
+      const updates: Record<string, unknown> = {};
+      if (typeof body.name === 'string') updates.name = body.name;
+      if (typeof body.cronExpression === 'string') updates.cronExpression = body.cronExpression;
+      if (typeof body.taskType === 'string') updates.taskType = body.taskType;
+      if (typeof body.enabled === 'boolean') updates.enabled = body.enabled;
+      if (body.config && typeof body.config === 'object' && !Array.isArray(body.config)) updates.config = body.config;
+
+      const task = await schedulerService.updateTask(id, updates as Parameters<typeof schedulerService.updateTask>[1]);
       return c.json({ ok: true, task });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

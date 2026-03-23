@@ -127,8 +127,14 @@ export class TaskSchedulerService {
       throw new Error(`Invalid cron expression: ${updates.cronExpression}`);
     }
 
-    // Apply updates
-    Object.assign(task, updates);
+    // Apply only known mutable fields
+    if (updates.name !== undefined) task.name = updates.name;
+    if (updates.cronExpression !== undefined) task.cronExpression = updates.cronExpression;
+    if (updates.taskType !== undefined) task.taskType = updates.taskType;
+    if (updates.config !== undefined) task.config = updates.config;
+    if (updates.enabled !== undefined) task.enabled = updates.enabled;
+    if (updates.lastRun !== undefined) task.lastRun = updates.lastRun;
+    if (updates.nextRun !== undefined) task.nextRun = updates.nextRun;
 
     // Re-register cron job if expression or enabled state changed
     this.unregisterCronJob(id);
@@ -303,7 +309,7 @@ export class TaskSchedulerService {
 
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - retentionDays);
-    const cutoffStr = cutoff.toISOString();
+    const cutoffMs = cutoff.getTime();
 
     const lines = raw.split('\n');
     const kept: string[] = [];
@@ -314,7 +320,7 @@ export class TaskSchedulerService {
       if (!trimmed) continue;
       try {
         const entry = JSON.parse(trimmed) as { timestamp?: string };
-        if (entry.timestamp && entry.timestamp < cutoffStr) {
+        if (entry.timestamp && new Date(entry.timestamp).getTime() < cutoffMs) {
           pruned++;
           continue;
         }

@@ -1,4 +1,4 @@
-import type { WebSocket } from 'ws';
+import { WebSocket } from 'ws';
 
 import type { WsHandler } from '../ws-handler.js';
 import type { WsEventType } from '../../../shared/ws-protocol.js';
@@ -28,6 +28,8 @@ export class SupervisorWsHandler implements WsHandler {
     ws: WebSocket,
     _broadcast: (type: WsEventType, data: unknown) => void,
   ): Promise<void> {
+    if (ws.readyState !== WebSocket.OPEN) return;
+
     switch (action) {
       case 'supervisor:learning': {
         const stats = this.learningService.getStats();

@@ -136,13 +136,15 @@ export class SelfLearningService {
 
   private subscribeToEvents(): void {
     this.eventBus.on('execution:completed', (event) => {
-      const payload = event.data as { issueId: string; processId: string };
-      void this.handleExecutionEvent('completed', payload.issueId);
+      const payload = event.data as Record<string, unknown> | undefined;
+      const issueId = payload && typeof payload['issueId'] === 'string' ? payload['issueId'] : undefined;
+      if (issueId) void this.handleExecutionEvent('completed', issueId);
     });
 
     this.eventBus.on('execution:failed', (event) => {
-      const payload = event.data as { issueId: string; processId: string; error: string };
-      void this.handleExecutionEvent('failed', payload.issueId);
+      const payload = event.data as Record<string, unknown> | undefined;
+      const issueId = payload && typeof payload['issueId'] === 'string' ? payload['issueId'] : undefined;
+      if (issueId) void this.handleExecutionEvent('failed', issueId);
     });
   }
 

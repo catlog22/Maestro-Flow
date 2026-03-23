@@ -18,6 +18,7 @@ export interface SupervisorStore {
   extensions: ExtensionInfo[];
   promptModes: string[];
   promptBindings: Record<string, string>;
+  error: string | null;
 
   // WS event handlers (called from useWebSocket)
   onLearningUpdate: (stats: LearningStats) => void;
@@ -41,6 +42,7 @@ export interface SupervisorStore {
 
   // UI actions
   setActiveTab: (tab: SupervisorTab) => void;
+  clearError: () => void;
 }
 
 export const useSupervisorStore = create<SupervisorStore>((set, get) => ({
@@ -53,6 +55,7 @@ export const useSupervisorStore = create<SupervisorStore>((set, get) => ({
   extensions: [],
   promptModes: [],
   promptBindings: {},
+  error: null,
 
   // -------------------------------------------------------------------------
   // WS event handlers
@@ -69,17 +72,20 @@ export const useSupervisorStore = create<SupervisorStore>((set, get) => ({
 
   onScheduleTriggered: (payload) =>
     set((state) => {
+      const now = new Date().toISOString();
       const tasks = state.scheduledTasks.map((t) => {
         if (t.id !== payload.taskId) return t;
+        const lastRunMs = t.lastRun ? new Date(t.lastRun).getTime() : 0;
+        const elapsed = lastRunMs > 0 ? Date.now() - lastRunMs : 0;
         return {
           ...t,
-          lastRun: new Date().toISOString(),
+          lastRun: now,
           history: [
             ...t.history,
             {
-              timestamp: new Date().toISOString(),
+              timestamp: now,
               status: 'success' as const,
-              duration: 0,
+              duration: elapsed,
             },
           ],
         };
@@ -106,50 +112,71 @@ export const useSupervisorStore = create<SupervisorStore>((set, get) => ({
   fetchLearningStats: async () => {
     try {
       const res = await fetch('/api/supervisor/learning/stats');
-      if (!res.ok) return;
-      const data = (await res.json()) as LearningStats;
-      set({
-        learningStats: data,
-        learningPatterns: data.topPatterns,
-      });
-    } catch {
-      // Best-effort fetch
+      if (!res.ok) {
+        set({ error: `Failed to fetch learning stats: ${res.status}` });
+        return;
+      }
+      const data: unknown = await res.json();
+      if (data && typeof data === 'object' && 'topPatterns' in data) {
+        const stats = data as LearningStats;
+        set({ learningStats: stats, learningPatterns: stats.topPatterns, error: null });
+      }
+    } catch (err) {
+      set({ error: `Failed to fetch learning stats: ${err instanceof Error ? err.message : String(err)}` });
     }
   },
 
   fetchSchedules: async () => {
     try {
       const res = await fetch('/api/supervisor/schedules');
-      if (!res.ok) return;
-      const data = (await res.json()) as ScheduledTask[];
-      set({ scheduledTasks: data });
-    } catch {
-      // Best-effort fetch
+      if (!res.ok) {
+        set({ error: `Failed to fetch schedules: ${res.status}` });
+        return;
+      }
+      const data: unknown = await res.json();
+      const tasks = data && typeof data === 'object' && 'tasks' in data
+        ? (data as { tasks: ScheduledTask[] }).tasks
+        : Array.isArray(data) ? data as ScheduledTask[] : [];
+      set({ scheduledTasks: tasks, error: null });
+    } catch (err) {
+      set({ error: `Failed to fetch schedules: ${err instanceof Error ? err.message : String(err)}` });
     }
   },
 
   fetchExtensions: async () => {
     try {
       const res = await fetch('/api/supervisor/extensions');
-      if (!res.ok) return;
-      const data = (await res.json()) as ExtensionInfo[];
-      set({ extensions: data });
-    } catch {
-      // Best-effort fetch
+      if (!res.ok) {
+        set({ error: `Failed to fetch extensions: ${res.status}` });
+        return;
+      }
+      const data: unknown = await res.json();
+      const extensions = data && typeof data === 'object' && 'extensions' in data
+        ? (data as { extensions: ExtensionInfo[] }).extensions
+        : Array.isArray(data) ? data as ExtensionInfo[] : [];
+      set({ extensions, error: null });
+    } catch (err) {
+      set({ error: `Failed to fetch extensions: ${err instanceof Error ? err.message : String(err)}` });
     }
   },
 
   fetchPromptModes: async () => {
     try {
       const res = await fetch('/api/supervisor/prompts');
-      if (!res.ok) return;
-      const data = (await res.json()) as { modes: string[]; bindings: Record<string, string> };
-      set({
-        promptModes: data.modes,
-        promptBindings: data.bindings,
-      });
-    } catch {
-      // Best-effort fetch
+      if (!res.ok) {
+        set({ error: `Failed to fetch prompt modes: ${res.status}` });
+        return;
+      }
+      const data: unknown = await res.json();
+      if (data && typeof data === 'object') {
+        const obj = data as Record<string, unknown>;
+        const builders = Array.isArray(obj.builders) ? obj.builders as string[] : [];
+        const bindings = obj.bindings && typeof obj.bindings === 'object'
+          ? obj.bindings as Record<string, string> : {};
+        set({ promptModes: builders, promptBindings: bindings, error: null });
+      }
+    } catch (err) {
+      set({ error: `Failed to fetch prompt modes: ${err instanceof Error ? err.message : String(err)}` });
     }
   },
 
@@ -164,13 +191,17 @@ export const useSupervisorStore = create<SupervisorStore>((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(task),
       });
-      if (!res.ok) return;
-      const created = (await res.json()) as ScheduledTask;
-      set((state) => ({
-        scheduledTasks: [...state.scheduledTasks, created],
-      }));
-    } catch {
-      // Best-effort
+      if (!res.ok) {
+        set({ error: `Failed to create schedule: ${res.status}` });
+        return;
+      }
+      const data: unknown = await res.json();
+      if (data && typeof data === 'object' && 'task' in data) {
+        const created = (data as { task: ScheduledTask }).task;
+        set((state) => ({ scheduledTasks: [...state.scheduledTasks, created], error: null }));
+      }
+    } catch (err) {
+      set({ error: `Failed to create schedule: ${err instanceof Error ? err.message : String(err)}` });
     }
   },
 
@@ -181,13 +212,20 @@ export const useSupervisorStore = create<SupervisorStore>((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
       });
-      if (!res.ok) return;
-      const updated = (await res.json()) as ScheduledTask;
-      set((state) => ({
-        scheduledTasks: state.scheduledTasks.map((t) => (t.id === id ? updated : t)),
-      }));
-    } catch {
-      // Best-effort
+      if (!res.ok) {
+        set({ error: `Failed to update schedule: ${res.status}` });
+        return;
+      }
+      const data: unknown = await res.json();
+      if (data && typeof data === 'object' && 'task' in data) {
+        const updated = (data as { task: ScheduledTask }).task;
+        set((state) => ({
+          scheduledTasks: state.scheduledTasks.map((t) => (t.id === id ? updated : t)),
+          error: null,
+        }));
+      }
+    } catch (err) {
+      set({ error: `Failed to update schedule: ${err instanceof Error ? err.message : String(err)}` });
     }
   },
 
@@ -196,12 +234,16 @@ export const useSupervisorStore = create<SupervisorStore>((set, get) => ({
       const res = await fetch(`/api/supervisor/schedules/${encodeURIComponent(id)}`, {
         method: 'DELETE',
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        set({ error: `Failed to delete schedule: ${res.status}` });
+        return;
+      }
       set((state) => ({
         scheduledTasks: state.scheduledTasks.filter((t) => t.id !== id),
+        error: null,
       }));
-    } catch {
-      // Best-effort
+    } catch (err) {
+      set({ error: `Failed to delete schedule: ${err instanceof Error ? err.message : String(err)}` });
     }
   },
 
@@ -211,11 +253,14 @@ export const useSupervisorStore = create<SupervisorStore>((set, get) => ({
 
   runSchedule: async (id) => {
     try {
-      await fetch(`/api/supervisor/schedules/${encodeURIComponent(id)}/run`, {
+      const res = await fetch(`/api/supervisor/schedules/${encodeURIComponent(id)}/run`, {
         method: 'POST',
       });
-    } catch {
-      // Best-effort
+      if (!res.ok) {
+        set({ error: `Failed to run schedule: ${res.status}` });
+      }
+    } catch (err) {
+      set({ error: `Failed to run schedule: ${err instanceof Error ? err.message : String(err)}` });
     }
   },
 
@@ -224,4 +269,5 @@ export const useSupervisorStore = create<SupervisorStore>((set, get) => ({
   // -------------------------------------------------------------------------
 
   setActiveTab: (tab) => set({ activeTab: tab }),
+  clearError: () => set({ error: null }),
 }));
