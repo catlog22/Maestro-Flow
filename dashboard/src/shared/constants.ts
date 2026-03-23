@@ -138,6 +138,11 @@ export const WS_EVENT_TYPES: Record<string, WsEventType> = {
   EXECUTION_COMPLETED: 'execution:completed',
   EXECUTION_FAILED: 'execution:failed',
   SUPERVISOR_STATUS: 'supervisor:status',
+  SUPERVISOR_LEARNING_UPDATE: 'supervisor:learning_update',
+  SUPERVISOR_SCHEDULE_TRIGGERED: 'supervisor:schedule_triggered',
+  SUPERVISOR_SCHEDULE_UPDATE: 'supervisor:schedule_update',
+  SUPERVISOR_EXTENSION_LOADED: 'supervisor:extension_loaded',
+  SUPERVISOR_EXTENSION_ERROR: 'supervisor:extension_error',
   // Commander events
   COMMANDER_STATUS: 'commander:status',
   COMMANDER_TICK: 'commander:tick',

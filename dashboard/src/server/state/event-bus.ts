@@ -18,6 +18,9 @@ import type {
   AgentTurnCompletedPayload,
 } from '../../shared/agent-types.js';
 import type { SupervisorStatus } from '../../shared/execution-types.js';
+import type { LearningStats } from '../../shared/learning-types.js';
+import type { ScheduledTask } from '../../shared/schedule-types.js';
+import type { ExtensionInfo } from '../../shared/extension-types.js';
 import type { CommanderState, Decision, CommanderConfig } from '../../shared/commander-types.js';
 import type {
   CoordinateStatusPayload,
@@ -59,6 +62,11 @@ const ALL_EVENT_TYPES: SSEEventType[] = [
   'execution:completed',
   'execution:failed',
   'supervisor:status',
+  'supervisor:learning_update',
+  'supervisor:schedule_triggered',
+  'supervisor:schedule_update',
+  'supervisor:extension_loaded',
+  'supervisor:extension_error',
   'commander:status',
   'commander:tick',
   'commander:decision',
@@ -99,6 +107,11 @@ export interface DashboardEventMap {
   'execution:completed': ExecutionCompletedPayload;
   'execution:failed': ExecutionFailedPayload;
   'supervisor:status': SupervisorStatus;
+  'supervisor:learning_update': LearningStats;
+  'supervisor:schedule_triggered': { taskId: string; taskName: string; taskType: string };
+  'supervisor:schedule_update': { tasks: ScheduledTask[] };
+  'supervisor:extension_loaded': { extensions: ExtensionInfo[] };
+  'supervisor:extension_error': { name: string; error: string };
   // Commander events
   'commander:status': CommanderState;
   'commander:tick': CommanderState;

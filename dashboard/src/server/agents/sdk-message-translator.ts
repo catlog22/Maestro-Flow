@@ -24,6 +24,8 @@ export class SdkMessageTranslator {
   private readonly processId: string;
   /** Tracks pending tool_use blocks awaiting their result via tool_use_id */
   private readonly pendingToolUses = new Map<string, { name: string; input: Record<string, unknown> }>();
+  /** Whether any assistant_message text was already emitted (to avoid duplicate from result) */
+  private hasEmittedAssistantText = false;
 
   constructor(processId: string) {
     this.processId = processId;
@@ -139,6 +141,7 @@ export class SdkMessageTranslator {
             content: (block.text as string) ?? '',
             partial: false,
           });
+          this.hasEmittedAssistantText = true;
           break;
 
         case 'tool_use': {
@@ -235,7 +238,9 @@ export class SdkMessageTranslator {
     const entries: NormalizedEntry[] = [];
 
     if (msg.subtype === 'success') {
-      if (msg.result) {
+      // Only emit result text if no assistant_message was already emitted
+      // (the SDK sends the same text in both 'assistant' and 'result' messages)
+      if (msg.result && !this.hasEmittedAssistantText) {
         entries.push({
           ...this.base(),
           type: 'assistant_message',

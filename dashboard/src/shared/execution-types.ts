@@ -128,3 +128,16 @@ export interface SchedulerStatus {
 }
 /** @deprecated Use SchedulerStatus */
 export type SupervisorStatus = SchedulerStatus;
+
+// ---------------------------------------------------------------------------
+// Supervisor tab discriminator
+// ---------------------------------------------------------------------------
+
+export type SupervisorTab =
+  | 'monitor'
+  | 'commander'
+  | 'coordinator'
+  | 'prompts'
+  | 'extensions'
+  | 'learning'
+  | 'schedule';

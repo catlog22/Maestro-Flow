@@ -42,6 +42,10 @@ const RequirementBoardPage = lazy(() =>
   import('@/client/pages/RequirementBoardPage.js').then((m) => ({ default: m.RequirementBoardPage })),
 );
 
+const SupervisorPage = lazy(() =>
+  import('@/client/pages/SupervisorPage.js').then((m) => ({ default: m.SupervisorPage })),
+);
+
 // ---------------------------------------------------------------------------
 // App — root component with React Router v6 layout routes
 // ---------------------------------------------------------------------------
@@ -129,6 +133,14 @@ export function App() {
             element={
               <Suspense fallback={<LazyFallback />}>
                 <RequirementBoardPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="supervisor"
+            element={
+              <Suspense fallback={<LazyFallback />}>
+                <SupervisorPage />
               </Suspense>
             }
           />

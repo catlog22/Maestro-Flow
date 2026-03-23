@@ -27,6 +27,11 @@ export type WsEventType =
   | 'execution:completed'
   | 'execution:failed'
   | 'supervisor:status'
+  | 'supervisor:learning_update'
+  | 'supervisor:schedule_triggered'
+  | 'supervisor:schedule_update'
+  | 'supervisor:extension_loaded'
+  | 'supervisor:extension_error'
   // Commander events
   | 'commander:status'
   | 'commander:tick'

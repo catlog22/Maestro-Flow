@@ -8,6 +8,7 @@
     "specs": "规范管理器",
     "teams": "团队会话",
     "requirement": "需求扩展",
+    "supervisor": "调度中心",
     "views": "视图"
   },
   "sidebar": {
@@ -24,6 +25,7 @@
     "specs_tooltip": "规范管理器",
     "teams_tooltip": "团队",
     "requirement_tooltip": "需求",
+    "supervisor_tooltip": "调度管理中心",
     "views_label": "视图",
     "phases_label": "阶段",
     "phase_dot_aria": "阶段 {{phase}}：{{title}} — {{status}}"

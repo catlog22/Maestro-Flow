@@ -16,7 +16,6 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.77",
     "@hono/node-server": "^1.14.0",
-    "maestro-flow": "file:..",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-scroll-area": "^1.2.10",
@@ -29,6 +28,8 @@
     "framer-motion": "^12.36.0",
     "hono": "^4.7.0",
     "lucide-react": "^0.577.0",
+    "maestro-flow": "file:..",
+    "node-cron": "^4.2.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^9.0.0",
@@ -42,6 +43,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",
     "@types/node": "^22.10.0",
+    "@types/node-cron": "^3.0.11",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/ws": "^8.18.1",

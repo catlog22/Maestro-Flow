@@ -1,12 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useExecutionStore } from '@/client/store/execution-store.js';
 import { sendWsMessage } from '@/client/hooks/useWebSocket.js';
-import { OrchestratorPopover } from './OrchestratorPopover.js';
-import ChevronUp from 'lucide-react/dist/esm/icons/chevron-up.js';
-import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down.js';
 
 // ---------------------------------------------------------------------------
-// OrchestratorStatusBar — bottom bar showing supervisor + commander state
+// OrchestratorStatusBar -- bottom bar showing supervisor + commander state
 // ---------------------------------------------------------------------------
 
 const COMMANDER_DOT_COLORS: Record<string, string> = {
@@ -19,7 +17,6 @@ const COMMANDER_DOT_COLORS: Record<string, string> = {
 export function OrchestratorStatusBar() {
   const status = useExecutionStore((s) => s.supervisorStatus);
   const commanderState = useExecutionStore((s) => s.commanderState);
-  const [popoverOpen, setPopoverOpen] = useState(false);
 
   const handleToggle = useCallback(() => {
     sendWsMessage({
@@ -34,12 +31,7 @@ export function OrchestratorStatusBar() {
     : 'never';
 
   return (
-    <div className="relative shrink-0">
-      {/* Popover (rendered above the bar) */}
-      {popoverOpen && (
-        <OrchestratorPopover onClose={() => setPopoverOpen(false)} />
-      )}
-
+    <div className="shrink-0">
       <div className="flex items-center gap-[var(--spacing-3)] px-[var(--spacing-4)] py-[var(--spacing-1-5)] border-t border-border-divider bg-bg-secondary text-[length:var(--font-size-xs)] shrink-0">
         {/* Supervisor section */}
         <button
@@ -124,15 +116,13 @@ export function OrchestratorStatusBar() {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Popover toggle */}
-        <button
-          type="button"
-          onClick={() => setPopoverOpen(!popoverOpen)}
-          className="flex items-center justify-center w-5 h-5 rounded-[var(--radius-sm)] text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
-          title={popoverOpen ? 'Close details' : 'Show details'}
+        {/* Supervisor link */}
+        <Link
+          to="/supervisor"
+          className="text-text-secondary hover:text-text-primary transition-colors font-[var(--font-weight-medium)]"
         >
-          {popoverOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-        </button>
+          Supervisor &rarr;
+        </Link>
       </div>
     </div>
   );

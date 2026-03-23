@@ -33,6 +33,11 @@ import { CommanderAgent } from './commander/commander-agent.js';
 import { loadCommanderConfig } from './commander/commander-config.js';
 import { WorkflowCoordinator } from './coordinator/workflow-coordinator.js';
 import { RequirementExpander } from './requirement/requirement-expander.js';
+import { PromptRegistry } from './prompt/prompt-registry.js';
+import { SelfLearningService } from './supervisor/self-learning-service.js';
+import { TaskSchedulerService } from './supervisor/task-scheduler-service.js';
+import { ExtensionManager } from './supervisor/extension-manager.js';
+import { SupervisorWsHandler } from './ws/handlers/supervisor-handler.js';
 import { createRoutes } from './routes/index.js';
 
 async function main(): Promise<void> {
@@ -86,6 +91,17 @@ async function main(): Promise<void> {
   );
 
   // ---------------------------------------------------------------------------
+  // Supervisor Services — self-learning, task scheduling, extension management
+  // ---------------------------------------------------------------------------
+  const promptRegistry = PromptRegistry.createDefault();
+  const learningService = new SelfLearningService(eventBus, journal, workflowRoot);
+  const taskSchedulerService = new TaskSchedulerService(
+    eventBus, workflowRoot, executionScheduler, learningService,
+  );
+  const extensionManager = new ExtensionManager(eventBus, agentManager, promptRegistry);
+  extensionManager.init();
+
+  // ---------------------------------------------------------------------------
   // Commander Agent — autonomous tick loop for project orchestration
   // ---------------------------------------------------------------------------
   const commanderConfig = await loadCommanderConfig(workflowRoot);
@@ -128,12 +144,15 @@ async function main(): Promise<void> {
   const coordinateHandler = new CoordinateWsHandler(coordinateRunner);
   const requirementHandler = new RequirementWsHandler(requirementExpander);
 
+  const supervisorHandler = new SupervisorWsHandler(learningService, taskSchedulerService);
+
   const wsManager = new WebSocketManager(eventBus, [
     agentHandler,
     executionHandler,
     commanderHandler,
     coordinateHandler,
     requirementHandler,
+    supervisorHandler,
   ]);
 
   // ---------------------------------------------------------------------------
@@ -146,7 +165,12 @@ async function main(): Promise<void> {
   app.use('*', logger());
 
   // API routes
-  const routes = createRoutes(stateManager, workflowRoot, eventBus, sseHub, agentManager, executionScheduler, commanderAgent);
+  const routes = createRoutes(stateManager, workflowRoot, eventBus, sseHub, agentManager, executionScheduler, commanderAgent, undefined, {
+    learningService,
+    schedulerService: taskSchedulerService,
+    extensionManager,
+    promptRegistry,
+  });
   app.route('/', routes);
 
   // Resolve dashboard root relative to this file (works for both dev and npm install)
@@ -163,6 +187,11 @@ async function main(): Promise<void> {
   // can handle client-side navigation (e.g. /chat, /kanban, /workflow).
   const indexHtml = await readFile(resolve(distDir, 'index.html'), 'utf-8');
   app.get('/*', (c) => c.html(indexHtml));
+
+  // ---------------------------------------------------------------------------
+  // Start scheduled tasks
+  // ---------------------------------------------------------------------------
+  await taskSchedulerService.start();
 
   // ---------------------------------------------------------------------------
   // Start server
@@ -189,6 +218,7 @@ async function main(): Promise<void> {
 
   // Graceful shutdown
   const shutdown = async (): Promise<void> => {
+    taskSchedulerService.stop();
     coordinateRunner.destroy();
     commanderAgent.stop();
     await executionScheduler.destroy();

@@ -24,7 +24,12 @@ import { createLinearRoutes } from './linear.js';
 import { createTeamRoutes } from './teams.js';
 import { createCommanderRoutes } from '../commander/commander-routes.js';
 import { createRequirementRoutes } from './requirements.js';
+import { createSupervisorRoutes } from './supervisor.js';
 import type { RequirementExpander } from '../requirement/requirement-expander.js';
+import type { SelfLearningService } from '../supervisor/self-learning-service.js';
+import type { TaskSchedulerService } from '../supervisor/task-scheduler-service.js';
+import type { ExtensionManager } from '../supervisor/extension-manager.js';
+import type { PromptRegistry } from '../prompt/prompt-registry.js';
 
 /**
  * Aggregate all route modules into a single Hono app.
@@ -44,6 +49,12 @@ export function createRoutes(
   executionScheduler?: ExecutionScheduler,
   commanderAgent?: CommanderAgent,
   requirementExpander?: RequirementExpander,
+  supervisorDeps?: {
+    learningService: SelfLearningService;
+    schedulerService: TaskSchedulerService;
+    extensionManager: ExtensionManager;
+    promptRegistry: PromptRegistry;
+  },
 ): Hono {
   const routes = new Hono();
 
@@ -104,6 +115,16 @@ export function createRoutes(
   // Requirement routes (depends on RequirementExpander)
   if (requirementExpander) {
     routes.route('/', createRequirementRoutes(requirementExpander));
+  }
+
+  // Supervisor routes (depends on learning, scheduler, extensions, prompts)
+  if (supervisorDeps) {
+    routes.route('/', createSupervisorRoutes(
+      supervisorDeps.learningService,
+      supervisorDeps.schedulerService,
+      supervisorDeps.extensionManager,
+      supervisorDeps.promptRegistry,
+    ));
   }
 
   return routes;

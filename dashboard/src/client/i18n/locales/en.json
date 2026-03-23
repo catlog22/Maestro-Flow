@@ -8,6 +8,7 @@
     "specs": "Specs Manager",
     "teams": "Team Sessions",
     "requirement": "Requirement",
+    "supervisor": "Supervisor",
     "views": "Views"
   },
   "sidebar": {
@@ -24,6 +25,7 @@
     "specs_tooltip": "Specs Manager",
     "teams_tooltip": "Teams",
     "requirement_tooltip": "Requirement",
+    "supervisor_tooltip": "Supervisor management",
     "views_label": "Views",
     "phases_label": "Phases",
     "phase_dot_aria": "Phase {{phase}}: {{title}} — {{status}}"

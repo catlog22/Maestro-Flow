@@ -142,14 +142,6 @@ export function ChatInput({ processId: externalProcessId, executor }: ChatInputP
       {/* Hidden file inputs */}
       <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} />
       <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
-      {isNonInteractive && (
-        <div
-          className="mb-2 px-3 py-1 rounded-[var(--radius-default)] text-[length:var(--font-size-xs)] text-text-tertiary"
-          style={{ backgroundColor: 'var(--color-bg-secondary)' }}
-        >
-          This agent type does not support follow-up messages while running.
-        </div>
-      )}
       <div className="max-w-[780px] mx-auto relative">
         {/* Slash command menu */}
         {slashController.isOpen && (
@@ -193,7 +185,7 @@ export function ChatInput({ processId: externalProcessId, executor }: ChatInputP
         {/* Composer */}
         <div
           ref={composerRef}
-          className="border rounded-[14px] overflow-hidden transition-[border-color,box-shadow]"
+          className="border rounded-[14px] transition-[border-color,box-shadow]"
           style={{
             borderColor: 'var(--color-border)',
             backgroundColor: 'var(--color-bg-card)',

@@ -81,6 +81,11 @@ export class AgentManager {
     this.adapters.set(adapter.agentType, adapter);
   }
 
+  /** List registered adapter type names */
+  listAdapterTypes(): AgentType[] {
+    return Array.from(this.adapters.keys());
+  }
+
   /** Spawn a new agent process and wire up event forwarding */
   async spawn(type: AgentType, config: AgentConfig): Promise<AgentProcess> {
     const adapter = this.adapters.get(type);
