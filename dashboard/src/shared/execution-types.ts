@@ -53,8 +53,10 @@ export interface IssueExecution {
 // Prompt & supervisor configuration
 // ---------------------------------------------------------------------------
 
-export type PromptMode = 'skill' | 'direct';
-export type SupervisorStrategy = 'priority' | 'smart';
+export type PromptMode = 'direct' | 'skill' | 'template' | 'decompose' | 'assessment' | 'custom';
+export type DispatchStrategyName = 'priority' | 'smart' | 'commander';
+/** @deprecated Use DispatchStrategyName */
+export type SupervisorStrategy = DispatchStrategyName;
 
 export interface WorkspacePolicy {
   /** Enable per-issue workspace isolation */
@@ -67,9 +69,9 @@ export interface WorkspacePolicy {
   strict: boolean;
 }
 
-export interface SupervisorConfig {
+export interface SchedulerConfig {
   enabled: boolean;
-  strategy: SupervisorStrategy;
+  strategy: DispatchStrategyName;
   pollIntervalMs: number;
   maxConcurrentAgents: number;
   stallTimeoutMs: number;
@@ -81,8 +83,10 @@ export interface SupervisorConfig {
   /** Maximum continuation turns per issue for codex-server (default 3) */
   maxTurnsPerIssue?: number;
 }
+/** @deprecated Use SchedulerConfig */
+export type SupervisorConfig = SchedulerConfig;
 
-export const DEFAULT_SUPERVISOR_CONFIG: SupervisorConfig = {
+export const DEFAULT_SCHEDULER_CONFIG: SchedulerConfig = {
   enabled: false,
   strategy: 'priority',
   pollIntervalMs: 30_000,
@@ -99,12 +103,14 @@ export const DEFAULT_SUPERVISOR_CONFIG: SupervisorConfig = {
     strict: false,
   },
 };
+/** @deprecated Use DEFAULT_SCHEDULER_CONFIG */
+export const DEFAULT_SUPERVISOR_CONFIG: SchedulerConfig = DEFAULT_SCHEDULER_CONFIG;
 
 // ---------------------------------------------------------------------------
-// Supervisor runtime status snapshot
+// Scheduler runtime status snapshot
 // ---------------------------------------------------------------------------
 
-export interface SupervisorStatus {
+export interface SchedulerStatus {
   enabled: boolean;
   running: ExecutionSlot[];
   queued: string[];
@@ -120,3 +126,5 @@ export interface SupervisorStatus {
     totalOutputTokens: number;
   };
 }
+/** @deprecated Use SchedulerStatus */
+export type SupervisorStatus = SchedulerStatus;

@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// `maestro install` — install maestro assets to global and project directories
+// `maestro install` — interactive install wizard for maestro assets
 //
 // Global (~/.maestro/):  templates/, workflows/
 // Project (target dir):  .claude/ (commands, agents, skills, CLAUDE.md),
@@ -9,8 +9,9 @@
 // ---------------------------------------------------------------------------
 
 import type { Command } from 'commander';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, resolve, relative, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { homedir } from 'node:os';
 import {
   existsSync,
   mkdirSync,
@@ -19,7 +20,9 @@ import {
   copyFileSync,
   readFileSync,
   writeFileSync,
+  renameSync,
 } from 'node:fs';
+import { select, input, confirm, checkbox } from '@inquirer/prompts';
 import { paths } from '../config/paths.js';
 import {
   createManifest,
@@ -28,6 +31,7 @@ import {
   saveManifest,
   findManifest,
   cleanManifestFiles,
+  getAllManifests,
   type Manifest,
 } from '../core/manifest.js';
 
@@ -38,22 +42,258 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-/** Package root: maestro2/ (from dist/commands/ or src/commands/) */
 function getPackageRoot(): string {
   return resolve(__dirname, '..', '..');
 }
 
-/** Directories installed to ~/.maestro/ */
-const GLOBAL_ASSETS = ['templates', 'workflows'] as const;
-
-/** Subdirectories of .claude/ installed to project */
-const PROJECT_CLAUDE_DIRS = ['commands', 'agents', 'skills'] as const;
-
-/** Individual files of .claude/ installed to project */
-const PROJECT_CLAUDE_FILES = ['CLAUDE.md'] as const;
-
-/** Settings files to preserve during overwrite */
+/** Files to preserve during overwrite */
 const PRESERVE_FILES = new Set(['settings.json', 'settings.local.json']);
+
+// ---------------------------------------------------------------------------
+// Component definitions — single source of truth
+// ---------------------------------------------------------------------------
+
+interface ComponentDef {
+  id: string;
+  label: string;
+  description: string;
+  sourcePath: string;
+  /** Resolve target directory based on mode and project path */
+  target: (mode: 'global' | 'project', projectPath: string) => string;
+  /** Always installs to global location regardless of mode */
+  alwaysGlobal: boolean;
+}
+
+const COMPONENT_DEFS: ComponentDef[] = [
+  {
+    id: 'workflows',
+    label: 'Workflows',
+    description: 'Workflow definitions (~/.maestro/workflows/)',
+    sourcePath: 'workflows',
+    target: () => join(paths.home, 'workflows'),
+    alwaysGlobal: true,
+  },
+  {
+    id: 'templates',
+    label: 'Templates',
+    description: 'Prompt & task templates (~/.maestro/templates/)',
+    sourcePath: 'templates',
+    target: () => join(paths.home, 'templates'),
+    alwaysGlobal: true,
+  },
+  {
+    id: 'commands',
+    label: 'Commands',
+    description: 'Claude Code slash commands',
+    sourcePath: join('.claude', 'commands'),
+    target: (mode, projectPath) =>
+      mode === 'global'
+        ? join(homedir(), '.claude', 'commands')
+        : join(projectPath, '.claude', 'commands'),
+    alwaysGlobal: false,
+  },
+  {
+    id: 'agents',
+    label: 'Agents',
+    description: 'Agent definitions',
+    sourcePath: join('.claude', 'agents'),
+    target: (mode, projectPath) =>
+      mode === 'global'
+        ? join(homedir(), '.claude', 'agents')
+        : join(projectPath, '.claude', 'agents'),
+    alwaysGlobal: false,
+  },
+  {
+    id: 'skills',
+    label: 'Skills',
+    description: 'Claude Code skills',
+    sourcePath: join('.claude', 'skills'),
+    target: (mode, projectPath) =>
+      mode === 'global'
+        ? join(homedir(), '.claude', 'skills')
+        : join(projectPath, '.claude', 'skills'),
+    alwaysGlobal: false,
+  },
+  {
+    id: 'claude-md',
+    label: 'CLAUDE.md',
+    description: 'Project instructions file',
+    sourcePath: join('.claude', 'CLAUDE.md'),
+    target: (mode, projectPath) =>
+      mode === 'global'
+        ? join(homedir(), '.claude', 'CLAUDE.md')
+        : join(projectPath, '.claude', 'CLAUDE.md'),
+    alwaysGlobal: false,
+  },
+  {
+    id: 'codex-skills',
+    label: 'Codex Skills',
+    description: 'Codex skill definitions',
+    sourcePath: join('.codex', 'skills'),
+    target: (mode, projectPath) =>
+      mode === 'global'
+        ? join(homedir(), '.codex', 'skills')
+        : join(projectPath, '.codex', 'skills'),
+    alwaysGlobal: false,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Disabled items — preserve disabled state across reinstalls
+// ---------------------------------------------------------------------------
+
+interface DisabledItem {
+  name: string;
+  relativePath: string;
+  type: 'skill' | 'command' | 'agent';
+}
+
+function scanDisabledItems(targetBase: string): DisabledItem[] {
+  const items: DisabledItem[] = [];
+
+  const scanDir = (
+    dir: string,
+    suffix: string,
+    type: DisabledItem['type'],
+    isSkillDir: boolean,
+  ) => {
+    if (!existsSync(dir)) return;
+    try {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (isSkillDir && entry.isDirectory()) {
+          const disabledPath = join(dir, entry.name, 'SKILL.md.disabled');
+          if (existsSync(disabledPath)) {
+            items.push({
+              name: entry.name,
+              relativePath: relative(targetBase, disabledPath),
+              type,
+            });
+          }
+        } else if (!isSkillDir && entry.isFile() && entry.name.endsWith(suffix)) {
+          items.push({
+            name: entry.name.replace(suffix, ''),
+            relativePath: relative(targetBase, join(dir, entry.name)),
+            type,
+          });
+        }
+      }
+    } catch { /* ignore */ }
+  };
+
+  scanDir(join(targetBase, '.claude', 'skills'), '', 'skill', true);
+  scanDir(join(targetBase, '.claude', 'commands'), '.md.disabled', 'command', false);
+  scanDir(join(targetBase, '.claude', 'agents'), '.md.disabled', 'agent', false);
+
+  return items;
+}
+
+function restoreDisabledState(items: DisabledItem[], targetBase: string): number {
+  let restored = 0;
+  for (const item of items) {
+    if (item.type === 'skill') {
+      const enabledPath = join(targetBase, '.claude', 'skills', item.name, 'SKILL.md');
+      const disabledPath = enabledPath + '.disabled';
+      if (existsSync(enabledPath) && !existsSync(disabledPath)) {
+        renameSync(enabledPath, disabledPath);
+        restored++;
+      }
+    } else {
+      const subdir = item.type === 'command' ? 'commands' : 'agents';
+      const enabledPath = join(targetBase, '.claude', subdir, `${item.name}.md`);
+      const disabledPath = enabledPath + '.disabled';
+      if (existsSync(enabledPath) && !existsSync(disabledPath)) {
+        renameSync(enabledPath, disabledPath);
+        restored++;
+      }
+    }
+  }
+  return restored;
+}
+
+// ---------------------------------------------------------------------------
+// MCP config helpers
+// ---------------------------------------------------------------------------
+
+function addMcpServer(
+  scope: 'global' | 'project',
+  projectPath: string,
+  enabledTools: string[],
+  projectRoot?: string,
+): boolean {
+  const isWin = process.platform === 'win32';
+  const env: Record<string, string> = {
+    MAESTRO_ENABLED_TOOLS: enabledTools.join(','),
+  };
+  if (projectRoot) env.MAESTRO_PROJECT_ROOT = projectRoot;
+
+  const serverConfig = {
+    command: isWin ? 'cmd' : 'npx',
+    args: isWin ? ['/c', 'npx', '-y', 'maestro-mcp'] : ['-y', 'maestro-mcp'],
+    env,
+  };
+
+  try {
+    if (scope === 'project') {
+      const fp = join(projectPath, '.mcp.json');
+      let mj: Record<string, unknown> = { mcpServers: {} };
+      if (existsSync(fp)) {
+        mj = JSON.parse(readFileSync(fp, 'utf-8'));
+        if (!mj.mcpServers) mj.mcpServers = {};
+      }
+      (mj.mcpServers as Record<string, unknown>)['maestro-tools'] = serverConfig;
+      writeFileSync(fp, JSON.stringify(mj, null, 2), 'utf-8');
+    } else {
+      const fp = join(homedir(), '.claude.json');
+      let cc: Record<string, unknown> = { mcpServers: {} };
+      if (existsSync(fp)) {
+        cc = JSON.parse(readFileSync(fp, 'utf-8'));
+        if (!cc.mcpServers) cc.mcpServers = {};
+      }
+      (cc.mcpServers as Record<string, unknown>)['maestro-tools'] = serverConfig;
+      writeFileSync(fp, JSON.stringify(cc, null, 2), 'utf-8');
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Scanning
+// ---------------------------------------------------------------------------
+
+function countFiles(dir: string): number {
+  if (!existsSync(dir)) return 0;
+  const st = statSync(dir);
+  if (st.isFile()) return 1;
+  let count = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isFile()) count++;
+    else if (entry.isDirectory()) count += countFiles(join(dir, entry.name));
+  }
+  return count;
+}
+
+interface ScannedComponent {
+  def: ComponentDef;
+  sourceFull: string;
+  targetDir: string;
+  fileCount: number;
+  available: boolean;
+}
+
+function scanComponents(
+  pkgRoot: string,
+  mode: 'global' | 'project',
+  projectPath: string,
+): ScannedComponent[] {
+  return COMPONENT_DEFS.map((def) => {
+    const sourceFull = join(pkgRoot, def.sourcePath);
+    const fileCount = countFiles(sourceFull);
+    const targetDir = def.target(mode, projectPath);
+    return { def, sourceFull, targetDir, fileCount, available: fileCount > 0 };
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Recursive copy with manifest tracking
@@ -65,12 +305,34 @@ interface CopyStats {
   skipped: number;
 }
 
-function copyDirRecursive(
+function copyRecursive(
   src: string,
   dest: string,
   stats: CopyStats,
   manifest: Manifest,
 ): void {
+  const srcStat = statSync(src);
+
+  // Single file copy (e.g. CLAUDE.md)
+  if (srcStat.isFile()) {
+    const destDir = dirname(dest);
+    if (!existsSync(destDir)) {
+      mkdirSync(destDir, { recursive: true });
+      stats.dirs++;
+      addDir(manifest, destDir);
+    }
+    const destName = basename(dest);
+    if (PRESERVE_FILES.has(destName) && existsSync(dest)) {
+      stats.skipped++;
+      return;
+    }
+    copyFileSync(src, dest);
+    stats.files++;
+    addFile(manifest, dest);
+    return;
+  }
+
+  // Directory copy
   if (!existsSync(dest)) {
     mkdirSync(dest, { recursive: true });
     stats.dirs++;
@@ -88,7 +350,7 @@ function copyDirRecursive(
     const st = statSync(srcPath);
 
     if (st.isDirectory()) {
-      copyDirRecursive(srcPath, destPath, stats, manifest);
+      copyRecursive(srcPath, destPath, stats, manifest);
     } else {
       copyFileSync(srcPath, destPath);
       stats.files++;
@@ -98,91 +360,334 @@ function copyDirRecursive(
 }
 
 // ---------------------------------------------------------------------------
-// Install logic
+// Backup
 // ---------------------------------------------------------------------------
 
-function installGlobal(pkgRoot: string, manifest: Manifest): CopyStats {
-  const stats: CopyStats = { files: 0, dirs: 0, skipped: 0 };
-  const home = paths.home;
+function createBackup(manifest: Manifest): string | null {
+  const backupDir = join(paths.home, 'manifests', 'backups', `backup-${manifest.scope}-${Date.now()}`);
+  mkdirSync(backupDir, { recursive: true });
 
-  paths.ensure(home);
-
-  for (const dir of GLOBAL_ASSETS) {
-    const src = join(pkgRoot, dir);
-    if (!existsSync(src)) {
-      console.error(`  skip: ${dir}/ (not found)`);
-      continue;
+  const home = homedir();
+  let backedUp = 0;
+  for (const entry of manifest.entries) {
+    if (entry.type === 'file' && existsSync(entry.path)) {
+      const rel = entry.path.startsWith(home)
+        ? relative(home, entry.path)
+        : entry.path.replace(/[:\\]/g, '_');
+      const backupPath = join(backupDir, rel);
+      const dir = dirname(backupPath);
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      copyFileSync(entry.path, backupPath);
+      backedUp++;
     }
-    const dest = join(home, dir);
-    console.error(`  ${dir}/ → ${dest}`);
-    copyDirRecursive(src, dest, stats, manifest);
+  }
+
+  if (backedUp === 0) return null;
+  return backupDir;
+}
+
+// ---------------------------------------------------------------------------
+// Interactive wizard
+// ---------------------------------------------------------------------------
+
+const MCP_TOOLS = [
+  'write_file',
+  'edit_file',
+  'read_file',
+  'read_many_files',
+  'team_msg',
+  'core_memory',
+] as const;
+
+async function interactiveInstall(pkgRoot: string, version: string): Promise<void> {
+  console.error('');
+  console.error(`  maestro install v${version}`);
+  console.error('  Interactive installation wizard');
+  console.error('');
+
+  // ── Step 1: Mode selection ──────────────────────────────────────────
+
+  const mode = await select<'global' | 'project'>({
+    message: 'Installation mode:',
+    choices: [
+      {
+        name: 'Global — Install to home directory (recommended)',
+        value: 'global',
+        description: '~/.claude/, ~/.maestro/, ~/.codex/',
+      },
+      {
+        name: 'Project — Install to a specific project directory',
+        value: 'project',
+        description: 'Commands scoped to project',
+      },
+    ],
+  });
+
+  let projectPath = '';
+  if (mode === 'project') {
+    projectPath = await input({
+      message: 'Project path:',
+      default: process.cwd(),
+      validate: (val) => {
+        if (!val.trim()) return 'Path is required';
+        if (!existsSync(val.trim())) return `Path does not exist: ${val}`;
+        return true;
+      },
+    });
+    projectPath = resolve(projectPath.trim());
+  }
+
+  // ── Step 2: Scan & show existing installations ──────────────────────
+
+  const manifests = getAllManifests();
+  const targetPath = mode === 'global' ? paths.home : projectPath;
+  const existingManifest = findManifest(mode, targetPath);
+
+  if (existingManifest) {
+    console.error('');
+    console.error(`  Existing ${mode} installation found (${existingManifest.installedAt})`);
+    console.error(`  ${existingManifest.entries.length} tracked entries`);
+  }
+
+  // ── Step 3: Scan available components ───────────────────────────────
+
+  const components = scanComponents(pkgRoot, mode, projectPath);
+  const available = components.filter((c) => c.available);
+
+  if (available.length === 0) {
+    console.error('  No installable components found.');
+    process.exit(1);
+  }
+
+  console.error('');
+
+  // ── Step 4: Component selection ─────────────────────────────────────
+
+  const selected = await checkbox({
+    message: 'Select components to install:',
+    choices: components.map((c) => ({
+      name: `${c.def.label} (${c.fileCount} files) — ${c.def.description}`,
+      value: c.def.id,
+      checked: c.available,
+      disabled: !c.available ? '(not found)' : false,
+    })),
+    validate: (vals) => vals.length > 0 || 'Select at least one component',
+  });
+
+  // ── Step 5: MCP configuration ───────────────────────────────────────
+
+  const configureMcp = await confirm({
+    message: 'Register MCP server (maestro-tools)?',
+    default: true,
+  });
+
+  let mcpTools: string[] = [];
+  let mcpProjectRoot = '';
+  if (configureMcp) {
+    mcpTools = await checkbox({
+      message: 'Select MCP tools to enable:',
+      choices: MCP_TOOLS.map((t) => ({
+        name: t,
+        value: t,
+        checked: true,
+      })),
+    });
+
+    mcpProjectRoot = await input({
+      message: 'MCP project root (leave empty to skip):',
+      default: mode === 'project' ? projectPath : '',
+    });
+    mcpProjectRoot = mcpProjectRoot.trim();
+  }
+
+  // ── Step 6: Backup ──────────────────────────────────────────────────
+
+  let doBackup = false;
+  if (existingManifest) {
+    doBackup = await confirm({
+      message: 'Backup existing installation before overwriting?',
+      default: true,
+    });
+  }
+
+  // ── Step 7: Review & confirm ────────────────────────────────────────
+
+  const targetBase = mode === 'global' ? homedir() : projectPath;
+  const selectedComponents = components.filter((c) => selected.includes(c.def.id));
+
+  console.error('');
+  console.error('  ┌─ Installation Summary ──────────────────────');
+  console.error(`  │ Mode:       ${mode}`);
+  console.error(`  │ Target:     ${targetBase}`);
+  console.error(`  │ Components: ${selectedComponents.map((c) => c.def.label).join(', ')}`);
+  if (configureMcp) {
+    console.error(`  │ MCP:        ${mcpTools.length} tools enabled`);
+    if (mcpProjectRoot) console.error(`  │ MCP root:   ${mcpProjectRoot}`);
+  }
+  if (doBackup) {
+    console.error('  │ Backup:     yes');
+  }
+  console.error('  └──────────────────────────────────────────────');
+  console.error('');
+
+  const proceed = await confirm({
+    message: 'Proceed with installation?',
+    default: true,
+  });
+
+  if (!proceed) {
+    console.error('  Installation cancelled.');
+    return;
+  }
+
+  // ── Step 8: Execute ─────────────────────────────────────────────────
+
+  console.error('');
+
+  // Scan disabled items before overwrite
+  const disabledItems = scanDisabledItems(targetBase);
+
+  // Backup if requested
+  if (doBackup && existingManifest) {
+    const backupPath = createBackup(existingManifest);
+    if (backupPath) {
+      console.error(`  Backup created: ${backupPath}`);
+    }
+  }
+
+  // Clean previous installation
+  if (existingManifest) {
+    const { removed, skipped } = cleanManifestFiles(existingManifest);
+    if (removed > 0) {
+      console.error(`  Cleaned: ${removed} old files${skipped > 0 ? `, ${skipped} preserved` : ''}`);
+    }
+  }
+
+  // Ensure global home exists
+  paths.ensure(paths.home);
+
+  // Create new manifest
+  const manifest = createManifest(mode, mode === 'global' ? paths.home : projectPath);
+  const totalStats: CopyStats = { files: 0, dirs: 0, skipped: 0 };
+
+  for (const comp of selectedComponents) {
+    console.error(`  Installing ${comp.def.label}...`);
+    copyRecursive(comp.sourceFull, comp.targetDir, totalStats, manifest);
   }
 
   // Version marker
-  const pkg = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf-8'));
   const versionData = {
-    version: pkg.version ?? '0.1.0',
+    version,
     installedAt: new Date().toISOString(),
     installer: 'maestro',
   };
-  const versionPath = join(home, 'version.json');
+  const versionPath = join(paths.home, 'version.json');
   writeFileSync(versionPath, JSON.stringify(versionData, null, 2), 'utf-8');
   addFile(manifest, versionPath);
-  stats.files++;
+  totalStats.files++;
 
-  return stats;
+  // Restore disabled state
+  const disabledRestored = restoreDisabledState(disabledItems, targetBase);
+
+  // MCP registration
+  let mcpRegistered = false;
+  if (configureMcp && mcpTools.length > 0) {
+    mcpRegistered = addMcpServer(mode, projectPath, mcpTools, mcpProjectRoot || undefined);
+  }
+
+  // Save manifest
+  const manifestPath = saveManifest(manifest);
+
+  // ── Summary ─────────────────────────────────────────────────────────
+
+  console.error('');
+  console.error('  ┌─ Installation Complete ─────────────────────');
+  console.error(`  │ Files:    ${totalStats.files} installed`);
+  if (totalStats.dirs > 0) console.error(`  │ Dirs:     ${totalStats.dirs} created`);
+  if (totalStats.skipped > 0) console.error(`  │ Preserved: ${totalStats.skipped} settings files`);
+  if (disabledRestored > 0) console.error(`  │ Disabled:  ${disabledRestored} items restored`);
+  if (mcpRegistered) console.error('  │ MCP:       maestro-tools registered');
+  console.error(`  │ Manifest: ${manifestPath}`);
+  console.error('  └──────────────────────────────────────────────');
+  console.error('');
+  console.error('  Restart Claude Code or IDE to pick up changes.');
+  console.error('');
 }
 
-function installProject(pkgRoot: string, targetDir: string, manifest: Manifest): CopyStats {
-  const stats: CopyStats = { files: 0, dirs: 0, skipped: 0 };
-  const srcClaude = join(pkgRoot, '.claude');
-  const destClaude = join(targetDir, '.claude');
+// ---------------------------------------------------------------------------
+// Non-interactive (force) install — preserves original batch behavior
+// ---------------------------------------------------------------------------
 
-  paths.ensure(destClaude);
+function forceInstall(
+  pkgRoot: string,
+  version: string,
+  opts: { global?: boolean; path?: string },
+): void {
+  console.error(`maestro install v${version}`);
+  console.error('');
 
-  // .claude/{commands,agents,skills}/
-  for (const sub of PROJECT_CLAUDE_DIRS) {
-    const src = join(srcClaude, sub);
-    if (!existsSync(src)) {
-      console.error(`  skip: .claude/${sub}/ (not found)`);
-      continue;
+  const mode: 'global' | 'project' = opts.global ? 'global' : (opts.path ? 'project' : 'global');
+  const projectPath = opts.path ? resolve(opts.path) : '';
+
+  if (mode === 'project' && projectPath && !existsSync(projectPath)) {
+    console.error(`Error: Target directory does not exist: ${projectPath}`);
+    process.exit(1);
+  }
+
+  const components = scanComponents(pkgRoot, mode, projectPath);
+  const available = components.filter((c) => c.available);
+
+  // Determine what to install based on mode
+  const targetPath = mode === 'global' ? paths.home : projectPath;
+  const targetBase = mode === 'global' ? homedir() : projectPath;
+
+  // Scan disabled items
+  const disabledItems = scanDisabledItems(targetBase);
+
+  // Clean previous
+  const existingManifest = findManifest(mode, targetPath);
+  if (existingManifest) {
+    const { removed, skipped } = cleanManifestFiles(existingManifest);
+    if (removed > 0) {
+      console.error(`  Cleaned: ${removed} old files${skipped > 0 ? `, ${skipped} preserved` : ''}`);
     }
-    const dest = join(destClaude, sub);
-    console.error(`  .claude/${sub}/ → ${dest}`);
-    copyDirRecursive(src, dest, stats, manifest);
   }
 
-  // .claude/CLAUDE.md etc.
-  for (const file of PROJECT_CLAUDE_FILES) {
-    const src = join(srcClaude, file);
-    if (!existsSync(src)) continue;
-    const dest = join(destClaude, file);
-    console.error(`  .claude/${file} → ${dest}`);
-    copyFileSync(src, dest);
-    addFile(manifest, dest);
-    stats.files++;
+  paths.ensure(paths.home);
+
+  const manifest = createManifest(mode, targetPath);
+  const totalStats: CopyStats = { files: 0, dirs: 0, skipped: 0 };
+
+  for (const comp of available) {
+    // In global-only mode, skip project-scoped items unless they're alwaysGlobal
+    if (opts.global && !comp.def.alwaysGlobal) continue;
+    console.error(`  ${comp.def.label} → ${comp.targetDir}`);
+    copyRecursive(comp.sourceFull, comp.targetDir, totalStats, manifest);
   }
 
-  // .codex/ (entire directory)
-  const srcCodex = join(pkgRoot, '.codex');
-  if (existsSync(srcCodex)) {
-    const destCodex = join(targetDir, '.codex');
-    console.error(`  .codex/ → ${destCodex}`);
-    copyDirRecursive(srcCodex, destCodex, stats, manifest);
-  }
+  // Version marker
+  const versionData = {
+    version,
+    installedAt: new Date().toISOString(),
+    installer: 'maestro',
+  };
+  const versionPath = join(paths.home, 'version.json');
+  writeFileSync(versionPath, JSON.stringify(versionData, null, 2), 'utf-8');
+  addFile(manifest, versionPath);
+  totalStats.files++;
 
-  return stats;
-}
+  // Restore disabled state
+  const disabledRestored = restoreDisabledState(disabledItems, targetBase);
 
-// ---------------------------------------------------------------------------
-// Summary helper
-// ---------------------------------------------------------------------------
+  saveManifest(manifest);
 
-function showStats(label: string, stats: CopyStats): void {
-  const parts = [`${stats.files} files`];
-  if (stats.dirs > 0) parts.push(`${stats.dirs} dirs`);
-  if (stats.skipped > 0) parts.push(`${stats.skipped} preserved`);
-  console.error(`  ${label}: ${parts.join(', ')}`);
+  const parts = [`${totalStats.files} files`];
+  if (totalStats.dirs > 0) parts.push(`${totalStats.dirs} dirs`);
+  if (totalStats.skipped > 0) parts.push(`${totalStats.skipped} preserved`);
+  if (disabledRestored > 0) parts.push(`${disabledRestored} disabled restored`);
+  console.error(`  Result: ${parts.join(', ')}`);
+  console.error('');
+  console.error('Done. Restart Claude Code or IDE to pick up changes.');
 }
 
 // ---------------------------------------------------------------------------
@@ -192,14 +697,14 @@ function showStats(label: string, stats: CopyStats): void {
 export function registerInstallCommand(program: Command): void {
   program
     .command('install')
-    .description('Install maestro assets (templates, workflows, commands, agents, codex skills)')
+    .description('Install maestro assets (interactive wizard or --force for batch mode)')
     .option('--global', 'Install global assets only (~/.maestro/)')
     .option('--path <dir>', 'Install project assets to target directory')
-    .option('--force', 'Skip confirmation for overwrite')
+    .option('--force', 'Skip interactive prompts, install all available components')
     .action(async (opts: { global?: boolean; path?: string; force?: boolean }) => {
       const pkgRoot = getPackageRoot();
 
-      // Validate
+      // Validate package root
       const hasTemplates = existsSync(join(pkgRoot, 'templates'));
       const hasWorkflows = existsSync(join(pkgRoot, 'workflows'));
       if (!hasTemplates && !hasWorkflows) {
@@ -208,58 +713,12 @@ export function registerInstallCommand(program: Command): void {
       }
 
       const pkg = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf-8'));
-      console.error(`maestro install v${pkg.version ?? '0.1.0'}`);
-      console.error('');
+      const version = (pkg.version as string) ?? '0.1.0';
 
-      // ---- Global install ---------------------------------------------------
-
-      if (!opts.path || opts.global) {
-        console.error(`[Global] → ${paths.home}`);
-
-        // Clean previous installation
-        const prev = findManifest('global', paths.home);
-        if (prev) {
-          const { removed, skipped } = cleanManifestFiles(prev);
-          if (removed > 0) {
-            console.error(`  Cleaned: ${removed} old files${skipped > 0 ? `, ${skipped} preserved` : ''}`);
-          }
-        }
-
-        const manifest = createManifest('global', paths.home);
-        const gStats = installGlobal(pkgRoot, manifest);
-        saveManifest(manifest);
-        showStats('Global', gStats);
-        console.error('');
+      if (opts.force) {
+        forceInstall(pkgRoot, version, opts);
+      } else {
+        await interactiveInstall(pkgRoot, version);
       }
-
-      // ---- Project install --------------------------------------------------
-
-      if (opts.path || !opts.global) {
-        const targetDir = resolve(opts.path ?? process.cwd());
-
-        if (!existsSync(targetDir)) {
-          console.error(`Error: Target directory does not exist: ${targetDir}`);
-          process.exit(1);
-        }
-
-        console.error(`[Project] → ${targetDir}`);
-
-        // Clean previous installation
-        const prev = findManifest('project', targetDir);
-        if (prev) {
-          const { removed, skipped } = cleanManifestFiles(prev);
-          if (removed > 0) {
-            console.error(`  Cleaned: ${removed} old files${skipped > 0 ? `, ${skipped} preserved` : ''}`);
-          }
-        }
-
-        const manifest = createManifest('project', targetDir);
-        const pStats = installProject(pkgRoot, targetDir, manifest);
-        saveManifest(manifest);
-        showStats('Project', pStats);
-        console.error('');
-      }
-
-      console.error('Done. Restart Claude Code or IDE to pick up changes.');
     });
 }

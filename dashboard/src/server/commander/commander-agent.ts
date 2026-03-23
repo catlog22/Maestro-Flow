@@ -23,6 +23,7 @@ import type { DashboardEventBus } from '../state/event-bus.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { ExecutionScheduler } from '../execution/execution-scheduler.js';
 import type { AgentManager } from '../agents/agent-manager.js';
+import { CommanderStrategy } from '../execution/strategies/commander-strategy.js';
 import { loadCommanderConfig, PROFILES } from './commander-config.js';
 import {
   COMMANDER_SYSTEM_PROMPT,
@@ -75,11 +76,11 @@ function isWithinThreshold(
 export class CommanderAgent {
   private config: CommanderConfig;
   private state: CommanderState;
-  private tickTimer: ReturnType<typeof setInterval> | null = null;
   private recentDecisions: Decision[] = [];
   private consecutiveFailures = 0;
   private ticksThisHour = 0;
   private hourResetTimer: ReturnType<typeof setInterval> | null = null;
+  private previousStrategyName: string | null = null;
 
   constructor(
     private readonly eventBus: DashboardEventBus,
@@ -104,15 +105,21 @@ export class CommanderAgent {
   // Public API
   // -------------------------------------------------------------------------
 
-  /** Start the Commander tick loop. Loads config from disk on first start. */
+  /** Start the Commander — registers CommanderStrategy with the scheduler. */
   async start(): Promise<void> {
-    if (this.tickTimer) return;
+    if (this.previousStrategyName !== null) return; // already started
 
     // Load config from disk layers (user + project + env)
     const diskConfig = await loadCommanderConfig(this.workflowRoot);
     this.config = { ...diskConfig, ...this.config };
 
-    this.tickTimer = setInterval(() => void this.tick('scheduled_tick'), this.config.pollIntervalMs);
+    // Save current strategy so we can revert on stop()
+    this.previousStrategyName = this.executionScheduler.getActiveStrategyName();
+
+    // Register and activate commander strategy
+    const commanderStrategy = new CommanderStrategy(this);
+    this.executionScheduler.registerStrategy(commanderStrategy);
+    this.executionScheduler.setStrategy('commander');
 
     // Hourly tick counter reset
     this.hourResetTimer = setInterval(() => {
@@ -121,16 +128,27 @@ export class CommanderAgent {
 
     this.emitStatus();
     console.log(
-      `[Commander] Started (interval=${this.config.pollIntervalMs}ms, model=${this.config.decisionModel}, workers=${this.config.maxConcurrentWorkers})`,
+      `[Commander] Started (model=${this.config.decisionModel}, workers=${this.config.maxConcurrentWorkers})`,
     );
   }
 
-  /** Stop the Commander tick loop. */
+  /** Stop the Commander — reverts scheduler to previous strategy. */
   stop(): void {
-    if (this.tickTimer) {
-      clearInterval(this.tickTimer);
-      this.tickTimer = null;
+    // Revert to previous strategy
+    if (this.previousStrategyName !== null) {
+      try {
+        this.executionScheduler.setStrategy(this.previousStrategyName);
+      } catch {
+        // Previous strategy may have been unregistered; fall back to priority
+        try {
+          this.executionScheduler.setStrategy('priority');
+        } catch {
+          // ignore — at least we tried
+        }
+      }
+      this.previousStrategyName = null;
     }
+
     if (this.hourResetTimer) {
       clearInterval(this.hourResetTimer);
       this.hourResetTimer = null;
@@ -156,9 +174,8 @@ export class CommanderAgent {
     console.log('[Commander] Resumed');
   }
 
-  /** Update config at runtime, restart tick timer if interval changed. */
+  /** Update config at runtime. */
   updateConfig(partial: Partial<CommanderConfig>): void {
-    const prevInterval = this.config.pollIntervalMs;
     const prevProfile = this.config.profile;
 
     // If switching profiles, apply profile preset first
@@ -171,12 +188,6 @@ export class CommanderAgent {
 
     // Apply explicit overrides
     Object.assign(this.config, partial);
-
-    // Restart tick timer if interval changed
-    if (this.config.pollIntervalMs !== prevInterval && this.tickTimer) {
-      clearInterval(this.tickTimer);
-      this.tickTimer = setInterval(() => void this.tick('scheduled_tick'), this.config.pollIntervalMs);
-    }
 
     this.emitStatus();
   }

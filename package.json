@@ -34,6 +34,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.14.0",
+    "@inquirer/prompts": "^8.3.2",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "chokidar": "^4.0.0",
     "commander": "^13.1.0",

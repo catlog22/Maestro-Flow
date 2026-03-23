@@ -1,7 +1,8 @@
 /**
  * Install Routes — Interactive install wizard API endpoints.
  *
- * Provides detect, execute, and manifest listing for the Maestro install wizard.
+ * Dashboard web UI counterpart of CLI `maestro install` (src/commands/install.ts).
+ * Uses the same manifest format and storage path (~/.maestro/manifests/).
  */
 import { Hono } from 'hono';
 import { dirname, join } from 'node:path';
@@ -14,6 +15,7 @@ import {
   scanDisabledItems,
   restoreDisabledState,
   copyDirectory,
+  createManifest,
   saveManifest,
   findManifest,
   getAllManifests,
@@ -21,8 +23,8 @@ import {
   getPackageVersion,
   writeVersionFile,
   COMPONENT_DEFS,
+  MAESTRO_HOME,
   type Manifest,
-  type ManifestEntry,
   type DetectionResult,
   type InstallResult,
 } from './install-utils.js';
@@ -86,7 +88,6 @@ export function createInstallRoutes(): Hono {
       return c.json({ error: 'projectPath required for project mode' }, 400);
     }
 
-    // Resolve package root
     const thisDir = dirname(fileURLToPath(import.meta.url));
     const sourceDir = resolveSourceDir(thisDir);
     if (!sourceDir) {
@@ -94,9 +95,8 @@ export function createInstallRoutes(): Hono {
     }
 
     const components = scanAvailableSources(sourceDir, mode, projectPath);
-    const existingManifest = findManifest(mode, projectPath);
-
-    // Scan disabled items from the target location
+    const targetPath = mode === 'global' ? MAESTRO_HOME : projectPath!;
+    const existingManifest = findManifest(mode, targetPath);
     const targetBase = mode === 'global' ? homedir() : projectPath!;
     const disabledItems = scanDisabledItems(targetBase);
 
@@ -137,32 +137,32 @@ export function createInstallRoutes(): Hono {
     }
 
     try {
-      // Resolve source
       const thisDir = dirname(fileURLToPath(import.meta.url));
       const sourceDir = resolveSourceDir(thisDir);
       if (!sourceDir) {
         return c.json({ error: 'Could not find maestro package root' } satisfies Partial<InstallResult>, 500);
       }
 
-      // Backup if requested
+      const targetBase = mode === 'global' ? homedir() : projectPath!;
+      const targetPath = mode === 'global' ? MAESTRO_HOME : projectPath!;
+
+      // Backup existing manifest if requested
       if (backup) {
-        const existing = findManifest(mode, projectPath);
-        if (existing) {
-          createBackup(existing);
-        }
+        const existing = findManifest(mode, targetPath);
+        if (existing) createBackup(existing);
       }
 
       // Scan disabled items before overwriting
-      const targetBase = mode === 'global' ? homedir() : projectPath!;
       const disabledItems = scanDisabledItems(targetBase);
 
-      // Copy selected components
-      const entries: ManifestEntry[] = [];
+      // Create manifest (same format as CLI `maestro install`)
+      const manifest = createManifest(mode, targetPath);
+
       let totalFiles = 0;
       let totalDirs = 0;
 
       for (const compId of components) {
-        if (compId === 'mcp') continue; // MCP is handled separately
+        if (compId === 'mcp') continue;
 
         const def = COMPONENT_DEFS.find((d) => d.id === compId);
         if (!def) continue;
@@ -175,7 +175,7 @@ export function createInstallRoutes(): Hono {
 
         if (!existsSync(src)) continue;
 
-        const { files, dirs } = copyDirectory(src, dest, entries);
+        const { files, dirs } = copyDirectory(src, dest, manifest);
         totalFiles += files;
         totalDirs += dirs;
       }
@@ -183,13 +183,9 @@ export function createInstallRoutes(): Hono {
       // Restore disabled state
       const disabledRestored = restoreDisabledState(disabledItems, targetBase);
 
-      // Write version file
+      // Write version file (same as CLI)
       const version = getPackageVersion(sourceDir);
-      const versionTarget =
-        mode === 'global'
-          ? join(homedir(), '.maestro')
-          : projectPath!;
-      writeVersionFile(versionTarget, version);
+      writeVersionFile(MAESTRO_HOME, version);
 
       // Register MCP config if requested
       let mcpRegistered = false;
@@ -214,16 +210,7 @@ export function createInstallRoutes(): Hono {
         mcpRegistered = 'success' in mcpResult && mcpResult.success === true;
       }
 
-      // Save manifest
-      const manifest: Manifest = {
-        id: `${mode}-${Date.now()}`,
-        mode,
-        projectPath: mode === 'project' ? projectPath : undefined,
-        timestamp: Date.now(),
-        version,
-        entries,
-        components,
-      };
+      // Save manifest (replaces old one for same scope+targetPath)
       const manifestPath = saveManifest(manifest);
 
       const result: InstallResult = {

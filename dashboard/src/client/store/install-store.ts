@@ -22,11 +22,10 @@ export interface DisabledItem {
 
 export interface ManifestInfo {
   id: string;
-  mode: 'global' | 'project';
-  projectPath?: string;
-  timestamp: number;
+  scope: 'global' | 'project';
+  targetPath: string;
+  installedAt: string;
   version: string;
-  components: string[];
 }
 
 export interface DetectionResult {

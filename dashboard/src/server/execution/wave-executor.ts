@@ -13,8 +13,11 @@ import type { SDKResultSuccess } from '@anthropic-ai/claude-agent-sdk';
 import type { Issue } from '../../shared/issue-types.js';
 import type { NormalizedEntry } from '../../shared/agent-types.js';
 import type { WaveTask, WaveSession, DecompositionResult } from '../../shared/wave-types.js';
+import type { WaveStartedEvent, WaveTaskCompletedEvent } from '../../shared/journal-types.js';
 import type { DashboardEventBus } from '../state/event-bus.js';
 import type { AgentManager } from '../agents/agent-manager.js';
+import type { ExecutionScheduler } from './execution-scheduler.js';
+import type { ExecutionJournal } from './execution-journal.js';
 import { EntryNormalizer } from '../agents/entry-normalizer.js';
 import type { McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk';
 import { loadDashboardAgentSettings, type SavedAgentSettings } from '../config.js';
@@ -164,6 +167,8 @@ export class WaveExecutor {
     private readonly eventBus: DashboardEventBus,
     private readonly agentManager: AgentManager,
     private readonly workDir: string,
+    private readonly executionScheduler?: ExecutionScheduler,
+    private readonly journal?: ExecutionJournal,
   ) {
     this.issueMcpServer = createIssueMcpServer(workDir);
   }
@@ -273,21 +278,57 @@ export class WaveExecutor {
     // Load settings once for the entire execution
     const { settings, settingsFile, env } = await this.loadSettings();
 
-    // --- Phase 1: Decompose ---
-    this.emitEntry(processId, EntryNormalizer.assistantMessage(
-      processId,
-      '### Phase 1: Decomposing issue into subtasks...',
-      false,
-    ));
+    // --- Resume check: see if journal has an existing wave session ---
+    let completedTaskIds = new Set<string>();
+    let resumedDecomposition: DecompositionResult | null = null;
 
-    const decomposition = await this.decompose(processId, issue, abortController, settings, settingsFile, env);
-    if (!decomposition || abortController.signal.aborted) return;
+    if (this.journal) {
+      try {
+        const events = await this.journal.getEventsForIssue(issue.id);
+        const waveStarted = events.find((e) => e.type === 'wave:started') as WaveStartedEvent | undefined;
+        if (waveStarted && waveStarted.decomposition) {
+          resumedDecomposition = waveStarted.decomposition as DecompositionResult;
+          completedTaskIds = new Set(
+            events
+              .filter((e): e is WaveTaskCompletedEvent => e.type === 'wave:task_completed')
+              .map((e) => e.taskId),
+          );
+          if (completedTaskIds.size > 0) {
+            this.emitEntry(processId, EntryNormalizer.assistantMessage(
+              processId,
+              `Resuming wave execution: ${completedTaskIds.size} task(s) already completed.`,
+              false,
+            ));
+          }
+        }
+      } catch {
+        // Journal read failed — fall back to full execution
+        resumedDecomposition = null;
+        completedTaskIds = new Set();
+      }
+    }
 
-    // Build WaveTask array
+    // --- Phase 1: Decompose (or reuse from journal) ---
+    let decomposition: DecompositionResult | null;
+
+    if (resumedDecomposition) {
+      decomposition = resumedDecomposition;
+    } else {
+      this.emitEntry(processId, EntryNormalizer.assistantMessage(
+        processId,
+        '### Phase 1: Decomposing issue into subtasks...',
+        false,
+      ));
+
+      decomposition = await this.decompose(processId, issue, abortController, settings, settingsFile, env);
+      if (!decomposition || abortController.signal.aborted) return;
+    }
+
+    // Build WaveTask array — mark already-completed tasks
     session.tasks = decomposition.tasks.map((t) => ({
       ...t,
       wave: 0,
-      status: 'pending' as const,
+      status: (completedTaskIds.has(t.id) ? 'completed' : 'pending') as WaveTask['status'],
     }));
 
     // Assign waves via topological sort
@@ -295,13 +336,25 @@ export class WaveExecutor {
 
     // Emit decomposition summary
     const taskSummary = session.tasks
-      .map((t) => `- **${t.id}** (wave ${t.wave}): ${t.title}`)
+      .map((t) => `- **${t.id}** (wave ${t.wave}): ${t.title}${t.status === 'completed' ? ' [resumed]' : ''}`)
       .join('\n');
     this.emitEntry(processId, EntryNormalizer.assistantMessage(
       processId,
       `Decomposed into **${session.tasks.length} tasks** across **${session.totalWaves} waves**:\n\n${taskSummary}`,
       false,
     ));
+
+    // Journal: record wave:started event (only for fresh executions)
+    if (!resumedDecomposition) {
+      await this.journal?.append({
+        type: 'wave:started',
+        issueId: issue.id,
+        sessionId: processId,
+        taskCount: session.tasks.length,
+        decomposition,
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     // --- Phase 2+: Execute waves ---
     session.status = 'executing';
@@ -311,16 +364,26 @@ export class WaveExecutor {
 
       session.currentWave = wave;
       const waveTasks = session.tasks.filter((t) => t.wave === wave);
+      const pendingTasks = waveTasks.filter((t) => t.status === 'pending');
+
+      if (pendingTasks.length === 0) {
+        this.emitEntry(processId, EntryNormalizer.assistantMessage(
+          processId,
+          `\n### Wave ${wave + 1}/${session.totalWaves}: All ${waveTasks.length} task(s) already completed (resumed).`,
+          false,
+        ));
+        continue;
+      }
 
       this.emitEntry(processId, EntryNormalizer.assistantMessage(
         processId,
-        `\n### Wave ${wave + 1}/${session.totalWaves}: Executing ${waveTasks.length} task(s) in parallel...`,
+        `\n### Wave ${wave + 1}/${session.totalWaves}: Executing ${pendingTasks.length} task(s) in parallel...`,
         false,
       ));
 
-      // Execute all tasks in this wave concurrently
+      // Execute pending tasks in this wave concurrently
       await Promise.allSettled(
-        waveTasks.map((task) =>
+        pendingTasks.map((task) =>
           this.executeTask(processId, task, issue, session.tasks, abortController, settings, settingsFile, env),
         ),
       );
@@ -458,69 +521,102 @@ export class WaveExecutor {
   ): Promise<void> {
     if (abortController.signal.aborted) return;
 
-    task.status = 'running';
+    // Generate a unique processId for this subtask's slot
+    const taskProcessId = `wave-${processId}-task-${task.id}`;
 
-    // Build prev_context from completed contextFrom tasks
-    const prevContext = task.contextFrom
-      .map((id) => allTasks.find((t) => t.id === id))
-      .filter((t): t is WaveTask => t != null && t.status === 'completed' && !!t.findings)
-      .map((t) => `**${t.id} (${t.title})**: ${t.findings}`)
-      .join('\n\n');
-
-    const taskPrompt = buildTaskPrompt(task, issue, prevContext);
-
-    this.emitEntry(processId, EntryNormalizer.toolUse(
-      processId, `Task:${task.id}`, { title: task.title }, 'running',
-    ));
-
-    let resultText = '';
-
-    // Build query options — use settings file path when available
-    const taskOptions: Record<string, unknown> = {
-      abortController,
-      cwd: this.workDir,
-      maxTurns: 10,
-      persistSession: false,
-      mcpServers: { 'issue-monitor': this.issueMcpServer },
-    };
-
-    if (settingsFile) {
-      taskOptions.settings = settingsFile;
-      taskOptions.permissionMode = 'dontAsk';
-    } else {
-      taskOptions.permissionMode = 'bypassPermissions';
-      taskOptions.allowDangerouslySkipPermissions = true;
-      taskOptions.model = settings?.model || 'sonnet';
-      if (env) taskOptions.env = { ...process.env, ...env };
+    // Acquire a scheduler slot before executing (if scheduler is available)
+    if (this.executionScheduler) {
+      const acquired = await this.executionScheduler.waitForSlot(
+        issue.id, taskProcessId, 'agent-sdk', 60000,
+      );
+      if (!acquired) {
+        task.status = 'failed';
+        task.error = 'Slot acquisition timed out';
+        this.emitEntry(processId, EntryNormalizer.toolUse(
+          processId, `Task:${task.id}`, { title: task.title, error: task.error }, 'failed', task.error,
+        ));
+        return;
+      }
     }
 
     try {
-      for await (const message of query({
-        prompt: taskPrompt,
-        options: taskOptions as import('@anthropic-ai/claude-agent-sdk').Options,
-      })) {
-        const msg = message as Record<string, unknown>;
-        if (msg.type === 'result' && msg.subtype === 'success') {
-          resultText = (message as unknown as SDKResultSuccess).result;
-        }
+      task.status = 'running';
+
+      // Build prev_context from completed contextFrom tasks
+      const prevContext = task.contextFrom
+        .map((id) => allTasks.find((t) => t.id === id))
+        .filter((t): t is WaveTask => t != null && t.status === 'completed' && !!t.findings)
+        .map((t) => `**${t.id} (${t.title})**: ${t.findings}`)
+        .join('\n\n');
+
+      const taskPrompt = buildTaskPrompt(task, issue, prevContext);
+
+      this.emitEntry(processId, EntryNormalizer.toolUse(
+        processId, `Task:${task.id}`, { title: task.title }, 'running',
+      ));
+
+      let resultText = '';
+
+      // Build query options — use settings file path when available
+      const taskOptions: Record<string, unknown> = {
+        abortController,
+        cwd: this.workDir,
+        maxTurns: 10,
+        persistSession: false,
+        mcpServers: { 'issue-monitor': this.issueMcpServer },
+      };
+
+      if (settingsFile) {
+        taskOptions.settings = settingsFile;
+        taskOptions.permissionMode = 'dontAsk';
+      } else {
+        taskOptions.permissionMode = 'bypassPermissions';
+        taskOptions.allowDangerouslySkipPermissions = true;
+        taskOptions.model = settings?.model || 'sonnet';
+        if (env) taskOptions.env = { ...process.env, ...env };
       }
 
-      task.status = 'completed';
-      task.findings = resultText.slice(0, 1000);
+      try {
+        for await (const message of query({
+          prompt: taskPrompt,
+          options: taskOptions as import('@anthropic-ai/claude-agent-sdk').Options,
+        })) {
+          const msg = message as Record<string, unknown>;
+          if (msg.type === 'result' && msg.subtype === 'success') {
+            resultText = (message as unknown as SDKResultSuccess).result;
+          }
+        }
 
-      this.emitEntry(processId, EntryNormalizer.toolUse(
-        processId, `Task:${task.id}`, { title: task.title }, 'completed',
-        task.findings.slice(0, 200),
-      ));
-    } catch (err) {
-      if (abortController.signal.aborted) return;
-      const message = err instanceof Error ? err.message : String(err);
-      task.status = 'failed';
-      task.error = message;
+        task.status = 'completed';
+        task.findings = resultText.slice(0, 1000);
 
-      this.emitEntry(processId, EntryNormalizer.toolUse(
-        processId, `Task:${task.id}`, { title: task.title, error: message }, 'failed', message,
-      ));
+        this.emitEntry(processId, EntryNormalizer.toolUse(
+          processId, `Task:${task.id}`, { title: task.title }, 'completed',
+          task.findings.slice(0, 200),
+        ));
+
+        // Journal: record wave:task_completed event
+        await this.journal?.append({
+          type: 'wave:task_completed',
+          issueId: issue.id,
+          sessionId: processId,
+          taskId: task.id,
+          waveIndex: task.wave,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err) {
+        if (abortController.signal.aborted) return;
+        const message = err instanceof Error ? err.message : String(err);
+        task.status = 'failed';
+        task.error = message;
+
+        this.emitEntry(processId, EntryNormalizer.toolUse(
+          processId, `Task:${task.id}`, { title: task.title, error: message }, 'failed', message,
+        ));
+      }
+    } finally {
+      // Always release the slot, even on failure or abort
+      this.executionScheduler?.releaseSlot(taskProcessId);
     }
   }
 

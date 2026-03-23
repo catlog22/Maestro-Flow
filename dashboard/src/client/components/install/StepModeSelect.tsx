@@ -69,7 +69,7 @@ export function StepModeSelect() {
           <div className="flex flex-col gap-1">
             {manifests.slice(0, 3).map((m) => (
               <p key={m.id} className="text-[10px] text-text-tertiary font-mono">
-                {m.mode} — v{m.version} — {new Date(m.timestamp).toLocaleDateString()}
+                {m.scope} — v{m.version} — {new Date(m.installedAt).toLocaleDateString()}
               </p>
             ))}
           </div>

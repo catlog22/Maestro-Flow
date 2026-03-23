@@ -1,8 +1,9 @@
 /**
  * Install Wizard Utilities — File operations for the Maestro install wizard.
  *
- * Handles source resolution, directory copying, manifest management,
- * backup creation, and disabled item scanning/restoration.
+ * Manifest CRUD and paths are imported from the parent `maestro-flow` package
+ * (`src/core/manifest.ts`). Both CLI `maestro install` and dashboard wizard
+ * share the same manifest format and storage path (~/.maestro/manifests/).
  */
 import {
   existsSync,
@@ -16,25 +17,24 @@ import {
 import { join, dirname, relative } from 'node:path';
 import { homedir } from 'node:os';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+// Re-export manifest CRUD from shared core (single source of truth)
+import {
+  createManifest,
+  saveManifest,
+  findManifest,
+  getAllManifests,
+  addFile,
+  addDir,
+  paths,
+} from 'maestro-flow';
+import type { Manifest, ManifestEntry } from 'maestro-flow';
 
-export interface ManifestEntry {
-  src: string;
-  dest: string;
-  type: 'file' | 'directory';
-}
+export { createManifest, saveManifest, findManifest, getAllManifests };
+export type { Manifest, ManifestEntry };
 
-export interface Manifest {
-  id: string;
-  mode: 'global' | 'project';
-  projectPath?: string;
-  timestamp: number;
-  version: string;
-  entries: ManifestEntry[];
-  components: string[];
-}
+// ---------------------------------------------------------------------------
+// Dashboard-specific types
+// ---------------------------------------------------------------------------
 
 export interface ComponentInfo {
   id: string;
@@ -73,7 +73,10 @@ export interface InstallResult {
 // Constants
 // ---------------------------------------------------------------------------
 
-const MANIFESTS_DIR = join(homedir(), '.maestro-manifests');
+const MAESTRO_HOME = paths.home;
+
+/** Files to preserve during overwrite (same as src/commands/install.ts) */
+const PRESERVE_FILES = new Set(['settings.json', 'settings.local.json']);
 
 interface ComponentDef {
   id: string;
@@ -113,17 +116,25 @@ const COMPONENT_DEFS: ComponentDef[] = [
     id: 'workflows',
     label: 'Workflows',
     sourcePath: 'workflows',
-    globalTarget: join(homedir(), '.maestro', 'workflows'),
-    projectTarget: () => join(homedir(), '.maestro', 'workflows'),
+    globalTarget: join(MAESTRO_HOME, 'workflows'),
+    projectTarget: () => join(MAESTRO_HOME, 'workflows'),
     alwaysGlobal: true,
   },
   {
     id: 'templates',
     label: 'Templates',
     sourcePath: 'templates',
-    globalTarget: join(homedir(), '.maestro', 'templates'),
-    projectTarget: () => join(homedir(), '.maestro', 'templates'),
+    globalTarget: join(MAESTRO_HOME, 'templates'),
+    projectTarget: () => join(MAESTRO_HOME, 'templates'),
     alwaysGlobal: true,
+  },
+  {
+    id: 'claude-md',
+    label: 'CLAUDE.md',
+    sourcePath: '.claude/CLAUDE.md',
+    globalTarget: join(homedir(), '.claude', 'CLAUDE.md'),
+    projectTarget: (p) => join(p, '.claude', 'CLAUDE.md'),
+    alwaysGlobal: false,
   },
   {
     id: 'codex-skills',
@@ -139,10 +150,6 @@ const COMPONENT_DEFS: ComponentDef[] = [
 // Source resolution
 // ---------------------------------------------------------------------------
 
-/**
- * Walk up from the given starting directory to find the maestro package root.
- * The root is identified by having a `package.json` with name containing "maestro".
- */
 export function resolveSourceDir(startDir: string): string | null {
   let dir = startDir;
   for (let i = 0; i < 10; i++) {
@@ -153,11 +160,8 @@ export function resolveSourceDir(startDir: string): string | null {
         if (typeof pkg.name === 'string' && pkg.name.includes('maestro')) {
           return dir;
         }
-      } catch {
-        // not valid json, keep walking
-      }
+      } catch { /* keep walking */ }
     }
-    // Also check for .claude/commands as a fallback indicator
     if (existsSync(join(dir, '.claude', 'commands')) && existsSync(join(dir, 'workflows'))) {
       return dir;
     }
@@ -175,8 +179,7 @@ export function resolveSourceDir(startDir: string): string | null {
 function countFiles(dir: string): number {
   if (!existsSync(dir)) return 0;
   let count = 0;
-  const entries = readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.isFile()) count++;
     else if (entry.isDirectory()) count += countFiles(join(dir, entry.name));
   }
@@ -213,79 +216,56 @@ export function scanAvailableSources(
 export function scanDisabledItems(targetPath: string): DisabledItem[] {
   const items: DisabledItem[] = [];
 
-  // Scan skills for SKILL.md.disabled
-  const skillsDir = join(targetPath, '.claude', 'skills');
-  if (existsSync(skillsDir)) {
+  const scanDir = (
+    dir: string,
+    suffix: string,
+    type: DisabledItem['type'],
+    isSkillDir: boolean,
+  ) => {
+    if (!existsSync(dir)) return;
     try {
-      for (const entry of readdirSync(skillsDir, { withFileTypes: true })) {
-        if (entry.isDirectory()) {
-          const disabledPath = join(skillsDir, entry.name, 'SKILL.md.disabled');
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (isSkillDir && entry.isDirectory()) {
+          const disabledPath = join(dir, entry.name, 'SKILL.md.disabled');
           if (existsSync(disabledPath)) {
             items.push({
               name: entry.name,
-              relativePath: join('.claude', 'skills', entry.name, 'SKILL.md.disabled'),
-              type: 'skill',
+              relativePath: relative(targetPath, disabledPath),
+              type,
             });
           }
-        }
-      }
-    } catch { /* ignore */ }
-  }
-
-  // Scan commands for *.md.disabled
-  const commandsDir = join(targetPath, '.claude', 'commands');
-  if (existsSync(commandsDir)) {
-    try {
-      for (const entry of readdirSync(commandsDir, { withFileTypes: true })) {
-        if (entry.isFile() && entry.name.endsWith('.md.disabled')) {
+        } else if (!isSkillDir && entry.isFile() && entry.name.endsWith(suffix)) {
           items.push({
-            name: entry.name.replace('.md.disabled', ''),
-            relativePath: join('.claude', 'commands', entry.name),
-            type: 'command',
+            name: entry.name.replace(suffix, ''),
+            relativePath: relative(targetPath, join(dir, entry.name)),
+            type,
           });
         }
       }
     } catch { /* ignore */ }
-  }
+  };
 
-  // Scan agents for *.md.disabled
-  const agentsDir = join(targetPath, '.claude', 'agents');
-  if (existsSync(agentsDir)) {
-    try {
-      for (const entry of readdirSync(agentsDir, { withFileTypes: true })) {
-        if (entry.isFile() && entry.name.endsWith('.md.disabled')) {
-          items.push({
-            name: entry.name.replace('.md.disabled', ''),
-            relativePath: join('.claude', 'agents', entry.name),
-            type: 'agent',
-          });
-        }
-      }
-    } catch { /* ignore */ }
-  }
+  scanDir(join(targetPath, '.claude', 'skills'), '', 'skill', true);
+  scanDir(join(targetPath, '.claude', 'commands'), '.md.disabled', 'command', false);
+  scanDir(join(targetPath, '.claude', 'agents'), '.md.disabled', 'agent', false);
 
   return items;
 }
 
-export function restoreDisabledState(
-  items: DisabledItem[],
-  targetBase: string,
-): number {
+export function restoreDisabledState(items: DisabledItem[], targetBase: string): number {
   let restored = 0;
   for (const item of items) {
     if (item.type === 'skill') {
-      // Rename SKILL.md back to SKILL.md.disabled
       const enabledPath = join(targetBase, '.claude', 'skills', item.name, 'SKILL.md');
-      const disabledPath = join(targetBase, '.claude', 'skills', item.name, 'SKILL.md.disabled');
+      const disabledPath = enabledPath + '.disabled';
       if (existsSync(enabledPath) && !existsSync(disabledPath)) {
         renameSync(enabledPath, disabledPath);
         restored++;
       }
     } else {
-      // command or agent: rename *.md to *.md.disabled
       const subdir = item.type === 'command' ? 'commands' : 'agents';
       const enabledPath = join(targetBase, '.claude', subdir, `${item.name}.md`);
-      const disabledPath = join(targetBase, '.claude', subdir, `${item.name}.md.disabled`);
+      const disabledPath = enabledPath + '.disabled';
       if (existsSync(enabledPath) && !existsSync(disabledPath)) {
         renameSync(enabledPath, disabledPath);
         restored++;
@@ -296,13 +276,13 @@ export function restoreDisabledState(
 }
 
 // ---------------------------------------------------------------------------
-// Copy operations
+// Copy — uses shared manifest tracking from maestro-flow
 // ---------------------------------------------------------------------------
 
 export function copyDirectory(
   src: string,
   dest: string,
-  entries: ManifestEntry[],
+  manifest: Manifest,
 ): { files: number; dirs: number } {
   if (!existsSync(src)) return { files: 0, dirs: 0 };
 
@@ -312,27 +292,30 @@ export function copyDirectory(
   if (!existsSync(dest)) {
     mkdirSync(dest, { recursive: true });
     dirs++;
+    addDir(manifest, dest);
   }
 
-  const items = readdirSync(src, { withFileTypes: true });
-  for (const item of items) {
-    const srcPath = join(src, item.name);
-    const destPath = join(dest, item.name);
+  for (const entry of readdirSync(src, { withFileTypes: true })) {
+    const srcPath = join(src, entry.name);
+    const destPath = join(dest, entry.name);
 
-    if (item.isDirectory()) {
-      const sub = copyDirectory(srcPath, destPath, entries);
+    // Preserve settings files (same as CLI)
+    if (PRESERVE_FILES.has(entry.name) && existsSync(destPath)) continue;
+
+    if (entry.isDirectory()) {
+      const sub = copyDirectory(srcPath, destPath, manifest);
       files += sub.files;
       dirs += sub.dirs;
-      entries.push({ src: srcPath, dest: destPath, type: 'directory' });
-    } else if (item.isFile()) {
+    } else if (entry.isFile()) {
       const destDir = dirname(destPath);
       if (!existsSync(destDir)) {
         mkdirSync(destDir, { recursive: true });
         dirs++;
+        addDir(manifest, destDir);
       }
       copyFileSync(srcPath, destPath);
       files++;
-      entries.push({ src: srcPath, dest: destPath, type: 'file' });
+      addFile(manifest, destPath);
     }
   }
 
@@ -340,89 +323,24 @@ export function copyDirectory(
 }
 
 // ---------------------------------------------------------------------------
-// Manifest CRUD
-// ---------------------------------------------------------------------------
-
-function ensureManifestsDir(): void {
-  if (!existsSync(MANIFESTS_DIR)) {
-    mkdirSync(MANIFESTS_DIR, { recursive: true });
-  }
-}
-
-function manifestFileName(mode: string, timestamp: number): string {
-  return `manifest-${mode}-${timestamp}.json`;
-}
-
-export function saveManifest(manifest: Manifest): string {
-  ensureManifestsDir();
-  const filePath = join(MANIFESTS_DIR, manifestFileName(manifest.mode, manifest.timestamp));
-  writeFileSync(filePath, JSON.stringify(manifest, null, 2), 'utf-8');
-  return filePath;
-}
-
-export function findManifest(mode: 'global' | 'project', projectPath?: string): Manifest | null {
-  if (!existsSync(MANIFESTS_DIR)) return null;
-
-  const files = readdirSync(MANIFESTS_DIR)
-    .filter((f) => f.startsWith(`manifest-${mode}-`) && f.endsWith('.json'))
-    .sort()
-    .reverse();
-
-  for (const file of files) {
-    try {
-      const manifest = JSON.parse(
-        readFileSync(join(MANIFESTS_DIR, file), 'utf-8'),
-      ) as Manifest;
-      if (mode === 'project' && projectPath && manifest.projectPath !== projectPath) continue;
-      return manifest;
-    } catch {
-      continue;
-    }
-  }
-  return null;
-}
-
-export function getAllManifests(): Manifest[] {
-  if (!existsSync(MANIFESTS_DIR)) return [];
-
-  const manifests: Manifest[] = [];
-  const files = readdirSync(MANIFESTS_DIR)
-    .filter((f) => f.startsWith('manifest-') && f.endsWith('.json'))
-    .sort()
-    .reverse();
-
-  for (const file of files) {
-    try {
-      manifests.push(
-        JSON.parse(readFileSync(join(MANIFESTS_DIR, file), 'utf-8')) as Manifest,
-      );
-    } catch {
-      continue;
-    }
-  }
-  return manifests;
-}
-
-// ---------------------------------------------------------------------------
 // Backup
 // ---------------------------------------------------------------------------
 
 export function createBackup(manifest: Manifest): string | null {
-  const backupDir = join(MANIFESTS_DIR, 'backups', `backup-${manifest.mode}-${Date.now()}`);
+  const backupDir = join(MAESTRO_HOME, 'manifests', 'backups', `backup-${manifest.scope}-${Date.now()}`);
   mkdirSync(backupDir, { recursive: true });
 
   const home = homedir();
   let backedUp = 0;
   for (const entry of manifest.entries) {
-    if (entry.type === 'file' && existsSync(entry.dest)) {
-      // Use path relative to home dir as backup sub-path, or sanitize absolute path
-      const rel = entry.dest.startsWith(home)
-        ? relative(home, entry.dest)
-        : entry.dest.replace(/[:\\]/g, '_');
+    if (entry.type === 'file' && existsSync(entry.path)) {
+      const rel = entry.path.startsWith(home)
+        ? relative(home, entry.path)
+        : entry.path.replace(/[:\\]/g, '_');
       const backupPath = join(backupDir, rel);
       const dir = dirname(backupPath);
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-      copyFileSync(entry.dest, backupPath);
+      copyFileSync(entry.path, backupPath);
       backedUp++;
     }
   }
@@ -450,13 +368,9 @@ export function writeVersionFile(targetDir: string, version: string): void {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   writeFileSync(
     versionPath,
-    JSON.stringify({ version, installedAt: new Date().toISOString() }, null, 2),
+    JSON.stringify({ version, installedAt: new Date().toISOString(), installer: 'maestro-dashboard' }, null, 2),
     'utf-8',
   );
 }
 
-// ---------------------------------------------------------------------------
-// Component definitions (exported for route use)
-// ---------------------------------------------------------------------------
-
-export { COMPONENT_DEFS };
+export { COMPONENT_DEFS, MAESTRO_HOME };

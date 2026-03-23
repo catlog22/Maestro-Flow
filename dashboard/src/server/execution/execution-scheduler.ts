@@ -10,13 +10,18 @@ import type {
   ExecutionSlot,
   ExecutionResult,
   IssueExecution,
-  SupervisorConfig,
-  SupervisorStatus,
+  SchedulerConfig,
+  SchedulerStatus,
 } from '../../shared/execution-types.js';
-import { DEFAULT_SUPERVISOR_CONFIG } from '../../shared/execution-types.js';
+import { DEFAULT_SCHEDULER_CONFIG } from '../../shared/execution-types.js';
 import type { AgentManager } from '../agents/agent-manager.js';
 import type { DashboardEventBus } from '../state/event-bus.js';
 import { WorkspaceManager, type WorkspaceConfig } from './workspace-manager.js';
+import { PromptRegistry } from '../prompt/prompt-registry.js';
+import type { ExecutionJournal } from './execution-journal.js';
+import type { DispatchStrategy, DispatchContext, DispatchDecision } from './dispatch-strategy.js';
+import { PriorityStrategy } from './strategies/priority-strategy.js';
+import { SmartStrategy } from './strategies/smart-strategy.js';
 
 
 // ---------------------------------------------------------------------------
@@ -36,20 +41,26 @@ export class ExecutionScheduler {
   private readonly queue: string[] = [];
   private readonly retryQueue = new Map<string, { retryAt: number; count: number }>();
   private readonly claimed = new Set<string>();
-  private config: SupervisorConfig;
+  private config: SchedulerConfig;
   private readonly workspaceManager: WorkspaceManager | null;
+  private readonly promptRegistry: PromptRegistry;
   private tickTimer: ReturnType<typeof setInterval> | null = null;
   private lastTickAt: string | null = null;
   private stats = { totalDispatched: 0, totalCompleted: 0, totalFailed: 0 };
   private tokenUsage = { totalInputTokens: 0, totalOutputTokens: 0 };
+  private readonly strategies = new Map<string, DispatchStrategy>();
+  private activeStrategy: DispatchStrategy;
 
   constructor(
     private readonly agentManager: AgentManager,
     private readonly eventBus: DashboardEventBus,
     private readonly jsonlPath: string,
-    config?: Partial<SupervisorConfig>,
+    config?: Partial<SchedulerConfig>,
+    promptRegistry?: PromptRegistry,
+    private readonly journal?: ExecutionJournal,
   ) {
-    this.config = { ...DEFAULT_SUPERVISOR_CONFIG, ...config };
+    this.config = { ...DEFAULT_SCHEDULER_CONFIG, ...config };
+    this.promptRegistry = promptRegistry ?? PromptRegistry.createDefault();
 
     // Initialize workspace manager if enabled
     const ws = this.config.workspace;
@@ -59,6 +70,13 @@ export class ExecutionScheduler {
           autoCleanup: ws.autoCleanup,
         })
       : null;
+
+    // Register built-in dispatch strategies
+    const priorityStrategy = new PriorityStrategy();
+    const smartStrategy = new SmartStrategy();
+    this.strategies.set(priorityStrategy.name, priorityStrategy);
+    this.strategies.set(smartStrategy.name, smartStrategy);
+    this.activeStrategy = this.strategies.get(this.config.strategy) ?? priorityStrategy;
 
     this.subscribeToAgentEvents();
     // Recover state from persisted issues on startup
@@ -151,16 +169,19 @@ export class ExecutionScheduler {
     });
   }
 
-  /** Start the supervisor tick loop */
-  startSupervisor(): void {
+  /** Start the automatic dispatch tick loop */
+  enableAutoDispatch(): void {
     if (this.tickTimer) return;
     this.config.enabled = true;
     this.tickTimer = setInterval(() => void this.tick(), this.config.pollIntervalMs);
     this.emitStatus();
   }
 
-  /** Stop the supervisor */
-  stopSupervisor(): void {
+  /** @deprecated Use enableAutoDispatch() */
+  startSupervisor(): void { this.enableAutoDispatch(); }
+
+  /** Stop automatic dispatch */
+  disableAutoDispatch(): void {
     this.config.enabled = false;
     if (this.tickTimer) {
       clearInterval(this.tickTimer);
@@ -169,10 +190,21 @@ export class ExecutionScheduler {
     this.emitStatus();
   }
 
-  /** Update supervisor config */
-  updateConfig(partial: Partial<SupervisorConfig>): void {
+  /** @deprecated Use disableAutoDispatch() */
+  stopSupervisor(): void { this.disableAutoDispatch(); }
+
+  /** Update scheduler config */
+  updateConfig(partial: Partial<SchedulerConfig>): void {
     const wasEnabled = this.config.enabled;
     Object.assign(this.config, partial);
+
+    // Sync active strategy if config.strategy changed
+    if (partial.strategy) {
+      const newStrategy = this.strategies.get(partial.strategy);
+      if (newStrategy) {
+        this.activeStrategy = newStrategy;
+      }
+    }
 
     // Restart tick timer if interval changed
     if (this.config.enabled && this.tickTimer) {
@@ -181,16 +213,16 @@ export class ExecutionScheduler {
     }
 
     if (this.config.enabled && !wasEnabled) {
-      this.startSupervisor();
+      this.enableAutoDispatch();
     } else if (!this.config.enabled && wasEnabled) {
-      this.stopSupervisor();
+      this.disableAutoDispatch();
     }
 
     this.emitStatus();
   }
 
   /** Get a snapshot of current scheduler state */
-  getStatus(): SupervisorStatus {
+  getStatus(): SchedulerStatus {
     return {
       enabled: this.config.enabled,
       running: Array.from(this.runningSlots.values()),
@@ -206,7 +238,7 @@ export class ExecutionScheduler {
   }
 
   /** Get config */
-  getConfig(): SupervisorConfig {
+  getConfig(): SchedulerConfig {
     return { ...this.config };
   }
 
@@ -218,9 +250,69 @@ export class ExecutionScheduler {
     return undefined;
   }
 
+  /** Register a dispatch strategy (overwrites if name already exists). */
+  registerStrategy(strategy: DispatchStrategy): void {
+    this.strategies.set(strategy.name, strategy);
+  }
+
+  /** Switch the active dispatch strategy by name. Throws if not registered. */
+  setStrategy(name: string): void {
+    const strategy = this.strategies.get(name);
+    if (!strategy) {
+      throw new Error(`Unknown dispatch strategy: ${name}. Registered: ${[...this.strategies.keys()].join(', ')}`);
+    }
+    this.activeStrategy = strategy;
+    this.config.strategy = name as SchedulerConfig['strategy'];
+    this.emitStatus();
+  }
+
+  /** Get the name of the active dispatch strategy. */
+  getActiveStrategyName(): string {
+    return this.activeStrategy.name;
+  }
+
+  // -------------------------------------------------------------------------
+  // Public: External slot management (e.g., WaveExecutor subtasks)
+  // -------------------------------------------------------------------------
+
+  /** Acquire a slot for external use (e.g., WaveExecutor subtasks). Returns false if no capacity. */
+  acquireSlot(issueId: string, processId: string, executor: AgentType): boolean {
+    if (this.runningSlots.size >= this.config.maxConcurrentAgents) {
+      return false;
+    }
+    const slot: ExecutionSlot = {
+      issueId,
+      processId,
+      executor,
+      startedAt: new Date().toISOString(),
+      lastActivityAt: new Date().toISOString(),
+      turnNumber: 1,
+      maxTurns: 1,
+    };
+    this.runningSlots.set(processId, slot);
+    this.emitStatus();
+    return true;
+  }
+
+  /** Release a slot after external use */
+  releaseSlot(processId: string): void {
+    this.runningSlots.delete(processId);
+    this.emitStatus();
+  }
+
+  /** Wait for a slot to become available, with timeout. Resolves true if acquired, false on timeout. */
+  async waitForSlot(issueId: string, processId: string, executor: AgentType, timeoutMs = 60000): Promise<boolean> {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      if (this.acquireSlot(issueId, processId, executor)) return true;
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    return false;
+  }
+
   /** Clean shutdown */
   async destroy(): Promise<void> {
-    this.stopSupervisor();
+    this.disableAutoDispatch();
     await this.workspaceManager?.destroy();
   }
 
@@ -285,6 +377,27 @@ export class ExecutionScheduler {
       }
     }
 
+    // Journal-based recovery: augment state with journal analysis
+    if (this.journal) {
+      try {
+        const recoveryActions = await this.journal.recover();
+        for (const action of recoveryActions) {
+          if (action.action === 'retry' && !this.claimed.has(action.issueId)) {
+            // Journal says this was dispatched but never completed — ensure it retries
+            this.claimed.add(action.issueId);
+            this.retryQueue.set(action.issueId, {
+              retryAt: Date.now() + this.config.retryBackoffMs,
+              count: 1,
+            });
+            console.log(`[Execution] Journal recovery: scheduling retry for ${action.issueId} — ${action.reason}`);
+          }
+          // resume-wave actions are informational — wave executor handles its own resume
+        }
+      } catch (err) {
+        console.warn('[Execution] Journal recovery failed, continuing with JSONL state:', err);
+      }
+    }
+
     if (this.queue.length > 0 || this.retryQueue.size > 0) {
       console.log(`[Execution] Recovered state: ${this.queue.length} queued, ${this.retryQueue.size} retrying`);
     }
@@ -295,7 +408,7 @@ export class ExecutionScheduler {
   // -------------------------------------------------------------------------
 
   private async dispatch(issue: Issue, executor: AgentType): Promise<void> {
-    const prompt = this.buildPrompt(issue);
+    const prompt = await this.buildPrompt(issue);
     const now = new Date().toISOString();
     const retryCount = issue.execution?.retryCount ?? 0;
 
@@ -364,6 +477,15 @@ export class ExecutionScheduler {
 
     this.stats.totalDispatched++;
 
+    // Journal: record dispatch event for crash recovery
+    await this.journal?.append({
+      type: 'issue:dispatched',
+      issueId: issue.id,
+      processId: proc.id,
+      executor,
+      timestamp: now,
+    });
+
     this.eventBus.emit('execution:started', {
       issueId: issue.id,
       processId: proc.id,
@@ -371,14 +493,46 @@ export class ExecutionScheduler {
     });
   }
 
-  private buildPrompt(issue: Issue): string {
+  private async buildPrompt(issue: Issue): Promise<string> {
     const mode = issue.promptMode ?? this.config.defaultPromptMode;
 
+    // Check for custom prompt template — routes to 'template' builder
+    if (issue.solution?.promptTemplate) {
+      const builder = this.promptRegistry.get('template');
+      if (builder) {
+        const result = await builder.build({
+          issue,
+          config: this.config,
+          promptMode: 'template',
+          customTemplate: issue.solution.promptTemplate,
+        });
+        return result.userPrompt;
+      }
+      // Fallback if template builder not registered
+      return this.applyTemplate(issue.solution.promptTemplate, issue);
+    }
+
+    // Delegate to registered builder
+    const builder = this.promptRegistry.get(mode);
+    if (builder) {
+      const result = await builder.build({
+        issue,
+        config: this.config,
+        promptMode: mode,
+      });
+      return result.userPrompt;
+    }
+
+    // Fallback: inline logic (kept for safety)
+    return this.buildPromptFallback(issue, mode);
+  }
+
+  /** Inline fallback — preserves original logic for backward compatibility */
+  private buildPromptFallback(issue: Issue, mode: string): string {
     if (mode === 'skill') {
       return `Execute the following issue:\n\nIssue ID: ${issue.id}\nTitle: ${issue.title}\nType: ${issue.type}\nPriority: ${issue.priority}\n\nDescription:\n${issue.description}`;
     }
 
-    // Direct mode — assemble natural language prompt with solution awareness
     const lines: string[] = [
       `You are working on the following ${issue.type} issue:`,
       '',
@@ -389,7 +543,6 @@ export class ExecutionScheduler {
       `Priority: ${issue.priority}`,
     ];
 
-    // Inject solution steps if available (from /issue:plan)
     if (issue.solution) {
       lines.push('', '## Solution Plan', '');
 
@@ -419,11 +572,6 @@ export class ExecutionScheduler {
         'Please implement this issue. Follow existing code patterns and conventions.',
         'When done, provide a summary of the changes made.',
       );
-    }
-
-    // Apply custom prompt template if provided (simple variable substitution)
-    if (issue.solution?.promptTemplate) {
-      return this.applyTemplate(issue.solution.promptTemplate, issue);
     }
 
     return lines.join('\n');
@@ -527,6 +675,19 @@ export class ExecutionScheduler {
     // Extract result from agent entries
     const result = this.extractResult(processId);
 
+    // Journal: record completion event
+    await this.journal?.append({
+      type: 'issue:completed',
+      issueId,
+      processId,
+      timestamp: new Date().toISOString(),
+      result: result ? {
+        summary: result.summary,
+        commitHash: result.commitHash,
+        filesChanged: result.filesChanged,
+      } : undefined,
+    });
+
     await this.updateIssueFields(issueId, {
       status: 'resolved',
       execution: {
@@ -596,6 +757,16 @@ export class ExecutionScheduler {
   private async handleFailure(issueId: string, error: string): Promise<void> {
     const issue = await this.findIssue(issueId);
     const currentRetry = issue?.execution?.retryCount ?? 0;
+
+    // Journal: record failure event
+    await this.journal?.append({
+      type: 'issue:failed',
+      issueId,
+      processId: issue?.execution?.processId ?? '',
+      error,
+      retryCount: currentRetry + 1,
+      timestamp: new Date().toISOString(),
+    });
 
     if (currentRetry < this.config.maxRetries) {
       // Schedule retry with exponential backoff
@@ -718,15 +889,47 @@ export class ExecutionScheduler {
     // 3. Process retry queue
     this.processRetries();
 
-    // 4. Auto-dispatch from backlog
-    if (this.config.strategy === 'priority') {
-      await this.autoDispatchByPriority();
-    } else if (this.config.strategy === 'smart') {
-      await this.autoDispatchSmart();
-    }
+    // 4. Dispatch queued issues first
+    await this.dispatchNext();
 
-    // 5. Emit status
+    // 5. Auto-dispatch via active strategy
+    await this.dispatchViaStrategy();
+
+    // 6. Emit status
     this.emitStatus();
+  }
+
+  /** Delegate issue selection to the active strategy and execute returned decisions. */
+  private async dispatchViaStrategy(): Promise<void> {
+    const availableSlots = this.config.maxConcurrentAgents - this.runningSlots.size;
+    if (availableSlots <= 0) return;
+
+    const issues = await readIssuesJsonl(this.jsonlPath);
+    const context: DispatchContext = {
+      issues,
+      runningSlots: this.runningSlots,
+      claimed: this.claimed,
+      config: this.config,
+      availableSlots,
+    };
+
+    const decisions = await this.activeStrategy.selectIssues(context);
+
+    for (const decision of decisions) {
+      // Re-check capacity (previous dispatches in this batch may have filled slots)
+      if (this.runningSlots.size >= this.config.maxConcurrentAgents) break;
+
+      if (!this.claim(decision.issueId)) continue;
+
+      const issue = issues.find((i) => i.id === decision.issueId);
+      if (!issue) {
+        this.claimed.delete(decision.issueId);
+        continue;
+      }
+
+      const executor = (decision.executor ?? issue.executor ?? this.config.defaultExecutor) as AgentType;
+      await this.dispatch(issue, executor);
+    }
   }
 
   /**
@@ -792,6 +995,7 @@ export class ExecutionScheduler {
     }
   }
 
+  /** @deprecated Superseded by PriorityStrategy via dispatchViaStrategy(). Kept for reference. */
   private async autoDispatchByPriority(): Promise<void> {
     if (this.queue.length === 0) {
       // Check for unqueued open issues to auto-enqueue
@@ -826,6 +1030,8 @@ export class ExecutionScheduler {
   }
 
   /**
+   * @deprecated Superseded by SmartStrategy via dispatchViaStrategy(). Kept for reference.
+   *
    * Smart strategy: priority + executor affinity + failure avoidance.
    * - Prioritize issues matching idle executor types (spread load across agents)
    * - Deprioritize issue types that have recently failed

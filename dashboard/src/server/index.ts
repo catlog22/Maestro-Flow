@@ -14,6 +14,11 @@ import { StateManager } from './state/state-manager.js';
 import { FSWatcher } from './state/fs-watcher.js';
 import { SSEHub } from './sse/sse-hub.js';
 import { WebSocketManager } from './ws/ws-manager.js';
+import { AgentWsHandler } from './ws/handlers/agent-handler.js';
+import { ExecutionWsHandler } from './ws/handlers/execution-handler.js';
+import { CommanderWsHandler } from './ws/handlers/commander-handler.js';
+import { CoordinateWsHandler } from './ws/handlers/coordinate-handler.js';
+import { RequirementWsHandler } from './ws/handlers/requirement-handler.js';
 import { AgentManager } from './agents/agent-manager.js';
 import { ClaudeCodeAdapter } from './agents/claude-code-adapter.js';
 import { StreamJsonAdapter } from './agents/stream-json-adapter.js';
@@ -22,6 +27,7 @@ import { CodexAppServerAdapter } from './agents/codex-app-server-adapter.js';
 import { OpenCodeAdapter } from './agents/opencode-adapter.js';
 import { AgentSdkAdapter } from './agents/agent-sdk-adapter.js';
 import { ExecutionScheduler } from './execution/execution-scheduler.js';
+import { ExecutionJournal } from './execution/execution-journal.js';
 import { WaveExecutor } from './execution/wave-executor.js';
 import { CommanderAgent } from './commander/commander-agent.js';
 import { loadCommanderConfig } from './commander/commander-config.js';
@@ -73,7 +79,11 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------------
   const { join } = await import('node:path');
   const jsonlPath = join(workflowRoot, 'issues', 'issues.jsonl');
-  const executionScheduler = new ExecutionScheduler(agentManager, eventBus, jsonlPath);
+  const journal = new ExecutionJournal(workflowRoot);
+  const executionScheduler = new ExecutionScheduler(
+    agentManager, eventBus, jsonlPath,
+    undefined, undefined, journal,
+  );
 
   // ---------------------------------------------------------------------------
   // Commander Agent — autonomous tick loop for project orchestration
@@ -92,7 +102,7 @@ async function main(): Promise<void> {
   // Wave Executor — CSV-wave-inspired parallel execution using Agent SDK
   // ---------------------------------------------------------------------------
   const projectRoot = resolve(workflowRoot, '..');
-  const waveExecutor = new WaveExecutor(eventBus, agentManager, projectRoot);
+  const waveExecutor = new WaveExecutor(eventBus, agentManager, projectRoot, executionScheduler, journal);
 
   // ---------------------------------------------------------------------------
   // Workflow Coordinator — multi-agent intent classification + chain execution
@@ -110,9 +120,21 @@ async function main(): Promise<void> {
   });
 
   // ---------------------------------------------------------------------------
-  // WebSocket Manager — broadcasts EventBus events to connected WS clients
+  // WebSocket Handlers + Manager
   // ---------------------------------------------------------------------------
-  const wsManager = new WebSocketManager(eventBus, agentManager, executionScheduler, commanderAgent, workflowRoot, waveExecutor, coordinateRunner, requirementExpander);
+  const agentHandler = new AgentWsHandler(agentManager, eventBus, workflowRoot);
+  const executionHandler = new ExecutionWsHandler(executionScheduler, waveExecutor, agentManager, eventBus, workflowRoot, agentHandler);
+  const commanderHandler = new CommanderWsHandler(commanderAgent);
+  const coordinateHandler = new CoordinateWsHandler(coordinateRunner);
+  const requirementHandler = new RequirementWsHandler(requirementExpander);
+
+  const wsManager = new WebSocketManager(eventBus, [
+    agentHandler,
+    executionHandler,
+    commanderHandler,
+    coordinateHandler,
+    requirementHandler,
+  ]);
 
   // ---------------------------------------------------------------------------
   // Hono application
