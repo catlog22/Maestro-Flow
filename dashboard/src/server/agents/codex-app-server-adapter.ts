@@ -23,6 +23,7 @@ import type {
 } from '../../shared/agent-types.js';
 import { BaseAgentAdapter } from './base-adapter.js';
 import { EntryNormalizer } from './entry-normalizer.js';
+import { loadEnvFile } from './env-file-loader.js';
 
 // ---------------------------------------------------------------------------
 // JSON-RPC 2.0 types
@@ -101,9 +102,13 @@ export class CodexAppServerAdapter extends BaseAgentAdapter {
     processId: string,
     config: AgentConfig,
   ): Promise<AgentProcess> {
+    const envFromFile = config.envFile ? loadEnvFile(config.envFile) : {};
+    const childEnv: Record<string, string | undefined> = { ...process.env, ...envFromFile, ...config.env };
+    if (config.apiKey) childEnv.OPENAI_API_KEY = config.apiKey;
+
     const child = spawn(this.appConfig.command, ['app-server'], {
       cwd: config.workDir,
-      env: { ...process.env, ...config.env },
+      env: childEnv,
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: true,
     });

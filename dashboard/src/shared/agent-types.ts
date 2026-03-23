@@ -29,6 +29,8 @@ export interface AgentConfig {
   baseUrl?: string;
   apiKey?: string;
   settingsFile?: string;
+  /** Path to .env file for loading environment variables before spawn */
+  envFile?: string;
 }
 
 /** Runtime state of a spawned agent process */

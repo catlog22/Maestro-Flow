@@ -57,6 +57,7 @@ export interface SavedAgentSettings {
   baseUrl?: string;
   apiKey?: string;
   settingsFile?: string;
+  envFile?: string;
 }
 
 /**

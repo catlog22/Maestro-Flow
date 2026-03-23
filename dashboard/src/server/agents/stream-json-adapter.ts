@@ -13,6 +13,7 @@ import type {
 } from '../../shared/agent-types.js';
 import { BaseAgentAdapter } from './base-adapter.js';
 import { EntryNormalizer } from './entry-normalizer.js';
+import { loadEnvFile } from './env-file-loader.js';
 
 // ---------------------------------------------------------------------------
 // Stream-json message shapes (shared by Gemini CLI and Qwen CLI)
@@ -96,9 +97,19 @@ export class StreamJsonAdapter extends BaseAgentAdapter {
     const args = this.buildArgs(config);
     const [cmd, ...cmdArgs] = this.executable.split(/\s+/);
 
+    const envFromFile = config.envFile ? loadEnvFile(config.envFile) : {};
+    const childEnv: Record<string, string | undefined> = { ...process.env, ...envFromFile, ...config.env };
+    if (config.apiKey) {
+      if (this.agentType === 'gemini') {
+        childEnv.GEMINI_API_KEY = config.apiKey;
+      } else if (this.agentType === 'qwen') {
+        childEnv.DASHSCOPE_API_KEY = config.apiKey;
+      }
+    }
+
     const child = spawn(cmd, [...cmdArgs, ...args], {
       cwd: config.workDir,
-      env: { ...process.env, ...config.env },
+      env: childEnv,
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: true,
     });

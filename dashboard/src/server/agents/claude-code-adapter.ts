@@ -15,6 +15,7 @@ import type {
 } from '../../shared/agent-types.js';
 import { BaseAgentAdapter } from './base-adapter.js';
 import { EntryNormalizer } from './entry-normalizer.js';
+import { loadEnvFile } from './env-file-loader.js';
 
 /**
  * Resolve the Claude Code CLI `.js` entry point for direct `node` invocation.
@@ -133,7 +134,8 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
 
     // Resolve CLI entry point for direct node invocation (avoids cmd.exe
     // wrapper nesting on Windows which causes stdout buffering).
-    const childEnv: Record<string, string | undefined> = { ...process.env, ...config.env };
+    const envFromFile = config.envFile ? loadEnvFile(config.envFile) : {};
+    const childEnv: Record<string, string | undefined> = { ...process.env, ...envFromFile, ...config.env };
     if (config.baseUrl) childEnv.ANTHROPIC_BASE_URL = config.baseUrl;
     if (config.apiKey) childEnv.ANTHROPIC_API_KEY = config.apiKey;
 

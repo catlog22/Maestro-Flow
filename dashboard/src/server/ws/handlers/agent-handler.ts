@@ -103,6 +103,7 @@ export class AgentWsHandler implements WsHandler {
       baseUrl: (config.baseUrl ?? saved?.baseUrl) || undefined,
       apiKey: (config.apiKey ?? saved?.apiKey) || undefined,
       settingsFile: (config.settingsFile ?? saved?.settingsFile) || undefined,
+      envFile: (config.envFile ?? saved?.envFile) || undefined,
     };
     const proc = await this.agentManager.spawn(mergedConfig.type, mergedConfig);
     const response = {

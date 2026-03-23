@@ -11,6 +11,7 @@ import type {
 } from '../../shared/agent-types.js';
 import { BaseAgentAdapter } from './base-adapter.js';
 import { EntryNormalizer } from './entry-normalizer.js';
+import { loadEnvFile } from './env-file-loader.js';
 
 // ---------------------------------------------------------------------------
 // Codex NDJSON message shapes
@@ -92,9 +93,18 @@ export class CodexCliAdapter extends BaseAgentAdapter {
       args.push('--dangerously-bypass-approvals-and-sandbox');
     }
 
+    // Profile from config.toml
+    if (config.settingsFile) {
+      args.push('--profile', config.settingsFile);
+    }
+
+    const envFromFile = config.envFile ? loadEnvFile(config.envFile) : {};
+    const childEnv: Record<string, string | undefined> = { ...process.env, ...envFromFile, ...config.env };
+    if (config.apiKey) childEnv.OPENAI_API_KEY = config.apiKey;
+
     const child = spawn('codex', args, {
       cwd: config.workDir,
-      env: { ...process.env, ...config.env },
+      env: childEnv,
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: true,
     });

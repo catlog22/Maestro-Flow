@@ -11,6 +11,7 @@ import type {
 } from '../../shared/agent-types.js';
 import { BaseAgentAdapter } from './base-adapter.js';
 import { EntryNormalizer } from './entry-normalizer.js';
+import { loadEnvFile } from './env-file-loader.js';
 
 // ---------------------------------------------------------------------------
 // OpenCode NDJSON message shapes
@@ -73,9 +74,13 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
     // Prompt is a positional argument (last)
     args.push(config.prompt);
 
+    const envFromFile = config.envFile ? loadEnvFile(config.envFile) : {};
+    const childEnv: Record<string, string | undefined> = { ...process.env, ...envFromFile, ...config.env };
+    if (config.apiKey) childEnv.OPENAI_API_KEY = config.apiKey;
+
     const child = spawn('opencode', args, {
       cwd: config.workDir,
-      env: { ...process.env, ...config.env },
+      env: childEnv,
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: true,
     });
