@@ -78,7 +78,7 @@ export function createSupervisorRoutes(
       }
 
       // Build prompt with provided context — builder.build validates its own shape
-      let result: string;
+      let result: Awaited<ReturnType<typeof builder.build>>;
       try {
         result = await builder.build(context as Parameters<typeof builder.build>[0]);
       } catch (buildErr) {
