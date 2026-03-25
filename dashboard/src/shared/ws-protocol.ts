@@ -277,17 +277,23 @@ export interface ExecutionStartedPayload {
   issueId: string;
   processId: string;
   executor: AgentType;
+  /** Optional: updated issue for incremental client-side update */
+  issue?: import('./issue-types.js').Issue;
 }
 
 export interface ExecutionCompletedPayload {
   issueId: string;
   processId: string;
+  /** Optional: updated issue for incremental client-side update */
+  issue?: import('./issue-types.js').Issue;
 }
 
 export interface ExecutionFailedPayload {
   issueId: string;
   processId: string;
   error: string;
+  /** Optional: updated issue for incremental client-side update */
+  issue?: import('./issue-types.js').Issue;
 }
 
 // ---------------------------------------------------------------------------

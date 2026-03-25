@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import type { Issue } from '@/shared/issue-types.js';
 import type { AgentType } from '@/shared/agent-types.js';
 import { useExecutionStore } from '@/client/store/execution-store.js';
@@ -159,6 +160,22 @@ export function IssueCard({ issue, selected, onSelect, batchMode, isChecked, onT
             >
               {issue.solution.steps.length} steps
             </span>
+          )}
+
+          {/* Phase link — navigate to WorkflowPage */}
+          {issue.phase_id != null && (
+            <Link
+              to={`/workflow?phase=${issue.phase_id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-[10px] font-medium px-1.5 py-[var(--spacing-0-5)] rounded-full no-underline transition-colors"
+              style={{
+                backgroundColor: 'rgba(91, 141, 184, 0.1)',
+                color: '#5B8DB8',
+              }}
+              title={`Go to Phase ${issue.phase_id}`}
+            >
+              P-{String(issue.phase_id).padStart(2, '0')}
+            </Link>
           )}
 
           {/* Execution status indicator */}

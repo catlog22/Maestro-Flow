@@ -37,10 +37,14 @@ export class SmartStrategy implements DispatchStrategy {
         const affinityScore = busyExecutors.get(executor) ?? 0;
         // Penalize if previous execution failed (avoid re-failing)
         const failurePenalty = issue.execution?.lastError ? 2 : 0;
+        // Learning penalty: deprioritize executors with 'optimize' suggestions
+        const learningPenalty = (context.learningSuggestions ?? []).some(
+          (s) => s.type === 'optimize' && s.action === executor,
+        ) ? 1 : 0;
 
         return {
           issue,
-          score: priorityScore + affinityScore + failurePenalty,
+          score: priorityScore + affinityScore + failurePenalty + learningPenalty,
         };
       })
       .sort((a, b) => a.score - b.score);
@@ -52,6 +56,7 @@ export class SmartStrategy implements DispatchStrategy {
         issueId: issue.id,
         executor: issue.executor ?? undefined,
         reason: `smart_score=${score}`,
+        ...(context.config.requireApproval ? { mode: 'suggest' as const } : {}),
       });
     }
 

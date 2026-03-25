@@ -37,6 +37,8 @@ export interface DispatchDecision {
   promptMode?: string;
   /** Reason for selection (for logging) */
   reason?: string;
+  /** Optional: 'dispatch' (default) auto-executes, 'suggest' is recommendation only */
+  mode?: 'dispatch' | 'suggest';
 }
 
 // ---------------------------------------------------------------------------

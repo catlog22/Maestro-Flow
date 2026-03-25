@@ -12,6 +12,7 @@ export interface IssueStore {
   error: string | null;
 
   fetchIssues: (filters?: { status?: string; type?: string }) => Promise<void>;
+  patchIssue: (issue: Issue) => void;
   createIssue: (req: CreateIssueRequest) => Promise<Issue | null>;
   updateIssue: (id: string, req: UpdateIssueRequest) => Promise<void>;
   deleteIssue: (id: string) => Promise<void>;
@@ -21,6 +22,18 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
   issues: [],
   loading: false,
   error: null,
+
+  patchIssue: (issue) =>
+    set((state) => {
+      const idx = state.issues.findIndex((i) => i.id === issue.id);
+      if (idx >= 0) {
+        const next = [...state.issues];
+        next[idx] = issue;
+        return { issues: next };
+      }
+      // New issue not in store yet -- append
+      return { issues: [...state.issues, issue] };
+    }),
 
   fetchIssues: async (filters) => {
     set({ loading: true, error: null });

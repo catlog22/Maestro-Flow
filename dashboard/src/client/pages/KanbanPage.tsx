@@ -14,6 +14,7 @@ import { LinearImportDialog } from '@/client/components/kanban/LinearImportDialo
 import { LinearExportDialog } from '@/client/components/kanban/LinearExportDialog.js';
 import { ExecutionCliPanel } from '@/client/components/kanban/ExecutionCliPanel.js';
 import { ExecutionToolbar } from '@/client/components/kanban/ExecutionToolbar.js';
+import { CommanderRecommendationsBar } from '@/client/components/kanban/CommanderRecommendationsBar.js';
 import { IssueCreateModal } from '@/client/components/kanban/IssueCreateModal.js';
 import { IssueDetailModal } from '@/client/components/kanban/IssueDetailModal.js';
 import { useUIPrefsStore } from '@/client/store/ui-prefs-store.js';
@@ -185,6 +186,8 @@ export function KanbanPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {/* Commander recommendations */}
+      <CommanderRecommendationsBar />
       {/* Filter bar */}
       <div className="px-[var(--spacing-4)] py-[var(--spacing-2)] border-b border-border-divider shrink-0">
         <div className="flex items-center justify-between gap-[var(--spacing-3)]">

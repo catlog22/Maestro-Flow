@@ -66,7 +66,7 @@ export function useWebSocket(): void {
       onAnalysis: coordinateOnAnalysis,
       onClarificationNeeded: coordinateOnClarificationNeeded,
     } = useCoordinateStore.getState();
-    const { fetchIssues } = useIssueStore.getState();
+    const { fetchIssues, patchIssue } = useIssueStore.getState();
     const {
       onProgress: requirementOnProgress,
       onExpanded: requirementOnExpanded,
@@ -220,21 +220,33 @@ export function useWebSocket(): void {
               turnNumber: 1,
               maxTurns: 3,
             });
-            void fetchIssues();
+            if (started.issue) {
+              patchIssue(started.issue);
+            } else {
+              void fetchIssues();
+            }
             break;
           }
 
           case WS_EVENT_TYPES.EXECUTION_COMPLETED: {
             const completed = msg.data as ExecutionCompletedPayload;
             removeSlot(completed.processId);
-            void fetchIssues();
+            if (completed.issue) {
+              patchIssue(completed.issue);
+            } else {
+              void fetchIssues();
+            }
             break;
           }
 
           case WS_EVENT_TYPES.EXECUTION_FAILED: {
             const failed = msg.data as ExecutionFailedPayload;
             removeSlot(failed.processId);
-            void fetchIssues();
+            if (failed.issue) {
+              patchIssue(failed.issue);
+            } else {
+              void fetchIssues();
+            }
             break;
           }
 

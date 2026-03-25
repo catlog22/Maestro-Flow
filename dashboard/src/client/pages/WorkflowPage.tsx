@@ -12,6 +12,7 @@ import { SetupChecklist } from '@/client/components/workflow/SetupChecklist.js';
 import { DetailPanel } from '@/client/components/common/DetailPanel.js';
 import { KanbanDetailPanel } from '@/client/components/kanban/KanbanDetailPanel.js';
 import type { SelectedKanbanItem } from '@/shared/types.js';
+import { useExecutionStore } from '@/client/store/execution-store.js';
 import ColumnsIcon from 'lucide-react/dist/esm/icons/columns-3.js';
 import ListIcon from 'lucide-react/dist/esm/icons/list.js';
 import ActivityIcon from 'lucide-react/dist/esm/icons/activity.js';
@@ -29,6 +30,13 @@ export function WorkflowPage() {
   const [activeView, setActiveView] = useState<ActiveView>('board');
   const [selectedItem, setSelectedItem] = useState<SelectedKanbanItem | null>(null);
   const { register, unregister } = useContext(ViewSwitcherContext);
+  const recentDecisions = useExecutionStore((s) => s.recentDecisions);
+  const advanceRecommendations = useMemo(() => {
+    return recentDecisions
+      .flatMap((d) => d.actions.filter((a) => a.type === 'advance_phase'))
+      .slice(-3);
+  }, [recentDecisions]);
+
   const { phases, board, selectedPhase, setSelectedPhase } = useBoardStore(useShallow((s) => ({
     phases: s.board?.phases ?? [],
     board: s.board,
@@ -75,6 +83,14 @@ export function WorkflowPage() {
     <div className="flex flex-col h-full overflow-hidden">
       {/* Supervisor link bar */}
       <div className="flex items-center justify-end px-[var(--spacing-4)] py-[var(--spacing-1)] border-b border-border-divider bg-bg-secondary text-[length:var(--font-size-xs)]">
+        {advanceRecommendations.length > 0 && (
+          <div className="flex items-center gap-[var(--spacing-2)] mr-auto">
+            <span className="inline-block w-[5px] h-[5px] rounded-full bg-accent-blue animate-pulse" />
+            <span className="text-text-secondary">
+              Commander recommends advancing: {advanceRecommendations.map(a => a.target).join(', ')}
+            </span>
+          </div>
+        )}
         <Link
           to="/supervisor"
           className="text-text-secondary hover:text-text-primary transition-colors font-[var(--font-weight-medium)]"

@@ -501,10 +501,14 @@ export class ExecutionScheduler {
       timestamp: now,
     });
 
+    // Read updated issue for incremental client push
+    const startedIssue = await this.findIssue(issue.id);
+
     this.eventBus.emit('execution:started', {
       issueId: issue.id,
       processId: proc.id,
       executor,
+      issue: startedIssue ?? undefined,
     });
   }
 
@@ -720,7 +724,10 @@ export class ExecutionScheduler {
       void this.workspaceManager.removeForIssue(issueId);
     }
 
-    this.eventBus.emit('execution:completed', { issueId, processId });
+    // Read updated issue for incremental client push
+    const completedIssue = await this.findIssue(issueId);
+
+    this.eventBus.emit('execution:completed', { issueId, processId, issue: completedIssue ?? undefined });
   }
 
   /** Extract structured result from agent entry history */
@@ -819,7 +826,10 @@ export class ExecutionScheduler {
       }
     }
 
-    this.eventBus.emit('execution:failed', { issueId, processId, error });
+    // Read updated issue for incremental client push
+    const failedIssue = await this.findIssue(issueId);
+
+    this.eventBus.emit('execution:failed', { issueId, processId, error, issue: failedIssue ?? undefined });
   }
 
   // -------------------------------------------------------------------------
@@ -985,9 +995,13 @@ export class ExecutionScheduler {
         this.claimed.delete(slot.issueId);
         this.stats.totalCompleted++;
 
+        // Read updated issue for incremental client push
+        const reconciledIssue = await this.findIssue(slot.issueId);
+
         this.eventBus.emit('execution:completed', {
           issueId: slot.issueId,
           processId,
+          issue: reconciledIssue ?? undefined,
         });
       }
     }

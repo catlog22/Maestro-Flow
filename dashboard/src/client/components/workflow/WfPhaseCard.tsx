@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import type { PhaseCard, SelectedKanbanItem } from '@/shared/types.js';
 import { StatusBadge } from '@/client/components/common/StatusBadge.js';
 import { ProgressBar } from '@/client/components/common/ProgressBar.js';
 import { STATUS_COLORS } from '@/shared/constants.js';
 import { useBoardStore } from '@/client/store/board-store.js';
+import { useIssueStore } from '@/client/store/issue-store.js';
 import { usePhaseTasks } from '@/client/hooks/usePhaseTasks.js';
 import { KanbanTaskRow } from '@/client/components/kanban/TaskRow.js';
 
@@ -25,9 +27,10 @@ const TINT_VARS: Record<string, string> = {
 interface WfPhaseCardProps {
   phase: PhaseCard;
   onSelectTask?: (item: SelectedKanbanItem) => void;
+  recommendedAdvance?: boolean;
 }
 
-export function WfPhaseCard({ phase, onSelectTask }: WfPhaseCardProps) {
+export function WfPhaseCard({ phase, onSelectTask, recommendedAdvance }: WfPhaseCardProps) {
   const setSelectedPhase = useBoardStore((s) => s.setSelectedPhase);
   const [expanded, setExpanded] = useState(false);
   const { tasks, loading } = usePhaseTasks(expanded ? phase.phase : null);
@@ -35,6 +38,15 @@ export function WfPhaseCard({ phase, onSelectTask }: WfPhaseCardProps) {
   const color = STATUS_COLORS[phase.status];
   const hasGaps = phase.verification.gaps.length > 0;
   const hasTasks = phase.plan.task_count > 0;
+
+  const issues = useIssueStore((s) => s.issues);
+  const phaseIssues = useMemo(() =>
+    issues.filter((i) => i.phase_id === phase.phase),
+    [issues, phase.phase]
+  );
+  const runningIssueCount = phaseIssues.filter(
+    (i) => i.execution?.status === 'running'
+  ).length;
 
   return (
     <div>
@@ -109,6 +121,43 @@ export function WfPhaseCard({ phase, onSelectTask }: WfPhaseCardProps) {
           >
             {phase.verification.gaps.length} Gap{phase.verification.gaps.length > 1 ? 's' : ''}
           </div>
+        )}
+
+        {/* Commander advance recommendation */}
+        {recommendedAdvance && (
+          <div
+            className="inline-flex items-center gap-[var(--spacing-1)] mt-[var(--spacing-1-5)] text-[length:var(--font-size-xs)] font-[var(--font-weight-semibold)] px-[var(--spacing-2)] py-[var(--spacing-0-5)] rounded-full"
+            style={{ backgroundColor: 'rgba(91, 141, 184, 0.1)', color: 'var(--color-accent-blue)' }}
+          >
+            <span className="inline-block w-[5px] h-[5px] rounded-full animate-pulse" style={{ backgroundColor: 'var(--color-accent-blue)' }} />
+            Advance recommended
+          </div>
+        )}
+
+        {/* Running issues link — navigate to KanbanPage */}
+        {runningIssueCount > 0 && (
+          <Link
+            to={`/kanban?phase=${phase.phase}`}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-[var(--spacing-1)] mt-[var(--spacing-1-5)] text-[length:var(--font-size-xs)] font-[var(--font-weight-medium)] px-[var(--spacing-2)] py-[var(--spacing-0-5)] rounded-full no-underline transition-colors hover:opacity-80"
+            style={{ backgroundColor: 'rgba(184, 149, 64, 0.1)', color: '#B89540' }}
+            title={`${runningIssueCount} issue(s) running — view in Kanban`}
+          >
+            <span className="inline-block w-[5px] h-[5px] rounded-full animate-pulse" style={{ backgroundColor: '#B89540' }} />
+            {runningIssueCount} running
+          </Link>
+        )}
+
+        {/* Total phase issues link (when none running) */}
+        {phaseIssues.length > 0 && runningIssueCount === 0 && (
+          <Link
+            to={`/kanban?phase=${phase.phase}`}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-[var(--spacing-1)] mt-[var(--spacing-1-5)] text-[length:var(--font-size-xs)] font-[var(--font-weight-medium)] px-[var(--spacing-2)] py-[var(--spacing-0-5)] rounded-full no-underline transition-colors hover:opacity-80"
+            style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-tertiary)', border: '1px solid var(--color-border)' }}
+          >
+            {phaseIssues.length} issue{phaseIssues.length > 1 ? 's' : ''}
+          </Link>
         )}
       </div>
 

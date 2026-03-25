@@ -516,13 +516,38 @@ export class CommanderAgent {
             console.log(`[Commander] Blocker flagged: ${action.target} — ${action.reason}`);
             break;
 
-          case 'create_issue':
-            console.log(`[Commander] Issue creation recommended: ${action.target} — ${action.reason}`);
+          case 'create_issue': {
+            const { generateIssueId, appendIssueJsonl, withIssueWriteLock } = await import('../utils/issue-store.js');
+            const issueJsonlPath = join(this.workflowRoot, '.workflow', 'issues', 'issues.jsonl');
+            const now = new Date().toISOString();
+            const issue: Issue = {
+              id: generateIssueId(),
+              title: action.target,
+              description: action.reason,
+              type: 'task',
+              priority: action.risk === 'high' ? 'high' : action.risk === 'medium' ? 'medium' : 'low',
+              status: 'open',
+              created_at: now,
+              updated_at: now,
+            };
+            await withIssueWriteLock(() => appendIssueJsonl(issueJsonlPath, issue));
+            console.log(`[Commander] Created issue ${issue.id}: ${action.target}`);
             break;
+          }
 
-          case 'advance_phase':
+          case 'advance_phase': {
+            this.eventBus.emit('commander:decision', {
+              id: randomUUID(),
+              timestamp: new Date().toISOString(),
+              trigger: 'advance_phase_recommendation',
+              assessment: decision.assessment,
+              actions: [action],
+              deferred: [],
+              metrics: { assessDurationMs: 0, decideDurationMs: 0, totalDurationMs: 0 },
+            } satisfies Decision);
             console.log(`[Commander] Phase advancement recommended: ${action.target} — ${action.reason}`);
             break;
+          }
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

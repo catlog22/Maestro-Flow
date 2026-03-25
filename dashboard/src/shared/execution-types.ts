@@ -80,6 +80,8 @@ export interface SchedulerConfig {
   defaultPromptMode: PromptMode;
   defaultExecutor: AgentType;
   workspace: WorkspacePolicy;
+  /** When true, all dispatch decisions are mode='suggest' (recommendations only, not auto-executed) */
+  requireApproval?: boolean;
   /** Maximum continuation turns per issue for codex-server (default 3) */
   maxTurnsPerIssue?: number;
 }
