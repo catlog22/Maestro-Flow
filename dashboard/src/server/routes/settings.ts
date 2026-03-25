@@ -105,6 +105,17 @@ export function createSettingsRoutes(workflowRoot: string | (() => string)): Hon
       result['linear'] = { apiKey: '', configured: false };
     }
 
+    // Read commander config (top-level `commander` key in config.json, Layer 3)
+    try {
+      const raw = await readFile(p.dashboardConfig, 'utf-8');
+      const json = JSON.parse(raw) as Record<string, unknown>;
+      if (json['commander'] && typeof json['commander'] === 'object') {
+        result['commander'] = json['commander'];
+      }
+    } catch {
+      // No commander config — client will use defaults
+    }
+
     return c.json(result);
   });
 
@@ -232,6 +243,32 @@ export function createSettingsRoutes(workflowRoot: string | (() => string)): Hon
         delete process.env.LINEAR_API_KEY;
       }
 
+      return c.json({ ok: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Write failed';
+      return c.json({ ok: false, error: message }, 500);
+    }
+  });
+
+  // -----------------------------------------------------------------------
+  // PUT /api/settings/commander — write commander config to top-level key
+  // -----------------------------------------------------------------------
+  app.put('/api/settings/commander', async (c) => {
+    try {
+      const p = getPaths();
+      const body = await c.req.json();
+
+      let config: Record<string, unknown> = {};
+      try {
+        const raw = await readFile(p.dashboardConfig, 'utf-8');
+        config = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        // Start with empty config
+      }
+
+      config['commander'] = body;
+
+      await writeFile(p.dashboardConfig, JSON.stringify(config, null, 2), 'utf-8');
       return c.json({ ok: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Write failed';

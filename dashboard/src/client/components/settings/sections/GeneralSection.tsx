@@ -10,35 +10,13 @@ import {
   SettingsInput,
   SettingsSelect,
   SettingsSaveBar,
+  SettingsToggle,
 } from '../SettingsComponents.js';
 import { cn } from '@/client/lib/utils.js';
 
 // ---------------------------------------------------------------------------
 // GeneralSection — connection status, theme, dashboard config
 // ---------------------------------------------------------------------------
-
-function ToggleButton({ enabled, onClick }: { enabled: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent',
-        'transition-colors duration-[var(--duration-fast)]',
-        'focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-ring)]',
-        enabled ? 'bg-accent-blue' : 'bg-border',
-      )}
-    >
-      <span
-        className={cn(
-          'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm',
-          'transition-transform duration-[var(--duration-fast)]',
-          enabled ? 'translate-x-5' : 'translate-x-0',
-        )}
-      />
-    </button>
-  );
-}
 
 const STYLE_PRESETS: { value: StylePreset; label: string }[] = [
   { value: 'default', label: 'Default' },
@@ -192,7 +170,7 @@ export function GeneralSection() {
               <span className="text-[length:var(--font-size-xs)] font-[var(--font-weight-medium)] text-accent-blue bg-accent-blue/10 px-[var(--spacing-1-5)] py-0.5 rounded-[var(--radius-sm)]">
                 Claude
               </span>
-              <ToggleButton
+              <SettingsToggle
                 enabled={chineseResponse.claudeEnabled}
                 onClick={() => void toggleChineseResponse(!chineseResponse.claudeEnabled, 'claude')}
               />
@@ -207,7 +185,7 @@ export function GeneralSection() {
               <span className="text-[length:var(--font-size-xs)] font-[var(--font-weight-medium)] text-green-400 bg-green-400/10 px-[var(--spacing-1-5)] py-0.5 rounded-[var(--radius-sm)]">
                 Codex
               </span>
-              <ToggleButton
+              <SettingsToggle
                 enabled={chineseResponse.codexEnabled}
                 onClick={() => void toggleChineseResponse(!chineseResponse.codexEnabled, 'codex')}
               />

@@ -5,6 +5,7 @@ import { CliToolsSection } from './sections/CliToolsSection.js';
 import { SpecsSection } from './sections/SpecsSection.js';
 import { LinearSection } from './sections/LinearSection.js';
 import { KanbanSection } from './sections/KanbanSection.js';
+import { CommanderSection } from './sections/CommanderSection.js';
 
 // ---------------------------------------------------------------------------
 // SettingsSection — switch dispatcher routing to concrete section components
@@ -24,6 +25,8 @@ export function SettingsSection({ section }: { section: SettingsSectionType }) {
       return <LinearSection />;
     case 'kanban':
       return <KanbanSection />;
+    case 'commander':
+      return <CommanderSection />;
     default:
       return null;
   }

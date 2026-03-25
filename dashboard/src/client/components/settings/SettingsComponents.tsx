@@ -1,6 +1,33 @@
 import { cn } from '@/client/lib/utils.js';
 
 // ---------------------------------------------------------------------------
+// SettingsToggle — boolean toggle switch
+// ---------------------------------------------------------------------------
+
+export function SettingsToggle({ enabled, onClick }: { enabled: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent',
+        'transition-colors duration-[var(--duration-fast)]',
+        'focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-ring)]',
+        enabled ? 'bg-accent-blue' : 'bg-border',
+      )}
+    >
+      <span
+        className={cn(
+          'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm',
+          'transition-transform duration-[var(--duration-fast)]',
+          enabled ? 'translate-x-5' : 'translate-x-0',
+        )}
+      />
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // SettingsCard — titled card with optional description
 // ---------------------------------------------------------------------------
 

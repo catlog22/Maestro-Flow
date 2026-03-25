@@ -18,6 +18,7 @@ interface SectionNavItem {
 const SECTIONS: SectionNavItem[] = [
   { id: 'general', label: 'General', icon: 'cog' },
   { id: 'agents', label: 'Agents', icon: 'bot' },
+  { id: 'commander', label: 'Commander', icon: 'commander' },
   { id: 'cli-tools', label: 'CLI Tools', icon: 'terminal' },
   { id: 'specs', label: 'Specs', icon: 'file-text' },
   { id: 'linear', label: 'Linear', icon: 'linear' },
@@ -78,6 +79,18 @@ function SectionIcon({ icon }: { icon: string }) {
           <rect x="17" y="3" width="5" height="15" rx="1" />
         </svg>
       );
+    case 'commander':
+      return (
+        <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="4" y="4" width="16" height="16" rx="2" />
+          <path d="M9 9h6" />
+          <path d="M9 13h6" />
+          <circle cx="9" cy="9" r="0.5" fill="currentColor" />
+          <circle cx="9" cy="13" r="0.5" fill="currentColor" />
+          <circle cx="15" cy="9" r="0.5" fill="currentColor" />
+          <circle cx="15" cy="13" r="0.5" fill="currentColor" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -100,7 +113,8 @@ export function SettingsDialog() {
       JSON.stringify(s.config.agents) !== JSON.stringify(s.draft.agents) ||
       s.config.cliTools !== s.draft.cliTools ||
       JSON.stringify(s.config.linear) !== JSON.stringify(s.draft.linear) ||
-      s.config.searchTool !== s.draft.searchTool
+      s.config.searchTool !== s.draft.searchTool ||
+      JSON.stringify(s.config.commander) !== JSON.stringify(s.draft.commander)
     );
   });
 

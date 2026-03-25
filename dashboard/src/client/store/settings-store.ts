@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import type { AgentType } from '@/shared/agent-types.js';
+import type { CommanderConfig, CommanderSafetyConfig } from '@/shared/commander-types.js';
+import { DEFAULT_COMMANDER_CONFIG } from '@/shared/commander-types.js';
+import type { WorkspacePolicy } from '@/shared/execution-types.js';
 
 // ---------------------------------------------------------------------------
 // Settings store — draft editing with dirty detection
@@ -41,10 +44,11 @@ export interface SettingsConfig {
   cliTools: string; // raw JSON string of cli-tools.json
   linear: LinearSettings;
   searchTool: string; // MCP semantic search tool name
+  commander: CommanderConfig;
 }
 
 /** Section type union */
-export type SettingsSectionType = 'general' | 'agents' | 'cli-tools' | 'specs' | 'linear' | 'kanban';
+export type SettingsSectionType = 'general' | 'agents' | 'cli-tools' | 'specs' | 'linear' | 'kanban' | 'commander';
 
 export interface SettingsStore {
   open: boolean;
@@ -83,6 +87,7 @@ const DEFAULT_CONFIG: SettingsConfig = {
   cliTools: '{}',
   linear: { apiKey: '' },
   searchTool: 'mcp__ace-tool__search_context',
+  commander: DEFAULT_COMMANDER_CONFIG,
 };
 
 function deepClone<T>(obj: T): T {
@@ -121,7 +126,15 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         ]),
       ) as Record<AgentType, AgentSettingsEntry>;
       const searchTool = typeof data.searchTool === 'string' ? data.searchTool : DEFAULT_CONFIG.searchTool;
-      const config: SettingsConfig = { ...DEFAULT_CONFIG, ...data, agents: mergedAgents, searchTool };
+      // Deep merge commander (safety & workspace sub-objects)
+      const rawCommander = data.commander as Partial<CommanderConfig> | undefined;
+      const commander: CommanderConfig = {
+        ...DEFAULT_COMMANDER_CONFIG,
+        ...rawCommander,
+        safety: { ...DEFAULT_COMMANDER_CONFIG.safety, ...rawCommander?.safety } as CommanderSafetyConfig,
+        workspace: { ...DEFAULT_COMMANDER_CONFIG.workspace, ...rawCommander?.workspace } as WorkspacePolicy,
+      };
+      const config: SettingsConfig = { ...DEFAULT_CONFIG, ...data, agents: mergedAgents, searchTool, commander };
       set({ config, draft: deepClone(config), loading: false });
     } catch (err) {
       const config = deepClone(DEFAULT_CONFIG);
