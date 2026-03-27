@@ -463,9 +463,10 @@ export class GraphWalker {
   private save(state: WalkerState): void {
     if (!this.sessionDir) return;
     try {
-      mkdirSync(this.sessionDir, { recursive: true });
+      const dir = join(this.sessionDir, state.session_id);
+      mkdirSync(dir, { recursive: true });
       writeFileSync(
-        join(this.sessionDir, 'walker-state.json'),
+        join(dir, 'walker-state.json'),
         JSON.stringify(state, null, 2),
         'utf-8',
       );
