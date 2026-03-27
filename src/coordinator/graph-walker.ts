@@ -16,6 +16,7 @@ export interface StartOptions {
   tool: string;
   autoMode: boolean;
   dryRun?: boolean;
+  stepMode?: boolean;
   workflowRoot: string;
   inputs?: Record<string, unknown>;
 }
@@ -51,6 +52,7 @@ export class GraphWalker {
       updated_at: new Date().toISOString(),
       tool: options.tool,
       auto_mode: options.autoMode,
+      step_mode: options.stepMode ?? false,
       intent,
     };
 
@@ -68,6 +70,23 @@ export class GraphWalker {
     this.activeState = state;
     const graph = await this.loader.load(state.graph_id);
     state.status = 'running';
+    return this.walkGraph(state, graph);
+  }
+
+  /** Load session state without executing — for status queries. */
+  getState(sessionId?: string): WalkerState {
+    return this.loadState(sessionId);
+  }
+
+  /** Continue a step_paused session — execute next command node, then pause again. */
+  async next(sessionId?: string): Promise<WalkerState> {
+    const state = this.loadState(sessionId);
+    if (state.status !== 'step_paused') {
+      throw new Error(`Cannot advance: session status is '${state.status}', expected 'step_paused'`);
+    }
+    this.activeState = state;
+    state.status = 'running';
+    const graph = await this.loader.load(state.graph_id);
     return this.walkGraph(state, graph);
   }
 
@@ -150,6 +169,13 @@ export class GraphWalker {
 
       state.updated_at = new Date().toISOString();
       this.save(state);
+
+      // Step mode: pause after each command node execution
+      if (state.step_mode && node.type === 'command' && state.status === 'running') {
+        state.status = 'step_paused';
+        this.save(state);
+        break;
+      }
 
       // Bail if status changed to non-running (waiting, paused, completed, failed)
       if (state.status !== 'running') break;

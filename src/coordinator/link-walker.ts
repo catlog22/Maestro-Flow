@@ -77,14 +77,16 @@ export class LinkWalker {
       updated_at: new Date().toISOString(),
       tool: options.tool,
       auto_mode: false,
+      step_mode: false,
       intent,
       link_mode: true,
       pending_preview: null,
       chain_modifications: [],
     };
 
-    this.state.context.inputs['intent'] = intent;
-    if (options.inputs) Object.assign(this.state.context.inputs, options.inputs);
+    const state = this.state;
+    state.context.inputs['intent'] = intent;
+    if (options.inputs) Object.assign(state.context.inputs, options.inputs);
 
     return this.advanceToNextCommand();
   }

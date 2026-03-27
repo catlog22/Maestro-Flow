@@ -130,6 +130,7 @@ export type WalkerStatus =
   | 'waiting_command'
   | 'waiting_gate'
   | 'waiting_fork'
+  | 'step_paused'
   | 'paused'
   | 'completed'
   | 'failed';
@@ -147,6 +148,7 @@ export interface WalkerState {
   updated_at: string;
   tool: string;
   auto_mode: boolean;
+  step_mode: boolean;
   intent: string;
 }
 

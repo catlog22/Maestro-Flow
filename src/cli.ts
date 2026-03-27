@@ -11,7 +11,6 @@ import { registerStopCommand } from './commands/stop.js';
 import { registerSpecCommand } from './commands/spec.js';
 import { registerHooksCommand } from './commands/hooks.js';
 import { registerCoordinateCommand } from './commands/coordinate.js';
-import { registerLinkCoordinateCommand } from './commands/link-coordinate.js';
 
 const program = new Command();
 
@@ -32,6 +31,5 @@ registerStopCommand(program);
 registerSpecCommand(program);
 registerHooksCommand(program);
 registerCoordinateCommand(program);
-registerLinkCoordinateCommand(program);
 
 program.parse();
