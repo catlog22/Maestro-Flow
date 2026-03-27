@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Supervisor Redesign A — Command Center Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 13px; line-height: 1.5;
+      background: #FAF8F5; color: #2D2A26;
+      -webkit-font-smoothing: antialiased;
+    }
+    :root {
+      --bg: #FAF8F5; --bg2: #F3F0EA; --card: #FFFFFF;
+      --hover: rgba(45,42,38,0.04); --active: rgba(45,42,38,0.07);
+      --t1: #2D2A26; --t2: #78756F; --t3: #A09D97; --t4: #D1CEC8;
+      --bdr: #E8E5DE; --bdr2: #ECEAE4;
+      --blue: #4A90D9; --green: #3D9B6F; --orange: #D4832E; --yellow: #C99B2D;
+      --purple: #8B6BBF; --red: #D05454; --gray: #A09D97;
+      --tint-green: #EEF7F2; --tint-yellow: #FDF6E4; --tint-orange: #FDF0E4;
+      --tint-purple: #F3EEF9; --tint-gray: #F2F1EE; --tint-blue: #EBF2FA;
+    }
+
+    /* ================================================================
+       Layout A: "Command Center" — Single scrollable dashboard
+       No tabs. Everything visible at once in a grid layout.
+       Inspired by Grafana/Datadog dashboard style.
+       ================================================================ */
+
+    .shell { display: flex; flex-direction: column; height: 100vh; }
+
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 52px; padding: 0 24px; background: var(--card);
+      border-bottom: 1px solid var(--bdr); flex-shrink: 0;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 14px; }
+    .topbar-title { font-size: 15px; font-weight: 700; color: var(--t1); }
+    .topbar-status {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 600; padding: 4px 12px;
+      border-radius: 100px;
+    }
+    .topbar-status.active { background: var(--tint-green); color: var(--green); }
+    .topbar-status .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .topbar-status.active .dot { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+    .topbar-btn {
+      font-size: 11px; font-weight: 600; padding: 6px 14px; border-radius: 8px;
+      border: 1px solid var(--bdr); background: none; cursor: pointer;
+      color: var(--t2); transition: all 150ms;
+    }
+    .topbar-btn:hover { background: var(--hover); color: var(--t1); }
+    .topbar-btn.primary { background: var(--t1); color: #fff; border-color: var(--t1); }
+    .topbar-btn.primary:hover { opacity: 0.9; }
+
+    /* Dashboard grid */
+    .dashboard {
+      flex: 1; overflow-y: auto; padding: 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: auto auto 1fr;
+      gap: 16px;
+    }
+
+    /* Stat strip — spans full width */
+    .stat-strip {
+      grid-column: 1 / -1;
+      display: flex; gap: 12px;
+    }
+    .stat-card {
+      flex: 1; background: var(--card); border-radius: 12px;
+      padding: 16px 18px; border: 1px solid var(--bdr2);
+      display: flex; align-items: center; gap: 14px;
+    }
+    .stat-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .stat-icon svg { width: 18px; height: 18px; stroke-width: 1.8; }
+    .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--t3); }
+    .stat-value { font-size: 22px; font-weight: 800; color: var(--t1); margin-top: 1px; }
+    .stat-sub { font-size: 10px; color: var(--t3); margin-top: 1px; }
+
+    /* Panel (card) */
+    .panel {
+      background: var(--card); border-radius: 12px;
+      border: 1px solid var(--bdr2); overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--bdr2);
+    }
+    .panel-title { font-size: 12px; font-weight: 700; color: var(--t1); }
+    .panel-badge {
+      font-size: 9px; font-weight: 700; padding: 2px 8px;
+      border-radius: 100px;
+    }
+    .panel-body { padding: 14px 16px; flex: 1; overflow-y: auto; }
+    .panel-body.no-pad { padding: 0; }
+
+    /* Commander section — spans 2 cols */
+    .commander-panel { grid-column: span 2; }
+
+    /* Active executions — full width */
+    .executions-panel { grid-column: 1 / -1; }
+
+    /* Timeline / Decision item */
+    .timeline-item {
+      display: flex; gap: 12px; padding: 10px 16px;
+      border-bottom: 1px solid var(--bdr2);
+      transition: background 120ms;
+    }
+    .timeline-item:hover { background: var(--hover); }
+    .timeline-item:last-child { border-bottom: none; }
+    .timeline-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      margin-top: 5px; flex-shrink: 0;
+    }
+    .timeline-time {
+      font-size: 10px; font-family: 'SF Mono', Consolas, monospace;
+      color: var(--t4);
+    }
+    .timeline-text { font-size: 12px; color: var(--t1); }
+    .timeline-sub { font-size: 10px; color: var(--t3); }
+
+    /* Pattern row */
+    .pattern-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--bdr2);
+    }
+    .pattern-row:last-child { border-bottom: none; }
+    .pattern-name {
+      font-size: 12px; font-weight: 600; color: var(--t1);
+      font-family: 'SF Mono', Consolas, monospace; min-width: 120px;
+    }
+    .pattern-bar-track {
+      flex: 1; height: 6px; background: rgba(0,0,0,0.04);
+      border-radius: 100px; overflow: hidden;
+    }
+    .pattern-bar-fill { height: 100%; border-radius: 100px; }
+    .pattern-meta { font-size: 10px; color: var(--t3); white-space: nowrap; }
+
+    /* Execution row */
+    .exec-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 10px 16px; border-bottom: 1px solid var(--bdr2);
+      transition: background 120ms;
+    }
+    .exec-row:hover { background: var(--hover); }
+    .exec-row:last-child { border-bottom: none; }
+    .exec-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .exec-id { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .exec-agent { font-size: 11px; color: var(--t2); }
+    .exec-turn { font-size: 10px; color: var(--t3); }
+    .exec-elapsed { font-size: 10px; color: var(--t3); margin-left: auto; }
+    .exec-progress {
+      width: 60px; height: 4px; background: rgba(0,0,0,0.06);
+      border-radius: 100px; overflow: hidden;
+    }
+    .exec-progress-fill { height: 100%; border-radius: 100px; background: var(--blue); }
+
+    /* Schedule mini */
+    .sched-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--bdr2);
+    }
+    .sched-row:last-child { border-bottom: none; }
+    .sched-icon {
+      width: 28px; height: 28px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sched-icon svg { width: 12px; height: 12px; stroke-width: 1.8; }
+    .sched-name { font-size: 12px; font-weight: 600; color: var(--t1); flex: 1; }
+    .sched-cron { font-size: 10px; font-family: 'SF Mono', Consolas, monospace; color: var(--t3); }
+    .sched-status {
+      font-size: 9px; font-weight: 700; padding: 2px 8px;
+      border-radius: 100px;
+    }
+
+    /* Suggestion card */
+    .suggestion {
+      display: flex; gap: 10px; padding: 10px 0;
+      border-bottom: 1px solid var(--bdr2);
+    }
+    .suggestion:last-child { border-bottom: none; }
+    .suggestion-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      margin-top: 5px; flex-shrink: 0;
+    }
+    .suggestion-title { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .suggestion-desc { font-size: 11px; color: var(--t2); margin-top: 2px; }
+
+    /* Extension mini list */
+    .ext-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 500; padding: 5px 10px;
+      border-radius: 8px; border: 1px solid var(--bdr2);
+      background: var(--card); color: var(--t1);
+    }
+    .ext-chip .ext-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+    /* Footer link */
+    .panel-footer {
+      padding: 8px 16px; border-top: 1px solid var(--bdr2);
+      text-align: center;
+    }
+    .panel-footer a {
+      font-size: 11px; font-weight: 600; color: var(--blue);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">Supervisor</div>
+      <div class="topbar-status active">
+        <span class="dot"></span>
+        Active
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-btn">Settings</button>
+      <button class="topbar-btn primary">Disable</button>
+    </div>
+  </header>
+
+  <!-- Dashboard grid -->
+  <main class="dashboard">
+    <!-- Row 1: Stats strip -->
+    <div class="stat-strip">
+      <div class="stat-card">
+        <div class="stat-icon" style="background: var(--tint-blue); color: var(--blue);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div>
+          <div class="stat-label">Dispatched</div>
+          <div class="stat-value">142</div>
+          <div class="stat-sub">3 active</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: var(--tint-green); color: var(--green);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <div>
+          <div class="stat-label">Success Rate</div>
+          <div class="stat-value" style="color: var(--green);">94%</div>
+          <div class="stat-sub">134 completed</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: var(--tint-orange); color: var(--orange);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div>
+          <div class="stat-label">Schedules</div>
+          <div class="stat-value">4 / 6</div>
+          <div class="stat-sub">2 queued</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: var(--tint-purple); color: var(--purple);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <div>
+          <div class="stat-label">Extensions</div>
+          <div class="stat-value">3</div>
+          <div class="stat-sub">3 enabled</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: Commander (2 cols) + Suggestions (1 col) -->
+    <div class="panel commander-panel">
+      <div class="panel-header">
+        <span class="panel-title">Commander Decisions</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="panel-badge" style="background: var(--tint-green); color: var(--green);">thinking</span>
+          <span style="font-size: 10px; color: var(--t3);">12 decisions</span>
+        </div>
+      </div>
+      <div class="panel-body no-pad" style="max-height: 260px;">
+        <div class="timeline-item">
+          <div class="timeline-dot" style="background: var(--green);"></div>
+          <div>
+            <div class="timeline-time">14:32:08</div>
+            <div class="timeline-text">tick - 2 actions dispatched</div>
+            <div class="timeline-sub">Assigned ISSUE-045 to gemini, ISSUE-046 to qwen</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot" style="background: var(--green);"></div>
+          <div>
+            <div class="timeline-time">14:30:15</div>
+            <div class="timeline-text">tick - 1 action dispatched</div>
+            <div class="timeline-sub">Completed ISSUE-043, assigned ISSUE-044</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot" style="background: var(--gray);"></div>
+          <div>
+            <div class="timeline-time">14:28:00</div>
+            <div class="timeline-text">tick - 0 actions (idle)</div>
+            <div class="timeline-sub">1 deferred</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot" style="background: var(--green);"></div>
+          <div>
+            <div class="timeline-time">14:25:42</div>
+            <div class="timeline-text">tick - 3 actions dispatched</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot" style="background: var(--orange);"></div>
+          <div>
+            <div class="timeline-time">14:22:11</div>
+            <div class="timeline-text">tick - 1 action, 2 deferred</div>
+            <div class="timeline-sub">Risk: high complexity on auth module</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Suggestions</span>
+        <span class="panel-badge" style="background: var(--tint-orange); color: var(--orange);">3 new</span>
+      </div>
+      <div class="panel-body">
+        <div class="suggestion">
+          <div class="suggestion-dot" style="background: var(--green);"></div>
+          <div>
+            <div class="suggestion-title">Batch similar tasks</div>
+            <div class="suggestion-desc">Group auth-related issues for 30% faster execution (92%)</div>
+          </div>
+        </div>
+        <div class="suggestion">
+          <div class="suggestion-dot" style="background: var(--yellow);"></div>
+          <div>
+            <div class="suggestion-title">Slow executor detected</div>
+            <div class="suggestion-desc">codex averaging 4.2min vs 2.1min target (87%)</div>
+          </div>
+        </div>
+        <div class="suggestion">
+          <div class="suggestion-dot" style="background: var(--purple);"></div>
+          <div>
+            <div class="suggestion-title">Auto-schedule cleanup</div>
+            <div class="suggestion-desc">Enable nightly artifact cleanup to save 2GB (78%)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: Active Executions (full width) -->
+    <div class="panel executions-panel">
+      <div class="panel-header">
+        <span class="panel-title">Active Executions</span>
+        <span style="font-size: 10px; color: var(--t3);">3 running</span>
+      </div>
+      <div class="panel-body no-pad">
+        <div class="exec-row">
+          <div class="exec-dot" style="background: var(--blue);"></div>
+          <span class="exec-id">ISSUE-045</span>
+          <span class="exec-agent">gemini</span>
+          <span class="exec-turn">Turn 3/8</span>
+          <div class="exec-progress"><div class="exec-progress-fill" style="width: 37.5%;"></div></div>
+          <span class="exec-elapsed">4m</span>
+        </div>
+        <div class="exec-row">
+          <div class="exec-dot" style="background: var(--orange);"></div>
+          <span class="exec-id">ISSUE-046</span>
+          <span class="exec-agent">qwen</span>
+          <span class="exec-turn">Turn 1/6</span>
+          <div class="exec-progress"><div class="exec-progress-fill" style="width: 16.6%; background: var(--orange);"></div></div>
+          <span class="exec-elapsed">1m</span>
+        </div>
+        <div class="exec-row">
+          <div class="exec-dot" style="background: var(--green);"></div>
+          <span class="exec-id">ISSUE-044</span>
+          <span class="exec-agent">codex</span>
+          <span class="exec-turn">Turn 5/8</span>
+          <div class="exec-progress"><div class="exec-progress-fill" style="width: 62.5%; background: var(--green);"></div></div>
+          <span class="exec-elapsed">12m</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 4: Patterns + Schedules + Extensions -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Top Patterns</span>
+      </div>
+      <div class="panel-body">
+        <div class="pattern-row">
+          <span class="pattern-name">quality-review</span>
+          <div class="pattern-bar-track"><div class="pattern-bar-fill" style="width: 100%; background: var(--green);"></div></div>
+          <span class="pattern-meta">34 / 97%</span>
+        </div>
+        <div class="pattern-row">
+          <span class="pattern-name">maestro-execute</span>
+          <div class="pattern-bar-track"><div class="pattern-bar-fill" style="width: 76%; background: var(--green);"></div></div>
+          <span class="pattern-meta">26 / 92%</span>
+        </div>
+        <div class="pattern-row">
+          <span class="pattern-name">quality-test-gen</span>
+          <div class="pattern-bar-track"><div class="pattern-bar-fill" style="width: 58%; background: var(--blue);"></div></div>
+          <span class="pattern-meta">20 / 85%</span>
+        </div>
+        <div class="pattern-row">
+          <span class="pattern-name">maestro-plan</span>
+          <div class="pattern-bar-track"><div class="pattern-bar-fill" style="width: 41%; background: var(--blue);"></div></div>
+          <span class="pattern-meta">14 / 88%</span>
+        </div>
+        <div class="pattern-row">
+          <span class="pattern-name">quality-debug</span>
+          <div class="pattern-bar-track"><div class="pattern-bar-fill" style="width: 29%; background: var(--yellow);"></div></div>
+          <span class="pattern-meta">10 / 72%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Schedules</span>
+        <span class="panel-badge" style="background: var(--tint-gray); color: var(--gray);">6</span>
+      </div>
+      <div class="panel-body">
+        <div class="sched-row">
+          <div class="sched-icon" style="background: var(--tint-orange); color: var(--orange);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+          </div>
+          <span class="sched-name">Auto Dispatch</span>
+          <span class="sched-cron">*/5 * * * *</span>
+          <span class="sched-status" style="background: var(--tint-green); color: var(--green);">active</span>
+        </div>
+        <div class="sched-row">
+          <div class="sched-icon" style="background: var(--tint-blue); color: var(--blue);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </div>
+          <span class="sched-name">Nightly Cleanup</span>
+          <span class="sched-cron">0 3 * * *</span>
+          <span class="sched-status" style="background: var(--tint-green); color: var(--green);">active</span>
+        </div>
+        <div class="sched-row">
+          <div class="sched-icon" style="background: var(--tint-purple); color: var(--purple);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <span class="sched-name">Daily Report</span>
+          <span class="sched-cron">0 18 * * *</span>
+          <span class="sched-status" style="background: var(--tint-gray); color: var(--gray);">paused</span>
+        </div>
+        <div class="sched-row">
+          <div class="sched-icon" style="background: var(--tint-green); color: var(--green);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <span class="sched-name">Health Check</span>
+          <span class="sched-cron">*/15 * * * *</span>
+          <span class="sched-status" style="background: var(--tint-green); color: var(--green);">active</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Extensions</span>
+      </div>
+      <div class="panel-body">
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div class="ext-chip" style="width: 100%; justify-content: flex-start;">
+            <span class="ext-dot" style="background: var(--green);"></span>
+            <span style="font-weight: 600;">git-auto-commit</span>
+            <span style="font-size: 10px; color: var(--t3); margin-left: auto;">strategy v1.2</span>
+          </div>
+          <div class="ext-chip" style="width: 100%; justify-content: flex-start;">
+            <span class="ext-dot" style="background: var(--green);"></span>
+            <span style="font-weight: 600;">test-runner</span>
+            <span style="font-size: 10px; color: var(--t3); margin-left: auto;">builder v2.0</span>
+          </div>
+          <div class="ext-chip" style="width: 100%; justify-content: flex-start;">
+            <span class="ext-dot" style="background: var(--green);"></span>
+            <span style="font-weight: 600;">lint-adapter</span>
+            <span style="font-size: 10px; color: var(--t3); margin-left: auto;">adapter v1.0</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel-footer">
+        <a href="#">Manage Extensions</a>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

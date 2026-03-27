@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Supervisor Redesign B — Sidebar Navigation + Detail</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 13px; line-height: 1.5;
+      background: #FAF8F5; color: #2D2A26;
+      -webkit-font-smoothing: antialiased;
+    }
+    :root {
+      --bg: #FAF8F5; --bg2: #F3F0EA; --card: #FFFFFF;
+      --hover: rgba(45,42,38,0.04); --active: rgba(45,42,38,0.07);
+      --t1: #2D2A26; --t2: #78756F; --t3: #A09D97; --t4: #D1CEC8;
+      --bdr: #E8E5DE; --bdr2: #ECEAE4;
+      --blue: #4A90D9; --green: #3D9B6F; --orange: #D4832E; --yellow: #C99B2D;
+      --purple: #8B6BBF; --red: #D05454; --gray: #A09D97;
+      --tint-green: #EEF7F2; --tint-yellow: #FDF6E4; --tint-orange: #FDF0E4;
+      --tint-purple: #F3EEF9; --tint-gray: #F2F1EE; --tint-blue: #EBF2FA;
+    }
+
+    /* ================================================================
+       Layout B: Left sidebar icon nav + collapsible groups in main area
+       Inspired by VS Code / Linear settings pattern.
+       Sidebar shows sections, main area shows selected section.
+       ================================================================ */
+
+    .shell { display: flex; height: 100vh; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 220px; background: var(--bg2);
+      border-right: 1px solid var(--bdr);
+      display: flex; flex-direction: column;
+      flex-shrink: 0; overflow: hidden;
+    }
+    .sidebar-header {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--bdr);
+    }
+    .sidebar-title {
+      font-size: 14px; font-weight: 700; color: var(--t1);
+      margin-bottom: 8px;
+    }
+    .sidebar-status {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px;
+    }
+    .sidebar-status .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green); animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .sidebar-status-text { font-weight: 600; color: var(--green); }
+    .sidebar-status-sub { color: var(--t3); margin-left: 4px; }
+
+    /* Mini stats in sidebar */
+    .sidebar-stats {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 6px; padding: 12px 16px;
+      border-bottom: 1px solid var(--bdr);
+    }
+    .mini-stat {
+      background: var(--card); border-radius: 8px;
+      padding: 8px 10px; border: 1px solid var(--bdr2);
+    }
+    .mini-stat-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--t3); }
+    .mini-stat-value { font-size: 16px; font-weight: 800; color: var(--t1); margin-top: 1px; }
+
+    /* Nav items */
+    .sidebar-nav { flex: 1; overflow-y: auto; padding: 8px 8px; }
+    .sidebar-section-label {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--t3); padding: 10px 10px 4px;
+    }
+    .sidebar-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 8px;
+      border: none; background: none; cursor: pointer;
+      width: 100%; text-align: left;
+      font-size: 12px; font-weight: 500; color: var(--t2);
+      transition: all 120ms;
+    }
+    .sidebar-item:hover { background: var(--hover); color: var(--t1); }
+    .sidebar-item.active { background: var(--card); color: var(--t1); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .sidebar-item-icon {
+      width: 28px; height: 28px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .sidebar-item-icon svg { width: 14px; height: 14px; stroke-width: 1.8; }
+    .sidebar-item-badge {
+      margin-left: auto; font-size: 9px; font-weight: 700;
+      padding: 1px 7px; border-radius: 100px;
+    }
+
+    /* Toggle in sidebar footer */
+    .sidebar-footer {
+      padding: 12px 16px; border-top: 1px solid var(--bdr);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .sidebar-footer-label { font-size: 11px; font-weight: 600; color: var(--t2); }
+    .toggle {
+      width: 36px; height: 20px; border-radius: 100px;
+      background: var(--green); border: none; cursor: pointer;
+      position: relative; transition: background 200ms;
+    }
+    .toggle .knob {
+      position: absolute; top: 2px; left: 18px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      transition: left 200ms;
+    }
+
+    /* Main content */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .main-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px; border-bottom: 1px solid var(--bdr);
+      flex-shrink: 0; background: var(--card);
+    }
+    .main-title { font-size: 16px; font-weight: 700; color: var(--t1); }
+    .main-subtitle { font-size: 11px; color: var(--t3); margin-top: 2px; }
+    .main-actions { display: flex; gap: 8px; }
+    .btn {
+      font-size: 11px; font-weight: 600; padding: 6px 14px; border-radius: 8px;
+      border: 1px solid var(--bdr); background: none; cursor: pointer;
+      color: var(--t2); transition: all 150ms;
+    }
+    .btn:hover { background: var(--hover); color: var(--t1); }
+    .btn.primary { background: var(--t1); color: #fff; border-color: var(--t1); }
+
+    .main-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+    /* Sections in main body */
+    .section { margin-bottom: 24px; }
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .section-title { font-size: 13px; font-weight: 700; color: var(--t1); }
+    .section-meta { font-size: 10px; color: var(--t3); }
+
+    /* Cards grid */
+    .cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .info-card {
+      background: var(--card); border-radius: 10px;
+      padding: 14px 16px; border: 1px solid var(--bdr2);
+    }
+    .info-card-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--t3); }
+    .info-card-value { font-size: 20px; font-weight: 800; color: var(--t1); margin-top: 2px; }
+    .info-card-sub { font-size: 10px; color: var(--t3); }
+
+    /* Config form rows */
+    .config-group {
+      background: var(--card); border-radius: 12px;
+      border: 1px solid var(--bdr2); overflow: hidden;
+    }
+    .config-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--bdr2);
+    }
+    .config-row:last-child { border-bottom: none; }
+    .config-label { font-size: 12px; font-weight: 500; color: var(--t1); }
+    .config-desc { font-size: 10px; color: var(--t3); margin-top: 2px; }
+    .config-value {
+      font-size: 12px; font-weight: 600; color: var(--t1);
+      padding: 5px 10px; border-radius: 6px;
+      border: 1px solid var(--bdr); background: var(--bg);
+      min-width: 100px; text-align: center;
+    }
+    select.config-value { cursor: pointer; }
+
+    /* Timeline */
+    .timeline { display: flex; flex-direction: column; }
+    .tl-item {
+      display: flex; gap: 12px; padding: 10px 0;
+      position: relative;
+    }
+    .tl-item:not(:last-child)::after {
+      content: ''; position: absolute;
+      left: 11px; top: 30px; bottom: -10px;
+      width: 1px; background: var(--bdr2);
+    }
+    .tl-dot-outer {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; border: 2px solid var(--bg);
+    }
+    .tl-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .tl-time { font-size: 10px; font-family: 'SF Mono', Consolas, monospace; color: var(--t4); }
+    .tl-text { font-size: 12px; color: var(--t1); }
+    .tl-sub { font-size: 10px; color: var(--t3); }
+
+    /* Exec row */
+    .exec-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 10px 0; border-bottom: 1px solid var(--bdr2);
+    }
+    .exec-row:last-child { border-bottom: none; }
+    .exec-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .exec-id { font-size: 12px; font-weight: 600; color: var(--t1); min-width: 90px; }
+    .exec-agent { font-size: 11px; color: var(--t2); min-width: 60px; }
+    .exec-turn { font-size: 10px; color: var(--t3); min-width: 70px; }
+    .exec-progress { width: 80px; height: 4px; background: rgba(0,0,0,0.06); border-radius: 100px; overflow: hidden; }
+    .exec-progress-fill { height: 100%; border-radius: 100px; }
+    .exec-elapsed { font-size: 10px; color: var(--t3); margin-left: auto; }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Supervisor</div>
+      <div class="sidebar-status">
+        <span class="dot"></span>
+        <span class="sidebar-status-text">Active</span>
+        <span class="sidebar-status-sub">142 dispatched</span>
+      </div>
+    </div>
+
+    <!-- Mini stats -->
+    <div class="sidebar-stats">
+      <div class="mini-stat">
+        <div class="mini-stat-label">Success</div>
+        <div class="mini-stat-value" style="color: var(--green);">94%</div>
+      </div>
+      <div class="mini-stat">
+        <div class="mini-stat-label">Active</div>
+        <div class="mini-stat-value">3</div>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="sidebar-nav">
+      <div class="sidebar-section-label">Core</div>
+      <button class="sidebar-item active">
+        <div class="sidebar-item-icon" style="background: var(--tint-blue); color: var(--blue);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        </div>
+        Commander
+      </button>
+      <button class="sidebar-item">
+        <div class="sidebar-item-icon" style="background: var(--tint-green); color: var(--green);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        Executions
+        <span class="sidebar-item-badge" style="background: var(--tint-blue); color: var(--blue);">3</span>
+      </button>
+
+      <div class="sidebar-section-label">Automation</div>
+      <button class="sidebar-item">
+        <div class="sidebar-item-icon" style="background: var(--tint-orange); color: var(--orange);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        Schedules
+        <span class="sidebar-item-badge" style="background: var(--tint-green); color: var(--green);">4</span>
+      </button>
+      <button class="sidebar-item">
+        <div class="sidebar-item-icon" style="background: var(--tint-purple); color: var(--purple);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        Extensions
+        <span class="sidebar-item-badge" style="background: var(--tint-gray); color: var(--gray);">3</span>
+      </button>
+
+      <div class="sidebar-section-label">Intelligence</div>
+      <button class="sidebar-item">
+        <div class="sidebar-item-icon" style="background: var(--tint-yellow); color: var(--yellow);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </div>
+        Learning
+        <span class="sidebar-item-badge" style="background: var(--tint-orange); color: var(--orange);">3 new</span>
+      </button>
+      <button class="sidebar-item">
+        <div class="sidebar-item-icon" style="background: var(--tint-purple); color: var(--purple);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+        </div>
+        Prompts
+      </button>
+      <button class="sidebar-item">
+        <div class="sidebar-item-icon" style="background: var(--tint-gray); color: var(--gray);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06"/></svg>
+        </div>
+        Coordinator
+      </button>
+    </nav>
+
+    <!-- Footer toggle -->
+    <div class="sidebar-footer">
+      <span class="sidebar-footer-label">Supervisor</span>
+      <button class="toggle"><span class="knob"></span></button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <header class="main-header">
+      <div>
+        <div class="main-title">Commander</div>
+        <div class="main-subtitle">AI-driven task orchestration and decision engine</div>
+      </div>
+      <div class="main-actions">
+        <button class="btn">Pause</button>
+        <button class="btn" style="color: var(--red);">Stop</button>
+      </div>
+    </header>
+
+    <div class="main-body">
+      <!-- Metrics -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Metrics</div>
+        </div>
+        <div class="cards-grid">
+          <div class="info-card">
+            <div class="info-card-label">Tick Count</div>
+            <div class="info-card-value">48</div>
+            <div class="info-card-sub">Session since 12:00</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-label">Active Workers</div>
+            <div class="info-card-value">3</div>
+            <div class="info-card-sub">Max: 5</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-label">Last Tick</div>
+            <div class="info-card-value" style="font-size: 16px;">14:32:08</div>
+            <div class="info-card-sub">2 min ago</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Executions -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Active Executions</div>
+          <div class="section-meta">3 running</div>
+        </div>
+        <div class="config-group">
+          <div class="exec-row" style="padding: 12px 16px;">
+            <div class="exec-dot" style="background: var(--blue);"></div>
+            <span class="exec-id">ISSUE-045</span>
+            <span class="exec-agent">gemini</span>
+            <span class="exec-turn">Turn 3/8</span>
+            <div class="exec-progress"><div class="exec-progress-fill" style="width: 37.5%; background: var(--blue);"></div></div>
+            <span class="exec-elapsed">4m</span>
+          </div>
+          <div class="exec-row" style="padding: 12px 16px;">
+            <div class="exec-dot" style="background: var(--orange);"></div>
+            <span class="exec-id">ISSUE-046</span>
+            <span class="exec-agent">qwen</span>
+            <span class="exec-turn">Turn 1/6</span>
+            <div class="exec-progress"><div class="exec-progress-fill" style="width: 16.6%; background: var(--orange);"></div></div>
+            <span class="exec-elapsed">1m</span>
+          </div>
+          <div class="exec-row" style="padding: 12px 16px;">
+            <div class="exec-dot" style="background: var(--green);"></div>
+            <span class="exec-id">ISSUE-044</span>
+            <span class="exec-agent">codex</span>
+            <span class="exec-turn">Turn 5/8</span>
+            <div class="exec-progress"><div class="exec-progress-fill" style="width: 62.5%; background: var(--green);"></div></div>
+            <span class="exec-elapsed">12m</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuration -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Configuration</div>
+        </div>
+        <div class="config-group">
+          <div class="config-row">
+            <div>
+              <div class="config-label">Profile</div>
+              <div class="config-desc">Environment-specific behavior preset</div>
+            </div>
+            <select class="config-value">
+              <option selected>development</option>
+              <option>staging</option>
+              <option>production</option>
+            </select>
+          </div>
+          <div class="config-row">
+            <div>
+              <div class="config-label">Decision Model</div>
+              <div class="config-desc">AI model used for orchestration decisions</div>
+            </div>
+            <select class="config-value">
+              <option>haiku</option>
+              <option selected>sonnet</option>
+              <option>opus</option>
+            </select>
+          </div>
+          <div class="config-row">
+            <div>
+              <div class="config-label">Auto-Approve Threshold</div>
+              <div class="config-desc">Confidence level for auto-approving actions</div>
+            </div>
+            <select class="config-value">
+              <option>low</option>
+              <option selected>medium</option>
+              <option>high</option>
+            </select>
+          </div>
+          <div class="config-row">
+            <div>
+              <div class="config-label">Max Concurrent Workers</div>
+              <div class="config-desc">Maximum parallel agent executions</div>
+            </div>
+            <span class="config-value">5</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Decision History -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Recent Decisions</div>
+          <div class="section-meta">12 total</div>
+        </div>
+        <div class="config-group" style="padding: 16px;">
+          <div class="timeline">
+            <div class="tl-item">
+              <div class="tl-dot-outer"><div class="tl-dot" style="background: var(--green);"></div></div>
+              <div>
+                <div class="tl-time">14:32:08</div>
+                <div class="tl-text">tick - 2 actions dispatched</div>
+                <div class="tl-sub">Assigned ISSUE-045 to gemini, ISSUE-046 to qwen</div>
+              </div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot-outer"><div class="tl-dot" style="background: var(--green);"></div></div>
+              <div>
+                <div class="tl-time">14:30:15</div>
+                <div class="tl-text">tick - 1 action dispatched</div>
+                <div class="tl-sub">Completed ISSUE-043, assigned ISSUE-044</div>
+              </div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot-outer"><div class="tl-dot" style="background: var(--gray);"></div></div>
+              <div>
+                <div class="tl-time">14:28:00</div>
+                <div class="tl-text">tick - 0 actions (idle)</div>
+                <div class="tl-sub">1 deferred</div>
+              </div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot-outer"><div class="tl-dot" style="background: var(--orange);"></div></div>
+              <div>
+                <div class="tl-time">14:22:11</div>
+                <div class="tl-text">tick - 1 action, 2 deferred</div>
+                <div class="tl-sub">Risk: high complexity on auth module</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Latest Assessment -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Latest Assessment</div>
+        </div>
+        <div class="config-group">
+          <div class="config-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+            <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--t3);">Observations</div>
+            <div style="font-size: 11px; color: var(--t2); padding-left: 8px;">- Auth module tests passing, ready for integration</div>
+            <div style="font-size: 11px; color: var(--t2); padding-left: 8px;">- 3 issues in queue with no blockers</div>
+          </div>
+          <div class="config-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+            <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--t3);">Risks</div>
+            <div style="font-size: 11px; color: var(--red); padding-left: 8px;">- High complexity on ISSUE-047 may exceed turn limit</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

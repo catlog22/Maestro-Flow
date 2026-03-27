@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Supervisor Redesign — Top Nav Overlay + B-style Content</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 13px; line-height: 1.5;
+      background: #FAF8F5; color: #2D2A26;
+      -webkit-font-smoothing: antialiased;
+    }
+    :root {
+      --bg: #FAF8F5; --bg2: #F3F0EA; --card: #FFFFFF;
+      --hover: rgba(45,42,38,0.04); --active: rgba(45,42,38,0.07);
+      --t1: #2D2A26; --t2: #78756F; --t3: #A09D97; --t4: #D1CEC8;
+      --bdr: #E8E5DE; --bdr2: #ECEAE4;
+      --blue: #5B8DB8; --green: #5A9E78; --orange: #C8863A; --yellow: #B89540;
+      --purple: #9178B5; --red: #C46555; --gray: #A09D97;
+      --tint-green: rgba(90,158,120,0.12); --tint-yellow: rgba(184,149,64,0.12);
+      --tint-orange: rgba(200,134,58,0.12); --tint-purple: rgba(145,120,181,0.12);
+      --tint-gray: rgba(160,157,151,0.12); --tint-blue: rgba(91,141,184,0.12);
+      --tint-red: rgba(196,101,85,0.12);
+    }
+
+    .shell { display: flex; flex-direction: column; height: 100vh; position: relative; }
+
+    /* ================================================================
+       Bottom Status Bar — always visible, clickable to expand overlay
+       ================================================================ */
+    .status-bar {
+      display: flex; align-items: center; gap: 12px;
+      height: 44px; padding: 0 20px;
+      background: var(--card); border-top: 1px solid var(--bdr);
+      flex-shrink: 0; z-index: 60; position: relative;
+    }
+    .sb-title { font-size: 14px; font-weight: 700; color: var(--t1); }
+    .sb-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green); animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .sb-status {
+      font-size: 10px; font-weight: 600; padding: 2px 10px;
+      border-radius: 100px; display: inline-flex; align-items: center; gap: 5px;
+    }
+
+    /* Mini stats in bar */
+    .sb-stats { display: flex; align-items: center; gap: 14px; margin-left: 8px; }
+    .sb-stat { display: flex; align-items: baseline; gap: 4px; }
+    .sb-stat-value { font-size: 13px; font-weight: 700; color: var(--t1); }
+    .sb-stat-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--t3); }
+    .sb-stat-group { display: flex; align-items: center; gap: 14px; }
+    .sb-stat-group-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 2px 8px; border-radius: 4px; background: var(--hover); }
+    .sb-stat-divider { width: 1px; height: 18px; background: var(--bdr); margin: 0 4px; flex-shrink: 0; }
+
+    .sb-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .sb-nav-trigger {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 600; padding: 5px 12px;
+      border-radius: 8px; border: 1px solid var(--bdr);
+      background: none; cursor: pointer; color: var(--t2);
+      transition: all 150ms;
+    }
+    .sb-nav-trigger:hover { background: var(--hover); color: var(--t1); }
+    .sb-nav-trigger svg { width: 14px; height: 14px; stroke-width: 2; transition: transform 200ms; transform: rotate(180deg); }
+    .sb-nav-trigger.open svg { transform: rotate(0deg); }
+    .sb-toggle-group { display: flex; align-items: center; gap: 6px; }
+    .sb-toggle-item {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 10px; font-weight: 600; color: var(--t2);
+      cursor: pointer; user-select: none;
+    }
+    .sb-toggle-item .sb-tgl-label { text-transform: uppercase; letter-spacing: .04em; }
+    .sb-tgl {
+      width: 30px; height: 16px; border-radius: 100px;
+      background: var(--bdr); border: none; cursor: pointer;
+      position: relative; transition: background 200ms;
+      flex-shrink: 0;
+    }
+    .sb-tgl.on { background: var(--green); }
+    .sb-tgl .knob {
+      position: absolute; top: 2px; left: 2px;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+      transition: left 200ms;
+    }
+    .sb-tgl.on .knob { left: 16px; }
+    .sb-toggle-divider { width: 1px; height: 14px; background: var(--bdr); }
+
+    /* ================================================================
+       Overlay Nav Panel — slides up from bottom status bar
+       ================================================================ */
+    .overlay-backdrop {
+      position: absolute; inset: 0; bottom: 44px; z-index: 50;
+      background: rgba(0,0,0,0.18); backdrop-filter: blur(2px);
+      opacity: 0; pointer-events: none;
+      transition: opacity 200ms;
+    }
+    .overlay-backdrop.open { opacity: 1; pointer-events: auto; }
+
+    .overlay-panel {
+      position: absolute; bottom: 44px; left: 0; right: 0; z-index: 55;
+      background: var(--card);
+      border-top: 1px solid var(--bdr);
+      border-radius: 14px 14px 0 0;
+      box-shadow: 0 -12px 40px rgba(0,0,0,0.12);
+      transform: translateY(100%);
+      transition: transform 280ms cubic-bezier(0.34,1.56,0.64,1);
+      max-height: 60vh; overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+    .overlay-panel.open { transform: translateY(0); }
+
+    /* 3-column grid inside overlay */
+    .overlay-grid {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      flex: 1; overflow: auto;
+    }
+    .overlay-col {
+      padding: 16px 20px;
+    }
+    .overlay-col + .overlay-col { border-left: 1px solid var(--bdr2); }
+    .overlay-col-label {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--t3); margin-bottom: 10px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .overlay-col-badge {
+      font-size: 8px; font-weight: 700; padding: 1px 6px;
+      border-radius: 100px; background: var(--hover);
+    }
+
+    /* Nav items in overlay */
+    .ov-nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 8px;
+      border: none; background: none; cursor: pointer;
+      width: 100%; text-align: left;
+      font-size: 12px; font-weight: 500; color: var(--t2);
+      transition: all 120ms;
+    }
+    .ov-nav-item:hover { background: var(--hover); color: var(--t1); }
+    .ov-nav-item.active {
+      background: var(--active); color: var(--t1); font-weight: 600;
+    }
+    .ov-icon {
+      width: 28px; height: 28px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .ov-icon svg { width: 14px; height: 14px; stroke-width: 1.8; }
+    .ov-badge {
+      margin-left: auto; font-size: 9px; font-weight: 700;
+      padding: 1px 7px; border-radius: 100px;
+    }
+
+    /* Stat box in overlay */
+    .ov-stat {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 0; border-bottom: 1px solid var(--bdr2);
+    }
+    .ov-stat:last-child { border-bottom: none; }
+    .ov-stat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .ov-wf-steps { display: flex; gap: 4px; padding: 6px 0 2px 18px; }
+    .ov-wf-step {
+      width: 24px; height: 4px; border-radius: 2px;
+      background: var(--bdr); transition: background 200ms;
+    }
+    .ov-wf-step.done { background: var(--purple); }
+    .ov-wf-step.active { background: var(--purple); animation: pulse 2s infinite; }
+    .ov-stat-label { font-size: 11px; color: var(--t2); flex: 1; }
+    .ov-stat-value { font-size: 12px; font-weight: 700; color: var(--t1); }
+
+    /* Drag handle at top of overlay */
+    .overlay-handle {
+      display: flex; justify-content: center; padding: 6px 0;
+      border-bottom: 1px solid var(--bdr2); cursor: pointer;
+    }
+    .overlay-handle:hover { background: var(--hover); }
+    .overlay-handle-bar { width: 40px; height: 3px; border-radius: 100px; background: var(--t4); }
+
+    /* ================================================================
+       Tab navigation row — sits below status bar
+       ================================================================ */
+    .tab-row {
+      display: flex; align-items: center; gap: 0;
+      padding: 0 20px; background: var(--bg2);
+      border-bottom: 1px solid var(--bdr); flex-shrink: 0;
+    }
+    .tab-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 9px 14px; border: none; background: none;
+      cursor: pointer; font-size: 11px; font-weight: 500;
+      color: var(--t3); border-bottom: 2px solid transparent;
+      transition: all 150ms; white-space: nowrap;
+    }
+    .tab-btn:hover { color: var(--t1); }
+    .tab-btn.active {
+      color: var(--t1); font-weight: 600;
+      border-bottom-color: var(--t1);
+    }
+    .tab-btn svg { width: 13px; height: 13px; stroke-width: 1.8; }
+    .tab-badge {
+      font-size: 8px; font-weight: 700; padding: 1px 6px;
+      border-radius: 100px;
+    }
+
+    /* ================================================================
+       Main content area
+       ================================================================ */
+    .main { flex: 1; overflow-y: auto; padding: 20px 24px 40px; }
+
+    /* Section */
+    .section { margin-bottom: 24px; }
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .section-title { font-size: 13px; font-weight: 700; color: var(--t1); }
+    .section-meta { font-size: 10px; color: var(--t3); }
+    .section-actions { display: flex; gap: 6px; }
+
+    /* Shared button */
+    .btn {
+      font-size: 11px; font-weight: 600; padding: 5px 12px; border-radius: 8px;
+      border: 1px solid var(--bdr); background: none; cursor: pointer;
+      color: var(--t2); transition: all 150ms;
+    }
+    .btn:hover { background: var(--hover); color: var(--t1); }
+    .btn.primary { background: var(--t1); color: #fff; border-color: var(--t1); }
+    .btn.primary:hover { opacity: 0.9; }
+    .btn.danger { color: var(--red); border-color: var(--red); }
+    .btn.success { color: var(--green); border-color: var(--green); }
+
+    /* Cards grid */
+    .cards-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .cards-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .info-card {
+      background: var(--card); border-radius: 10px;
+      padding: 14px 16px; border: 1px solid var(--bdr2);
+    }
+    .info-card-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--t3); }
+    .info-card-value { font-size: 20px; font-weight: 800; color: var(--t1); margin-top: 2px; }
+    .info-card-sub { font-size: 10px; color: var(--t3); }
+
+    /* Panel card */
+    .panel {
+      background: var(--card); border-radius: 12px;
+      border: 1px solid var(--bdr2); overflow: hidden;
+    }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--bdr2);
+    }
+    .panel-title { font-size: 12px; font-weight: 700; color: var(--t1); }
+    .panel-badge { font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 100px; }
+    .panel-body { padding: 14px 16px; }
+    .panel-body.no-pad { padding: 0; }
+
+    /* Config group */
+    .config-group {
+      background: var(--card); border-radius: 12px;
+      border: 1px solid var(--bdr2); overflow: hidden;
+    }
+    .config-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--bdr2);
+    }
+    .config-row:last-child { border-bottom: none; }
+    .config-label { font-size: 12px; font-weight: 500; color: var(--t1); }
+    .config-desc { font-size: 10px; color: var(--t3); margin-top: 2px; }
+    .config-value {
+      font-size: 12px; font-weight: 600; color: var(--t1);
+      padding: 4px 10px; border-radius: 6px;
+      border: 1px solid var(--bdr); background: var(--bg);
+      min-width: 100px; text-align: center;
+    }
+    select.config-value { cursor: pointer; }
+
+    /* Exec row */
+    .exec-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px; border-bottom: 1px solid var(--bdr2);
+      transition: background 120ms;
+    }
+    .exec-row:hover { background: var(--hover); }
+    .exec-row:last-child { border-bottom: none; }
+    .exec-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .exec-id { font-size: 12px; font-weight: 600; color: var(--t1); min-width: 90px; }
+    .exec-agent {
+      font-size: 10px; font-weight: 600; padding: 2px 8px;
+      border-radius: 100px;
+    }
+    .exec-turn { font-size: 10px; color: var(--t3); min-width: 70px; }
+    .exec-bar { flex: 1; height: 4px; background: rgba(0,0,0,0.06); border-radius: 100px; overflow: hidden; min-width: 60px; }
+    .exec-bar-fill { height: 100%; border-radius: 100px; }
+    .exec-elapsed { font-size: 10px; color: var(--t3); }
+
+    /* Timeline */
+    .tl-item {
+      display: flex; gap: 12px; padding: 10px 0;
+      position: relative;
+    }
+    .tl-item:not(:last-child)::after {
+      content: ''; position: absolute;
+      left: 11px; top: 30px; bottom: -10px;
+      width: 1px; background: var(--bdr2);
+    }
+    .tl-dot-outer {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; border: 2px solid var(--bg);
+    }
+    .tl-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .tl-time { font-size: 10px; font-family: 'SF Mono', Consolas, monospace; color: var(--t4); }
+    .tl-text { font-size: 12px; color: var(--t1); }
+    .tl-sub { font-size: 10px; color: var(--t3); }
+
+    /* Pattern row */
+    .pattern-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--bdr2);
+    }
+    .pattern-row:last-child { border-bottom: none; }
+    .pattern-name {
+      font-size: 12px; font-weight: 600; color: var(--t1);
+      font-family: 'SF Mono', Consolas, monospace; min-width: 130px;
+    }
+    .pattern-bar-track { flex: 1; height: 6px; background: rgba(0,0,0,0.04); border-radius: 100px; overflow: hidden; }
+    .pattern-bar-fill { height: 100%; border-radius: 100px; }
+    .pattern-meta { font-size: 10px; color: var(--t3); white-space: nowrap; }
+
+    /* Schedule row */
+    .sched-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px; border-bottom: 1px solid var(--bdr2);
+      transition: background 120ms;
+    }
+    .sched-row:hover { background: var(--hover); }
+    .sched-row:last-child { border-bottom: none; }
+    .sched-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sched-icon svg { width: 14px; height: 14px; stroke-width: 1.8; }
+    .sched-info { flex: 1; min-width: 0; }
+    .sched-name { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .sched-meta { font-size: 10px; color: var(--t3); display: flex; gap: 8px; }
+    .sched-cron { font-family: 'SF Mono', Consolas, monospace; }
+    .sched-status { font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 100px; }
+
+    /* Suggestion */
+    .suggestion {
+      display: flex; gap: 10px; padding: 10px 0;
+      border-bottom: 1px solid var(--bdr2);
+    }
+    .suggestion:last-child { border-bottom: none; }
+    .suggestion-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+    .suggestion-title { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .suggestion-desc { font-size: 11px; color: var(--t2); margin-top: 1px; }
+
+    /* Extension row */
+    .ext-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px; border-bottom: 1px solid var(--bdr2);
+      transition: background 120ms;
+    }
+    .ext-row:hover { background: var(--hover); }
+    .ext-row:last-child { border-bottom: none; }
+    .ext-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ext-icon svg { width: 14px; height: 14px; stroke-width: 1.8; }
+    .ext-info { flex: 1; min-width: 0; }
+    .ext-name { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .ext-desc { font-size: 10px; color: var(--t3); display: flex; gap: 8px; }
+    .ext-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+    /* Prompt mode row */
+    .prompt-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px; border-bottom: 1px solid var(--bdr2);
+      cursor: pointer; transition: background 120ms;
+    }
+    .prompt-row:hover { background: var(--hover); }
+    .prompt-row:last-child { border-bottom: none; }
+    .prompt-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .prompt-icon svg { width: 14px; height: 14px; stroke-width: 1.8; }
+
+    /* Code preview */
+    .code-preview {
+      margin: 0; padding: 14px 16px; font-size: 11px; line-height: 1.6;
+      white-space: pre-wrap; word-break: break-word;
+      font-family: 'SF Mono', Consolas, monospace;
+      background: #2C2723; color: #D9D0C4;
+      border-radius: 0 0 12px 12px;
+      max-height: 180px; overflow-y: auto;
+    }
+
+    /* Knowledge entry */
+    .kb-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px; border-bottom: 1px solid var(--bdr2);
+      transition: background 120ms;
+    }
+    .kb-row:hover { background: var(--hover); }
+    .kb-row:last-child { border-bottom: none; }
+    .kb-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .kb-icon svg { width: 14px; height: 14px; stroke-width: 1.8; }
+    .kb-info { flex: 1; min-width: 0; }
+    .kb-topic { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .kb-meta { font-size: 10px; color: var(--t3); display: flex; gap: 8px; }
+    .tag {
+      font-size: 9px; font-weight: 600; padding: 1px 7px;
+      border-radius: 100px; display: inline-flex;
+    }
+
+    /* Two-column layout */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    /* Hidden tabs */
+    .tab-page { display: none; }
+    .tab-page.active { display: block; }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <!-- ============================================================
+       TAB ROW
+       ============================================================ -->
+  <nav class="tab-row" id="tabRow">
+    <button class="tab-btn active" data-tab="commander" onclick="switchTab('commander')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      Commander
+    </button>
+    <button class="tab-btn" data-tab="executions" onclick="switchTab('executions')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Executions
+      <span class="tab-badge" style="background: var(--tint-blue); color: var(--blue);">3</span>
+    </button>
+    <button class="tab-btn" data-tab="schedules" onclick="switchTab('schedules')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Schedules
+      <span class="tab-badge" style="background: var(--tint-green); color: var(--green);">4</span>
+    </button>
+    <button class="tab-btn" data-tab="learning" onclick="switchTab('learning')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      Learning
+      <span class="tab-badge" style="background: var(--tint-orange); color: var(--orange);">3</span>
+    </button>
+    <button class="tab-btn" data-tab="extensions" onclick="switchTab('extensions')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      Extensions
+    </button>
+    <button class="tab-btn" data-tab="prompts" onclick="switchTab('prompts')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+      Prompts
+    </button>
+    <button class="tab-btn" data-tab="coordinator" onclick="switchTab('coordinator')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09"/></svg>
+      Coordinator
+    </button>
+  </nav>
+
+  <!-- ============================================================
+       TAB PAGES
+       ============================================================ -->
+
+  <!-- ========== COMMANDER ========== -->
+  <div class="main tab-page active" id="page-commander">
+    <!-- Metrics -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Metrics</div>
+        <div class="section-actions">
+          <button class="btn" onclick="switchTab('executions')">View Executions</button>
+          <button class="btn danger">Stop</button>
+        </div>
+      </div>
+      <div class="cards-3">
+        <div class="info-card">
+          <div class="info-card-label">Tick Count</div>
+          <div class="info-card-value">48</div>
+          <div class="info-card-sub">Session since 12:00</div>
+        </div>
+        <div class="info-card">
+          <div class="info-card-label">Active Workers</div>
+          <div class="info-card-value">3</div>
+          <div class="info-card-sub">Max: 5</div>
+        </div>
+        <div class="info-card">
+          <div class="info-card-label">Last Tick</div>
+          <div class="info-card-value" style="font-size: 16px;">14:32:08</div>
+          <div class="info-card-sub">2 min ago</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Configuration -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Configuration</div>
+      </div>
+      <div class="config-group">
+        <div class="config-row">
+          <div><div class="config-label">Profile</div><div class="config-desc">Environment-specific behavior preset</div></div>
+          <select class="config-value"><option selected>development</option><option>staging</option><option>production</option></select>
+        </div>
+        <div class="config-row">
+          <div><div class="config-label">Decision Model</div><div class="config-desc">AI model for orchestration decisions</div></div>
+          <select class="config-value"><option>haiku</option><option selected>sonnet</option><option>opus</option></select>
+        </div>
+        <div class="config-row">
+          <div><div class="config-label">Auto-Approve</div><div class="config-desc">Confidence threshold for auto-approval</div></div>
+          <select class="config-value"><option>low</option><option selected>medium</option><option>high</option></select>
+        </div>
+        <div class="config-row">
+          <div><div class="config-label">Max Workers</div><div class="config-desc">Maximum parallel agent executions</div></div>
+          <span class="config-value">5</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Two-column: Decisions + Assessment -->
+    <div class="two-col">
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Recent Decisions</div>
+          <div class="section-meta">12 total</div>
+        </div>
+        <div class="panel">
+          <div class="panel-body">
+            <div class="tl-item">
+              <div class="tl-dot-outer"><div class="tl-dot" style="background: var(--green);"></div></div>
+              <div><div class="tl-time">14:32:08</div><div class="tl-text">tick - 2 actions dispatched</div><div class="tl-sub">ISSUE-045 to gemini, ISSUE-046 to qwen</div></div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot-outer"><div class="tl-dot" style="background: var(--green);"></div></div>
+              <div><div class="tl-time">14:30:15</div><div class="tl-text">tick - 1 action dispatched</div><div class="tl-sub">Completed ISSUE-043, assigned ISSUE-044</div></div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot-outer"><div class="tl-dot" style="background: var(--gray);"></div></div>
+              <div><div class="tl-time">14:28:00</div><div class="tl-text">tick - 0 actions (idle)</div><div class="tl-sub">1 deferred</div></div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot-outer"><div class="tl-dot" style="background: var(--orange);"></div></div>
+              <div><div class="tl-time">14:22:11</div><div class="tl-text">tick - 1 action, 2 deferred</div><div class="tl-sub">Risk: high complexity on auth module</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Latest Assessment</div>
+        </div>
+        <div class="panel">
+          <div class="panel-body">
+            <div style="margin-bottom: 12px;">
+              <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--t3); margin-bottom: 6px;">Observations</div>
+              <div style="font-size: 11px; color: var(--t2); padding-left: 8px; line-height: 1.8;">- Auth module tests passing, ready for integration<br>- 3 issues in queue with no blockers<br>- Worker utilization at 60%</div>
+            </div>
+            <div>
+              <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--t3); margin-bottom: 6px;">Risks</div>
+              <div style="font-size: 11px; color: var(--red); padding-left: 8px; line-height: 1.8;">- ISSUE-047 may exceed turn limit</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 16px;">
+          <div class="section-header"><div class="section-title">Suggestions</div><span class="panel-badge" style="background: var(--tint-orange); color: var(--orange);">3 new</span></div>
+          <div class="panel">
+            <div class="panel-body">
+              <div class="suggestion"><div class="suggestion-dot" style="background: var(--green);"></div><div><div class="suggestion-title">Batch similar tasks</div><div class="suggestion-desc">Group auth-related issues for 30% faster execution (92%)</div></div></div>
+              <div class="suggestion"><div class="suggestion-dot" style="background: var(--yellow);"></div><div><div class="suggestion-title">Slow executor detected</div><div class="suggestion-desc">codex averaging 4.2min vs 2.1min target (87%)</div></div></div>
+              <div class="suggestion"><div class="suggestion-dot" style="background: var(--purple);"></div><div><div class="suggestion-title">Auto-schedule cleanup</div><div class="suggestion-desc">Enable nightly artifact cleanup to save 2GB (78%)</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== EXECUTIONS ========== -->
+  <div class="main tab-page" id="page-executions">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Active Executions</div>
+        <div class="section-meta">3 running, 2 queued</div>
+      </div>
+      <div class="cards-4">
+        <div class="info-card"><div class="info-card-label">Running</div><div class="info-card-value" style="color: var(--blue);">3</div></div>
+        <div class="info-card"><div class="info-card-label">Queued</div><div class="info-card-value">2</div></div>
+        <div class="info-card"><div class="info-card-label">Completed Today</div><div class="info-card-value" style="color: var(--green);">18</div></div>
+        <div class="info-card"><div class="info-card-label">Failed Today</div><div class="info-card-value" style="color: var(--red);">1</div></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="section-title">Running</div></div>
+      <div class="panel">
+        <div class="panel-body no-pad">
+          <div class="exec-row">
+            <div class="exec-dot" style="background: var(--blue);"></div>
+            <span class="exec-id">ISSUE-045</span>
+            <span class="exec-agent" style="background: var(--tint-blue); color: var(--blue);">gemini</span>
+            <span class="exec-turn">Turn 3/8</span>
+            <div class="exec-bar"><div class="exec-bar-fill" style="width: 37.5%; background: var(--blue);"></div></div>
+            <span class="exec-elapsed">4m</span>
+          </div>
+          <div class="exec-row">
+            <div class="exec-dot" style="background: var(--orange);"></div>
+            <span class="exec-id">ISSUE-046</span>
+            <span class="exec-agent" style="background: var(--tint-orange); color: var(--orange);">qwen</span>
+            <span class="exec-turn">Turn 1/6</span>
+            <div class="exec-bar"><div class="exec-bar-fill" style="width: 16.6%; background: var(--orange);"></div></div>
+            <span class="exec-elapsed">1m</span>
+          </div>
+          <div class="exec-row">
+            <div class="exec-dot" style="background: var(--green);"></div>
+            <span class="exec-id">ISSUE-044</span>
+            <span class="exec-agent" style="background: var(--tint-green); color: var(--green);">codex</span>
+            <span class="exec-turn">Turn 5/8</span>
+            <div class="exec-bar"><div class="exec-bar-fill" style="width: 62.5%; background: var(--green);"></div></div>
+            <span class="exec-elapsed">12m</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="section-title">Queued</div></div>
+      <div class="panel">
+        <div class="panel-body no-pad">
+          <div class="exec-row">
+            <div class="exec-dot" style="background: var(--gray);"></div>
+            <span class="exec-id">ISSUE-047</span>
+            <span class="exec-agent" style="background: var(--tint-gray); color: var(--gray);">pending</span>
+            <span class="exec-turn">Waiting for slot</span>
+            <span class="exec-elapsed">queued 2m ago</span>
+          </div>
+          <div class="exec-row">
+            <div class="exec-dot" style="background: var(--gray);"></div>
+            <span class="exec-id">ISSUE-048</span>
+            <span class="exec-agent" style="background: var(--tint-gray); color: var(--gray);">pending</span>
+            <span class="exec-turn">Waiting for slot</span>
+            <span class="exec-elapsed">queued 1m ago</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== SCHEDULES ========== -->
+  <div class="main tab-page" id="page-schedules">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Scheduled Tasks</div>
+        <div class="section-actions">
+          <button class="btn primary">+ New Schedule</button>
+        </div>
+      </div>
+      <div class="cards-3">
+        <div class="info-card"><div class="info-card-label">Active</div><div class="info-card-value" style="color: var(--green);">4</div></div>
+        <div class="info-card"><div class="info-card-label">Paused</div><div class="info-card-value">2</div></div>
+        <div class="info-card"><div class="info-card-label">Total Runs</div><div class="info-card-value">287</div><div class="info-card-sub">96% success</div></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="panel">
+        <div class="panel-body no-pad">
+          <div class="sched-row">
+            <div class="sched-icon" style="background: var(--tint-orange); color: var(--orange);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg></div>
+            <div class="sched-info"><div class="sched-name">Auto Dispatch</div><div class="sched-meta"><span class="sched-cron">*/5 * * * *</span><span>Last: 2m ago</span></div></div>
+            <span class="sched-status" style="background: var(--tint-green); color: var(--green);">active</span>
+          </div>
+          <div class="sched-row">
+            <div class="sched-icon" style="background: var(--tint-blue); color: var(--blue);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></div>
+            <div class="sched-info"><div class="sched-name">Nightly Cleanup</div><div class="sched-meta"><span class="sched-cron">0 3 * * *</span><span>Last: 11h ago</span></div></div>
+            <span class="sched-status" style="background: var(--tint-green); color: var(--green);">active</span>
+          </div>
+          <div class="sched-row">
+            <div class="sched-icon" style="background: var(--tint-purple); color: var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+            <div class="sched-info"><div class="sched-name">Daily Report</div><div class="sched-meta"><span class="sched-cron">0 18 * * *</span><span>Last: yesterday</span></div></div>
+            <span class="sched-status" style="background: var(--tint-gray); color: var(--gray);">paused</span>
+          </div>
+          <div class="sched-row">
+            <div class="sched-icon" style="background: var(--tint-green); color: var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+            <div class="sched-info"><div class="sched-name">Health Check</div><div class="sched-meta"><span class="sched-cron">*/15 * * * *</span><span>Last: 8m ago</span></div></div>
+            <span class="sched-status" style="background: var(--tint-green); color: var(--green);">active</span>
+          </div>
+          <div class="sched-row">
+            <div class="sched-icon" style="background: var(--tint-yellow); color: var(--yellow);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+            <div class="sched-info"><div class="sched-name">Learning Analysis</div><div class="sched-meta"><span class="sched-cron">0 */6 * * *</span><span>Last: 3h ago</span></div></div>
+            <span class="sched-status" style="background: var(--tint-green); color: var(--green);">active</span>
+          </div>
+          <div class="sched-row">
+            <div class="sched-icon" style="background: var(--tint-gray); color: var(--gray);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09"/></svg></div>
+            <div class="sched-info"><div class="sched-name">Custom: Sync Repos</div><div class="sched-meta"><span class="sched-cron">0 9 * * 1</span><span>Last: 5d ago</span></div></div>
+            <span class="sched-status" style="background: var(--tint-gray); color: var(--gray);">paused</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== LEARNING ========== -->
+  <div class="main tab-page" id="page-learning">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Learning Engine</div>
+        <div class="section-meta">5 patterns, 18 knowledge entries</div>
+      </div>
+      <div class="cards-3">
+        <div class="info-card"><div class="info-card-label">Total Commands</div><div class="info-card-value">312</div></div>
+        <div class="info-card"><div class="info-card-label">Unique Patterns</div><div class="info-card-value">5</div></div>
+        <div class="info-card"><div class="info-card-label">Knowledge Entries</div><div class="info-card-value">18</div></div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <!-- Patterns -->
+      <div class="section">
+        <div class="section-header"><div class="section-title">Command Patterns</div></div>
+        <div class="panel">
+          <div class="panel-body">
+            <div class="pattern-row"><span class="pattern-name">quality-review</span><div class="pattern-bar-track"><div class="pattern-bar-fill" style="width:100%;background:var(--green)"></div></div><span class="pattern-meta">34 / 97%</span></div>
+            <div class="pattern-row"><span class="pattern-name">maestro-execute</span><div class="pattern-bar-track"><div class="pattern-bar-fill" style="width:76%;background:var(--green)"></div></div><span class="pattern-meta">26 / 92%</span></div>
+            <div class="pattern-row"><span class="pattern-name">quality-test-gen</span><div class="pattern-bar-track"><div class="pattern-bar-fill" style="width:58%;background:var(--blue)"></div></div><span class="pattern-meta">20 / 85%</span></div>
+            <div class="pattern-row"><span class="pattern-name">maestro-plan</span><div class="pattern-bar-track"><div class="pattern-bar-fill" style="width:41%;background:var(--blue)"></div></div><span class="pattern-meta">14 / 88%</span></div>
+            <div class="pattern-row"><span class="pattern-name">quality-debug</span><div class="pattern-bar-track"><div class="pattern-bar-fill" style="width:29%;background:var(--yellow)"></div></div><span class="pattern-meta">10 / 72%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Knowledge Base -->
+      <div class="section">
+        <div class="section-header"><div class="section-title">Knowledge Base</div><div class="section-meta">18 entries</div></div>
+        <div class="panel">
+          <div class="panel-body no-pad">
+            <div class="kb-row">
+              <div class="kb-icon" style="background: var(--tint-green); color: var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+              <div class="kb-info"><div class="kb-topic">TypeScript compilation patterns</div><div class="kb-meta"><span>manual</span><span>used 12x</span></div></div>
+              <span class="tag" style="background: var(--tint-blue); color: var(--blue);">typescript</span>
+            </div>
+            <div class="kb-row">
+              <div class="kb-icon" style="background: var(--tint-green); color: var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+              <div class="kb-info"><div class="kb-topic">ESM import conventions</div><div class="kb-meta"><span>auto</span><span>used 8x</span></div></div>
+              <span class="tag" style="background: var(--tint-purple); color: var(--purple);">convention</span>
+            </div>
+            <div class="kb-row">
+              <div class="kb-icon" style="background: var(--tint-green); color: var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+              <div class="kb-info"><div class="kb-topic">Test framework setup</div><div class="kb-meta"><span>auto</span><span>used 5x</span></div></div>
+              <span class="tag" style="background: var(--tint-orange); color: var(--orange);">testing</span>
+            </div>
+            <div class="kb-row">
+              <div class="kb-icon" style="background: var(--tint-green); color: var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+              <div class="kb-info"><div class="kb-topic">React component patterns</div><div class="kb-meta"><span>manual</span><span>used 15x</span></div></div>
+              <span class="tag" style="background: var(--tint-blue); color: var(--blue);">react</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== EXTENSIONS ========== -->
+  <div class="main tab-page" id="page-extensions">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Extensions</div>
+        <div class="section-meta">3 loaded, 3 enabled</div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="panel">
+        <div class="panel-body no-pad">
+          <div class="ext-row">
+            <div class="ext-icon" style="background: var(--tint-blue); color: var(--blue);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+            <div class="ext-info"><div class="ext-name">git-auto-commit</div><div class="ext-desc"><span>strategy</span><span>v1.2</span><span>Auto-commit on task completion</span></div></div>
+            <span class="ext-dot" style="background: var(--green);"></span>
+            <span class="sched-status" style="background: var(--tint-green); color: var(--green);">enabled</span>
+          </div>
+          <div class="ext-row">
+            <div class="ext-icon" style="background: var(--tint-green); color: var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></div>
+            <div class="ext-info"><div class="ext-name">test-runner</div><div class="ext-desc"><span>builder</span><span>v2.0</span><span>Automatic test execution pipeline</span></div></div>
+            <span class="ext-dot" style="background: var(--green);"></span>
+            <span class="sched-status" style="background: var(--tint-green); color: var(--green);">enabled</span>
+          </div>
+          <div class="ext-row">
+            <div class="ext-icon" style="background: var(--tint-orange); color: var(--orange);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+            <div class="ext-info"><div class="ext-name">lint-adapter</div><div class="ext-desc"><span>adapter</span><span>v1.0</span><span>ESLint integration adapter</span></div></div>
+            <span class="ext-dot" style="background: var(--green);"></span>
+            <span class="sched-status" style="background: var(--tint-green); color: var(--green);">enabled</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== PROMPTS ========== -->
+  <div class="main tab-page" id="page-prompts">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Prompt Builders</div>
+        <div class="section-meta">4 modes, 2 bound</div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="section">
+        <div class="section-header"><div class="section-title">Modes</div></div>
+        <div class="panel">
+          <div class="panel-body no-pad">
+            <div class="prompt-row">
+              <div class="prompt-icon" style="background: var(--tint-purple); color: var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg></div>
+              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--t1)">analysis</div><div style="font-size:10px;color:var(--t3)">Read-only analysis mode</div></div>
+              <span class="sched-status" style="background: var(--tint-green); color: var(--green);">bound</span>
+            </div>
+            <div class="prompt-row">
+              <div class="prompt-icon" style="background: var(--tint-purple); color: var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg></div>
+              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--t1)">write</div><div style="font-size:10px;color:var(--t3)">Create/modify/delete files</div></div>
+              <span class="sched-status" style="background: var(--tint-green); color: var(--green);">bound</span>
+            </div>
+            <div class="prompt-row">
+              <div class="prompt-icon" style="background: var(--tint-gray); color: var(--gray);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg></div>
+              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--t1)">review</div><div style="font-size:10px;color:var(--t3)">Code review mode</div></div>
+              <span class="sched-status" style="background: var(--tint-gray); color: var(--gray);">unbound</span>
+            </div>
+            <div class="prompt-row">
+              <div class="prompt-icon" style="background: var(--tint-gray); color: var(--gray);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg></div>
+              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--t1)">custom</div><div style="font-size:10px;color:var(--t3)">Custom prompt template</div></div>
+              <span class="sched-status" style="background: var(--tint-gray); color: var(--gray);">unbound</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header"><div class="section-title">Template Editor</div></div>
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">analysis</span><span class="panel-badge" style="background: var(--tint-green); color: var(--green);">bound</span></div>
+          <div class="panel-body">
+            <textarea style="width:100%;min-height:120px;resize:vertical;border-radius:8px;padding:10px;font-size:11px;font-family:'SF Mono',Consolas,monospace;line-height:1.6;background:var(--bg2);color:var(--t1);border:1px solid var(--bdr2);outline:none;" placeholder="Enter prompt template...">You are a code analysis agent. Analyze the provided codebase for:
+- Architecture patterns and anti-patterns
+- Performance bottlenecks
+- Security vulnerabilities
+- Code quality issues
+
+Provide actionable recommendations with file:line references.</textarea>
+          </div>
+          <pre class="code-preview">You are a code analysis agent. Analyze the provided codebase for:
+- Architecture patterns and anti-patterns
+- Performance bottlenecks
+- Security vulnerabilities
+- Code quality issues
+
+Provide actionable recommendations with file:line references.</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== COORDINATOR ========== -->
+  <div class="main tab-page" id="page-coordinator">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Coordinator</div>
+        <div class="section-meta">Workflow coordination panel</div>
+      </div>
+      <div class="panel">
+        <div class="panel-body" style="text-align: center; padding: 48px; color: var(--t3);">
+          <svg style="width: 32px; height: 32px; margin: 0 auto 12px; opacity: 0.3;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06"/></svg>
+          <div style="font-size: 13px; font-weight: 600;">CoordinatePanel embedded here</div>
+          <div style="font-size: 11px; margin-top: 4px;">Workflow coordination and task routing</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       OVERLAY PANEL (slides up from bottom status bar)
+       ============================================================ -->
+  <div class="overlay-backdrop" id="overlayBackdrop" onclick="toggleOverlay()"></div>
+  <div class="overlay-panel" id="overlayPanel">
+    <div class="overlay-handle" onclick="toggleOverlay()">
+      <div class="overlay-handle-bar"></div>
+    </div>
+    <div class="overlay-grid">
+      <!-- Col 1: Navigation -->
+      <div class="overlay-col">
+        <div class="overlay-col-label">Navigation</div>
+        <button class="ov-nav-item active" onclick="switchTab('commander')">
+          <div class="ov-icon" style="background: var(--tint-blue); color: var(--blue);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+          Commander
+          <span class="ov-badge" style="background: var(--tint-green); color: var(--green);">thinking</span>
+        </button>
+        <button class="ov-nav-item" onclick="switchTab('executions')">
+          <div class="ov-icon" style="background: var(--tint-blue); color: var(--blue);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+          Executions
+          <span class="ov-badge" style="background: var(--tint-blue); color: var(--blue);">3</span>
+        </button>
+        <button class="ov-nav-item" onclick="switchTab('schedules')">
+          <div class="ov-icon" style="background: var(--tint-orange); color: var(--orange);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+          Schedules
+          <span class="ov-badge" style="background: var(--tint-green); color: var(--green);">4</span>
+        </button>
+        <button class="ov-nav-item" onclick="switchTab('learning')">
+          <div class="ov-icon" style="background: var(--tint-yellow); color: var(--yellow);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+          Learning
+          <span class="ov-badge" style="background: var(--tint-orange); color: var(--orange);">3 new</span>
+        </button>
+        <button class="ov-nav-item" onclick="switchTab('extensions')">
+          <div class="ov-icon" style="background: var(--tint-purple); color: var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+          Extensions
+          <span class="ov-badge" style="background: var(--tint-gray); color: var(--gray);">3</span>
+        </button>
+        <button class="ov-nav-item" onclick="switchTab('prompts')">
+          <div class="ov-icon" style="background: var(--tint-purple); color: var(--purple);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg></div>
+          Prompts
+        </button>
+        <button class="ov-nav-item" onclick="switchTab('coordinator')">
+          <div class="ov-icon" style="background: var(--tint-gray); color: var(--gray);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09"/></svg></div>
+          Coordinator
+        </button>
+      </div>
+
+      <!-- Col 2: Issue Executions + Workflow Sessions -->
+      <div class="overlay-col">
+        <div class="overlay-col-label">
+          <svg style="width:12px;height:12px;color:var(--blue);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Issue Executions <span class="overlay-col-badge">3</span>
+        </div>
+        <div class="ov-stat">
+          <div class="ov-stat-dot" style="background: var(--blue);"></div>
+          <span class="ov-stat-label">ISSUE-045 <span style="color: var(--t3);">gemini</span></span>
+          <span class="ov-stat-value">Turn 3/8</span>
+        </div>
+        <div class="ov-stat">
+          <div class="ov-stat-dot" style="background: var(--orange);"></div>
+          <span class="ov-stat-label">ISSUE-046 <span style="color: var(--t3);">qwen</span></span>
+          <span class="ov-stat-value">Turn 1/6</span>
+        </div>
+        <div class="ov-stat">
+          <div class="ov-stat-dot" style="background: var(--green);"></div>
+          <span class="ov-stat-label">ISSUE-044 <span style="color: var(--t3);">codex</span></span>
+          <span class="ov-stat-value">Turn 5/8</span>
+        </div>
+
+        <div style="margin-top: 16px;">
+          <div class="overlay-col-label">
+            <svg style="width:12px;height:12px;color:var(--purple);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Workflow Sessions <span class="overlay-col-badge" style="background: var(--tint-purple); color: var(--purple);">1</span>
+          </div>
+          <div class="ov-stat">
+            <div class="ov-stat-dot" style="background: var(--purple);"></div>
+            <span class="ov-stat-label">analyze-plan-execute <span style="color: var(--t3);">claude</span></span>
+            <span class="ov-stat-value">Step 3/5</span>
+          </div>
+          <div class="ov-wf-steps">
+            <span class="ov-wf-step done"></span>
+            <span class="ov-wf-step done"></span>
+            <span class="ov-wf-step active"></span>
+            <span class="ov-wf-step"></span>
+            <span class="ov-wf-step"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Col 3: Commander status + Suggestions -->
+      <div class="overlay-col">
+        <div class="overlay-col-label">Commander <span class="overlay-col-badge" style="background: var(--tint-green); color: var(--green);">thinking</span></div>
+        <div class="ov-stat"><div class="ov-stat-dot" style="background: var(--green);"></div><span class="ov-stat-label">Ticks</span><span class="ov-stat-value">48</span></div>
+        <div class="ov-stat"><span class="ov-stat-dot" style="background: var(--blue);"></span><span class="ov-stat-label">Workers</span><span class="ov-stat-value">3 / 5</span></div>
+        <div class="ov-stat"><span class="ov-stat-dot" style="background: var(--purple);"></span><span class="ov-stat-label">Profile</span><span class="ov-stat-value">development</span></div>
+        <div class="ov-stat"><span class="ov-stat-dot" style="background: var(--orange);"></span><span class="ov-stat-label">Model</span><span class="ov-stat-value">sonnet</span></div>
+
+        <div style="margin-top: 16px;">
+          <div class="overlay-col-label">Suggestions <span class="overlay-col-badge" style="background: var(--tint-orange); color: var(--orange);">3</span></div>
+          <div style="font-size: 11px; color: var(--t2); display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; gap: 6px; align-items: center;"><span style="width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0;"></span>Batch similar tasks (92%)</div>
+            <div style="display: flex; gap: 6px; align-items: center;"><span style="width: 6px; height: 6px; border-radius: 50%; background: var(--yellow); flex-shrink: 0;"></span>Slow executor detected (87%)</div>
+            <div style="display: flex; gap: 6px; align-items: center;"><span style="width: 6px; height: 6px; border-radius: 50%; background: var(--purple); flex-shrink: 0;"></span>Auto-schedule cleanup (78%)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       BOTTOM STATUS BAR (always visible)
+       ============================================================ -->
+  <footer class="status-bar">
+    <span class="sb-title">Supervisor</span>
+    <span class="sb-status" style="background: var(--tint-green); color: var(--green);">
+      <span class="sb-dot"></span>
+      Active
+    </span>
+
+    <div class="sb-stats">
+      <div class="sb-stat-group">
+        <span class="sb-stat-group-label" style="color: var(--blue);">Issues</span>
+        <div class="sb-stat">
+          <span class="sb-stat-value">3</span>
+          <span class="sb-stat-label">running</span>
+        </div>
+        <div class="sb-stat">
+          <span class="sb-stat-value">5</span>
+          <span class="sb-stat-label">queued</span>
+        </div>
+        <div class="sb-stat">
+          <span class="sb-stat-value" style="color: var(--green);">94%</span>
+          <span class="sb-stat-label">success</span>
+        </div>
+      </div>
+      <div class="sb-stat-divider"></div>
+      <div class="sb-stat-group">
+        <span class="sb-stat-group-label" style="color: var(--purple);">Workflow</span>
+        <div class="sb-stat">
+          <span class="sb-stat-value">1</span>
+          <span class="sb-stat-label">running</span>
+        </div>
+        <div class="sb-stat">
+          <span class="sb-stat-value">3/5</span>
+          <span class="sb-stat-label">steps</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sb-right">
+      <button class="sb-nav-trigger" id="navTrigger" onclick="toggleOverlay()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        Overview
+      </button>
+      <div class="sb-toggle-group">
+        <div class="sb-toggle-item" onclick="toggleScheduler(this)">
+          <span class="sb-tgl-label" style="color: var(--blue);">Issues</span>
+          <button class="sb-tgl on" id="issueToggle"><span class="knob"></span></button>
+        </div>
+        <div class="sb-toggle-divider"></div>
+        <div class="sb-toggle-item" onclick="toggleCoordinator(this)">
+          <span class="sb-tgl-label" style="color: var(--purple);">Workflow</span>
+          <button class="sb-tgl on" id="workflowToggle"><span class="knob"></span></button>
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+  function toggleOverlay() {
+    const panel = document.getElementById('overlayPanel');
+    const backdrop = document.getElementById('overlayBackdrop');
+    const trigger = document.getElementById('navTrigger');
+    panel.classList.toggle('open');
+    backdrop.classList.toggle('open');
+    trigger.classList.toggle('open');
+  }
+
+  function toggleScheduler(el) {
+    const tgl = el.querySelector('.sb-tgl');
+    tgl.classList.toggle('on');
+    // In React: executionStore.toggleSupervisor(!current)
+  }
+
+  function toggleCoordinator(el) {
+    const tgl = el.querySelector('.sb-tgl');
+    tgl.classList.toggle('on');
+    // In React: coordinateStore.start/stop
+  }
+
+  function switchTab(tabId) {
+    // Close overlay
+    document.getElementById('overlayPanel').classList.remove('open');
+    document.getElementById('overlayBackdrop').classList.remove('open');
+    document.getElementById('navTrigger').classList.remove('open');
+
+    // Switch tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+
+    // Switch tab pages
+    document.querySelectorAll('.tab-page').forEach(page => {
+      page.classList.toggle('active', page.id === 'page-' + tabId);
+    });
+
+    // Update overlay nav active state
+    document.querySelectorAll('.ov-nav-item').forEach(item => {
+      item.classList.remove('active');
+    });
+    event?.target?.closest?.('.ov-nav-item')?.classList?.add?.('active');
+  }
+</script>
+</body>
+</html>

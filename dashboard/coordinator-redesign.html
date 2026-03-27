@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coordinator Tab — Supervisor Style</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 13px; line-height: 1.5;
+      background: #FAF8F5; color: #2D2A26;
+      -webkit-font-smoothing: antialiased;
+    }
+    :root {
+      --bg: #FAF8F5; --bg2: #F3F0EA; --card: #FFFFFF;
+      --hover: rgba(45,42,38,0.04); --active: rgba(45,42,38,0.07);
+      --t1: #2D2A26; --t2: #78756F; --t3: #A09D97; --t4: #D1CEC8;
+      --bdr: #E8E5DE; --bdr2: #ECEAE4;
+      --blue: #5B8DB8; --green: #5A9E78; --orange: #C8863A; --yellow: #B89540;
+      --purple: #9178B5; --red: #C46555; --gray: #A09D97;
+      --tint-green: rgba(90,158,120,0.12); --tint-yellow: rgba(184,149,64,0.12);
+      --tint-orange: rgba(200,134,58,0.12); --tint-purple: rgba(145,120,181,0.12);
+      --tint-gray: rgba(160,157,151,0.12); --tint-blue: rgba(91,141,184,0.12);
+      --tint-red: rgba(196,101,85,0.12);
+    }
+
+    /* ================================================================
+       Shared supervisor components (from supervisor-redesign-final)
+       ================================================================ */
+    .main { flex: 1; overflow-y: auto; padding: 20px 24px 40px; }
+
+    .section { margin-bottom: 24px; }
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .section-title { font-size: 13px; font-weight: 700; color: var(--t1); }
+    .section-meta { font-size: 10px; color: var(--t3); }
+    .section-actions { display: flex; gap: 6px; }
+
+    .btn {
+      font-size: 11px; font-weight: 600; padding: 5px 12px; border-radius: 8px;
+      border: 1px solid var(--bdr); background: none; cursor: pointer;
+      color: var(--t2); transition: all 150ms;
+    }
+    .btn:hover { background: var(--hover); color: var(--t1); }
+    .btn.primary { background: var(--t1); color: #fff; border-color: var(--t1); }
+    .btn.primary:hover { opacity: 0.9; }
+    .btn.danger { color: var(--red); border-color: var(--red); }
+    .btn.success { color: var(--green); border-color: var(--green); }
+
+    .cards-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .cards-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .info-card {
+      background: var(--card); border-radius: 10px;
+      padding: 14px 16px; border: 1px solid var(--bdr2);
+    }
+    .info-card-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--t3); }
+    .info-card-value { font-size: 20px; font-weight: 800; color: var(--t1); margin-top: 2px; }
+    .info-card-sub { font-size: 10px; color: var(--t3); }
+
+    .panel {
+      background: var(--card); border-radius: 12px;
+      border: 1px solid var(--bdr2); overflow: hidden;
+    }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--bdr2);
+    }
+    .panel-title { font-size: 12px; font-weight: 700; color: var(--t1); }
+    .panel-badge { font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 100px; }
+    .panel-body { padding: 14px 16px; }
+    .panel-body.no-pad { padding: 0; }
+
+    .config-group {
+      background: var(--card); border-radius: 12px;
+      border: 1px solid var(--bdr2); overflow: hidden;
+    }
+    .config-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--bdr2);
+    }
+    .config-row:last-child { border-bottom: none; }
+    .config-label { font-size: 12px; font-weight: 500; color: var(--t1); }
+    .config-desc { font-size: 10px; color: var(--t3); margin-top: 2px; }
+    .config-value {
+      font-size: 12px; font-weight: 600; color: var(--t1);
+      padding: 4px 10px; border-radius: 6px;
+      border: 1px solid var(--bdr); background: var(--bg);
+      min-width: 100px; text-align: center;
+    }
+    select.config-value { cursor: pointer; }
+
+    /* Timeline */
+    .tl-item {
+      display: flex; gap: 12px; padding: 10px 0;
+      position: relative;
+    }
+    .tl-item:not(:last-child)::after {
+      content: ''; position: absolute;
+      left: 11px; top: 30px; bottom: -10px;
+      width: 1px; background: var(--bdr2);
+    }
+    .tl-item.done:not(:last-child)::after { background: var(--green); opacity: 0.4; }
+    .tl-dot-outer {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; border: 2px solid var(--bg);
+    }
+    .tl-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .tl-time { font-size: 10px; font-family: 'SF Mono', Consolas, monospace; color: var(--t4); }
+    .tl-text { font-size: 12px; color: var(--t1); }
+    .tl-sub { font-size: 10px; color: var(--t3); }
+
+    /* Two-column layout */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    .tag {
+      font-size: 9px; font-weight: 600; padding: 1px 7px;
+      border-radius: 100px; display: inline-flex;
+    }
+
+    /* Code preview */
+    .code-preview {
+      margin: 0; padding: 14px 16px; font-size: 11px; line-height: 1.6;
+      white-space: pre-wrap; word-break: break-word;
+      font-family: 'SF Mono', Consolas, monospace;
+      background: #2C2723; color: #D9D0C4;
+      border-radius: 0 0 12px 12px;
+      max-height: 220px; overflow-y: auto;
+    }
+
+    /* Exec row (reused for step rows) */
+    .exec-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px; border-bottom: 1px solid var(--bdr2);
+      transition: background 120ms; cursor: pointer;
+    }
+    .exec-row:hover { background: var(--hover); }
+    .exec-row:last-child { border-bottom: none; }
+    .exec-row.active { background: var(--active); }
+    .exec-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .exec-id { font-size: 12px; font-weight: 600; color: var(--t1); min-width: 90px; }
+    .exec-agent {
+      font-size: 10px; font-weight: 600; padding: 2px 8px;
+      border-radius: 100px;
+    }
+    .exec-turn { font-size: 10px; color: var(--t3); min-width: 70px; }
+    .exec-bar { flex: 1; height: 4px; background: rgba(0,0,0,0.06); border-radius: 100px; overflow: hidden; min-width: 60px; }
+    .exec-bar-fill { height: 100%; border-radius: 100px; }
+    .exec-elapsed { font-size: 10px; color: var(--t3); }
+
+    /* Suggestion */
+    .suggestion {
+      display: flex; gap: 10px; padding: 10px 0;
+      border-bottom: 1px solid var(--bdr2);
+    }
+    .suggestion:last-child { border-bottom: none; }
+    .suggestion-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+    .suggestion-title { font-size: 12px; font-weight: 600; color: var(--t1); }
+    .suggestion-desc { font-size: 11px; color: var(--t2); margin-top: 1px; }
+
+    /* Pattern row */
+    .pattern-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--bdr2);
+    }
+    .pattern-row:last-child { border-bottom: none; }
+    .pattern-name {
+      font-size: 12px; font-weight: 600; color: var(--t1);
+      font-family: 'SF Mono', Consolas, monospace; min-width: 130px;
+    }
+    .pattern-bar-track { flex: 1; height: 6px; background: rgba(0,0,0,0.04); border-radius: 100px; overflow: hidden; }
+    .pattern-bar-fill { height: 100%; border-radius: 100px; }
+    .pattern-meta { font-size: 10px; color: var(--t3); white-space: nowrap; }
+
+    /* ================================================================
+       Coordinator-specific
+       ================================================================ */
+
+    /* Intent input panel (looks like a panel row) */
+    .intent-panel {
+      background: var(--card); border-radius: 12px;
+      border: 1px solid var(--bdr2); overflow: hidden;
+    }
+    .intent-inner {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px;
+    }
+    .intent-input {
+      flex: 1; border: none; background: transparent;
+      font-size: 13px; color: var(--t1); outline: none;
+      font-family: inherit; line-height: 1.5;
+    }
+    .intent-input::placeholder { color: var(--t4); }
+    .intent-opts {
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+    }
+    .tool-select {
+      padding: 4px 8px; border-radius: 6px;
+      font-size: 11px; font-weight: 600;
+      border: 1px solid var(--bdr2);
+      background: var(--bg); color: var(--t2);
+      cursor: pointer; outline: none;
+    }
+    .auto-chip {
+      font-size: 9px; font-weight: 700; padding: 3px 8px;
+      border-radius: 100px; border: none; cursor: pointer;
+      transition: all 150ms;
+    }
+    .auto-chip.on { background: var(--tint-green); color: var(--green); }
+    .auto-chip.off { background: var(--tint-gray); color: var(--gray); }
+
+    /* Clarification banner (orange highlight panel) */
+    .clarify-panel {
+      background: var(--card); border-radius: 12px;
+      border: 2px solid var(--orange); overflow: hidden;
+    }
+    .clarify-banner {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px;
+      background: var(--tint-orange);
+    }
+    .clarify-banner svg { width: 14px; height: 14px; stroke-width: 2; color: var(--orange); flex-shrink: 0; }
+    .clarify-banner-text { font-size: 11px; font-weight: 700; color: var(--orange); text-transform: uppercase; letter-spacing: .04em; }
+    .clarify-body { padding: 14px 16px; }
+    .clarify-question { font-size: 12px; color: var(--t1); line-height: 1.6; margin-bottom: 10px; }
+    .clarify-input-row { display: flex; gap: 8px; }
+    .clarify-input {
+      flex: 1; padding: 7px 12px; font-size: 12px; border-radius: 8px;
+      border: 1px solid var(--bdr); background: var(--bg); color: var(--t1);
+      outline: none;
+    }
+    .clarify-input:focus { border-color: var(--orange); }
+    .clarify-send {
+      padding: 7px 14px; border: none; border-radius: 8px;
+      background: var(--orange); color: #fff;
+      font-size: 11px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .clarify-send svg { width: 12px; height: 12px; stroke-width: 2; }
+
+    /* Quality donut (small inline) */
+    .quality-donut { width: 48px; height: 48px; position: relative; flex-shrink: 0; }
+    .quality-donut svg { width: 48px; height: 48px; transform: rotate(-90deg); }
+    .quality-donut .track { fill: none; stroke: var(--bg2); stroke-width: 5; }
+    .quality-donut .fill { fill: none; stroke-width: 5; stroke-linecap: round; }
+    .quality-donut .score {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 800; color: var(--t1);
+    }
+
+    /* Empty state */
+    .empty-hint {
+      text-align: center; padding: 48px 20px; color: var(--t3);
+    }
+    .empty-hint svg { width: 40px; height: 40px; stroke-width: 1; opacity: 0.2; margin: 0 auto 10px; display: block; }
+    .empty-hint .eh-title { font-size: 13px; font-weight: 600; color: var(--t2); }
+    .empty-hint .eh-desc { font-size: 11px; margin-top: 4px; max-width: 300px; margin-left: auto; margin-right: auto; line-height: 1.6; }
+
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    .hidden { display: none !important; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--t4); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--t3); }
+  </style>
+</head>
+<body>
+
+<!-- Simulates the supervisor .main content area -->
+<div class="main" id="coordinatorPage">
+
+  <!-- ========== Intent Input ========== -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Coordinator</div>
+      <div class="section-actions" id="sessionControls">
+        <button class="btn danger" id="btnStop" style="display:none;">Stop</button>
+        <button class="btn" id="btnResume" style="display:none;">Resume</button>
+      </div>
+    </div>
+    <div class="intent-panel">
+      <div class="intent-inner">
+        <input class="intent-input" id="intentInput" placeholder="Describe what you want to coordinate..." />
+        <div class="intent-opts">
+          <select class="tool-select" id="toolSelect">
+            <option>claude</option><option>gemini</option><option>codex</option><option>qwen</option><option>opencode</option>
+          </select>
+          <button class="auto-chip on" id="autoChip" onclick="this.classList.toggle('on');this.classList.toggle('off');this.textContent=this.classList.contains('on')?'Auto':'Manual'">Auto</button>
+          <button class="btn primary" id="btnStart">Start</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Session Metrics (visible when session active) ========== -->
+  <div class="section" id="metricsSection">
+    <div class="section-header">
+      <div class="section-title">Session</div>
+      <div class="section-meta" id="sessionMeta">
+        <span class="panel-badge" style="background:var(--tint-blue);color:var(--blue);" id="statusBadge">Running</span>
+      </div>
+    </div>
+    <div class="cards-4">
+      <div class="info-card">
+        <div class="info-card-label">Chain</div>
+        <div class="info-card-value" style="font-size:16px;" id="chainName">spec-driven</div>
+        <div class="info-card-sub" id="chainIntent">Build auth module with JWT</div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-label">Progress</div>
+        <div class="info-card-value" id="progressValue">3 <span style="font-size:13px;font-weight:500;color:var(--t3);">/ 5</span></div>
+        <div class="info-card-sub">
+          <div style="height:3px;background:rgba(0,0,0,0.06);border-radius:100px;overflow:hidden;margin-top:4px;">
+            <div id="progressBar" style="height:100%;border-radius:100px;background:linear-gradient(90deg,var(--blue),var(--green));width:60%;transition:width 0.6s;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-label">Avg Quality</div>
+        <div class="info-card-value" style="color:var(--green);" id="avgQuality">88.5</div>
+        <div class="info-card-sub">From 2 completed steps</div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-label">Elapsed</div>
+        <div class="info-card-value" style="font-size:16px;" id="elapsed">5m 21s</div>
+        <div class="info-card-sub" id="toolUsed">Tool: claude</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Clarification (visible when awaiting_clarification) ========== -->
+  <div class="section" id="clarifySection" style="display:none;">
+    <div class="clarify-panel">
+      <div class="clarify-banner">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="clarify-banner-text">Clarification Needed</span>
+      </div>
+      <div class="clarify-body">
+        <div class="clarify-question" id="clarifyQuestion">
+          The roadmap has 3 phases. Should I plan Phase 1 only, or create an overview plan for all phases first?
+        </div>
+        <div class="clarify-input-row">
+          <input class="clarify-input" placeholder="Type your response..." />
+          <button class="clarify-send">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Chain Steps + Step Detail (two-col) ========== -->
+  <div class="two-col" id="stepsSection">
+
+    <!-- Left: Chain Steps (timeline) -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Chain Steps</div>
+        <div class="section-meta" id="stepsMeta">5 steps</div>
+      </div>
+      <div class="panel">
+        <div class="panel-body" id="stepsTimeline">
+          <!-- Step 1: completed -->
+          <div class="tl-item done" data-idx="0" onclick="selectStep(0)" style="cursor:pointer;">
+            <div class="tl-dot-outer" style="background:var(--tint-green);"><div class="tl-dot" style="background:var(--green);"></div></div>
+            <div style="flex:1;">
+              <div class="tl-text" style="font-weight:600;">maestro-init</div>
+              <div class="tl-sub">--auto</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:3px;">
+                <span class="tl-time">12s</span>
+                <span class="tag" style="background:var(--tint-green);color:var(--green);">92</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: completed -->
+          <div class="tl-item done" data-idx="1" onclick="selectStep(1)" style="cursor:pointer;">
+            <div class="tl-dot-outer" style="background:var(--tint-green);"><div class="tl-dot" style="background:var(--green);"></div></div>
+            <div style="flex:1;">
+              <div class="tl-text" style="font-weight:600;">maestro-spec-generate</div>
+              <div class="tl-sub">--from-brainstorm</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:3px;">
+                <span class="tl-time">3m 24s</span>
+                <span class="tag" style="background:var(--tint-green);color:var(--green);">85</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: running -->
+          <div class="tl-item" data-idx="2" onclick="selectStep(2)" style="cursor:pointer;">
+            <div class="tl-dot-outer" style="background:var(--tint-blue);"><div class="tl-dot" style="background:var(--blue);animation:pulse 2s infinite;"></div></div>
+            <div style="flex:1;">
+              <div class="tl-text" style="font-weight:600;">maestro-plan</div>
+              <div class="tl-sub">--phase 1</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:3px;">
+                <span class="tl-time">1m 45s...</span>
+                <span class="panel-badge" style="background:var(--tint-blue);color:var(--blue);">running</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 4: pending -->
+          <div class="tl-item" data-idx="3" onclick="selectStep(3)" style="cursor:pointer;">
+            <div class="tl-dot-outer"><div class="tl-dot" style="background:var(--gray);"></div></div>
+            <div style="flex:1;">
+              <div class="tl-text" style="font-weight:600;">maestro-execute</div>
+              <div class="tl-sub">--phase 1</div>
+            </div>
+          </div>
+
+          <!-- Step 5: pending -->
+          <div class="tl-item" data-idx="4" onclick="selectStep(4)" style="cursor:pointer;">
+            <div class="tl-dot-outer"><div class="tl-dot" style="background:var(--gray);"></div></div>
+            <div style="flex:1;">
+              <div class="tl-text" style="font-weight:600;">maestro-verify</div>
+              <div class="tl-sub">--phase 1</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Step Detail -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title" id="detailTitle">Step 3: maestro-plan</div>
+        <span class="panel-badge" id="detailBadge" style="background:var(--tint-blue);color:var(--blue);">running</span>
+      </div>
+
+      <!-- Quality (completed steps) -->
+      <div id="qualityPanel" style="display:none;margin-bottom:16px;">
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Quality Score</span>
+            <span class="panel-badge" id="qualityBadge" style="background:var(--tint-green);color:var(--green);">85</span>
+          </div>
+          <div class="panel-body">
+            <div style="display:flex;align-items:center;gap:16px;">
+              <div class="quality-donut" id="qualityDonut">
+                <svg viewBox="0 0 36 36">
+                  <circle class="track" cx="18" cy="18" r="15.9"/>
+                  <circle class="fill" cx="18" cy="18" r="15.9" stroke-dasharray="100" stroke-dashoffset="15" style="stroke:var(--green);" />
+                </svg>
+                <div class="score">85</div>
+              </div>
+              <div style="flex:1;">
+                <div style="font-size:11px;color:var(--t2);line-height:1.6;" id="qualityDesc">
+                  Plan structure is well-formed. Task decomposition covers all required modules. Convergence criteria are grep-verifiable.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary (completed steps) -->
+      <div id="summaryPanel" style="display:none;margin-bottom:16px;">
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Summary</span></div>
+          <div class="panel-body">
+            <div style="font-size:12px;color:var(--t1);line-height:1.7;" id="summaryText">
+              Decomposed Phase 1 into 4 execution waves with 12 tasks total.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis (running + completed steps) -->
+      <div id="analysisPanel" style="display:none;margin-bottom:16px;">
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Analysis</span></div>
+          <pre class="code-preview" id="analysisCode">Phase 1: Authentication Foundation
+├── Wave 1 (parallel: 3 tasks)
+│   ├── TASK-001: Define AuthUser, TokenPayload types
+│   ├── TASK-002: JWT sign/verify utilities
+│   └── TASK-003: Password hashing with bcrypt
+├── Wave 2 (parallel: 4 tasks)
+│   ├── TASK-004: Auth middleware
+│   ├── TASK-005: Login endpoint
+│   ├── TASK-006: Register endpoint
+│   └── TASK-007: Refresh token endpoint
+├── Wave 3 (sequential: 3 tasks)
+│   ├── TASK-008: Session store (Redis)
+│   ├── TASK-009: Rate limiting
+│   └── TASK-010: Audit logging
+└── Wave 4 (verification: 2 tasks)
+    ├── TASK-011: Integration tests
+    └── TASK-012: Security scan</pre>
+        </div>
+      </div>
+
+      <!-- Pending hint -->
+      <div id="pendingPanel" style="display:none;">
+        <div class="panel">
+          <div class="panel-body">
+            <div class="empty-hint">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <div class="eh-title">Waiting to Execute</div>
+              <div class="eh-desc">This step is pending. It will start automatically after the current step completes.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Empty state (no session) ========== -->
+  <div id="emptySection" style="display:none;">
+    <div class="panel">
+      <div class="panel-body">
+        <div class="empty-hint">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <div class="eh-title">No Active Session</div>
+          <div class="eh-desc">Describe your intent above to start a coordination session. The coordinator will analyze, select the optimal command chain, and execute automatically.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const STEPS = [
+    { cmd: 'maestro-init', args: '--auto', status: 'completed', quality: 92, duration: '12s',
+      summary: 'Project initialized with auto-detected state. Created project.md, state.json, config.json, and specs/ directory structure.',
+      analysis: 'Detected existing codebase with package.json (Node.js/TypeScript).\nAuto-configured:\n  - Project type: web-api\n  - Language: TypeScript (strict)\n  - Framework: Express.js\n  - Test runner: vitest\n  - Package manager: npm' },
+    { cmd: 'maestro-spec-generate', args: '--from-brainstorm', status: 'completed', quality: 85, duration: '3m 24s',
+      summary: 'Generated 6 specification documents from brainstorm artifacts. Product brief, PRD, architecture doc, component specs, API specs, and data model.',
+      analysis: 'Spec Generation Pipeline:\n  Phase 1: Product Brief .............. done (12s)\n  Phase 2: PRD ....................... done (28s)\n  Phase 3: Architecture .............. done (45s)\n  Phase 4: Component Specs ........... done (32s)\n  Phase 5: API Specs ................. done (24s)\n  Phase 6: Data Model ................ done (18s)\n  Phase 7: Epic → Roadmap ............ done (45s)\n\nRoadmap created with 3 phases, 8 epics, 24 stories.' },
+    { cmd: 'maestro-plan', args: '--phase 1', status: 'running', quality: null, duration: '1m 45s...',
+      summary: null,
+      analysis: 'Phase 1: Authentication Foundation\n├── Wave 1 (parallel: 3 tasks)\n│   ├── TASK-001: Define AuthUser, TokenPayload types\n│   ├── TASK-002: JWT sign/verify utilities\n│   └── TASK-003: Password hashing with bcrypt\n├── Wave 2 (parallel: 4 tasks)\n│   ├── TASK-004: Auth middleware\n│   ├── TASK-005: Login endpoint\n│   ├── TASK-006: Register endpoint\n│   └── TASK-007: Refresh token endpoint\n├── Wave 3 (sequential: 3 tasks)\n│   ├── TASK-008: Session store (Redis)\n│   ├── TASK-009: Rate limiting\n│   └── TASK-010: Audit logging\n└── Wave 4 (verification: 2 tasks)\n    ├── TASK-011: Integration tests\n    └── TASK-012: Security scan' },
+    { cmd: 'maestro-execute', args: '--phase 1', status: 'pending', quality: null, duration: null, summary: null, analysis: null },
+    { cmd: 'maestro-verify', args: '--phase 1', status: 'pending', quality: null, duration: null, summary: null, analysis: null },
+  ];
+
+  const STATUS_STYLES = {
+    completed: { bg: 'var(--tint-green)', color: 'var(--green)', label: 'completed' },
+    running:   { bg: 'var(--tint-blue)',  color: 'var(--blue)',  label: 'running' },
+    pending:   { bg: 'var(--tint-gray)',  color: 'var(--gray)',  label: 'pending' },
+    failed:    { bg: 'var(--tint-red)',   color: 'var(--red)',   label: 'failed' },
+  };
+
+  function selectStep(idx) {
+    const step = STEPS[idx];
+    if (!step) return;
+
+    // Highlight timeline item
+    document.querySelectorAll('.tl-item').forEach((el, i) => {
+      el.style.background = i === idx ? 'var(--active)' : '';
+      el.style.borderRadius = i === idx ? '8px' : '';
+      el.style.margin = i === idx ? '0 -8px' : '';
+      el.style.padding = i === idx ? '10px 8px' : '10px 0';
+    });
+
+    // Detail header
+    const st = STATUS_STYLES[step.status] || STATUS_STYLES.pending;
+    document.getElementById('detailTitle').textContent = 'Step ' + (idx + 1) + ': ' + step.cmd;
+    const badge = document.getElementById('detailBadge');
+    badge.textContent = st.label;
+    badge.style.background = st.bg;
+    badge.style.color = st.color;
+
+    // Panels
+    const q = document.getElementById('qualityPanel');
+    const s = document.getElementById('summaryPanel');
+    const a = document.getElementById('analysisPanel');
+    const p = document.getElementById('pendingPanel');
+    q.style.display = 'none';
+    s.style.display = 'none';
+    a.style.display = 'none';
+    p.style.display = 'none';
+
+    if (step.status === 'completed') {
+      if (step.quality != null) {
+        q.style.display = 'block';
+        document.querySelector('#qualityDonut .score').textContent = step.quality;
+        const fill = document.querySelector('#qualityDonut .fill');
+        fill.setAttribute('stroke-dashoffset', 100 - step.quality);
+        fill.style.stroke = step.quality >= 70 ? 'var(--green)' : step.quality >= 40 ? 'var(--yellow)' : 'var(--red)';
+        const qb = document.getElementById('qualityBadge');
+        qb.textContent = step.quality;
+        qb.style.background = step.quality >= 70 ? 'var(--tint-green)' : 'var(--tint-yellow)';
+        qb.style.color = step.quality >= 70 ? 'var(--green)' : 'var(--yellow)';
+      }
+      if (step.summary) {
+        s.style.display = 'block';
+        document.getElementById('summaryText').textContent = step.summary;
+      }
+      if (step.analysis) {
+        a.style.display = 'block';
+        document.getElementById('analysisCode').textContent = step.analysis;
+      }
+    } else if (step.status === 'running') {
+      if (step.analysis) {
+        a.style.display = 'block';
+        document.getElementById('analysisCode').textContent = step.analysis;
+      }
+    } else {
+      p.style.display = 'block';
+    }
+  }
+
+  // Demo toggles
+  function showClarification() {
+    document.getElementById('clarifySection').style.display = 'block';
+    document.getElementById('statusBadge').textContent = 'Needs Clarification';
+    document.getElementById('statusBadge').style.background = 'var(--tint-orange)';
+    document.getElementById('statusBadge').style.color = 'var(--orange)';
+  }
+  function toggleEmpty() {
+    const active = document.getElementById('metricsSection').style.display !== 'none';
+    document.getElementById('metricsSection').style.display = active ? 'none' : 'block';
+    document.getElementById('stepsSection').style.display = active ? 'none' : 'grid';
+    document.getElementById('emptySection').style.display = active ? 'block' : 'none';
+    document.getElementById('clarifySection').style.display = 'none';
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'c') showClarification();
+    if (e.key === 'e') toggleEmpty();
+  });
+
+  // Init: select running step
+  selectStep(2);
+</script>
+
+</body>
+</html>
