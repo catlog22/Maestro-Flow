@@ -262,9 +262,8 @@ Extract core terminology and define scope boundaries before framework generation
 Seven sub-phases producing guidance-specification.md:
 
 **Phase 0: Context Collection**
-- Spawn context-search-agent (BRAINSTORM MODE, lightweight)
-- Output: `.process/context-package.json`
-- Graceful degradation: if agent fails, continue without context
+- Read init outputs directly: `.workflow/project.md` (tech stack, requirements, decisions), `.workflow/state.json` (project state), `.workflow/specs/` (conventions)
+- If `.workflow/` does not exist: continue without project context
 
 **Phase 1: Topic Analysis**
 - Load Phase 0 context (tech_stack, modules, conflict_risk)
@@ -333,7 +332,7 @@ Agent({
 
 Each agent receives:
 - `guidance-specification.md` for framework context
-- Role-specific template from `~/.ccw/workflows/cli-templates/planning-roles/{role}.md`
+- Role-specific template from `~/.maestro/templates/planning-roles/{role}.md`
 - Feature list for feature-point organization
 - `--skip-questions` flag (context already gathered in Phase 2)
 - For ui-designer: `--style-skill {package}` if provided
@@ -352,11 +351,12 @@ Each agent receives:
 - MUST include: Data Model (3-5 entities), State Machine (ASCII + transition table), Error Handling, Observability (5+ metrics), Configuration Model, Boundary Scenarios
 - All constraints MUST use RFC 2119 keywords
 
-**Quality Validation** (after each role completes):
-- Spawn role-analysis-reviewer-agent to validate against template
-- Check MUST-have sections (blocking), SHOULD-have sections (warning)
-- Verify RFC 2119 keyword usage, diagram syntax, word count limits
-- Output validation report with score and recommendations
+**Quality Validation** (after each role completes, orchestrator self-check):
+- Verify `analysis.md` exists and is non-empty
+- Feature mode: verify `analysis-cross-cutting.md` + `analysis-F-*.md` files match feature list
+- Grep for RFC 2119 keywords (MUST/SHOULD/MAY) — warn if < 5 occurrences
+- Check word count (wc -w) against limits — warn if exceeded
+- system-architect: verify Data Model and State Machine sections exist
 
 **Parallel Safety**: Each role operates on its own directory. No cross-agent dependencies.
 

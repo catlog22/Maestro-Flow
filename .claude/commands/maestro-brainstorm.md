@@ -67,7 +67,7 @@ Single role mode:
 | E002 | error | No active session for single role mode | Guide user to run auto mode first |
 | E003 | error | Invalid role name | Show valid roles list |
 | W001 | warning | Fewer than 10 ideas in divergent phase | Proceed with available ideas |
-| W002 | warning | Context-search-agent failed | Continue without project context |
+| W002 | warning | Project context (.workflow/) not found | Continue without project context |
 | W003 | warning | Role template not found | Use generic analysis structure |
 | W004 | warning | Validation score < 60 | Log warning, suggest manual review |
 | W005 | warning | External research agent failed | Continue without designResearchContext |
