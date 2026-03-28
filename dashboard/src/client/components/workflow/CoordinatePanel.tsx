@@ -92,12 +92,8 @@ function StepItem({
 
 const STATUS_LABELS: Record<string, string> = {
   idle: 'Idle',
-  analyzing_state: 'Analyzing State…',
-  classifying: 'Classifying…',
-  classifying_intent: 'Classifying Intent…',
   awaiting_clarification: 'Needs Clarification',
   running: 'Running',
-  reviewing: 'Reviewing…',
   paused: 'Paused',
   completed: 'Completed',
   failed: 'Failed',
@@ -118,7 +114,7 @@ export function CoordinatePanel() {
   const [autoMode, setAutoMode] = useState(true);
   const [clarifyResponse, setClarifyResponse] = useState('');
 
-  const isRunning = session?.status === 'running' || session?.status === 'classifying' || session?.status === 'analyzing_state' || session?.status === 'classifying_intent' || session?.status === 'reviewing';
+  const isRunning = session?.status === 'running';
   const isAwaitingClarification = session?.status === 'awaiting_clarification';
   const isIdle = !session || session.status === 'idle' || session.status === 'completed' || session.status === 'failed';
 

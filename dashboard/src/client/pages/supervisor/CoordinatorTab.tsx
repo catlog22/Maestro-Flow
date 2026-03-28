@@ -11,10 +11,6 @@ const TOOLS = ['claude', 'gemini', 'codex', 'qwen', 'opencode'] as const;
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   running:                { bg: 'var(--color-tint-running)',    color: 'var(--color-accent-blue)' },
-  classifying:            { bg: 'var(--color-tint-running)',    color: 'var(--color-accent-blue)' },
-  analyzing_state:        { bg: 'var(--color-tint-running)',    color: 'var(--color-accent-blue)' },
-  classifying_intent:     { bg: 'var(--color-tint-running)',    color: 'var(--color-accent-blue)' },
-  reviewing:              { bg: 'var(--color-tint-running)',    color: 'var(--color-accent-blue)' },
   awaiting_clarification: { bg: 'var(--color-tint-verifying)',  color: 'var(--color-accent-orange)' },
   completed:              { bg: 'var(--color-tint-completed)',  color: 'var(--color-accent-green)' },
   failed:                 { bg: 'var(--color-tint-failed)',     color: 'var(--color-accent-red)' },
@@ -50,7 +46,7 @@ export function CoordinatorTab() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const hasSession = session != null && session.status !== 'idle';
-  const isActive = hasSession && (session.status === 'running' || session.status === 'classifying' || session.status === 'analyzing_state' || session.status === 'classifying_intent' || session.status === 'reviewing');
+  const isActive = hasSession && session.status === 'running';
   const isClarifying = session?.status === 'awaiting_clarification';
   const steps = session?.steps ?? [];
   const selectedStep = selectedStepIndex != null ? steps[selectedStepIndex] ?? null : null;
@@ -136,9 +132,6 @@ export function CoordinatorTab() {
   const sessionStatusLabel = (status: CoordinateSessionStatus): string => {
     switch (status) {
       case 'running': return 'Running';
-      case 'classifying': case 'classifying_intent': return 'Classifying';
-      case 'analyzing_state': return 'Analyzing';
-      case 'reviewing': return 'Reviewing';
       case 'awaiting_clarification': return 'Needs Clarification';
       case 'completed': return 'Completed';
       case 'failed': return 'Failed';

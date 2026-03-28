@@ -15,11 +15,7 @@ export type CoordinateStepStatus =
 
 export type CoordinateSessionStatus =
   | 'idle'
-  | 'classifying'
-  | 'analyzing_state'
-  | 'classifying_intent'
   | 'awaiting_clarification'
-  | 'reviewing'
   | 'running'
   | 'paused'
   | 'completed'

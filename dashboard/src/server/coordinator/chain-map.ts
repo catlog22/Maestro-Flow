@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Chain Map — extracted from coordinate-runner.ts for standalone reuse
+// Chain Map — intent patterns, chain definitions, and classification helpers
 // Intent patterns, chain definitions, and classification helpers
 // ---------------------------------------------------------------------------
 

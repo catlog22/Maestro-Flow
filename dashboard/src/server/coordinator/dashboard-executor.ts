@@ -9,37 +9,12 @@ import type { SSEEvent } from '../../shared/types.js';
 import type { DashboardEventBus } from '../state/event-bus.js';
 import type { AgentManager } from '../agents/agent-manager.js';
 
-// ---------------------------------------------------------------------------
-// Locally-defined interfaces matching graph-types.ts CommandExecutor contract.
-// Avoids cross-project import issues until monorepo shared types are set up.
-// TODO: Replace with import from '../../../../src/coordinator/graph-types.js'
-//       once a shared types package exists.
-// ---------------------------------------------------------------------------
-
-type AgentType = 'claude-code' | 'codex' | 'gemini' | 'qwen' | 'opencode';
-
-interface ExecuteRequest {
-  prompt: string;
-  agent_type: AgentType;
-  work_dir: string;
-  approval_mode: 'suggest' | 'auto';
-  timeout_ms: number;
-  node_id: string;
-  cmd: string;
-}
-
-interface ExecuteResult {
-  success: boolean;
-  raw_output: string;
-  exec_id: string;
-  duration_ms: number;
-  process_id?: string;
-}
-
-interface CommandExecutor {
-  execute(request: ExecuteRequest): Promise<ExecuteResult>;
-  abort(): Promise<void>;
-}
+import type {
+  ExecuteRequest,
+  ExecuteResult,
+  CommandExecutor,
+} from '../../../../src/coordinator/graph-types.js';
+import type { AgentType as DashboardAgentType } from '../../shared/agent-types.js';
 
 // ---------------------------------------------------------------------------
 // DashboardExecutor
@@ -57,8 +32,9 @@ export class DashboardExecutor implements CommandExecutor {
     const startTime = Date.now();
 
     try {
-      const proc = await this.agentManager.spawn(request.agent_type, {
-        type: request.agent_type,
+      const agentType = request.agent_type as unknown as DashboardAgentType;
+      const proc = await this.agentManager.spawn(agentType, {
+        type: agentType,
         prompt: request.prompt,
         workDir: request.work_dir,
         approvalMode: request.approval_mode,
