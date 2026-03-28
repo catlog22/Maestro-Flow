@@ -82,6 +82,14 @@ const COMPONENT_DEFS: ComponentDef[] = [
     alwaysGlobal: true,
   },
   {
+    id: 'chains',
+    label: 'Chains',
+    description: 'Coordinate chain graphs (~/.maestro/chains/)',
+    sourcePath: 'chains',
+    target: () => join(paths.home, 'chains'),
+    alwaysGlobal: true,
+  },
+  {
     id: 'commands',
     label: 'Commands',
     description: 'Claude Code slash commands',
