@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'path';
 
+const backendPort = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
+
 export default defineConfig({
   plugins: [
     react(),
@@ -50,16 +52,16 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: `http://localhost:${backendPort}`,
         changeOrigin: true,
       },
       '/events': {
-        target: 'http://localhost:3001',
+        target: `http://localhost:${backendPort}`,
         changeOrigin: true,
       },
       // WebSocket proxy — required for the /chat page agent connections.
       '/ws': {
-        target: 'ws://localhost:3001',
+        target: `ws://localhost:${backendPort}`,
         ws: true,
         changeOrigin: true,
       },

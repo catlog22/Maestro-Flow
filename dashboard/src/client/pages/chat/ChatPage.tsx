@@ -640,14 +640,18 @@ export function ChatPage() {
         onToggleFileTree={() => setFileTreeOpen(!fileTreeOpen)}
       />
 
-      {showWelcome ? (
+      {/* File viewer only — no active chat process */}
+      {showWelcome && fileViewerPath ? (
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <FileViewer filePath={fileViewerPath} onClose={closeFileViewer} />
+        </div>
+      ) : showWelcome ? (
         <WelcomeView />
       ) : (
         <div className="flex-1 flex overflow-hidden min-h-0 relative">
-          {/* Pane 1 */}
+          {/* Pane 1 — chat */}
           <div className="flex flex-col min-w-0 overflow-hidden" style={{ flex: splitOpen ? `0 0 ${splitRatio}%` : '1' }}>
-            {/* Per-pane tab bar in split mode */}
-            {splitOpen && (
+            {splitOpen && !fileViewerPath && (
               <PaneTabBar
                 sortedProcesses={sortedProcesses}
                 currentProcessId={activeProcessId}
@@ -658,7 +662,7 @@ export function ChatPage() {
               <MessageArea processId={activeProcessId} />
             </div>
             <ThoughtDisplay processId={activeProcessId} />
-            {splitOpen ? (
+            {splitOpen && !fileViewerPath ? (
               <ChatInput processId={activeProcessId} executor={processes[activeProcessId!]?.type} />
             ) : (
               <ChatInput />

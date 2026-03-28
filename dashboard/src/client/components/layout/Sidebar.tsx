@@ -86,7 +86,7 @@ export function Sidebar() {
         </nav>
       </div>
 
-      {/* Issues summary card */}
+      {/* Issues summary */}
       {issues.length > 0 && (
         <div className="px-[var(--spacing-3)] py-[var(--spacing-2)] border-b border-border-divider">
           <h2 className="text-[length:var(--font-size-xs)] font-[var(--font-weight-semibold)] text-text-tertiary uppercase tracking-[var(--letter-spacing-wide)] mb-[var(--spacing-2)]">
@@ -95,32 +95,19 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => navigate('/kanban')}
-            className="w-full rounded-[var(--radius-md)] border border-border p-2.5 hover:bg-bg-hover transition-all duration-[var(--duration-fast)] cursor-pointer text-left"
+            className="w-full px-[var(--spacing-2)] py-[var(--spacing-1-5)] rounded-[var(--radius-default)] text-left hover:bg-bg-hover transition-all duration-[var(--duration-fast)] cursor-pointer"
           >
-            <div className="flex items-baseline gap-1.5 mb-2">
-              <span className="text-[20px] font-semibold text-text-primary leading-none">
-                {issueCounts.total}
-              </span>
-              <span className="text-[length:var(--font-size-xs)] text-text-tertiary">issues</span>
-            </div>
-            <div className="flex gap-3">
+            <div className="flex items-center text-[11px]">
+              <span className="font-medium text-text-primary">{issueCounts.total}</span>
+              <span className="text-text-tertiary ml-1">total</span>
               {issueCounts.open > 0 && (
-                <div className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: '#5B8DB8' }} />
-                  <span className="text-[10px] text-text-tertiary">{issueCounts.open} open</span>
-                </div>
+                <span className="ml-2.5" style={{ color: '#5B8DB8' }}>{issueCounts.open} open</span>
               )}
               {issueCounts.in_progress > 0 && (
-                <div className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: '#B89540' }} />
-                  <span className="text-[10px] text-text-tertiary">{issueCounts.in_progress} active</span>
-                </div>
+                <span className="ml-2.5" style={{ color: '#B89540' }}>{issueCounts.in_progress} active</span>
               )}
               {issueCounts.resolved > 0 && (
-                <div className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: '#5A9E78' }} />
-                  <span className="text-[10px] text-text-tertiary">{issueCounts.resolved} done</span>
-                </div>
+                <span className="ml-2.5" style={{ color: '#5A9E78' }}>{issueCounts.resolved} done</span>
               )}
             </div>
           </button>

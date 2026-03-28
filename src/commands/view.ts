@@ -104,20 +104,17 @@ export function registerViewCommand(program: Command): void {
       // Dev mode: use `npm run dev` (Vite HMR + tsx --watch backend)
       // ------------------------------------------------------------------
       if (opts.dev) {
-        const vitePort = port + 1732; // Vite dev server on a separate port (e.g. 5173)
-        const url = `http://${browserHost}:${vitePort}`;
-
         // Check if already running
         const health = await checkHealth(host, port);
         if (health) {
           console.error(`  Server already running on port ${port}`);
-          if (opts.browser) openBrowser(url);
+          if (opts.browser) openBrowser(`http://${browserHost}:${port}`);
           console.error('');
           return;
         }
 
         console.error(`  Starting dashboard (dev + HMR) ...`);
-        console.error(`  Backend: port ${port}  |  Vite: port ${vitePort}`);
+        console.error(`  Backend: port ${port}`);
         console.error(`  Workspace: ${workflowRoot}`);
         console.error('');
 
@@ -136,14 +133,33 @@ export function registerViewCommand(program: Command): void {
           shell: true,
           windowsHide: true,
         });
-        child.stderr?.on('data', (d: Buffer) => process.stderr.write(d));
-        child.stdout?.on('data', (d: Buffer) => process.stderr.write(d));
+
+        // Parse Vite's actual port from output (e.g. "Local:   http://localhost:5174/")
+        let vitePort: number | null = null;
+        const vitePortRe = /Local:\s+http:\/\/localhost:(\d+)/;
+
+        const handleOutput = (d: Buffer) => {
+          const text = d.toString();
+          process.stderr.write(d);
+          if (!vitePort) {
+            const match = text.match(vitePortRe);
+            if (match) {
+              vitePort = parseInt(match[1], 10);
+            }
+          }
+        };
+        child.stdout?.on('data', handleOutput);
+        child.stderr?.on('data', handleOutput);
 
         // Wait for backend to be ready
         const ready = await waitForServer(host, port);
         if (!ready) {
           console.error('  Warning: Backend server did not respond in time.');
         }
+
+        const url = vitePort
+          ? `http://${browserHost}:${vitePort}`
+          : `http://${browserHost}:${port}`;
 
         if (opts.browser) {
           console.error(`  Opening ${url}`);
