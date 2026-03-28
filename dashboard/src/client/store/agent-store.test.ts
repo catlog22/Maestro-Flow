@@ -102,6 +102,71 @@ describe('useAgentStore', () => {
   });
 
   // -----------------------------------------------------------------------
+  // Streaming delta merging (AionUi-inspired msg_id pattern)
+  // -----------------------------------------------------------------------
+
+  describe('addEntry — streaming assistant_message merging', () => {
+    it('merges consecutive partial assistant_messages into one entry', () => {
+      const { addProcess, addEntry } = useAgentStore.getState();
+      addProcess(makeProcess('p-stream'));
+
+      addEntry('p-stream', EntryNormalizer.assistantMessage('p-stream', 'Hello', true));
+      addEntry('p-stream', EntryNormalizer.assistantMessage('p-stream', ' world', true));
+      addEntry('p-stream', EntryNormalizer.assistantMessage('p-stream', '!', true));
+
+      const entries = useAgentStore.getState().entries['p-stream'];
+      // Should be 1 merged entry, not 3 separate ones
+      expect(entries).toHaveLength(1);
+      expect(entries[0].type).toBe('assistant_message');
+      if (entries[0].type === 'assistant_message') {
+        expect(entries[0].content).toBe('Hello world!');
+        expect(entries[0].partial).toBe(true);
+      }
+    });
+
+    it('final message replaces accumulated partial', () => {
+      const { addProcess, addEntry } = useAgentStore.getState();
+      addProcess(makeProcess('p-final'));
+
+      addEntry('p-final', EntryNormalizer.assistantMessage('p-final', 'He', true));
+      addEntry('p-final', EntryNormalizer.assistantMessage('p-final', 'llo', true));
+      // Final non-partial message
+      addEntry('p-final', EntryNormalizer.assistantMessage('p-final', 'Hello world', false));
+
+      const entries = useAgentStore.getState().entries['p-final'];
+      expect(entries).toHaveLength(1);
+      if (entries[0].type === 'assistant_message') {
+        expect(entries[0].content).toBe('Hello world');
+        expect(entries[0].partial).toBe(false);
+      }
+    });
+
+    it('does not merge partials separated by other entry types', () => {
+      const { addProcess, addEntry } = useAgentStore.getState();
+      addProcess(makeProcess('p-gap'));
+
+      addEntry('p-gap', EntryNormalizer.assistantMessage('p-gap', 'first', true));
+      addEntry('p-gap', EntryNormalizer.toolUse('p-gap', 'Read', {}, 'completed'));
+      addEntry('p-gap', EntryNormalizer.assistantMessage('p-gap', 'second', true));
+
+      const entries = useAgentStore.getState().entries['p-gap'];
+      // 3 entries: partial, tool_use, partial (not merged because tool_use is in between)
+      expect(entries).toHaveLength(3);
+    });
+
+    it('appends non-partial assistant_message after non-partial', () => {
+      const { addProcess, addEntry } = useAgentStore.getState();
+      addProcess(makeProcess('p-multi'));
+
+      addEntry('p-multi', EntryNormalizer.assistantMessage('p-multi', 'Turn 1', false));
+      addEntry('p-multi', EntryNormalizer.assistantMessage('p-multi', 'Turn 2', false));
+
+      const entries = useAgentStore.getState().entries['p-multi'];
+      expect(entries).toHaveLength(2);
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // Token usage accumulation
   // -----------------------------------------------------------------------
 

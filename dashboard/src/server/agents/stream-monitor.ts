@@ -1,0 +1,39 @@
+// ---------------------------------------------------------------------------
+// StreamMonitor — heartbeat-based stale connection detection (AionUi pattern)
+// ---------------------------------------------------------------------------
+
+/**
+ * Monitors stream activity and fires a callback when no activity is detected
+ * for longer than `maxSilenceMs`. Prevents zombie processes from hanging
+ * indefinitely when the CLI child process stops producing output.
+ */
+export class StreamMonitor {
+  private lastActivity = Date.now();
+  private readonly maxSilence: number;
+  private timer: ReturnType<typeof setInterval>;
+  private fired = false;
+
+  constructor(
+    private readonly onStale: () => void,
+    maxSilenceMs = 60_000,
+    checkIntervalMs = 10_000,
+  ) {
+    this.maxSilence = maxSilenceMs;
+    this.timer = setInterval(() => {
+      if (!this.fired && Date.now() - this.lastActivity > this.maxSilence) {
+        this.fired = true;
+        this.onStale();
+      }
+    }, checkIntervalMs);
+  }
+
+  /** Call on every stream activity (line received, entry emitted, etc.) */
+  heartbeat(): void {
+    this.lastActivity = Date.now();
+    this.fired = false;
+  }
+
+  dispose(): void {
+    clearInterval(this.timer);
+  }
+}

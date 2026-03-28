@@ -12,6 +12,8 @@ import type {
 import { BaseAgentAdapter } from './base-adapter.js';
 import { EntryNormalizer } from './entry-normalizer.js';
 import { loadEnvFile } from './env-file-loader.js';
+import { StreamMonitor } from './stream-monitor.js';
+import { cleanSpawnEnv } from './env-cleanup.js';
 
 // ---------------------------------------------------------------------------
 // OpenCode NDJSON message shapes
@@ -57,6 +59,7 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
 
   private readonly childProcesses = new Map<string, ChildProcess>();
   private readonly readlineInterfaces = new Map<string, ReadlineInterface>();
+  private readonly streamMonitors = new Map<string, StreamMonitor>();
 
   // --- Lifecycle hooks -----------------------------------------------------
 
@@ -75,8 +78,9 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
     args.push(config.prompt);
 
     const envFromFile = config.envFile ? loadEnvFile(config.envFile) : {};
-    const childEnv: Record<string, string | undefined> = { ...process.env, ...envFromFile, ...config.env };
-    if (config.apiKey) childEnv.OPENAI_API_KEY = config.apiKey;
+    const envOverrides: Record<string, string | undefined> = { ...envFromFile, ...config.env };
+    if (config.apiKey) envOverrides.OPENAI_API_KEY = config.apiKey;
+    const childEnv = cleanSpawnEnv(envOverrides);
 
     const child = spawn('opencode', args, {
       cwd: config.workDir,
@@ -89,9 +93,19 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
       throw new Error('Failed to spawn OpenCode: stdio streams not available');
     }
 
+    // Heartbeat monitor: detect stale streams (60s silence)
+    const monitor = new StreamMonitor(() => {
+      this.emitEntry(
+        processId,
+        EntryNormalizer.error(processId, 'Stream stale: no output for 60s', 'stream_stale'),
+      );
+    });
+    this.streamMonitors.set(processId, monitor);
+
     // Line-by-line parsing of NDJSON stdout
     const rl = createInterface({ input: child.stdout });
     rl.on('line', (line: string) => {
+      monitor.heartbeat();
       this.parseOpenCodeMessage(line, processId);
     });
 
@@ -275,6 +289,11 @@ export class OpenCodeAdapter extends BaseAgentAdapter {
     if (rl) {
       rl.close();
       this.readlineInterfaces.delete(processId);
+    }
+    const monitor = this.streamMonitors.get(processId);
+    if (monitor) {
+      monitor.dispose();
+      this.streamMonitors.delete(processId);
     }
     this.childProcesses.delete(processId);
   }

@@ -24,6 +24,7 @@ import type {
 import { BaseAgentAdapter } from './base-adapter.js';
 import { EntryNormalizer } from './entry-normalizer.js';
 import { loadEnvFile } from './env-file-loader.js';
+import { cleanSpawnEnv } from './env-cleanup.js';
 
 // ---------------------------------------------------------------------------
 // JSON-RPC 2.0 types
@@ -103,8 +104,9 @@ export class CodexAppServerAdapter extends BaseAgentAdapter {
     config: AgentConfig,
   ): Promise<AgentProcess> {
     const envFromFile = config.envFile ? loadEnvFile(config.envFile) : {};
-    const childEnv: Record<string, string | undefined> = { ...process.env, ...envFromFile, ...config.env };
-    if (config.apiKey) childEnv.OPENAI_API_KEY = config.apiKey;
+    const envOverrides: Record<string, string | undefined> = { ...envFromFile, ...config.env };
+    if (config.apiKey) envOverrides.OPENAI_API_KEY = config.apiKey;
+    const childEnv = cleanSpawnEnv(envOverrides);
 
     const child = spawn(this.appConfig.command, ['app-server'], {
       cwd: config.workDir,

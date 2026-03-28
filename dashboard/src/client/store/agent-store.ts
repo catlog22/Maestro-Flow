@@ -77,7 +77,28 @@ export const useAgentStore = create<AgentStore>((set) => ({
       const existing = state.entries[processId] ?? [];
       // Idempotent: skip if entry with same id already exists (prevents duplicates on reconnect)
       if (entry.id && existing.some(e => e.id === entry.id)) return state;
-      const newEntries = [...existing, entry];
+
+      let newEntries: NormalizedEntry[];
+
+      if (entry.type === 'assistant_message') {
+        // Find the last entry in the list
+        const lastIdx = existing.length - 1;
+        const last = lastIdx >= 0 ? existing[lastIdx] : null;
+
+        if (entry.partial && last?.type === 'assistant_message' && last.partial) {
+          // Merge: accumulate delta into the existing partial entry
+          const merged = { ...last, content: last.content + entry.content, id: entry.id };
+          newEntries = [...existing.slice(0, lastIdx), merged];
+        } else if (!entry.partial && last?.type === 'assistant_message' && last.partial) {
+          // Final message replaces accumulated partial
+          newEntries = [...existing.slice(0, lastIdx), entry];
+        } else {
+          newEntries = [...existing, entry];
+        }
+      } else {
+        newEntries = [...existing, entry];
+      }
+
       return {
         entries: {
           ...state.entries,

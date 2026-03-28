@@ -14,6 +14,8 @@ import type {
 import { BaseAgentAdapter } from './base-adapter.js';
 import { EntryNormalizer } from './entry-normalizer.js';
 import { loadEnvFile } from './env-file-loader.js';
+import { StreamMonitor } from './stream-monitor.js';
+import { cleanSpawnEnv } from './env-cleanup.js';
 
 // ---------------------------------------------------------------------------
 // Stream-json message shapes (shared by Gemini CLI and Qwen CLI)
@@ -81,6 +83,8 @@ export class StreamJsonAdapter extends BaseAgentAdapter {
   private readonly lastContentLength = new Map<string, number>();
   private readonly toolIdNames = new Map<string, string>();
   private readonly stoppedEmitted = new Set<string>();
+  private readonly streamMonitors = new Map<string, StreamMonitor>();
+  private readonly thinkingEmitted = new Set<string>();
 
   constructor(executable: string, agentType: AgentType) {
     super();
@@ -98,14 +102,15 @@ export class StreamJsonAdapter extends BaseAgentAdapter {
     const [cmd, ...cmdArgs] = this.executable.split(/\s+/);
 
     const envFromFile = config.envFile ? loadEnvFile(config.envFile) : {};
-    const childEnv: Record<string, string | undefined> = { ...process.env, ...envFromFile, ...config.env };
+    const envOverrides: Record<string, string | undefined> = { ...envFromFile, ...config.env };
     if (config.apiKey) {
       if (this.agentType === 'gemini') {
-        childEnv.GEMINI_API_KEY = config.apiKey;
+        envOverrides.GEMINI_API_KEY = config.apiKey;
       } else if (this.agentType === 'qwen') {
-        childEnv.DASHSCOPE_API_KEY = config.apiKey;
+        envOverrides.DASHSCOPE_API_KEY = config.apiKey;
       }
     }
+    const childEnv = cleanSpawnEnv(envOverrides);
 
     const child = spawn(cmd, [...cmdArgs, ...args], {
       cwd: config.workDir,
@@ -124,9 +129,19 @@ export class StreamJsonAdapter extends BaseAgentAdapter {
     child.stdin.write(config.prompt);
     child.stdin.end();
 
+    // Heartbeat monitor: detect stale streams (60s silence)
+    const monitor = new StreamMonitor(() => {
+      this.emitEntry(
+        processId,
+        EntryNormalizer.error(processId, 'Stream stale: no output for 60s', 'stream_stale'),
+      );
+    });
+    this.streamMonitors.set(processId, monitor);
+
     // Line-by-line parsing of stream-json stdout
     const rl = createInterface({ input: child.stdout });
     rl.on('line', (line: string) => {
+      monitor.heartbeat();
       this.parseStreamJsonMessage(line, processId);
     });
 
@@ -295,7 +310,25 @@ export class StreamJsonAdapter extends BaseAgentAdapter {
   }
 
   private handleMessageEntry(msg: StreamJsonMessage, processId: string): void {
-    const content = msg.content ?? '';
+    let content = msg.content ?? '';
+
+    // Think tag extraction: strip <think> blocks, emit as separate thinking entries
+    if (content.includes('<think>')) {
+      if (content.includes('</think>')) {
+        const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/);
+        if (thinkMatch && !this.thinkingEmitted.has(processId)) {
+          const thought = thinkMatch[1].trim();
+          if (thought.length > 0) {
+            this.emitEntry(processId, EntryNormalizer.thinking(processId, thought));
+          }
+          this.thinkingEmitted.add(processId);
+        }
+        content = content.replace(/<think>[\s\S]*?<\/think>/, '').trimStart();
+      } else {
+        // Incomplete think tag — wait for closing tag in next cumulative chunk
+        return;
+      }
+    }
 
     if (msg.delta) {
       // Cumulative-to-delta conversion: stream-json sends cumulative text
@@ -390,8 +423,14 @@ export class StreamJsonAdapter extends BaseAgentAdapter {
       rl.close();
       this.readlineInterfaces.delete(processId);
     }
+    const monitor = this.streamMonitors.get(processId);
+    if (monitor) {
+      monitor.dispose();
+      this.streamMonitors.delete(processId);
+    }
     this.childProcesses.delete(processId);
     this.lastContentLength.delete(processId);
+    this.thinkingEmitted.delete(processId);
     this.toolIdNames.clear();
     // Note: stoppedEmitted is intentionally NOT cleared here — it must persist
     // to guard against the readline close fallback timer firing after cleanup.
