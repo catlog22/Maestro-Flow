@@ -250,7 +250,7 @@ Regardless of complexity score or role count, coordinator MUST:
 ```typescript
 // 使用 team_msg 将 pipeline 元数据写入 .msg/meta.json
 // 注意: 此处为动态角色，执行时需将 <placeholders> 替换为 task-analysis.json 中生成的实际角色列表
-mcp__maestro__team_msg({
+mcp__ccw-tools__team_msg({
   operation: "log",
   session_id: "<session-id>",
   from: "coordinator",

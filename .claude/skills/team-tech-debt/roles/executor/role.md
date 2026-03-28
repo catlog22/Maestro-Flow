@@ -37,7 +37,7 @@ For each batch, use CLI tool for implementation:
 **Per-batch delegation**:
 
 ```bash
-maestro cli -p "PURPOSE: Apply tech debt fixes in batch; success = all items fixed without breaking changes
+ccw cli -p "PURPOSE: Apply tech debt fixes in batch; success = all items fixed without breaking changes
 TASK: <batch-type-specific-tasks>
 MODE: write
 CONTEXT: @<worktree-path>/**/* | Memory: Remediation plan context

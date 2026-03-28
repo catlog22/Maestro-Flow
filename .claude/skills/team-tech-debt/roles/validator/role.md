@@ -59,7 +59,7 @@ Execute 4-layer validation (all commands in worktree):
 - Use CLI tool to fix regressions in worktree:
   ```
   Bash({
-    command: `cd "${worktreePath}" && maestro cli -p "PURPOSE: Fix regressions found in validation
+    command: `cd "${worktreePath}" && ccw cli -p "PURPOSE: Fix regressions found in validation
   TASK: ${regressionDetails}
   MODE: write
   CONTEXT: @${modifiedFiles.join(' @')}

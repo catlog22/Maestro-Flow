@@ -1,6 +1,6 @@
 ---
 name: team-lifecycle-v4
-description: Full lifecycle team skill with clean architecture. SKILL.md is a universal router — all roles read it. Beat model is coordinator-only. Structure is roles/ + specs/ + templates/. Triggers on "team lifecycle v4".
+description: Full lifecycle team skill — plan, develop, test, review in one coordinated session. Role-based architecture with coordinator-driven beat model. Triggers on "team lifecycle v4".
 allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
 
@@ -55,8 +55,8 @@ Parse `$ARGUMENTS`:
 
 - **Session prefix**: `TLV4`
 - **Session path**: `.workflow/.team/TLV4-<slug>-<date>/`
-- **CLI tools**: `maestro cli --mode analysis` (read-only), `maestro cli --mode write` (modifications)
-- **Message bus**: `mcp__maestro__team_msg(session_id=<session-id>, ...)`
+- **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
+- **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
 
 ## Worker Spawn Template
 

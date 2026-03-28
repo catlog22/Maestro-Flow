@@ -86,7 +86,7 @@ TEXT-LEVEL ONLY. No source code reading.
 7. Initialize shared infrastructure (wisdom/*.md)
 8. Initialize pipeline via team_msg state_update:
    ```
-   mcp__maestro__team_msg({
+   mcp__ccw-tools__team_msg({
      operation: "log", session_id: "<id>", from: "coordinator",
      type: "state_update", summary: "Session initialized",
      data: {

@@ -21,7 +21,8 @@ Deep analysis on scan findings: triage, root cause / impact / optimization enric
 | .msg/meta.json | <session>/.msg/meta.json | No |
 
 1. Extract session path, input path, dimensions from task description
-2. Load scan results. If missing or empty -> report clean, complete immediately
+2. Load review specs: Run `ccw spec load --category review` for review standards, checklists, and approval gates
+3. Load scan results. If missing or empty -> report clean, complete immediately
 3. Load wisdom files from `<session>/wisdom/`
 4. Triage findings into two buckets:
 
@@ -51,7 +52,7 @@ Build prompt per group requesting 6 enrichment fields per finding:
 - `fix_complexity`: low / medium / high
 - `fix_dependencies`: finding IDs that must be fixed first
 
-Execute via `maestro cli --tool gemini --mode analysis --rule analysis-diagnose-bug-root-cause` (fallback: qwen -> codex). Parse JSON array responses, merge with originals (CLI-enriched replace originals, unenriched get defaults). Write `<session>/review/enriched-findings.json`.
+Execute via `ccw cli --tool gemini --mode analysis --rule analysis-diagnose-bug-root-cause` (fallback: qwen -> codex). Parse JSON array responses, merge with originals (CLI-enriched replace originals, unenriched get defaults). Write `<session>/review/enriched-findings.json`.
 
 ## Phase 4: Report Generation
 

@@ -81,7 +81,7 @@ SCAN-001 (scanner): Quick scan (fast mode)
 ## Log After Creation
 
 ```
-mcp__maestro__team_msg({
+mcp__ccw-tools__team_msg({
   operation: "log",
   session_id: <session-id>,
   from: "coordinator",

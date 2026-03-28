@@ -59,7 +59,7 @@ Template-driven document generation with progressive dependency loading.
 
 CLI generation:
 ```
-Bash({ command: `maestro cli -p "PURPOSE: Generate <doc-type> document following template
+Bash({ command: `ccw cli -p "PURPOSE: Generate <doc-type> document following template
 TASK: • Load template • Apply spec config and discovery context • Integrate prior feedback • Generate all sections
 MODE: write
 CONTEXT: @<session>/spec/*.json @<template-path>

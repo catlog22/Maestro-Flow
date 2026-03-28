@@ -1,7 +1,7 @@
 ---
 name: team-tech-debt
 description: Unified team skill for tech debt identification and remediation. Scans codebase for tech debt, assesses severity, plans and executes fixes with validation. Uses team-worker agent architecture with roles/ for domain logic. Coordinator orchestrates pipeline, workers are team-worker agents. Triggers on "team tech debt".
-allowed-tools: Agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep, TaskList, TaskGet, TaskUpdate, TaskCreate, TeamCreate, TeamDelete, SendMessage, mcp__ace-tool__search_context, mcp__maestro__read_file, mcp__maestro__write_file, mcp__maestro__edit_file, mcp__maestro__team_msg
+allowed-tools: Agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep, TaskList, TaskGet, TaskUpdate, TaskCreate, TeamCreate, TeamDelete, SendMessage, mcp__ace-tool__search_context, mcp__ccw-tools__read_file, mcp__ccw-tools__write_file, mcp__ccw-tools__edit_file, mcp__ccw-tools__team_msg
 ---
 
 # Team Tech Debt
@@ -51,8 +51,8 @@ Parse `$ARGUMENTS`:
 
 - **Session prefix**: `TD`
 - **Session path**: `.workflow/.team/TD-<slug>-<date>/`
-- **CLI tools**: `maestro cli --mode analysis` (read-only), `maestro cli --mode write` (modifications)
-- **Message bus**: `mcp__maestro__team_msg(session_id=<session-id>, ...)`
+- **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
+- **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
 - **Max GC rounds**: 3
 
 ## Worker Spawn Template

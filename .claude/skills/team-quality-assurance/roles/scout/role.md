@@ -39,7 +39,7 @@ Scan codebase from multiple perspectives (bug, security, test-coverage, code-qua
 
 **Low complexity**: Use `mcp__ace-tool__search_context` for quick pattern-based scan.
 
-**Medium/High complexity**: CLI fan-out -- one `maestro cli --mode analysis` per perspective:
+**Medium/High complexity**: CLI fan-out -- one `ccw cli --mode analysis` per perspective:
 
 For each active perspective, build prompt:
 ```
@@ -50,7 +50,7 @@ CONTEXT: @<scan-scope>
 EXPECTED: List of findings with severity (critical/high/medium/low), file:line references, description
 CONSTRAINTS: Focus on actionable findings only
 ```
-Execute via: `maestro cli -p "<prompt>" --tool gemini --mode analysis`
+Execute via: `ccw cli -p "<prompt>" --tool gemini --mode analysis`
 
 After all perspectives complete:
 - Parse CLI outputs into structured findings

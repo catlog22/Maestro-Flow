@@ -34,7 +34,7 @@ Research and codebase exploration for context gathering.
 4. If topic references file (@path or .md/.txt) → read it
 5. CLI seed analysis:
    ```
-   Bash({ command: `maestro cli -p "PURPOSE: Analyze topic, extract structured seed info.
+   Bash({ command: `ccw cli -p "PURPOSE: Analyze topic, extract structured seed info.
    TASK: • Extract problem statement • Identify target users • Determine domain
    • List constraints • Identify 3-5 exploration dimensions
    TOPIC: <topic-content>
@@ -52,7 +52,7 @@ Research and codebase exploration for context gathering.
 
 When project detected:
 ```
-Bash({ command: `maestro cli -p "PURPOSE: Explore codebase for context
+Bash({ command: `ccw cli -p "PURPOSE: Explore codebase for context
 TASK: • Identify tech stack • Map architecture patterns • Document conventions • List integration points
 MODE: analysis
 CONTEXT: @**/*

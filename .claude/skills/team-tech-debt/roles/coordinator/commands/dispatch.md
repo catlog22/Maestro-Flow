@@ -101,7 +101,7 @@ const chainTasks = pipeline.map(s => taskIds[s.prefix]).filter(Boolean)
 const chainValid = chainTasks.length === pipeline.length
 
 if (!chainValid) {
-  mcp__maestro__team_msg({
+  mcp__ccw-tools__team_msg({
     operation: "log", session_id: sessionId, from: "coordinator",  // team must be session ID (e.g., TD-xxx-date), NOT team name
     type: "error",
   })

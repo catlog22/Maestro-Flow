@@ -51,7 +51,7 @@ CONSTRAINTS: Only modify listed files | Follow existing patterns
 
 CLI call:
 ```
-Bash({ command: `maestro cli -p "<prompt>" --tool <tool> --mode write --rule development-implement-feature`,
+Bash({ command: `ccw cli -p "<prompt>" --tool <tool> --mode write --rule development-implement-feature`,
   run_in_background: false, timeout: 3600000 })
 ```
 

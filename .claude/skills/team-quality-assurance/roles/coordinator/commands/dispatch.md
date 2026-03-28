@@ -101,7 +101,7 @@ SCOUT-002 (scout): Regression scan after fixes
 ## Log After Creation
 
 ```
-mcp__maestro__team_msg({
+mcp__ccw-tools__team_msg({
   operation: "log",
   session_id: <session-id>,
   from: "coordinator",
