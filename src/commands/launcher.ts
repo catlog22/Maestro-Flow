@@ -5,6 +5,10 @@
 //   1. Workflow profiles — which CLAUDE.md + cli-tools.json to activate
 //   2. Settings profiles — which settings.json to launch with
 //
+// All workflows are global — switching replaces ~/.claude/CLAUDE.md and
+// ~/.claude/cli-tools.json. If the current project directory has workflow
+// files from a different workflow, the user is prompted to clean them.
+//
 // Config stored at: ~/.claude-launcher/config.json
 // ---------------------------------------------------------------------------
 
@@ -19,9 +23,12 @@ import {
   readdirSync,
   unlinkSync,
   copyFileSync,
+  rmSync,
+  statSync,
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { select } from '@inquirer/prompts';
+import { select, confirm } from '@inquirer/prompts';
+import { ExitPromptError } from '@inquirer/core';
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -34,6 +41,14 @@ const CLAUDE_MD = join(CLAUDE_DIR, 'CLAUDE.md');
 const CLI_TOOLS = join(CLAUDE_DIR, 'cli-tools.json');
 const SYSTEM_SETTINGS = join(CLAUDE_DIR, 'settings.json');
 
+/** Project-level workflow directories that may conflict when switching */
+const PROJECT_WORKFLOW_DIRS = [
+  join('.claude', 'commands'),
+  join('.claude', 'agents'),
+  join('.claude', 'skills'),
+  join('.codex', 'skills'),
+];
+
 // ---------------------------------------------------------------------------
 // Config types & I/O
 // ---------------------------------------------------------------------------
@@ -41,6 +56,8 @@ const SYSTEM_SETTINGS = join(CLAUDE_DIR, 'settings.json');
 interface WorkflowProfile {
   claudeMd: string;
   cliTools: string | null;
+  npmPackage?: string;
+  installCheck?: string;
 }
 
 interface SettingsProfile {
@@ -72,18 +89,173 @@ function save(config: LauncherConfig): void {
 }
 
 // ---------------------------------------------------------------------------
+// Display helpers
+// ---------------------------------------------------------------------------
+
+function workflowLabel(wf: WorkflowProfile): string {
+  const parent = dirname(wf.claudeMd);
+  const parentName = basename(parent);
+  if (parentName === '.claude') return basename(dirname(parent));
+  return parentName;
+}
+
+// ---------------------------------------------------------------------------
+// Install check
+// ---------------------------------------------------------------------------
+
+function isBinaryAvailable(bin: string): boolean {
+  const cmd = process.platform === 'win32' ? 'where' : 'which';
+  const result = spawnSync(cmd, [bin], { stdio: 'pipe', shell: true });
+  return result.status === 0;
+}
+
+function resolveCheckPath(p: string): string {
+  return p.replace(/^~[/\\]/, homedir() + '/');
+}
+
+async function ensureWorkflowReady(name: string, wf: WorkflowProfile): Promise<boolean> {
+  if (!wf.installCheck && !wf.npmPackage) return true;
+
+  if (wf.installCheck) {
+    const checkPath = resolveCheckPath(wf.installCheck);
+    if (existsSync(checkPath)) return true;
+  } else {
+    return true;
+  }
+
+  console.error('');
+  console.error(`  Workflow "${name}" resources not found.`);
+  if (wf.installCheck) {
+    console.error(`  Missing: ${wf.installCheck}`);
+  }
+  console.error('');
+
+  const proceed = await confirm({
+    message: `Install "${name}" dependencies?`,
+    default: true,
+  });
+  if (!proceed) return false;
+
+  if (wf.npmPackage) {
+    const bin = name;
+    if (!isBinaryAvailable(bin)) {
+      console.error(`  Installing npm package: ${wf.npmPackage}...`);
+      const npmResult = spawnSync('npm', ['install', '-g', wf.npmPackage], {
+        stdio: 'inherit',
+        shell: true,
+      });
+      if (npmResult.status !== 0) {
+        console.error(`  Failed to install ${wf.npmPackage}`);
+        return false;
+      }
+      console.error(`  npm package installed.`);
+    }
+
+    console.error(`  Running ${bin} install...`);
+    const installResult = spawnSync(bin, ['install', '--force', '--global'], {
+      stdio: 'inherit',
+      shell: true,
+    });
+    if (installResult.status !== 0) {
+      console.error(`  Failed to run ${bin} install`);
+      return false;
+    }
+  }
+
+  if (wf.installCheck) {
+    const checkPath = resolveCheckPath(wf.installCheck);
+    if (!existsSync(checkPath)) {
+      console.error(`  Warning: ${wf.installCheck} still not found after install.`);
+      return false;
+    }
+  }
+
+  console.error('  Installation complete.');
+  console.error('');
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Project conflict detection
+// ---------------------------------------------------------------------------
+
+function countDir(dir: string): number {
+  if (!existsSync(dir)) return 0;
+  try {
+    let count = 0;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isFile()) count++;
+      else if (entry.isDirectory()) count += countDir(join(dir, entry.name));
+    }
+    return count;
+  } catch {
+    return 0;
+  }
+}
+
+interface ConflictInfo {
+  dir: string;
+  fileCount: number;
+}
+
+function detectProjectConflicts(cwd: string): ConflictInfo[] {
+  const conflicts: ConflictInfo[] = [];
+  for (const relDir of PROJECT_WORKFLOW_DIRS) {
+    const fullPath = join(cwd, relDir);
+    const fileCount = countDir(fullPath);
+    if (fileCount > 0) {
+      conflicts.push({ dir: relDir, fileCount });
+    }
+  }
+  return conflicts;
+}
+
+async function handleProjectConflicts(cwd: string): Promise<void> {
+  const conflicts = detectProjectConflicts(cwd);
+  if (conflicts.length === 0) return;
+
+  console.error('');
+  console.error('  Project workflow files detected:');
+  for (const c of conflicts) {
+    console.error(`    ${c.dir}  (${c.fileCount} files)`);
+  }
+  console.error('');
+
+  const shouldClean = await confirm({
+    message: 'Delete project workflow files? (they may conflict with the selected workflow)',
+    default: false,
+  });
+
+  if (!shouldClean) return;
+
+  for (const c of conflicts) {
+    const fullPath = join(cwd, c.dir);
+    rmSync(fullPath, { recursive: true, force: true });
+    console.error(`  Deleted: ${c.dir}`);
+  }
+  console.error('');
+}
+
+// ---------------------------------------------------------------------------
 // Workflow operations
 // ---------------------------------------------------------------------------
 
-function addWorkflow(name: string, claudeMdPath: string, cliToolsPath?: string): WorkflowProfile {
+interface AddWorkflowOpts {
+  npmPackage?: string;
+  installCheck?: string;
+}
+
+function addWorkflow(name: string, claudeMdPath: string, cliToolsPath?: string, opts: AddWorkflowOpts = {}): WorkflowProfile {
   const md = resolve(claudeMdPath);
   if (!existsSync(md)) throw new Error(`CLAUDE.md not found: ${md}`);
   const tools = cliToolsPath ? resolve(cliToolsPath) : null;
   if (tools && !existsSync(tools)) throw new Error(`cli-tools.json not found: ${tools}`);
 
   const config = load();
-  config.workflows[name] = { claudeMd: md, cliTools: tools };
-  // Auto-set default if first
+  const profile: WorkflowProfile = { claudeMd: md, cliTools: tools };
+  if (opts.npmPackage) profile.npmPackage = opts.npmPackage;
+  if (opts.installCheck) profile.installCheck = opts.installCheck;
+  config.workflows[name] = profile;
   if (Object.keys(config.workflows).length === 1) {
     config.defaults.workflow = name;
   }
@@ -99,10 +271,8 @@ function applyWorkflow(name: string): void {
 
   if (!existsSync(CLAUDE_DIR)) mkdirSync(CLAUDE_DIR, { recursive: true });
 
-  // Replace ~/.claude/CLAUDE.md
   copyFileSync(wf.claudeMd, CLAUDE_MD);
 
-  // Replace or remove ~/.claude/cli-tools.json
   if (wf.cliTools && existsSync(wf.cliTools)) {
     copyFileSync(wf.cliTools, CLI_TOOLS);
   } else if (existsSync(CLI_TOOLS)) {
@@ -180,7 +350,6 @@ async function interactiveLaunch(extraArgs: string[]): Promise<void> {
   const config = load();
   const currentWf = detectCurrentWorkflow();
 
-  // --- Select workflow ---
   const wfEntries = Object.entries(config.workflows);
   if (wfEntries.length === 0) {
     console.error('No workflows registered. Use: maestro launcher add-workflow <name> --claude-md <path>');
@@ -188,7 +357,7 @@ async function interactiveLaunch(extraArgs: string[]): Promise<void> {
   }
 
   const wfChoices = wfEntries.map(([name, wf]) => ({
-    name: `${name}${currentWf === name ? ' (active)' : ''}${config.defaults.workflow === name ? ' ★' : ''}  →  ${basename(dirname(wf.claudeMd))}`,
+    name: `${name}${config.defaults.workflow === name ? ' ★' : ''}${currentWf === name ? ' (active)' : ''}  →  ${workflowLabel(wf)}`,
     value: name,
   }));
 
@@ -198,7 +367,6 @@ async function interactiveLaunch(extraArgs: string[]): Promise<void> {
     default: config.defaults.workflow || (currentWf ?? undefined),
   });
 
-  // --- Select settings ---
   const settingsEntries = Object.entries(config.settings);
   const hasSystem = existsSync(SYSTEM_SETTINGS);
 
@@ -215,7 +383,7 @@ async function interactiveLaunch(extraArgs: string[]): Promise<void> {
 
   if (settingsChoices.length === 0) {
     console.error('No settings profiles found. Using system default.');
-    launchClaude(chosenWf, undefined, extraArgs);
+    await ensureAndLaunch(chosenWf, undefined, extraArgs);
     return;
   }
 
@@ -229,11 +397,29 @@ async function interactiveLaunch(extraArgs: string[]): Promise<void> {
     ? undefined
     : config.settings[chosenSettings]?.path;
 
-  launchClaude(chosenWf, settingsPath, extraArgs);
+  await ensureAndLaunch(chosenWf, settingsPath, extraArgs);
+}
+
+async function ensureAndLaunch(workflowName: string, settingsPath: string | undefined, extraArgs: string[]): Promise<void> {
+  const config = load();
+  const wf = config.workflows[workflowName];
+
+  // Check npm/install dependencies
+  if (wf && (wf.npmPackage || wf.installCheck)) {
+    const ready = await ensureWorkflowReady(workflowName, wf);
+    if (!ready) {
+      console.error('Launch cancelled.');
+      process.exit(0);
+    }
+  }
+
+  // Check project-level conflicts
+  await handleProjectConflicts(process.cwd());
+
+  launchClaude(workflowName, settingsPath, extraArgs);
 }
 
 function launchClaude(workflowName: string, settingsPath: string | undefined, extraArgs: string[]): void {
-  // Apply workflow
   applyWorkflow(workflowName);
   console.error(`Workflow: ${workflowName}`);
 
@@ -272,33 +458,46 @@ export function registerLauncherCommand(program: Command): void {
     .action(async (opts: { workflow?: string; settings?: string }, cmd) => {
       const extraArgs = cmd.args;
 
-      // Direct mode: both specified
       if (opts.workflow) {
         const config = load();
         const settingsPath = opts.settings
           ? (opts.settings === 'system' ? undefined : config.settings[opts.settings]?.path)
           : undefined;
-        launchClaude(opts.workflow, settingsPath, extraArgs);
+        await ensureAndLaunch(opts.workflow, settingsPath, extraArgs);
         return;
       }
 
-      // Interactive mode
-      await interactiveLaunch(extraArgs);
+      try {
+        await interactiveLaunch(extraArgs);
+      } catch (err) {
+        if (err instanceof ExitPromptError) {
+          console.error('\nCancelled.');
+          process.exit(0);
+        }
+        throw err;
+      }
     });
 
   // --- Subcommands ---
 
   launcher
     .command('add-workflow <name>')
-    .description('Register a workflow profile (CLAUDE.md + optional cli-tools.json)')
+    .description('Register a workflow profile')
     .requiredOption('--claude-md <path>', 'Path to CLAUDE.md for this workflow')
     .option('--cli-tools <path>', 'Path to cli-tools.json for this workflow')
-    .action((name: string, opts: { claudeMd: string; cliTools?: string }) => {
+    .option('--npm-package <pkg>', 'npm package to install (e.g., maestro-flow)')
+    .option('--install-check <path>', 'Path to verify resources are installed (e.g., ~/.maestro/workflows)')
+    .action((name: string, opts: { claudeMd: string; cliTools?: string; npmPackage?: string; installCheck?: string }) => {
       try {
-        const wf = addWorkflow(name, opts.claudeMd, opts.cliTools);
+        const wf = addWorkflow(name, opts.claudeMd, opts.cliTools, {
+          npmPackage: opts.npmPackage,
+          installCheck: opts.installCheck,
+        });
         console.log(`Added workflow "${name}"`);
-        console.log(`  CLAUDE.md:  ${wf.claudeMd}`);
-        if (wf.cliTools) console.log(`  cli-tools:  ${wf.cliTools}`);
+        console.log(`  CLAUDE.md:       ${wf.claudeMd}`);
+        if (wf.cliTools) console.log(`  cli-tools:       ${wf.cliTools}`);
+        if (wf.npmPackage) console.log(`  npm-package:     ${wf.npmPackage}`);
+        if (wf.installCheck) console.log(`  install-check:   ${wf.installCheck}`);
       } catch (err: any) {
         console.error(`Error: ${err.message}`);
         process.exit(1);
@@ -362,12 +561,13 @@ export function registerLauncherCommand(program: Command): void {
     .description('Scan directory for Claude settings JSON files and register them')
     .action((dir: string) => {
       try {
-        const { added, skipped } = scanSettingsDir(dir);
+        const { added } = scanSettingsDir(dir);
         if (added.length > 0) {
           console.log(`Registered ${added.length} settings:`);
           added.forEach((n) => console.log(`  + ${n}`));
+        } else {
+          console.log('No new Claude settings files found.');
         }
-        if (added.length === 0) console.log('No new Claude settings files found.');
       } catch (err: any) {
         console.error(`Error: ${err.message}`);
         process.exit(1);
@@ -396,6 +596,31 @@ export function registerLauncherCommand(program: Command): void {
     });
 
   launcher
+    .command('set <name> <key> <value>')
+    .description('Set workflow property (npm-package, install-check)')
+    .action((name: string, key: string, value: string) => {
+      const validKeys: Record<string, keyof WorkflowProfile> = {
+        'npm-package': 'npmPackage',
+        'install-check': 'installCheck',
+      };
+      const field = validKeys[key];
+      if (!field) {
+        console.error(`Unknown key: ${key}. Valid keys: ${Object.keys(validKeys).join(', ')}`);
+        process.exit(1);
+      }
+      try {
+        const config = load();
+        if (!config.workflows[name]) throw new Error(`Workflow not found: ${name}`);
+        (config.workflows[name] as any)[field] = value;
+        save(config);
+        console.log(`Workflow "${name}": ${key} = "${value}"`);
+      } catch (err: any) {
+        console.error(`Error: ${err.message}`);
+        process.exit(1);
+      }
+    });
+
+  launcher
     .command('list')
     .description('List all registered profiles')
     .action(() => {
@@ -409,11 +634,17 @@ export function registerLauncherCommand(program: Command): void {
         console.log('  (none)');
       } else {
         for (const [name, wf] of wfEntries) {
-          const active = currentWf === name ? ' [active]' : '';
+          const active = currentWf === name ? ' (active)' : '';
           const def = config.defaults.workflow === name ? ' ★' : '';
-          console.log(`  ${name}${def}${active}`);
+          console.log(`  ${name}${def}${active}  →  ${workflowLabel(wf)}`);
           console.log(`    CLAUDE.md:  ${wf.claudeMd}`);
           if (wf.cliTools) console.log(`    cli-tools:  ${wf.cliTools}`);
+          if (wf.npmPackage) console.log(`    npm:        ${wf.npmPackage}`);
+          if (wf.installCheck) {
+            const checkPath = resolveCheckPath(wf.installCheck);
+            const installed = existsSync(checkPath);
+            console.log(`    resources:  ${installed ? 'installed' : 'not installed'} (${wf.installCheck})`);
+          }
         }
       }
 

@@ -1,6 +1,6 @@
 {
   "name": "maestro-flow",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Workflow orchestration CLI with MCP endpoint support and extensible architecture",
   "type": "module",
   "bin": {
@@ -13,10 +13,14 @@
   "files": [
     "bin",
     "dist",
-    "commands",
-    "agents",
     "templates",
     "workflows",
+    "chains",
+    ".claude/commands",
+    ".claude/agents",
+    ".claude/skills",
+    ".claude/CLAUDE.md",
+    ".codex/skills",
     "dashboard/dist",
     "dashboard/dist-server",
     "dashboard/package.json"
@@ -27,7 +31,8 @@
     "start": "node bin/maestro.js",
     "mcp": "node bin/maestro-mcp.js",
     "lint": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
   },
   "engines": {
     "node": ">=18.0.0"

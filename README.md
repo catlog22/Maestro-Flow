@@ -220,14 +220,22 @@ Maestro-Flow doesn't pick one AI — it uses them together:
 
 ### Install
 
+#### npm (Recommended)
+
+```bash
+npm install -g maestro-flow
+
+# Install workflows, commands, agents, templates
+maestro install
+```
+
+#### From Source
+
 ```bash
 git clone https://github.com/catlog22/Maestro-Flow.git
 cd Maestro-Flow
 npm install && npm run build
-
-# Dashboard
-cd dashboard && npm install && npm run dev
-# → http://127.0.0.1:3001
+maestro install
 ```
 
 ### First Run
@@ -241,6 +249,37 @@ cd dashboard && npm install && npm run dev
 # Or just:
 /maestro "build a REST API for user management"
 ```
+
+### Dashboard & TUI
+
+```bash
+# Web dashboard — real-time project control panel
+maestro serve
+# → http://127.0.0.1:3001
+
+# TUI — terminal-based dashboard
+maestro view
+```
+
+| View | Key | Description |
+|------|-----|-------------|
+| **Board** | `K` | Kanban — Backlog, In Progress, Review, Done |
+| **Timeline** | `T` | Gantt-style phase timeline |
+| **Table** | `L` | Sortable phase & issue table |
+| **Center** | `C` | Command center — active executions, quality metrics |
+
+### Workflow Launcher
+
+Switch between different workflow configurations (e.g., Maestro ↔ CCW):
+
+```bash
+maestro launcher               # Interactive workflow + settings picker
+maestro launcher list           # Show registered workflows
+```
+
+When switching workflows, the launcher automatically:
+- Detects missing dependencies and offers `npm install -g <package>` + resource installation
+- Detects project-level workflow file conflicts and offers cleanup
 
 ### MCP Server
 

@@ -18,7 +18,7 @@ const program = new Command();
 program
   .name('maestro')
   .description('Workflow orchestration CLI with MCP support and extensible architecture')
-  .version('0.1.0');
+  .version('0.1.1');
 
 registerServeCommand(program);
 registerRunCommand(program);
