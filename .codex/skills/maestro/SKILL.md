@@ -28,7 +28,7 @@ $maestro --dry-run "refactor auth module"
 
 - `$ARGUMENTS` — user intent text, or special keywords
 - **Special keywords**: `continue`/`next`/`go` (state-based), `status` (shortcut to `manage-status`)
-- `-y` / `--yes` — Auto mode: skip clarification, skip confirmation, auto-skip on errors. Propagates to downstream skills.
+- `-y` / `--yes` — Auto mode: skip clarification/confirmation, enforce retry + recovery budget, continue multi-cycle until terminal state or stall budget reached.
 - `-c` / `--continue` — Resume previous session from `.workflow/.maestro/*/status.json`
 - `--dry-run` — Show planned chain without executing
 - `--chain <name>` — Force a specific chain (bypass intent detection)
@@ -280,9 +280,9 @@ const chainMap = {
   'memory_capture':     [{ cmd: 'manage-memory-capture', args: '"{description}"' }],
   'issue':              [{ cmd: 'manage-issue', args: '"{description}"' }],
   'issue_discover':     [{ cmd: 'manage-issue-discover', args: '"{description}"' }],
-  'issue_analyze':      [{ cmd: 'manage-issue-analyze', args: '"{description}"' }],
-  'issue_plan':         [{ cmd: 'manage-issue-plan', args: '"{description}"' }],
-  'issue_execute':      [{ cmd: 'manage-issue-execute', args: '"{description}"' }],
+  'issue_analyze':      [{ cmd: 'manage-issue', args: '"analyze: {description}"' }],
+  'issue_plan':         [{ cmd: 'manage-issue', args: '"plan: {description}"' }],
+  'issue_execute':      [{ cmd: 'manage-issue', args: '"execute: {description}"' }],
   // Team skills
   'team_lifecycle':     [{ cmd: 'team-lifecycle-v4', args: '"{description}"' }],
   'team_coordinate':    [{ cmd: 'team-coordinate', args: '"{description}"' }],
@@ -381,8 +381,8 @@ function resolvePhase(intent, state) {
   // 3. Scratch mode → null (uses {scratch_dir})
   if (chainName === 'analyze-plan-execute') return null;
   // 4. Commands that don't need phase
-  const noPhase = ['manage-status', 'manage-issue', 'manage-issue-analyze', 'manage-issue-plan',
-    'manage-issue-execute', 'maestro-init', 'maestro-spec-generate', 'maestro-roadmap',
+  const noPhase = ['manage-status', 'manage-issue', 'manage-issue-discover',
+    'maestro-init', 'maestro-spec-generate', 'maestro-roadmap',
     'spec-setup', 'spec-map', 'manage-memory', 'manage-memory-capture',
     'manage-codebase-rebuild', 'manage-codebase-refresh', 'maestro-milestone-audit',
     'maestro-milestone-complete', 'maestro-phase-transition', 'maestro-phase-add'];
@@ -422,7 +422,17 @@ Write `status.json`:
     { "index": 0, "skill": "{cmd}", "args": "{args}", "status": "pending", "started_at": null, "completed_at": null }
   ],
   "current_step": 0,
-  "status": "running"
+  "status": "running",
+  "recovery": {
+    "cycle": 1,
+    "max_cycles": 12,
+    "max_session_retries": 2,
+    "total_retries": 0,
+    "consecutive_failures": 0,
+    "auto_skips": 0,
+    "last_error": null,
+    "last_project_signature": ""
+  }
 }
 ```
 
@@ -476,9 +486,87 @@ For each step starting at `$STEP_INDEX` (default 0):
 4. **Parse output**: scan for phase references, spec session IDs → update context
 5. **On success**: step status = `"completed"`, continue
 6. **On failure**:
-   - Auto mode: log warning, mark `"skipped"`, continue
+   - Auto mode:
+     - retry current step with exponential backoff (default 3 attempts)
+     - if retries exhausted and step has `next`: mark `"skipped"` and continue
+     - increment recovery counters and persist `last_error`
+     - if consecutive_failures exceeds threshold (default 3): jump to `quality-debug`
    - Interactive: AskUserQuestion — "Retry" (max 2), "Skip", "Abort"
    - On Abort: **Error E003** — display resume instructions
+
+### Auto-Run Continuation Contract (`-y`)
+
+When running with `-y`, maestro must not stop after a single chain execution. It must enter a multi-cycle continuation loop:
+
+1. Execute selected chain and persist `status.json`
+2. Read `.workflow/state.json` and compute progress signature:
+   - `current_phase|phase_status|status|tasks_completed|tasks_total|verification_status|review_verdict|uat_status|phases_completed|phases_total`
+3. Evaluate completion via machine gate command first (source of truth):
+   - run `maestro coordinate gate --json`
+   - parse `{ terminal, pending, reasons[] }`
+   - if command fails, fallback to manual state-based gate logic below
+4. Before evaluating terminal in fallback mode, compute pending gate:
+   - `tasks_total > 0 && tasks_completed < tasks_total` => pending
+   - `phases_total > 0 && phases_completed < phases_total` => pending
+   - `verification_status in {pending, failed}` => pending
+   - `verification_status == passed && review_verdict is null/empty` => pending
+   - `review_verdict == BLOCK` => pending
+   - `uat_status in {pending, failed}` => pending
+   - `project.status not in {completed, failed, ""}` => pending
+5. Project is terminal only when:
+   - `phases_completed >= phases_total && phases_total > 0`
+   - phase/project status indicates completed
+   - pending gate is false
+   Otherwise it is non-terminal and must continue.
+6. If non-terminal, route `continue` and launch next cycle
+7. Use active progress phase whitelist `exploring|planning|executing|verifying|testing|blocked`:
+   - in active phases, allow longer no-progress tolerance before declaring stall
+   - near cycle limit, auto-expand cycle budget when still in active progress
+8. If signature remains unchanged past tolerance budget, treat as stall and end with **E007**
+9. If session fails, auto-resume up to `max_session_retries`; if exhausted, attempt bounded fresh `continue` restart, then end with **E006**
+10. If chain contains wait gates, `-y` mode must bypass wait prompts and route through fallback branch (`on_fail`) to avoid blocking user input
+11. `-y` mode is forbidden from ending with advisory text like "if you want I can continue phase 2".
+    If pending gate is true, it must either continue automatically or return explicit failure code.
+
+The loop budget defaults:
+- `max_cycles = 12`
+- `max_session_retries = 2`
+- `active_phase_no_progress_limit = 4` (base limit = 2)
+- `max_cycle_auto_expands = 3` (each expand +10 cycles)
+- `retry.max_attempts = 3`
+- `retry.base_backoff_ms = 500`
+- `retry.max_backoff_ms = 4000`
+
+### Chain Output Contract Lint (Mandatory Before Run)
+
+Before executing any chain in `-y` mode, maestro must run chain contract lint. If lint fails, it must hard-fail before first step.
+
+Lint rules:
+1. Every `command` node must define non-empty `cmd`
+2. Every `extract` rule must include non-empty `strategy`, `pattern`, `target`
+3. `extract.strategy = json_path` is forbidden until runtime implementation exists
+4. `extract.strategy = regex` must include at least one capture group
+5. Any placeholder in args (`{...}`) must resolve against known roots (`inputs.*`, `var.*`, `result.*`, `project.*`)
+6. For chains used by `continue`, command nodes must expose deterministic completion signal (`STATUS: SUCCESS|FAILURE` block)
+
+If any rule fails:
+- abort chain start with `E008`
+- write lint report to `.workflow/.maestro-coordinate/chain-lint-report.json`
+- suggest fallback chain candidate (`quality-debug` or `maestro-plan`)
+
+### Auto Degrade Route (Consecutive Failure Guardrail)
+
+When continuous execution sees unstable output contracts or repeated command failures:
+
+1. If consecutive_failures >= 3 in same cycle:
+   - route to `quality-debug` (first priority)
+2. If `quality-debug` path fails again in same cycle:
+   - route to `maestro-plan` for plan refresh (second priority)
+3. After successful degrade step:
+   - reset consecutive_failures
+   - resume `continue` loop from next cycle
+4. If degrade path fails for 2 cycles:
+   - terminate with `E006` (recovery budget exhausted)
 
 ### Completion Report
 
@@ -494,9 +582,15 @@ For each step starting at `$STEP_INDEX` (default 0):
   Steps:
     [{status_icon}] {N}. {skill_name} -- {duration}
 
-  Next: {suggested_next_action}
+  Pending: {yes|no}
+  Exit:    {completed|failed|stalled}
 ============================================================
 ```
+
+Completion report rule:
+- When `auto_mode = true`, do not output optional continuation proposals.
+- If pending work exists, report failure with E007/E006/E009 instead of "partial success".
+- Only print "completed" when terminal criteria and pending gate are both satisfied.
 
 ---
 
@@ -509,6 +603,10 @@ For each step starting at `$STEP_INDEX` (default 0):
 | E003 | error | Chain step failed + user chose abort | Record partial progress, suggest resume with -c |
 | E004 | error | Resume session not found | Show available sessions |
 | E005 | error | Invalid chain name with --chain | Show valid chain names and exit |
+| E006 | error | Auto recovery budget exhausted | Persist state, surface last_error, suggest targeted debug |
+| E007 | error | Progress stalled (no signature change) | Persist stall snapshot, suggest inspect blockers/issues |
+| E008 | error | Chain output contract lint failed | Abort before run, write lint report, suggest fallback route |
+| E009 | error | Pending gate true at completion boundary | Continue automatically in `-y` or fail hard with pending snapshot |
 | W001 | warning | Intent ambiguous, multiple chains possible | Present options, let user choose |
 | W002 | warning | Chain step completed with warnings | Log and continue |
 | W003 | warning | State suggests different chain than intent | Show discrepancy, let user decide |
@@ -525,5 +623,6 @@ For each step starting at `$STEP_INDEX` (default 0):
 - [ ] status.json tracks per-step progress
 - [ ] All chain steps executed with proper argument propagation
 - [ ] Phase numbers auto-detected and passed to downstream skills
-- [ ] Error handling: retry/skip/abort per step (auto-skip in -y mode)
+- [ ] Error handling: retry/skip/abort per step with persisted recovery counters
+- [ ] `-y` mode runs multi-cycle continuation until terminal state or bounded stall/recovery exit
 - [ ] Session summary displayed on completion

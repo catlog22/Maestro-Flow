@@ -7,7 +7,7 @@ allowed-tools: spawn_agents_on_csv, Read, Write, Edit, Bash, Glob, Grep, AskUser
 
 ## Auto Mode
 
-When `--yes` or `-y`: Auto-confirm task breakdown, skip blocked-task prompts, auto-continue through all waves.
+When `--yes` or `-y`: Auto-confirm task breakdown, skip blocked-task prompts, run bounded retry + resume loop, auto-continue through all waves and continuation cycles.
 
 # Maestro Execute (CSV Wave)
 
@@ -33,6 +33,7 @@ $maestro-execute --continue "execute-phase3-20260318"
 
 **Output Directory**: `.workflow/.csv-wave/{session-id}/`
 **Core Output**: `tasks.csv` (master state) + `results.csv` (final) + `discoveries.ndjson` (shared exploration) + `context.md` (human-readable report)
+**Recovery Output**: `recovery.json` (retry budget, wave cursor, stalled waves, last error)
 
 ---
 
@@ -72,6 +73,7 @@ Wave-based parallel task execution using `spawn_agents_on_csv`. Reads plan.json 
 |     |   +-- Build prev_context for next wave from completed findings      |
 |     |   +-- If blocked tasks: prompt user (skip if -y: auto-continue)     |
 |     +-- discoveries.ndjson shared across all waves (append-only)          |
+|     +-- recovery.json persisted after each wave                            |
 |                                                                           |
 |  Phase 3: Results Aggregation                                             |
 |     +-- Export results.csv                                                |
@@ -147,6 +149,7 @@ Each wave generates `wave-{N}.csv` with extra `prev_context` column populated fr
 +-- results.csv
 +-- discoveries.ndjson
 +-- context.md
++-- recovery.json
 +-- config.json
 +-- wave-{N}.csv (temporary)
 +-- wave-{N}-results.csv (temporary)
@@ -286,6 +289,26 @@ After each wave:
   Options: [Continue (skip blocked deps), Stop and review]
   ```
 - If AUTO_YES: auto-continue, skip tasks whose deps are blocked
+- Persist recovery snapshot after each wave with `current_wave`, `completed_tasks`, `blocked_tasks`, `retry_budget_remaining`, `last_error`
+
+#### Wave Retry + Resume Contract
+
+- For each wave, if `spawn_agents_on_csv` fails:
+  - retry up to 2 times (exponential backoff: 1s, 2s)
+  - if still failing: mark wave as `degraded`, persist to `recovery.json`, continue to next recoverable wave
+- For session-level failure:
+  - persist `resume_from_wave`
+  - allow `--continue` to restart from last unfinished wave without replaying completed waves
+
+#### Contract Lint + Degrade Contract
+
+- Before launching each wave, validate command output contract for all involved nodes:
+  - command emits `--- COORDINATE RESULT ---` block
+  - status token contains `SUCCESS` or `FAILURE`
+  - extract rule strategy avoids unsupported `json_path`
+- If lint fails, do not execute the wave directly:
+  - route to `quality-debug --from-wave {N}`
+  - if debug path also fails, route to `maestro-plan --repair-wave {N}`
 
 #### Cascading Skip
 
@@ -326,7 +349,13 @@ If a task is blocked/failed and other tasks in later waves depend on it:
 
 5. **Update state.json**: Update project-level progress counters.
 
-6. **Generate context.md**:
+6. **Run machine gate** (authoritative completion contract):
+   - Execute: `maestro coordinate gate --json`
+   - Parse: `{ terminal, pending, reasons[] }`
+   - Persist snapshot to `{session_folder}/gate.json`
+   - If command fails, treat as `pending` with reason `gate_unavailable`
+
+7. **Generate context.md**:
 
 ```markdown
 # Execution Report -- Phase {phase}
@@ -355,11 +384,11 @@ If a task is blocked/failed and other tasks in later waves depend on it:
 - Run debug for any blocked tasks
 ```
 
-7. **Auto-sync** (if config.json.codebase.auto_sync_after_execute == true):
+8. **Auto-sync** (if config.json.codebase.auto_sync_after_execute == true):
    - Detect changed files from execution
    - Trigger codebase doc update
 
-8. **Display completion report**:
+9. **Display completion report**:
 
 ```
 === EXECUTION COMPLETE ===
@@ -367,13 +396,20 @@ Phase:     {phase_name}
 Completed: {completed_count}/{total_count} tasks
 Blocked:   {blocked_count} tasks
 Waves:     {waves_executed}/{total_waves}
+Gate:      {terminal|pending}
+Reasons:   {reasons or "none"}
 
 Summaries: {phase_dir}/.summaries/
 Tasks:     {phase_dir}/.task/
+Gate:      {session_folder}/gate.json
 
 Next steps:
-  Skill({ skill: "maestro-verify", args: "{phase}" })
-  Skill({ skill: "manage-status" })
+  if gate.terminal:
+    Skill({ skill: "manage-status" })
+  else if AUTO_YES:
+    Skill({ skill: "maestro", args: "-y \"continue\"" })
+  else:
+    Skill({ skill: "maestro-verify", args: "{phase}" })
 ```
 
 ---
@@ -416,7 +452,7 @@ echo '{"ts":"<ISO>","worker":"TASK-001","type":"code_pattern","data":{"name":"Re
 | Agent spawn fails | Retry once, then mark task as blocked with checkpoint |
 | Convergence criteria not met after 3 attempts | Mark task as blocked, write checkpoint |
 | Git commit fails (--auto-commit) | Log warning, continue (task still marked completed) |
-| All tasks in wave blocked | Stop execution, report blocked wave |
+| All tasks in wave blocked | In auto mode: persist degraded state and continue to next recoverable wave; interactive mode: ask to continue/stop |
 | CSV parse error | Validate format, show line number |
 | discoveries.ndjson corrupt | Ignore malformed lines, continue |
 | Continue mode: no session found | List available sessions |
@@ -434,4 +470,4 @@ echo '{"ts":"<ISO>","worker":"TASK-001","type":"code_pattern","data":{"name":"Re
 7. **Cleanup Temp Files**: Remove wave-{N}.csv after results are merged
 8. **Max 3 Fix Attempts**: Per task, auto-fix convergence failures up to 3 times, then mark blocked
 9. **Breakpoint Resume**: Always detect completed tasks and skip them on re-run
-10. **DO NOT STOP**: Continuous execution until all waves complete or user explicitly stops
+10. **DO NOT STOP**: Continuous execution until all waves complete, continuation budget is exhausted, or user explicitly stops

@@ -83,13 +83,21 @@ export class CodexCliAdapter extends BaseAgentAdapter {
     processId: string,
     config: AgentConfig,
   ): Promise<AgentProcess> {
+    const effectiveApprovalMode = config.approvalMode === 'suggest' ? 'auto' : (config.approvalMode ?? 'auto');
+    const effectiveConfig: AgentConfig = {
+      ...config,
+      approvalMode: effectiveApprovalMode,
+    };
+
     const args = [
       'exec',
-      '--full-auto',
       '--json',
       '--skip-git-repo-check',
       '-',
     ];
+    if (effectiveApprovalMode === 'auto') {
+      args.splice(1, 0, '--full-auto');
+    }
 
     // Profile from config.toml
     if (config.settingsFile) {
@@ -116,6 +124,17 @@ export class CodexCliAdapter extends BaseAgentAdapter {
     // Pipe prompt to stdin then close it
     child.stdin.write(config.prompt);
     child.stdin.end();
+
+    if (config.approvalMode === 'suggest') {
+      this.emitEntry(
+        processId,
+        EntryNormalizer.statusChange(
+          processId,
+          'running',
+          'Codex exec mode only supports auto approval; suggest was normalized to auto',
+        ),
+      );
+    }
 
     // Heartbeat monitor: detect stale streams (60s silence)
     const monitor = new StreamMonitor(() => {
@@ -164,7 +183,7 @@ export class CodexCliAdapter extends BaseAgentAdapter {
       id: processId,
       type: 'codex',
       status: 'running',
-      config,
+      config: effectiveConfig,
       startedAt: new Date().toISOString(),
       pid: child.pid,
       interactive: false,

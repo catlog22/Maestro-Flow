@@ -136,6 +136,7 @@ function makeState(graphId: string, entry: string, overrides?: Partial<WalkerSta
     updated_at: new Date().toISOString(),
     tool: 'gemini',
     auto_mode: true,
+    step_mode: false,
     intent: 'test',
     ...overrides,
   };
@@ -319,6 +320,28 @@ describe('GraphWalker', () => {
       const result = await walker.walkGraph(state, graph);
       assert.strictEqual(result.status, 'waiting_gate');
       assert.strictEqual(result.current_node, 'check');
+    });
+
+    it('auto mode bypasses waiting_gate and routes to on_fail when wait=true', async () => {
+      const graph = makeGraph('gated', {
+        check: {
+          type: 'gate',
+          condition: 'var.ready == true',
+          on_pass: 'ok',
+          on_fail: 'fail_term',
+          wait: true,
+        },
+        ok: { type: 'terminal', status: 'success' },
+        fail_term: { type: 'terminal', status: 'failure' },
+      });
+      const walker = makeWalker(createMockExecutor(), { gated: graph });
+      const state = makeState('gated', 'check', { auto_mode: true });
+      state.context.var['ready'] = false;
+
+      const result = await walker.walkGraph(state, graph);
+      assert.strictEqual(result.status, 'failed');
+      const gateEntry = result.history.find((h) => h.node_id === 'check');
+      assert.strictEqual(gateEntry?.outcome, 'failure');
     });
   });
 
@@ -726,6 +749,62 @@ describe('GraphWalker', () => {
       const result = await walker.walkGraph(state, graph);
 
       assert.strictEqual(result.status, 'completed');
+    });
+  });
+
+  describe('auto recovery and retry', () => {
+    it('retries command and succeeds within max attempts', async () => {
+      const graph = makeGraph('retry-success', {
+        cmd: {
+          type: 'command',
+          cmd: 'unstable',
+          next: 'done',
+          retry: { max_attempts: 3, base_backoff_ms: 0, max_backoff_ms: 0 },
+        },
+        done: { type: 'terminal', status: 'success' },
+      });
+      const executor = createMockExecutor([
+        {
+          success: false,
+          raw_output: '--- COORDINATE RESULT ---\nSTATUS: FAILURE\nSUMMARY: transient error\n',
+        },
+        {
+          success: true,
+          raw_output: '--- COORDINATE RESULT ---\nSTATUS: SUCCESS\nSUMMARY: recovered\n',
+        },
+      ]);
+      const walker = makeWalker(executor, { 'retry-success': graph });
+      const state = makeState('retry-success', 'cmd', { auto_mode: true });
+
+      const result = await walker.walkGraph(state, graph);
+
+      assert.strictEqual(result.status, 'completed');
+      assert.strictEqual(executor.calls.length, 2);
+      assert.strictEqual(result.history[0].retry_count, 1);
+      assert.strictEqual(result.recovery?.total_retries, 1);
+      assert.strictEqual(result.recovery?.total_failures, 0);
+    });
+
+    it('auto mode continues to next node when command fails without on_failure', async () => {
+      const graph = makeGraph('auto-continue', {
+        cmd: { type: 'command', cmd: 'fragile', next: 'done' },
+        done: { type: 'terminal', status: 'success' },
+      });
+      const executor = createMockExecutor([
+        {
+          success: false,
+          raw_output: '--- COORDINATE RESULT ---\nSTATUS: FAILURE\nSUMMARY: unrecoverable\n',
+        },
+      ]);
+      const walker = makeWalker(executor, { 'auto-continue': graph });
+      const state = makeState('auto-continue', 'cmd', { auto_mode: true });
+
+      const result = await walker.walkGraph(state, graph);
+
+      assert.strictEqual(result.status, 'completed');
+      assert.strictEqual(result.history[0].outcome, 'skipped');
+      assert.strictEqual(result.recovery?.auto_skips, 1);
+      assert.strictEqual(result.recovery?.total_failures, 1);
     });
   });
 });

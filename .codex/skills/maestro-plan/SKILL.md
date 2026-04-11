@@ -7,7 +7,7 @@ allowed-tools: spawn_agents_on_csv, Read, Write, Edit, Bash, Glob, Grep, AskUser
 
 ## Auto Mode
 
-When `--yes` or `-y`: Auto-confirm exploration angles, skip interactive clarification (P2), use defaults for complexity detection.
+When `--yes` or `-y`: Auto-confirm exploration angles, skip interactive clarification (P2), and enforce bounded retry + recovery persistence.
 
 # Maestro Plan (CSV Wave)
 
@@ -29,6 +29,7 @@ $maestro-plan --continue "plan-phase3-20260318"
 
 **Output Directory**: `.workflow/.csv-wave/{session-id}/`
 **Core Output**: `tasks.csv` (master state) + `results.csv` (final) + `discoveries.ndjson` (shared exploration) + `context.md` (human-readable report) + `plan.json` + `.task/TASK-*.json`
+**Recovery Output**: `recovery.json` (wave cursor, retries, fallback mode, last_error)
 
 ---
 
@@ -65,6 +66,7 @@ Wave-based planning using `spawn_agents_on_csv`. Wave 1 explores codebase contex
 |     |   +-- Applies Deep Work Rules (read_first, convergence.criteria)    |
 |     |   +-- Results: plan.json path + task count                          |
 |     +-- discoveries.ndjson shared across all waves (append-only)          |
+|     +-- recovery.json persisted after each wave                            |
 |                                                                           |
 |  Phase 3: Plan Checking + Confirmation                                    |
 |     +-- Validate plan quality (coverage, feasibility, deps, criteria)     |
@@ -133,6 +135,7 @@ Each wave generates `wave-{N}.csv` with extra `prev_context` column.
 +-- results.csv
 +-- discoveries.ndjson
 +-- context.md
++-- recovery.json
 +-- wave-{N}.csv (temporary)
 ```
 
@@ -437,8 +440,9 @@ echo '{"ts":"<ISO>","worker":"{id}","type":"existing_pattern","data":{"name":"Re
 | --gaps requires gaps source | Abort with error: "--gaps requires issues.jsonl, verification.json, or uat.md" |
 | No context.md found | Warn, proceed with exploration only |
 | Exploration agent timeout | Mark as failed, continue with available explorations |
-| Planning agent fails | Retry once with simplified context, then abort |
-| Plan produces invalid JSON | Retry once, then abort with error details |
+| Planning agent fails | Retry up to 2 times with progressively simplified context; if still failed, persist degraded recovery state and return resumable failure |
+| Plan produces invalid JSON | Retry up to 2 times with schema-focused prompt; if still invalid, persist error and keep session resumable |
+| Chain output contract lint failed | Abort wave start, persist lint report, route to quality-debug then plan-repair fallback |
 | Plan-checker exceeds 3 rounds | Accept plan with warnings, note in index.json |
 | CSV parse error | Validate format, show line number |
 | discoveries.ndjson corrupt | Ignore malformed lines |
@@ -455,4 +459,4 @@ echo '{"ts":"<ISO>","worker":"{id}","type":"existing_pattern","data":{"name":"Re
 5. **Discovery Board is Append-Only**: Never clear, modify, or recreate discoveries.ndjson
 6. **Skip on Failure**: If all exploration agents failed, planning agent proceeds with available context
 7. **Cleanup Temp Files**: Remove wave-{N}.csv after results are merged
-8. **DO NOT STOP**: Continuous execution until all waves complete
+8. **DO NOT STOP**: Continuous execution until all waves complete or bounded recovery budget is exhausted

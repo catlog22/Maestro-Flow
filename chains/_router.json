@@ -23,7 +23,7 @@
       "type": "decision",
       "eval": "ctx.project.phases_total",
       "edges": [
-        { "match": "phases_total == 0", "target": "check_accumulated_context" },
+        { "match": "ctx.project.phases_total == 0", "target": "check_accumulated_context" },
         { "default": true, "target": "check_phase_status" }
       ]
     },
@@ -31,7 +31,7 @@
       "type": "decision",
       "eval": "ctx.project.accumulated_context",
       "edges": [
-        { "match": "accumulated_context != null", "target": "to_next_milestone" },
+        { "match": "ctx.project.accumulated_context != null", "target": "to_next_milestone" },
         { "default": true, "target": "to_brainstorm_driven" }
       ]
     },
@@ -70,7 +70,7 @@
       "eval": "ctx.project.execution.tasks_completed",
       "edges": [
         {
-          "match": "tasks_completed >= tasks_total && tasks_total > 0",
+          "match": "ctx.project.execution.tasks_completed >= ctx.project.execution.tasks_total && ctx.project.execution.tasks_total > 0",
           "target": "to_verify"
         },
         { "default": true, "target": "to_execute" }
@@ -114,7 +114,7 @@
       "eval": "ctx.project.phases_completed",
       "edges": [
         {
-          "match": "phases_completed >= phases_total",
+          "match": "ctx.project.phases_completed >= ctx.project.phases_total",
           "target": "to_milestone_close"
         },
         { "default": true, "target": "to_phase_transition" }

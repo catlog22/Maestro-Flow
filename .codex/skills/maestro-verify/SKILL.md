@@ -7,7 +7,7 @@ allowed-tools: spawn_agents_on_csv, Read, Write, Edit, Bash, Glob, Grep, AskUser
 
 ## Auto Mode
 
-When `--yes` or `-y`: Auto-confirm check decomposition, skip interactive validation, use defaults for layer detection.
+When `--yes` or `-y`: Auto-confirm check decomposition, skip interactive validation, and enforce bounded retry + recovery persistence.
 
 # Maestro Verify (CSV Wave)
 
@@ -27,6 +27,7 @@ $maestro-verify --continue "verify-phase3-20260318"
 
 **Output Directory**: `.workflow/.csv-wave/{session-id}/`
 **Core Output**: `tasks.csv` (master state) + `results.csv` (final) + `discoveries.ndjson` (shared exploration) + `context.md` (human-readable report) + `verification.json` (structured verification output) + `validation.json` (test coverage output, if Nyquist ran)
+**Recovery Output**: `recovery.json` (wave cursor, retries, partial-pass state, last_error)
 
 ---
 
@@ -69,6 +70,7 @@ Wave-based 3-layer Goal-Backward verification using `spawn_agents_on_csv`. Decom
 |     |   +-- Needs artifact context from wave 2                          |
 |     |   +-- Results: antipatterns[] + coverage gaps                     |
 |     +-- discoveries.ndjson shared across all waves (append-only)        |
+|     +-- recovery.json persisted after each wave                         |
 |                                                                         |
 |  Phase 3: Results Aggregation                                           |
 |     +-- Export results.csv                                              |
@@ -151,6 +153,7 @@ Each wave generates `wave-{N}.csv` with extra `prev_context` column.
 +-- context.md
 +-- verification.json
 +-- validation.json (if Nyquist ran)
++-- recovery.json
 +-- wave-{N}.csv (temporary)
 ```
 
@@ -456,7 +459,13 @@ Issue Refs: {issue_ids}
 
 13. **Update phase index.json** with verification status and timestamps.
 
-14. **Display summary**:
+14. **Run machine gate** (authoritative completion contract):
+    - Execute: `maestro coordinate gate --json`
+    - Parse: `{ terminal, pending, reasons[] }`
+    - Persist snapshot to `{session_folder}/gate.json`
+    - If command fails, treat as `pending` with reason `gate_unavailable`
+
+15. **Display summary**:
 
 ```
 === VERIFICATION RESULTS ===
@@ -477,19 +486,23 @@ Gaps: {gap_count}
 Fix Plans: {fix_plan_count} generated
 Issues Created: {issue_count}
 Human Verification: {human_items} items
+Gate:          {terminal|pending}
+Gate Reasons:  {reasons or "none"}
 
 Files:
   {session_folder}/verification.json
   {session_folder}/validation.json (if generated)
+  {session_folder}/gate.json
   {phase_dir}/verification.json
   {phase_dir}/validation.json (if generated)
 ```
 
-15. **Next step routing**:
+16. **Next step routing**:
 
 | Result | Suggestion |
 |--------|------------|
-| All passed, no gaps | `$maestro-review "{phase}"` for code review |
+| gate.terminal == true | `$manage-status` |
+| gate.pending == true AND `-y` mode | `$maestro -y "continue"` |
 | Critical gaps found | `$maestro-debug` for investigation |
 | Minor gaps only | `$maestro-plan "{phase} --gaps"` -> `$maestro-execute` -> re-run `$maestro-verify` |
 | Low test coverage | `$maestro-test-gen "{phase}"` to generate missing tests |
@@ -548,6 +561,8 @@ echo '{"ts":"<ISO>","worker":"{id}","type":"verification_gap","data":{"gap_id":"
 | Test framework not detected | Skip coverage calculation, warn user |
 | CSV parse error | Validate format, show line number |
 | discoveries.ndjson corrupt | Ignore malformed lines |
+| A verification wave hard-fails | Retry up to 2 times with reduced concurrency; if still failing, persist degraded recovery state and continue with available evidence |
+| Chain output contract lint failed | Abort direct verify run, execute debug-first fallback, then resume verify with repaired plan |
 | Continue mode: no session found | List available sessions |
 
 ---
@@ -562,5 +577,5 @@ echo '{"ts":"<ISO>","worker":"{id}","type":"verification_gap","data":{"gap_id":"
 6. **Skip on Failure**: If artifact existence check failed, skip its substance/wiring checks
 7. **Respect Skip Flags**: `--skip-tests` and `--skip-antipattern` mark wave 3 tasks as skipped, not removed
 8. **Cleanup Temp Files**: Remove wave-{N}.csv after results are merged
-9. **DO NOT STOP**: Continuous execution until all waves complete
+9. **DO NOT STOP**: Continuous execution until all waves complete or bounded recovery budget is exhausted
 10. **Goal-Backward**: Verify goals are achieved, not just tasks completed

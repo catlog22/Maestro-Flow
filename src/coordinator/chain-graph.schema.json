@@ -69,7 +69,9 @@
         "timeout_ms": { "type": "number" },
         "analyze": { "type": "boolean" },
         "max_visits": { "type": "number" },
-        "auto_flag": { "type": "string" }
+        "auto_flag": { "type": "string" },
+        "retry": { "$ref": "#/definitions/RetryPolicy" },
+        "auto_continue_on_failure": { "type": "boolean" }
       },
       "additionalProperties": false
     },
@@ -101,11 +103,22 @@
         "max_visits": { "type": "number" },
         "timeout_ms": { "type": "number" },
         "analyze": { "type": "boolean" },
+        "retry": { "$ref": "#/definitions/RetryPolicy" },
+        "auto_continue_on_failure": { "type": "boolean" },
         "extract": {
           "type": "object",
           "additionalProperties": { "$ref": "#/definitions/ExtractionRule" }
         }
       }
+    },
+    "RetryPolicy": {
+      "type": "object",
+      "properties": {
+        "max_attempts": { "type": "number", "minimum": 1 },
+        "base_backoff_ms": { "type": "number", "minimum": 0 },
+        "max_backoff_ms": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
     },
     "ExtractionRule": {
       "type": "object",

@@ -32,6 +32,8 @@ export interface GraphDefaults {
   analyze?: boolean;
   max_visits?: number;
   auto_flag?: string;
+  retry?: RetryPolicy;
+  auto_continue_on_failure?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -58,7 +60,15 @@ export interface CommandNode {
   max_visits?: number;
   timeout_ms?: number;
   analyze?: boolean;
+  retry?: RetryPolicy;
+  auto_continue_on_failure?: boolean;
   extract?: Record<string, ExtractionRule>;
+}
+
+export interface RetryPolicy {
+  max_attempts?: number;
+  base_backoff_ms?: number;
+  max_backoff_ms?: number;
 }
 
 export interface ExtractionRule {
@@ -150,6 +160,7 @@ export interface WalkerState {
   auto_mode: boolean;
   step_mode: boolean;
   intent: string;
+  recovery?: RecoveryState;
 }
 
 export interface WalkerContext {
@@ -184,6 +195,16 @@ export interface HistoryEntry {
   exec_id?: string;
   quality_score?: number;
   summary?: string;
+  retry_count?: number;
+  error_message?: string;
+}
+
+export interface RecoveryState {
+  total_retries: number;
+  total_failures: number;
+  auto_skips: number;
+  consecutive_failures: number;
+  last_error: string | null;
 }
 
 export interface ForkBranchState {

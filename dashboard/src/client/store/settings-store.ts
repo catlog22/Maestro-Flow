@@ -73,7 +73,7 @@ export interface SettingsStore {
 
 const DEFAULT_AGENTS: Record<AgentType, AgentSettingsEntry> = {
   'claude-code': { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '', settingsFile: '', envFile: '' },
-  codex: { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '', settingsFile: '', envFile: '' },
+  codex: { model: '', approvalMode: 'auto', baseUrl: '', apiKey: '', settingsFile: '', envFile: '' },
   'codex-server': { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '', settingsFile: '', envFile: '' },
   gemini: { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '', settingsFile: '', envFile: '' },
   qwen: { model: '', approvalMode: 'suggest', baseUrl: '', apiKey: '', settingsFile: '', envFile: '' },

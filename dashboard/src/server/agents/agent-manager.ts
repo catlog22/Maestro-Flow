@@ -101,7 +101,7 @@ export class AgentManager {
     const prefix = config.type === 'claude-code' ? 'cld' : config.type.substring(0, 3);
     const execId = `${prefix}-${process.id.replace(/-/g, '').substring(0, 12)}`;
     this.processExecIds.set(process.id, execId);
-    this.processConfigs.set(process.id, { process, config });
+    this.processConfigs.set(process.id, { process, config: process.config });
 
     const unsubs: Array<() => void> = [];
 

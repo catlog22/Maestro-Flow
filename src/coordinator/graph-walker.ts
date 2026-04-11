@@ -7,7 +7,7 @@ import type {
   ChainGraph, CommandNode, DecisionNode, EvalNode, ForkNode,
   GateNode, JoinNode, TerminalNode, WalkerState, WalkerContext,
   ProjectSnapshot, HistoryEntry, CommandExecutor, PromptAssembler,
-  ExprEvaluator, OutputParser, StepAnalyzer, WalkerEventEmitter,
+  ExprEvaluator, OutputParser, StepAnalyzer, WalkerEventEmitter, RetryPolicy,
   CoordinateEvent, AssembleRequest, AgentType,
 } from './graph-types.js';
 import type { GraphLoader } from './graph-loader.js';
@@ -56,6 +56,13 @@ export class GraphWalker {
       auto_mode: options.autoMode,
       step_mode: options.stepMode ?? false,
       intent,
+      recovery: {
+        total_retries: 0,
+        total_failures: 0,
+        auto_skips: 0,
+        consecutive_failures: 0,
+        last_error: null,
+      },
     };
 
     state.context.inputs['intent'] = intent;
@@ -210,16 +217,21 @@ export class GraphWalker {
     this.save(state);
     this.emit({ type: 'walker:command', session_id: state.session_id, node_id: nodeId, cmd: node.cmd, status: 'spawned' });
 
-    const execResult = await this.executor.execute({
-      prompt,
-      agent_type: (state.tool as AgentType) || 'claude',
-      work_dir: (state.context.inputs['workflowRoot'] as string) ?? '.',
-      approval_mode: state.auto_mode ? 'auto' : 'suggest',
-      timeout_ms: node.timeout_ms ?? graph.defaults?.timeout_ms ?? 300000,
-      node_id: nodeId,
-      cmd: node.cmd,
-    });
-
+    const retryPolicy = this.resolveRetryPolicy(state, graph, node);
+    const execution = await this.executeWithRetry(
+      state,
+      retryPolicy,
+      async () => this.executor.execute({
+        prompt,
+        agent_type: (state.tool as AgentType) || 'claude',
+        work_dir: (state.context.inputs['workflowRoot'] as string) ?? '.',
+        approval_mode: state.auto_mode ? 'auto' : 'suggest',
+        timeout_ms: node.timeout_ms ?? graph.defaults?.timeout_ms ?? 300000,
+        node_id: nodeId,
+        cmd: node.cmd,
+      }),
+    );
+    const execResult = execution.result;
     const parsed = this.outputParser.parse(execResult.raw_output, node);
     state.context.result = parsed.structured as unknown as Record<string, unknown>;
 
@@ -240,17 +252,29 @@ export class GraphWalker {
     entry.exec_id = execResult.exec_id;
     entry.quality_score = analysis ? analysis.quality_score : undefined;
     entry.summary = (parsed.structured.summary as string) || undefined;
+    entry.retry_count = execution.retries;
 
     if (execResult.success && parsed.structured.status === 'SUCCESS') {
       entry.outcome = 'success';
+      this.ensureRecoveryState(state).consecutive_failures = 0;
       state.current_node = node.next;
       state.status = 'running';
       this.emit({ type: 'walker:command', session_id: state.session_id, node_id: nodeId, cmd: node.cmd, status: 'completed' });
     } else {
       entry.outcome = 'failure';
+      const recovery = this.ensureRecoveryState(state);
+      recovery.total_failures += 1;
+      recovery.consecutive_failures += 1;
+      recovery.last_error = this.buildFailureMessage(execResult, parsed.structured.summary);
+      entry.error_message = recovery.last_error ?? undefined;
       if (node.on_failure) {
         state.current_node = node.on_failure;
         state.status = 'running';
+      } else if (this.shouldAutoContinueOnFailure(state, graph, node)) {
+        recovery.auto_skips += 1;
+        state.current_node = node.next;
+        state.status = 'running';
+        entry.outcome = 'skipped';
       } else {
         state.status = 'failed';
       }
@@ -295,9 +319,14 @@ export class GraphWalker {
       state.current_node = node.on_pass;
       entry.outcome = 'success';
     } else if (node.wait) {
-      state.status = 'waiting_gate';
-      entry.outcome = 'skipped';
-      this.save(state);
+      if (state.auto_mode) {
+        state.current_node = node.on_fail;
+        entry.outcome = 'failure';
+      } else {
+        state.status = 'waiting_gate';
+        entry.outcome = 'skipped';
+        this.save(state);
+      }
     } else {
       state.current_node = node.on_fail;
       entry.outcome = 'failure';
@@ -655,7 +684,11 @@ export class GraphWalker {
         JSON.stringify(state, null, 2),
         'utf-8',
       );
-    } catch { /* best-effort */ }
+    } catch (error) {
+      const recovery = this.ensureRecoveryState(state);
+      recovery.last_error = `persist_failed: ${error instanceof Error ? error.message : String(error)}`;
+      this.emit({ type: 'walker:error', session_id: state.session_id, error: recovery.last_error });
+    }
   }
 
   private loadState(sessionId?: string): WalkerState {
@@ -664,7 +697,9 @@ export class GraphWalker {
     if (sessionId) {
       const filePath = join(this.sessionDir, sessionId, 'walker-state.json');
       try {
-        return JSON.parse(readFileSync(filePath, 'utf-8')) as WalkerState;
+        const loaded = JSON.parse(readFileSync(filePath, 'utf-8')) as WalkerState;
+        this.hydrateRecoveryState(loaded);
+        return loaded;
       } catch {
         throw new Error(`Session not found: ${sessionId} (expected ${filePath})`);
       }
@@ -685,7 +720,9 @@ export class GraphWalker {
     if (dirs.length === 0) throw new Error('No walker sessions found');
 
     const filePath = join(this.sessionDir, dirs[0], 'walker-state.json');
-    return JSON.parse(readFileSync(filePath, 'utf-8')) as WalkerState;
+    const loaded = JSON.parse(readFileSync(filePath, 'utf-8')) as WalkerState;
+    this.hydrateRecoveryState(loaded);
+    return loaded;
   }
 
   private dryRunWalk(state: WalkerState, graph: ChainGraph): WalkerState {
@@ -718,5 +755,101 @@ export class GraphWalker {
 
   private emit(event: CoordinateEvent): void {
     this.emitter?.emit(event);
+  }
+
+  private ensureRecoveryState(state: WalkerState): NonNullable<WalkerState['recovery']> {
+    if (!state.recovery) {
+      state.recovery = {
+        total_retries: 0,
+        total_failures: 0,
+        auto_skips: 0,
+        consecutive_failures: 0,
+        last_error: null,
+      };
+    }
+    return state.recovery;
+  }
+
+  private hydrateRecoveryState(state: WalkerState): void {
+    this.ensureRecoveryState(state);
+  }
+
+  private resolveRetryPolicy(state: WalkerState, graph: ChainGraph, node: CommandNode): Required<RetryPolicy> {
+    const fromNode = node.retry ?? {};
+    const fromGraph = graph.defaults?.retry ?? {};
+    const auto = state.auto_mode;
+    const maxAttempts = fromNode.max_attempts
+      ?? fromGraph.max_attempts
+      ?? (auto ? 3 : 1);
+    const baseBackoff = fromNode.base_backoff_ms
+      ?? fromGraph.base_backoff_ms
+      ?? 500;
+    const maxBackoff = fromNode.max_backoff_ms
+      ?? fromGraph.max_backoff_ms
+      ?? 4000;
+    return {
+      max_attempts: Math.max(1, maxAttempts),
+      base_backoff_ms: Math.max(0, baseBackoff),
+      max_backoff_ms: Math.max(0, maxBackoff),
+    };
+  }
+
+  private async executeWithRetry(
+    state: WalkerState,
+    retryPolicy: Required<RetryPolicy>,
+    exec: () => Promise<{ success: boolean; raw_output: string; exec_id: string; duration_ms: number }>,
+  ): Promise<{ result: { success: boolean; raw_output: string; exec_id: string; duration_ms: number }; retries: number }> {
+    let attempt = 0;
+    let retries = 0;
+    while (attempt < retryPolicy.max_attempts) {
+      const result = await exec();
+      let parsedStatus: string | null = null;
+      try {
+        const parsed = this.outputParser.parse(result.raw_output, { type: 'command', cmd: '', next: '' });
+        parsedStatus = parsed.structured.status;
+      } catch {
+        parsedStatus = null;
+      }
+      const success = result.success && parsedStatus === 'SUCCESS';
+      if (success) {
+        return { result, retries };
+      }
+      attempt += 1;
+      if (attempt >= retryPolicy.max_attempts) {
+        return { result, retries };
+      }
+      retries += 1;
+      const recovery = this.ensureRecoveryState(state);
+      recovery.total_retries += 1;
+      const backoff = Math.min(
+        retryPolicy.max_backoff_ms,
+        retryPolicy.base_backoff_ms * Math.pow(2, retries - 1),
+      );
+      if (backoff > 0) {
+        await this.delay(backoff);
+      }
+    }
+    const fallback = await exec();
+    return { result: fallback, retries };
+  }
+
+  private shouldAutoContinueOnFailure(state: WalkerState, graph: ChainGraph, node: CommandNode): boolean {
+    if (!state.auto_mode) return false;
+    if (!node.next) return false;
+    if (node.auto_continue_on_failure === true) return true;
+    if (node.auto_continue_on_failure === false) return false;
+    return graph.defaults?.auto_continue_on_failure ?? true;
+  }
+
+  private buildFailureMessage(execResult: { success: boolean; raw_output: string }, summary?: unknown): string {
+    const statusPart = execResult.success ? 'exec_success_parse_failure' : 'exec_failure';
+    const summaryText = typeof summary === 'string' && summary.length > 0
+      ? summary
+      : execResult.raw_output.split('\n').slice(-3).join(' | ').slice(0, 400);
+    return `${statusPart}: ${summaryText}`;
+  }
+
+  private async delay(ms: number): Promise<void> {
+    await new Promise<void>((resolve) => setTimeout(resolve, ms));
   }
 }

@@ -274,6 +274,73 @@ describe('GraphLoader — missing required fields', () => {
   });
 });
 
+describe('GraphLoader — output contract lint', () => {
+  beforeEach(() => setup());
+  afterEach(() => teardown());
+
+  it('throws when extract strategy json_path is used', async () => {
+    const graph = validGraph({
+      nodes: {
+        start: {
+          type: 'command',
+          cmd: 'plan',
+          next: 'done',
+          extract: {
+            value: {
+              strategy: 'json_path',
+              pattern: '$.result',
+              target: 'var.result',
+            },
+          },
+        },
+        done: { type: 'terminal', status: 'success' },
+      },
+    });
+    writeGraph(tmpDir, 'bad-extract-json-path', graph);
+
+    const loader = new GraphLoader(tmpDir);
+    await assert.rejects(
+      () => loader.load('bad-extract-json-path'),
+      (err: unknown) => {
+        assert.ok(err instanceof GraphValidationError);
+        assert.ok(err.message.includes('unsupported strategy "json_path"'));
+        return true;
+      },
+    );
+  });
+
+  it('throws when regex extract has no capture group', async () => {
+    const graph = validGraph({
+      nodes: {
+        start: {
+          type: 'command',
+          cmd: 'plan',
+          next: 'done',
+          extract: {
+            value: {
+              strategy: 'regex',
+              pattern: 'STATUS:\\s+SUCCESS',
+              target: 'var.status',
+            },
+          },
+        },
+        done: { type: 'terminal', status: 'success' },
+      },
+    });
+    writeGraph(tmpDir, 'bad-extract-regex', graph);
+
+    const loader = new GraphLoader(tmpDir);
+    await assert.rejects(
+      () => loader.load('bad-extract-regex'),
+      (err: unknown) => {
+        assert.ok(err instanceof GraphValidationError);
+        assert.ok(err.message.includes('regex must include a capture group'));
+        return true;
+      },
+    );
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 7. Cache behavior
 // ---------------------------------------------------------------------------

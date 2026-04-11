@@ -16,6 +16,28 @@ import { registerDelegateCommand } from './commands/delegate.js';
 import { registerMsgCommand } from './commands/msg.js';
 
 const program = new Command();
+const KNOWN_COMMANDS = new Set([
+  'serve',
+  'run',
+  'ext',
+  'tool',
+  'cli',
+  'install',
+  'uninstall',
+  'view',
+  'stop',
+  'spec',
+  'hooks',
+  'coordinate',
+  'coord',
+  'launcher',
+  'delegate',
+  'msg',
+  '-h',
+  '--help',
+  '-V',
+  '--version',
+]);
 
 program
   .name('maestro')
@@ -37,5 +59,10 @@ registerCoordinateCommand(program);
 registerLauncherCommand(program);
 registerDelegateCommand(program);
 registerMsgCommand(program);
+
+const rawArgs = process.argv.slice(2);
+if (rawArgs.length > 0 && !KNOWN_COMMANDS.has(rawArgs[0])) {
+  process.argv = [process.argv[0], process.argv[1], 'coordinate', 'run', ...rawArgs];
+}
 
 program.parse();

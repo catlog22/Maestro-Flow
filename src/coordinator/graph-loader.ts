@@ -5,7 +5,7 @@
 import { readFileSync, statSync, readdirSync } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
-import type { ChainGraph, GraphNode } from './graph-types.js';
+import type { ChainGraph, ExtractionRule } from './graph-types.js';
 
 // ---------------------------------------------------------------------------
 // Error
@@ -68,9 +68,63 @@ function validateGraph(raw: unknown, filePath: string): ChainGraph {
     if (node === null || typeof node !== 'object') continue;
     const n = node as Record<string, unknown>;
     validateNodeRefs(nodeId, n, nodeIds, filePath);
+    validateNodeOutputContract(nodeId, n, filePath);
   }
 
   return raw as unknown as ChainGraph;
+}
+
+function validateNodeOutputContract(nodeId: string, node: Record<string, unknown>, filePath: string): void {
+  if (node.type !== 'command') return;
+  if (typeof node.cmd !== 'string' || node.cmd.trim().length === 0) {
+    throw new GraphValidationError(
+      `Command node "${nodeId}" has empty "cmd" in ${filePath}`,
+    );
+  }
+  const extract = node.extract;
+  if (!extract || typeof extract !== 'object' || Array.isArray(extract)) return;
+  for (const [ruleId, rawRule] of Object.entries(extract as Record<string, unknown>)) {
+    if (!rawRule || typeof rawRule !== 'object' || Array.isArray(rawRule)) {
+      throw new GraphValidationError(
+        `Command node "${nodeId}" has invalid extract rule "${ruleId}" in ${filePath}`,
+      );
+    }
+    const rule = rawRule as ExtractionRule;
+    validateExtractRule(nodeId, ruleId, rule, filePath);
+  }
+}
+
+function validateExtractRule(nodeId: string, ruleId: string, rule: ExtractionRule, filePath: string): void {
+  if (!rule.target || rule.target.trim().length === 0) {
+    throw new GraphValidationError(
+      `Command node "${nodeId}" extract rule "${ruleId}" has empty target in ${filePath}`,
+    );
+  }
+  if (!rule.pattern || rule.pattern.trim().length === 0) {
+    throw new GraphValidationError(
+      `Command node "${nodeId}" extract rule "${ruleId}" has empty pattern in ${filePath}`,
+    );
+  }
+  if (rule.strategy === 'json_path') {
+    throw new GraphValidationError(
+      `Command node "${nodeId}" extract rule "${ruleId}" uses unsupported strategy "json_path" in ${filePath}`,
+    );
+  }
+  if (rule.strategy === 'regex') {
+    try {
+      // eslint-disable-next-line no-new
+      new RegExp(rule.pattern);
+    } catch {
+      throw new GraphValidationError(
+        `Command node "${nodeId}" extract rule "${ruleId}" has invalid regex pattern in ${filePath}`,
+      );
+    }
+    if (!rule.pattern.includes('(')) {
+      throw new GraphValidationError(
+        `Command node "${nodeId}" extract rule "${ruleId}" regex must include a capture group in ${filePath}`,
+      );
+    }
+  }
 }
 
 function validateNodeRefs(
