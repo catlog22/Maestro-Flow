@@ -13,7 +13,7 @@ import { DashboardBridge } from './dashboard-bridge.js';
 import { CliHistoryStore, type EntryLike } from './cli-history-store.js';
 import { loadTemplate, loadProtocol } from '../config/template-discovery.js';
 import { NOTIFY_PREFIX } from '../hooks/constants.js';
-import { DelegateBrokerClient, type DelegateBrokerApi, type JsonObject } from '../async/index.js';
+import { DelegateBrokerClient, type DelegateBrokerApi, type DelegateJobStatus, type JsonObject } from '../async/index.js';
 
 // ---------------------------------------------------------------------------
 // Types imported from the canonical shared definition
@@ -522,7 +522,7 @@ export class CliAgentRunner {
 
     const publishEvent = (
       type: string,
-      status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled',
+      status: DelegateJobStatus,
       summary: string,
       extraPayload: JsonObject = {},
       extraJobMetadata?: JsonObject,
@@ -774,6 +774,24 @@ export class CliAgentRunner {
         if (shouldPublishSnapshot(entry)) {
           publishEvent('snapshot', 'running', summarizeEntry(entry), {
             entryType: entry.type,
+          });
+        }
+
+        // Approval workflow: publish input_required when agent requests approval,
+        // and resume to running when the user responds.
+        if (entry.type === 'approval_request') {
+          publishEvent('input_required', 'input_required', `Approval requested: ${entry.toolName}`, {
+            entryType: entry.type,
+            toolName: entry.toolName,
+            requestId: entry.requestId,
+          });
+        }
+
+        if (entry.type === 'approval_response') {
+          publishEvent('status_update', 'running', `Approval response received: ${entry.requestId}`, {
+            entryType: entry.type,
+            requestId: entry.requestId,
+            allowed: entry.allowed,
           });
         }
 

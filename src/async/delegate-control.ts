@@ -58,6 +58,22 @@ export function normalizeDelegateExecId(value: string): string {
 
 export { deriveExecutionStatus, deriveDelegateStatus, type DelegateJobLike };
 
+/**
+ * Map Maestro-internal status names to SEP-1686 Task Lifecycle standard names.
+ * queued → submitted, running → working, input_required → input_required,
+ * all others pass through unchanged.
+ */
+export function toSep1686Status(maestroStatus: string): string {
+  switch (maestroStatus) {
+    case 'queued':
+      return 'submitted';
+    case 'running':
+      return 'working';
+    default:
+      return maestroStatus;
+  }
+}
+
 export function buildDelegateRequestFromState(
   execId: string,
   message: string,

@@ -51,6 +51,7 @@ const SUPPORTED_EVENT_TYPES = new Set([
   'queued',
   'snapshot',
   'status_update',
+  'input_required',
   'completed',
   'failed',
   'cancelled',
@@ -113,6 +114,10 @@ function buildStatusLabel(event: DelegateJobEvent): string {
 
   if (event.type === 'cancel_requested') {
     return 'CANCELLING';
+  }
+
+  if (event.type === 'input_required') {
+    return 'INPUT REQUIRED';
   }
 
   if (event.type === 'queued') {

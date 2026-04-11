@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { CliHistoryStore, type EntryLike, type ExecutionMeta } from '../agents/cli-history-store.js';
 import { DelegateBrokerClient } from '../async/index.js';
 import { launchDetachedDelegateWorker, type DelegateExecutionRequest } from '../commands/delegate.js';
-import { handleDelegateMessage } from '../async/delegate-control.js';
+import { handleDelegateMessage, toSep1686Status } from '../async/delegate-control.js';
 import { loadSpecs, type SpecCategory } from './spec-loader.js';
 import { initSpecSystem } from './spec-init.js';
 import {
@@ -349,9 +349,12 @@ export function registerBuiltinTools(
         .slice(-eventLimit)
         .map(summarizeBrokerEventStructured);
 
+      const currentStatus = deriveDelegateStatus(meta, job);
+
       return jsonResult({
         execId,
-        status: deriveDelegateStatus(meta, job),
+        status: currentStatus,
+        sep1686_status: toSep1686Status(currentStatus),
         meta: meta
           ? {
               tool: meta.tool,

@@ -215,6 +215,8 @@ function inferStatus(
   switch (type) {
     case 'queued':
       return 'queued';
+    case 'input_required':
+      return 'input_required';
     case 'completed':
       return 'completed';
     case 'failed':
