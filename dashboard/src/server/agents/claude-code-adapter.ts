@@ -152,10 +152,12 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
         ];
 
     // Map approvalMode to Claude Code permission flags.
-    // 'auto' → full auto-approve for write operations.
+    // 'auto' → bypass all permission prompts (yolo) — required for non-interactive
+    // --print mode where stdin is closed and no approval responder exists.
+    // Claude Code only accepts: default | acceptEdits | bypassPermissions | plan.
     // 'suggest' → allow read-only tools without prompts (analysis mode).
     if (config.approvalMode === 'auto') {
-      args.push('--permission-mode', 'auto');
+      args.push('--permission-mode', 'bypassPermissions');
     } else if (config.approvalMode === 'suggest') {
       args.push('--permission-mode', 'default', '--allowedTools', 'Read,Glob,Grep,WebFetch,WebSearch');
     }

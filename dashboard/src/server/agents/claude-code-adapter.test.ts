@@ -210,13 +210,13 @@ describe('ClaudeCodeAdapter', () => {
   // -----------------------------------------------------------------------
 
   describe('approvalMode permission flags', () => {
-    it('approvalMode=auto passes --permission-mode auto', async () => {
+    it('approvalMode=auto passes --permission-mode bypassPermissions', async () => {
       const config = baseConfig({ approvalMode: 'auto' });
       await adapter.spawn(config);
 
       const cliArgs: string[] = spawnMock.mock.calls[0][1];
       expect(cliArgs).toContain('--permission-mode');
-      expect(cliArgs[cliArgs.indexOf('--permission-mode') + 1]).toBe('auto');
+      expect(cliArgs[cliArgs.indexOf('--permission-mode') + 1]).toBe('bypassPermissions');
     });
 
     it('approvalMode=suggest passes --permission-mode default with read-only allowedTools', async () => {
