@@ -237,7 +237,7 @@ See **[Hooks Guide](guide/hooks-guide.md)** for full documentation.
 
 ---
 
-## 36 Commands, 21 Agents
+## 44 Commands, 21 Agents
 
 ### Commands (Slash Commands for Claude Code)
 
@@ -247,6 +247,25 @@ See **[Hooks Guide](guide/hooks-guide.md)** for full documentation.
 | `manage-*` | 9 | Issue CRUD, discovery, analysis, planning, execution, codebase docs, memory |
 | `quality-*` | 7 | Review, test, debug, test-gen, integration-test, refactor, sync |
 | `spec-*` | 4 | Specification setup, add, load, map |
+| `learn-*` | 6 | Learning toolkit — git retro, decision retro, follow-along, pattern decompose, investigate, second opinion |
+| `wiki-*` | 2 | Knowledge graph — connection discovery, knowledge digest |
+
+### Learning Toolkit (NEW)
+
+Commands that turn the wiki knowledge graph and spec system into an active learning engine:
+
+| Command | What It Does | Inspired By |
+|---------|-------------|-------------|
+| `/learn-retro-git` | Git activity retrospective — metrics, session detection, per-author breakdown, trend tracking | gstack `/retro` |
+| `/learn-retro-decision` | Trace and evaluate architectural decisions across wiki, specs, and git | gstack cross-functional review |
+| `/learn-follow` | Guided follow-along reading with forcing questions — extracts patterns and builds understanding | gstack `/office-hours` |
+| `/learn-decompose` | Decompose code into cataloged design patterns across 4 dimensions, save to specs/wiki | — |
+| `/learn-second-opinion` | Multi-perspective analysis: review (3 personas), challenge (adversarial), consult (Q&A) | gstack `/codex` |
+| `/learn-investigate` | Systematic question investigation with hypothesis testing and 3-strike escalation | gstack `/investigate` |
+| `/wiki-connect` | Surface hidden connections in the wiki graph, suggest or auto-apply new links | — |
+| `/wiki-digest` | Generate knowledge digests with theme clustering, gap analysis, and coverage heatmap | — |
+
+All learning commands share the same `lessons.jsonl` knowledge store, making insights queryable via `/manage-learn`.
 
 ### Agents
 
@@ -355,7 +374,7 @@ maestro/
 │       │   └── execution/   # ExecutionScheduler + WaveExecutor
 │       └── shared/          # Shared types
 ├── .claude/
-│   ├── commands/            # 36 slash commands (.md)
+│   ├── commands/            # 44 slash commands (.md)
 │   └── agents/              # 21 agent definitions (.md)
 ├── workflows/               # 36 workflow implementations (.md)
 ├── templates/               # JSON templates (task, plan, issue, ...)
