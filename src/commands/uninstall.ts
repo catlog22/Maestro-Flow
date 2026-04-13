@@ -33,7 +33,7 @@ import { t } from '../i18n/index.js';
 
 function formatManifest(m: Manifest): string {
   const date = m.installedAt.split('T')[0];
-  return `[${m.scope}] ${m.targetPath} (${m.entries.length} entries, ${date})`;
+  return `[${m.scope}] ${m.targetPath} (${(m.entries ?? []).length} entries, ${date})`;
 }
 
 function uninstallManifest(manifest: Manifest): { removed: number; skipped: number; mcp: boolean; hooks: boolean } {

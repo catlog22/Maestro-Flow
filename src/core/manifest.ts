@@ -103,6 +103,7 @@ export function findManifest(scope: 'global' | 'project', targetPath: string): M
   for (const f of readdirSync(MANIFESTS_DIR).filter(f => f.endsWith('.json'))) {
     try {
       const m = JSON.parse(readFileSync(join(MANIFESTS_DIR, f), 'utf-8')) as Manifest;
+      m.entries ??= [];
       if (m.scope === scope && m.targetPath.toLowerCase().replace(/[\\/]+$/, '') === norm) {
         return m;
       }
@@ -116,7 +117,14 @@ export function getAllManifests(): Manifest[] {
   const results: Manifest[] = [];
   for (const f of readdirSync(MANIFESTS_DIR).filter(f => f.endsWith('.json'))) {
     try {
-      results.push(JSON.parse(readFileSync(join(MANIFESTS_DIR, f), 'utf-8')) as Manifest);
+      const m = JSON.parse(readFileSync(join(MANIFESTS_DIR, f), 'utf-8')) as Manifest;
+      m.entries ??= [];
+      // Skip corrupt manifests (no targetPath or no entries)
+      if (!m.targetPath || !m.scope) {
+        unlinkSync(join(MANIFESTS_DIR, f));
+        continue;
+      }
+      results.push(m);
     } catch { /* skip */ }
   }
   return results.sort((a, b) => b.installedAt.localeCompare(a.installedAt));

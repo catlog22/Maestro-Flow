@@ -100,7 +100,7 @@ export function UninstallFlow({ manifests }: UninstallFlowProps) {
   const [error, setError] = useState<string | null>(null);
 
   // Grouped entries for detail view
-  const grouped = useMemo(() => groupEntries(selected.entries), [selected]);
+  const grouped = useMemo(() => groupEntries(selected.entries ?? []), [selected]);
   const detailLines = useMemo(() => {
     const lines: string[] = [];
     for (const g of grouped) {
@@ -179,8 +179,9 @@ export function UninstallFlow({ manifests }: UninstallFlowProps) {
   ];
   const stepIndex = progressSteps.findIndex((s) => s.key === step);
 
-  const fileCount = selected.entries.filter((e) => e.type === 'file').length;
-  const dirCount = selected.entries.filter((e) => e.type === 'dir').length;
+  const safeEntries = selected.entries ?? [];
+  const fileCount = safeEntries.filter((e) => e.type === 'file').length;
+  const dirCount = safeEntries.filter((e) => e.type === 'dir').length;
   const visibleLines = Math.max(1, termRows - 14);
 
   const timeStr = elapsed >= 60
@@ -228,7 +229,7 @@ export function UninstallFlow({ manifests }: UninstallFlowProps) {
               {manifests.map((m, i) => {
                 const hl = i === selectedIndex;
                 const date = m.installedAt.split('T')[0];
-                const files = m.entries.filter((e) => e.type === 'file').length;
+                const files = (m.entries ?? []).filter((e) => e.type === 'file').length;
                 return (
                   <Box key={m.id}>
                     <Text color={hl ? 'cyan' : 'gray'}>{hl ? '>' : ' '} </Text>
