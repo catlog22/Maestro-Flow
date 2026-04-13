@@ -658,6 +658,100 @@ This instruction is loaded by team-worker agents when spawned with roles: `analy
 
 ---
 
+## Progress Milestone Protocol
+
+All roles MUST report progress at milestones during task execution via `team_msg`.
+
+**Why**: Gives coordinator execution trace on resume, enables human CLI monitoring during wait, and provides blocker forensics on timeout.
+
+### Milestone Reporting
+
+When you reach a natural phase boundary (context loaded, core work done, verification complete), report:
+
+```javascript
+mcp__maestro-tools__team_msg({
+  operation: "log",
+  session_id: "<from task assignment>",
+  from: "<task_id>",        // e.g., "IMPL-001"
+  to: "coordinator",
+  type: "progress",
+  summary: "[<task_id>] <brief phase description> (<pct>%)",
+  data: {
+    task_id: "<task_id>",
+    role: "<role>",
+    status: "in_progress",   // in_progress | blocked | completed
+    progress_pct: <0-100>,
+    phase: "<what just completed>",
+    key_info: "<most important finding or decision>"
+  }
+})
+```
+
+### Role-Specific Milestones
+
+| Role | Milestone 1 (~20%) | Milestone 2 (~60%) | Milestone 3 (~90%) |
+|------|--------------------|--------------------|---------------------|
+| analyst | Domain exploration started | Analysis complete | Findings documented |
+| writer | Template & upstream loaded | Draft complete | Self-reviewed |
+| planner | Specs read, codebase explored | Plan generated | Tasks validated |
+| executor | Context loaded, plan read | Core changes implemented | Build/test verified |
+| tester | Test suite identified | Tests executed | Fix iterations done |
+| reviewer | Files loaded for review | Review complete | Report written |
+
+### Blocker Reporting (Immediate)
+
+If you hit a blocker (build fails 3x, missing dependency, ambiguous requirement), report **immediately** — don't wait for next milestone:
+
+```javascript
+mcp__maestro-tools__team_msg({
+  operation: "log",
+  session_id: "<session_id>",
+  from: "<task_id>",
+  to: "coordinator",
+  type: "blocker",
+  summary: "[<task_id>] BLOCKED: <brief description>",
+  data: {
+    task_id: "<task_id>",
+    status: "blocked",
+    blocker_type: "<build_failure|missing_dep|ambiguous_req|test_failure>",
+    blocker_detail: "<specific error or issue>",
+    attempts: <N>,
+    needs: "<what would unblock>"
+  }
+})
+```
+
+After reporting, continue attempting resolution (inner loop). Don't wait for coordinator response.
+
+### Completion Report
+
+After calling `report_agent_job_result`, also log to team_msg for coordinator trace:
+
+```javascript
+mcp__maestro-tools__team_msg({
+  operation: "log",
+  session_id: "<session_id>",
+  from: "<task_id>",
+  to: "coordinator",
+  type: "task_complete",
+  summary: "[<task_id>] DONE: <brief result>",
+  data: {
+    task_id: "<task_id>",
+    status: "completed",
+    progress_pct: 100,
+    files_modified: [],
+    key_findings: [],
+    elapsed: "<estimated time>"
+  }
+})
+```
+
+### Overhead Rule
+
+Milestone reporting is **lightweight** — log and continue. Never block execution to report. If `team_msg` call fails, continue working — the discovery file is the authoritative output.
+
+---
+
 ## Inner Loop Protocol
 
 Roles with `inner_loop: true` support self-repair:

@@ -32,6 +32,16 @@ Read-only status report from tasks.json, then STOP.
 1. Read tasks.json
 2. Count tasks by status (pending, in_progress, completed, failed)
 
+```javascript
+// Read progress and blocker messages from message bus
+const progressMsgs = mcp__maestro-tools__team_msg({
+  operation: "list", session_id: sessionId, type: "progress", last: 50
+})
+const blockerMsgs = mcp__maestro-tools__team_msg({
+  operation: "list", session_id: sessionId, type: "blocker", last: 10
+})
+```
+
 Output:
 ```
 [coordinator] Review Pipeline Status
@@ -45,9 +55,18 @@ Output:
 
   done=completed  >>>=running  o=pending  x=deleted
 
-[coordinator] Active Agents: <list from active_agents>
+[coordinator] Active Workers:
+  <task_id>  <role>  <milestone_phase>  <pct>%  "<summary>"  <time_ago>
+
+[coordinator] Blockers:
+  <task_id>  <role>  "<blocker_summary>"  <time_ago>
+  (omit section if no blockers)
+
 [coordinator] Ready to spawn: <subjects>
 [coordinator] Commands: 'resume' to advance | 'check' to refresh
+
+**CLI monitoring** (works while coordinator is blocked):
+maestro msg list -s "<session_id>" --type progress --last 10
 ```
 
 Then STOP.
@@ -99,31 +118,49 @@ state.tasks[taskId].status = 'in_progress'
 const agentId = spawn_agent({
   agent_type: "team_worker",
   task_name: taskId,  // e.g., "SCAN-001" — enables named targeting
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: ${role}
 role_spec: ${skillRoot}/roles/${role}/role.md
 session: ${sessionFolder}
 session_id: ${sessionId}
 requirement: ${taskDescription}
-inner_loop: ${innerLoop}` },
+inner_loop: ${innerLoop}
 
-    { type: "text", text: `## Current Task
+## Current Task
 - Task ID: ${taskId}
 - Task: ${taskSubject}
 
 Read role_spec file to load Phase 2-4 domain instructions.
-Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).` }
-  ]
+Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).
+
+## Progress Milestones
+session_id: ${sessionId}
+Report progress via team_msg at natural phase boundaries.
+Report blockers immediately via team_msg type="blocker".
+Report completion via team_msg type="task_complete" after report_agent_job_result.`
 })
 
 // 3) Track agent
 state.active_agents[taskId] = { agentId, role, started_at: now }
 
 // 4) Wait for completion — use task_name for stable targeting (v4)
-const waitResult = wait_agent({ targets: [taskId], timeout_ms: 900000 })
+const waitResult = wait_agent({ timeout_ms: 900000 })
+
+// Drain progress from message bus
+const progressMsgs = mcp__maestro-tools__team_msg({
+  operation: "list", session_id: sessionId, type: "progress", last: 100
+})
+for (const msg of (progressMsgs.result?.messages || [])) {
+  console.log(`[coordinator] trace: ${msg.summary}`)
+}
+
 if (waitResult.timed_out) {
+  const lastProgress = (progressMsgs.result?.messages || [])
+    .filter(m => m.data?.task_id === taskId).pop()
   state.tasks[taskId].status = 'timed_out'
+  state.tasks[taskId].error = lastProgress
+    ? `Timed out at ${lastProgress.data.phase} (${lastProgress.data.progress_pct}%)`
+    : 'Timed out with no progress reported'
   close_agent({ target: taskId })
   delete state.active_agents[taskId]
 } else {
@@ -161,12 +198,12 @@ When spawning workers in a later pipeline phase, send upstream results as supple
 // Example: Send scan results to running reviewer
 send_message({
   target: "<running-agent-task-name>",
-  items: [{ type: "text", text: `## Supplementary Context\n${upstreamFindings}` }]
+  message: `## Supplementary Context\n${upstreamFindings}`
 })
 // Note: send_message queues info without interrupting the agent's current work
 ```
 
-Use `send_message` (not `assign_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
+Use `send_message` (not `followup_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
 
 ## handleComplete
 

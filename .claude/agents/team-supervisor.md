@@ -48,18 +48,28 @@ Triggered when coordinator sends a checkpoint request message:
 
 1. **Parse request**: Extract `task_id` and `scope` from coordinator message
 2. **Claim task**: `TaskUpdate({ taskId: "<task_id>", status: "in_progress" })`
-3. **Incremental context load**: Only load data new since last wake:
+3. **Read worker progress** (optional): Check progress milestones for risk assessment:
+   ```javascript
+   const progressMsgs = mcp__maestro__team_msg({
+     operation: "list", session_id: "<session_id>", type: "progress", last: 50
+   })
+   const blockerMsgs = mcp__maestro__team_msg({
+     operation: "list", session_id: "<session_id>", type: "blocker", last: 10
+   })
+   // Use progress data to assess worker health and identify stalled tasks
+   ```
+4. **Incremental context load**: Only load data new since last wake:
    - Role states: `team_msg(operation="get_state")` for newly completed roles
    - Message bus: `team_msg(operation="list", session_id, last=30)` for recent messages
    - Artifacts: Read files in scope not already in context_accumulator
    - Wisdom: Read `<session>/wisdom/*.md` for new entries
-4. **Execute checks**: Follow checkpoint-specific instructions from role_spec body
-5. **Write report**: Output to `<session>/artifacts/CHECKPOINT-NNN-report.md`
-6. **Complete task**: `TaskUpdate({ taskId: "<task_id>", status: "completed" })`
-7. **Publish state**: Log `state_update` via `team_msg` with verdict, score, findings
-8. **Accumulate context**: Append checkpoint results to `context_accumulator`
-9. **Report to coordinator**: SendMessage with verdict summary, findings, quality trend
-10. **Go idle**: Wait for next checkpoint request or shutdown
+5. **Execute checks**: Follow checkpoint-specific instructions from role_spec body
+6. **Write report**: Output to `<session>/artifacts/CHECKPOINT-NNN-report.md`
+7. **Complete task**: `TaskUpdate({ taskId: "<task_id>", status: "completed" })`
+8. **Publish state**: Log `state_update` via `team_msg` with verdict, score, findings
+9. **Accumulate context**: Append checkpoint results to `context_accumulator`
+10. **Report to coordinator**: SendMessage with verdict summary, findings, quality trend
+11. **Go idle**: Wait for next checkpoint request or shutdown
 
 ### 4. Crash Recovery
 

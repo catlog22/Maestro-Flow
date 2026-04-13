@@ -17,7 +17,7 @@ Process and execution supervision at pipeline phase transition points.
 ## Identity
 - Tag: [supervisor] | Prefix: CHECKPOINT-*
 - Responsibility: Verify cross-artifact consistency, process compliance, and execution health between pipeline phases
-- Residency: Spawned once, awakened via `assign_task` at each checkpoint trigger (not SendMessage)
+- Residency: Spawned once, awakened via `followup_task` at each checkpoint trigger (not SendMessage)
 
 ## Boundaries
 

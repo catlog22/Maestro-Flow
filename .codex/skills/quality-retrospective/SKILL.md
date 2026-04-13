@@ -63,7 +63,7 @@ $maestro-retrospective "3 --compare 2 --auto-yes"
                      │
   Stage 4: Context-Agent Fork (Pattern 2.10)
   ┌────────────────────────────────────────────────────────────────┐
-  │  spawn ctx (fork_context: false)                               │
+  │  spawn ctx (fork_turns: "none")                                │
   │  wait ctx                                                      │
   │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐         │
   │  │lens-tech │ │lens-proc │ │lens-qual │ │lens-dec  │         │
@@ -75,7 +75,7 @@ $maestro-retrospective "3 --compare 2 --auto-yes"
                      │ lens results
   Stage 5: Synthesizer
   ┌──────────────────────────────────────────┐
-  │  spawn synthesizer (fork_context: false) │
+  │  spawn synthesizer (fork_turns: "none") │
   │  → wait → close                          │
   └──────────────────┬───────────────────────┘
                      │ distilled_insights
@@ -84,29 +84,29 @@ $maestro-retrospective "3 --compare 2 --auto-yes"
 
 ## Agent Registry
 
-| Agent | task_name | fork_context | Responsibility |
-|-------|-----------|-------------|----------------|
-| Context Agent | `ctx` | false | Load all phase artifacts: index.json, plan.json, verification.json, review.json, uat.md, issues.jsonl, task summaries |
-| Technical Lens | `lens-tech` | true | Technical debt, architecture decisions, code quality gaps, performance issues |
-| Process Lens | `lens-proc` | true | Workflow efficiency, collaboration patterns, planning accuracy, bottlenecks |
-| Quality Lens | `lens-qual` | true | Test coverage gaps, verification failures, UAT issues, quality gate outcomes |
-| Decision Lens | `lens-dec` | true | Key decisions made, tradeoffs accepted, ADR candidates, reversibility |
-| Synthesizer | `synthesizer` | false | Merge lens results, deduplicate insights, classify routing targets |
+| Agent | task_name | fork_turns | Responsibility |
+|-------|-----------|------------|----------------|
+| Context Agent | `ctx` | "none" | Load all phase artifacts: index.json, plan.json, verification.json, review.json, uat.md, issues.jsonl, task summaries |
+| Technical Lens | `lens-tech` | "all" | Technical debt, architecture decisions, code quality gaps, performance issues |
+| Process Lens | `lens-proc` | "all" | Workflow efficiency, collaboration patterns, planning accuracy, bottlenecks |
+| Quality Lens | `lens-qual` | "all" | Test coverage gaps, verification failures, UAT issues, quality gate outcomes |
+| Decision Lens | `lens-dec` | "all" | Key decisions made, tradeoffs accepted, ADR candidates, reversibility |
+| Synthesizer | `synthesizer` | "none" | Merge lens results, deduplicate insights, classify routing targets |
 
-## Fork Context Strategy
+## Fork Turns Strategy
 
-| Agent | task_name | fork_context | fork_from | Rationale |
-|-------|-----------|-------------|-----------|-----------|
-| Context Agent | `ctx` | false | — | Independent artifact loader; clean start |
-| Technical Lens | `lens-tech` | true | `ctx` | Inherits loaded artifacts — no redundant file reads |
-| Process Lens | `lens-proc` | true | `ctx` | Inherits loaded artifacts — no redundant file reads |
-| Quality Lens | `lens-qual` | true | `ctx` | Inherits loaded artifacts — no redundant file reads |
-| Decision Lens | `lens-dec` | true | `ctx` | Inherits loaded artifacts — no redundant file reads |
-| Synthesizer | `synthesizer` | false | — | Clean context; receives lens results via message |
+| Agent | task_name | fork_turns | fork_from | Rationale |
+|-------|-----------|------------|-----------|-----------|
+| Context Agent | `ctx` | "none" | — | Independent artifact loader; clean start |
+| Technical Lens | `lens-tech` | "all" | `ctx` | Inherits loaded artifacts — no redundant file reads |
+| Process Lens | `lens-proc` | "all" | `ctx` | Inherits loaded artifacts — no redundant file reads |
+| Quality Lens | `lens-qual` | "all" | `ctx` | Inherits loaded artifacts — no redundant file reads |
+| Decision Lens | `lens-dec` | "all" | `ctx` | Inherits loaded artifacts — no redundant file reads |
+| Synthesizer | `synthesizer` | "none" | — | Clean context; receives lens results via message |
 
-**Context-Agent Lifecycle**: Spawn `ctx` first → `wait_agent` → spawn all lens agents (`fork_context: true`) → `wait_agent` batch for lenses → `close_agent` lenses → `close_agent ctx` LAST.
+**Context-Agent Lifecycle**: Spawn `ctx` first → `wait_agent` → spawn all lens agents (`fork_turns: "all"`) → `wait_agent` batch for lenses → `close_agent` lenses → `close_agent ctx` LAST.
 
-> **fork_context semantics**: `fork_context: true` means the spawned agent inherits the *orchestrator's* current conversation context — not the ctx agent's own context. When `wait_agent(["ctx"])` returns, the ctx agent's completed artifact summaries are visible in the orchestrator's context. Lens agents forked after that point therefore inherit those summaries. Lens agents do **not** fork directly from `ctx`; the `fork_from: ctx` column above is conceptual shorthand for this sequencing.
+> **fork_turns semantics**: `fork_turns: "all"` means the spawned agent inherits the *orchestrator's* current conversation context — not the ctx agent's own context. When `wait_agent` for ctx returns, the ctx agent's completed artifact summaries are visible in the orchestrator's context. Lens agents forked after that point therefore inherit those summaries. Lens agents do **not** fork directly from `ctx`; the `fork_from: ctx` column above is conceptual shorthand for this sequencing.
 
 ---
 
@@ -172,7 +172,7 @@ If existing `retrospective.{md,json}` present, move to `{phase_dir}/.history/` w
 ```javascript
 spawn_agent({
   task_name: "ctx",
-  fork_context: false,
+  fork_turns: "none",
   message: `## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS
@@ -199,14 +199,14 @@ EXPECTED: Comprehensive artifact summary covering:
 - Key metrics: lines changed, test coverage, time taken
 `
 })
-wait_agent({ targets: ["ctx"], timeout_ms: 300000 })
+wait_agent({ timeout_ms: 600000 })
 ```
 
 **Step 4b: Fork 4 lens agents** (only active lenses based on `--lens` flag; default: all 4)
 ```javascript
 spawn_agent({
   task_name: "lens-tech",
-  fork_context: true,
+  fork_turns: "all",
   message: `## TECHNICAL LENS ANALYSIS
 
 Analyze the loaded phase artifacts from a TECHNICAL perspective.
@@ -232,7 +232,7 @@ EXPECTED: JSON array of insights, each: {
 
 spawn_agent({
   task_name: "lens-proc",
-  fork_context: true,
+  fork_turns: "all",
   message: `## PROCESS LENS ANALYSIS
 
 Analyze the loaded phase artifacts from a PROCESS perspective.
@@ -250,7 +250,7 @@ EXPECTED: Same JSON array schema as technical lens.
 
 spawn_agent({
   task_name: "lens-qual",
-  fork_context: true,
+  fork_turns: "all",
   message: `## QUALITY LENS ANALYSIS
 
 Analyze the loaded phase artifacts from a QUALITY perspective.
@@ -268,7 +268,7 @@ EXPECTED: Same JSON array schema as technical lens.
 
 spawn_agent({
   task_name: "lens-dec",
-  fork_context: true,
+  fork_turns: "all",
   message: `## DECISION LENS ANALYSIS
 
 Analyze the loaded phase artifacts from a DECISION perspective.
@@ -285,7 +285,6 @@ EXPECTED: Same JSON array schema as technical lens.
 })
 
 const lensResults = wait_agent({
-  targets: ["lens-tech", "lens-proc", "lens-qual", "lens-dec"],
   timeout_ms: 600000
 })
 
@@ -302,7 +301,7 @@ If `lensResults.timed_out` for any agent: emit W001, continue with partial cover
 ```javascript
 spawn_agent({
   task_name: "synthesizer",
-  fork_context: false,
+  fork_turns: "none",
   message: `## SYNTHESIS TASK
 
 Merge and distill insights from 4 lens analyses.
@@ -324,7 +323,7 @@ EXPECTED: JSON with:
 `
 })
 
-const synthResult = wait_agent({ targets: ["synthesizer"], timeout_ms: 300000 })
+const synthResult = wait_agent({ timeout_ms: 600000 })
 close_agent({ target: "synthesizer" })
 ```
 
@@ -498,7 +497,7 @@ Next:
 2. **Context-agent spawns first**: `ctx` must complete before any lens agent is spawned
 3. **Parallel lens dispatch**: All active lens agents spawned in a single batch, then `wait_agent` for all together — never sequentially
 4. **Context-agent closes last**: Close all lens agents before closing `ctx`
-5. **Synthesizer is isolated**: `fork_context: false` — receives lens results only via message, not full conversation history
+5. **Synthesizer is isolated**: `fork_turns: "none"` — receives lens results only via message, not full conversation history
 6. **Stable INS-ids**: `INS-{8hex}` from `hash(phase_num + lens + title)` — re-runs do not create duplicates
 7. **Archive before overwrite**: Move existing retrospective.{md,json} to `.history/` with timestamp before writing new ones
 8. **Spec learnings.md backward-compat**: Append to it only if it already exists — never create it

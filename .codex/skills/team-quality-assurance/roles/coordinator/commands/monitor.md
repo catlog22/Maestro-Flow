@@ -72,6 +72,16 @@ Worker completed. Process and advance.
 
 Read-only status report, then STOP.
 
+```javascript
+// Read progress and blocker messages from message bus
+const progressMsgs = mcp__maestro-tools__team_msg({
+  operation: "list", session_id: sessionId, type: "progress", last: 50
+})
+const blockerMsgs = mcp__maestro-tools__team_msg({
+  operation: "list", session_id: sessionId, type: "blocker", last: 10
+})
+```
+
 Output:
 ```
 [coordinator] QA Pipeline Status
@@ -86,9 +96,18 @@ Output:
   QARUN-001:   <done|run|wait> <summary>
   QAANA-001:   <done|run|wait> <summary>
 
-[coordinator] Active Workers: <list with elapsed time>
+[coordinator] Active Workers:
+  <task_id>  <role>  <milestone_phase>  <pct>%  "<summary>"  <time_ago>
+
+[coordinator] Blockers:
+  <task_id>  <role>  "<blocker_summary>"  <time_ago>
+  (omit section if no blockers)
+
 [coordinator] Ready: <pending tasks with resolved deps>
 [coordinator] Commands: 'resume' to advance | 'check' to refresh
+
+**CLI monitoring** (works while coordinator is blocked):
+maestro msg list -s "<session_id>" --type progress --last 10
 ```
 
 Then STOP.
@@ -143,11 +162,7 @@ Find ready tasks, spawn workers, STOP.
 spawn_agent({
   agent_type: "team_worker",
   task_name: taskId,  // e.g., "SCOUT-001" — enables named targeting
-  items: [{
-    description: "Spawn <role> worker for <subject>",
-    team_name: "quality-assurance",
-    name: "<role>",
-    prompt: `## Role Assignment
+  message: `## Role Assignment
 role: <role>
 role_spec: ~  or <project>/.codex/skills/team-quality-assurance/roles/<role>/role.md
 session: <session-folder>
@@ -161,14 +176,48 @@ inner_loop: <true|false>
 - Task: <subject>
 
 Read role_spec file to load Phase 2-4 domain instructions.
-Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).`
-  }]
+Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).
+
+## Progress Milestones
+session_id: ${sessionId}
+Report progress via team_msg at natural phase boundaries.
+Report blockers immediately via team_msg type="blocker".
+Report completion via team_msg type="task_complete" after report_agent_job_result.`
 })
 ```
 
    f. Add to active_workers
 5. Update session, output summary, STOP
-6. Use `wait_agent({ targets: [<spawned-task-names>], timeout_ms: 900000 })` to wait for callbacks. If `result.timed_out`, mark tasks as `timed_out` and close agents. Use `close_agent({ target: taskId })` with task_name for cleanup. Workers use `report_agent_job_result()` to send results back.
+6. Use `wait_agent({ timeout_ms: 900000 })` to wait for callbacks. Workers use `report_agent_job_result()` to send results back.
+
+### Post-Wait Processing
+
+After `wait_agent` returns:
+
+```javascript
+// Drain progress from message bus
+const progressMsgs = mcp__maestro-tools__team_msg({
+  operation: "list", session_id: sessionId, type: "progress", last: 100
+})
+for (const msg of (progressMsgs.result?.messages || [])) {
+  console.log(`[coordinator] trace: ${msg.summary}`)
+}
+
+if (waitResult.timed_out) {
+  for (const taskId of Object.keys(state.active_workers)) {
+    const lastProgress = (progressMsgs.result?.messages || [])
+      .filter(m => m.data?.task_id === taskId).pop()
+    state.tasks[taskId].status = 'timed_out'
+    state.tasks[taskId].error = lastProgress
+      ? `Timed out at ${lastProgress.data.phase} (${lastProgress.data.progress_pct}%)`
+      : 'Timed out with no progress reported'
+    close_agent({ target: taskId })
+    delete state.active_workers[taskId]
+  }
+} else {
+  // Collect results, mark completed, close agents
+}
+```
 
 **Cross-Agent Supplementary Context** (v4):
 
@@ -178,12 +227,12 @@ When spawning workers in a later pipeline phase, send upstream results as supple
 // Example: Send scout results to running strategist
 send_message({
   target: "<running-agent-task-name>",
-  items: [{ type: "text", text: `## Supplementary Context\n${upstreamFindings}` }]
+  message: `## Supplementary Context\n${upstreamFindings}`
 })
 // Note: send_message queues info without interrupting the agent's current work
 ```
 
-Use `send_message` (not `assign_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
+Use `send_message` (not `followup_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
 
 ## handleComplete
 

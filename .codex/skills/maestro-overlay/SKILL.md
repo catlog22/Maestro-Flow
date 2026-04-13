@@ -68,9 +68,7 @@ functions.update_plan({
 ```javascript
 functions.request_user_input({
   id: "overlay-clarify",
-  items: [
-    { type: "text", text: "Which command(s) should this overlay target? (e.g. maestro-execute, maestro-plan)" }
-  ]
+  message: "Which command(s) should this overlay target? (e.g. maestro-execute, maestro-plan)"
 })
 ```
 

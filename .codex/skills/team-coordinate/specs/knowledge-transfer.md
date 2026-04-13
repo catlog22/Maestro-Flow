@@ -9,6 +9,8 @@
 | **Wisdom** | Cross-task | Append to `<session>/wisdom/{learnings,decisions,conventions,issues}.md` | Patterns, conventions, risks discovered during execution |
 | **Context Accumulator** | Intra-role (inner loop) | In-memory array, passed to each subsequent task in same-prefix loop | Prior task summaries within same role's inner loop |
 | **Exploration Cache** | Cross-role | `<session>/explorations/cache-index.json` + per-angle JSON | Codebase discovery results, prevents duplicate exploration |
+| **Progress Milestones** | Worker -> Coordinator | `team_msg` type=progress/blocker/task_complete | Live execution trace, blocker alerts, timeout forensics |
+| **Cross-Worker Handoff** | Coordinator -> Worker | `send_message` to running worker with upstream findings | Push new context to running workers when dependencies complete |
 
 ## 2. Context Loading Protocol (Phase 2)
 

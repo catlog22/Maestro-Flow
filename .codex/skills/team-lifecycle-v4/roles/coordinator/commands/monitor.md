@@ -4,8 +4,8 @@ Synchronous pipeline coordination using spawn_agent + wait_agent.
 
 ## Constants
 
-- WORKER_AGENT: tlv4_worker
-- SUPERVISOR_AGENT: tlv4_supervisor (resident, woken via assign_task)
+- WORKER_AGENT: team_worker
+- SUPERVISOR_AGENT: team_supervisor (resident, woken via followup_task)
 
 ## Handler Router
 
@@ -19,18 +19,56 @@ Synchronous pipeline coordination using spawn_agent + wait_agent.
 
 ## handleCheck
 
-Read-only status report from tasks.json, then STOP.
+Read-only status report from tasks.json + team_msg progress, then STOP.
 
 1. Read tasks.json
 2. Count tasks by status (pending, in_progress, completed, failed, skipped)
+3. Read worker progress from message bus:
+   ```javascript
+   const progressMsgs = mcp__maestro-tools__team_msg({
+     operation: "list",
+     session_id: sessionId,
+     type: "progress",
+     last: 50
+   })
+   const blockerMsgs = mcp__maestro-tools__team_msg({
+     operation: "list",
+     session_id: sessionId,
+     type: "blocker",
+     last: 10
+   })
+   // Aggregate latest milestone per task
+   const taskProgress = {}
+   for (const msg of progressMsgs.result.messages) {
+     const tid = msg.data?.task_id
+     if (tid && (!taskProgress[tid] || msg.ts > taskProgress[tid].ts)) {
+       taskProgress[tid] = { phase: msg.data.phase, pct: msg.data.progress_pct, ts: msg.ts, summary: msg.summary }
+     }
+   }
+   ```
 
-Output:
+4. Output enhanced status:
+
 ```
 [coordinator] Pipeline Status
 [coordinator] Progress: <done>/<total> (<pct>%)
-[coordinator] Active agents: <list from active_agents>
-[coordinator] Ready: <pending tasks with resolved deps>
+[coordinator]
+[coordinator] Active Workers:
+[coordinator]   <task_id>  <role>  <milestone_phase>  <pct>%  "<summary>"  <time_ago>
+[coordinator]   ...
+[coordinator]
+[coordinator] Blockers: <count> (or "none")
+[coordinator]   <task_id>: <blocker_detail>    ← only if blockers exist
+[coordinator]
+[coordinator] Completed: <list>
+[coordinator] Ready: <pending with resolved deps>
 [coordinator] Commands: 'resume' to advance | 'check' to refresh
+```
+
+**CLI equivalent for human monitoring** (no coordinator needed):
+```bash
+maestro msg list -s "<session_id>" --type progress --last 10
+maestro msg list -s "<session_id>" --type blocker
 ```
 
 ## handleResume
@@ -49,7 +87,7 @@ const runningAgents = list_agents({})
 2. No active agents -> handleSpawnNext
 3. Has active agents -> check each:
    - If supervisor with `resident: true` + no CHECKPOINT in_progress + pending CHECKPOINT exists
-     -> supervisor may have crashed. Respawn via spawn_agent({ agent_type: "tlv4_supervisor" }) with recovery: true
+     -> supervisor may have crashed. Respawn via spawn_agent({ agent_type: "team_supervisor" }) with recovery: true
 4. Proceed to handleSpawnNext
 
 ## handleSpawnNext
@@ -72,28 +110,34 @@ state.tasks[task.id].status = 'in_progress'
 
 // 2) Spawn worker
 const agentId = spawn_agent({
-  agent_type: "tlv4_worker",
+  agent_type: "team_worker",
   task_name: task.id,  // e.g., "PLAN-001" — enables named targeting
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: ${task.role}
 role_spec: ${skillRoot}/roles/${task.role}/role.md
 session: ${sessionFolder}
 session_id: ${sessionId}
 requirement: ${requirement}
-inner_loop: ${hasInnerLoop(task.role)}` },
+inner_loop: ${hasInnerLoop(task.role)}
 
-    { type: "text", text: `Read role_spec file (${skillRoot}/roles/${task.role}/role.md) to load Phase 2-4 domain instructions.
-Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).` },
+Read role_spec file (${skillRoot}/roles/${task.role}/role.md) to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: ${task.id}
 title: ${task.title}
 description: ${task.description}
-pipeline_phase: ${task.pipeline_phase}` },
+pipeline_phase: ${task.pipeline_phase}
 
-    { type: "text", text: `## Upstream Context\n${prevContext}` }
-  ]
+## Upstream Context
+${prevContext}
+
+## Progress Milestones
+session_id: ${sessionId}
+Report progress via team_msg at natural phase boundaries (context loaded → core work done → verification).
+Report blockers immediately via team_msg type="blocker".
+Report completion via team_msg type="task_complete" after report_agent_job_result.
+See agent-instruction.md "Progress Milestone Protocol" for format.`
 })
 
 // 3) Track agent
@@ -107,10 +151,35 @@ After spawning all ready regular tasks:
 const taskNames = Object.entries(state.active_agents)
   .filter(([_, a]) => !a.resident)
   .map(([taskId]) => taskId)
-const waitResult = wait_agent({ targets: taskNames, timeout_ms: 900000 })
+const waitResult = wait_agent({ timeout_ms: 900000 })
+// 4a) Drain progress from message bus (before collecting discoveries)
+const progressMsgs = mcp__maestro-tools__team_msg({
+  operation: "list", session_id: sessionId, type: "progress", last: 100
+})
+const blockerMsgs = mcp__maestro-tools__team_msg({
+  operation: "list", session_id: sessionId, type: "blocker", last: 20
+})
+// Log execution trace
+for (const msg of (progressMsgs.result?.messages || [])) {
+  console.log(`[coordinator] trace: ${msg.summary}`)
+}
+if (blockerMsgs.result?.messages?.length > 0) {
+  console.log(`[coordinator] WARNING: ${blockerMsgs.result.messages.length} blocker(s) reported during execution`)
+  for (const b of blockerMsgs.result.messages) {
+    console.log(`[coordinator]   ${b.data?.task_id}: ${b.data?.blocker_detail}`)
+  }
+}
+
 if (waitResult.timed_out) {
+  // Use progress trace to understand where workers got stuck
   for (const taskId of taskNames) {
+    const lastProgress = (progressMsgs.result?.messages || [])
+      .filter(m => m.data?.task_id === taskId)
+      .pop()
     state.tasks[taskId].status = 'timed_out'
+    state.tasks[taskId].error = lastProgress
+      ? `Timed out at ${lastProgress.data.phase} (${lastProgress.data.progress_pct}%)`
+      : 'Timed out with no progress reported'
     close_agent({ target: taskId })
     delete state.active_agents[taskId]
   }
@@ -142,12 +211,12 @@ When spawning workers in a later pipeline phase, send upstream results as supple
 // Example: Send planning results to running implementers
 send_message({
   target: "<running-agent-task-name>",
-  items: [{ type: "text", text: `## Supplementary Context\n${upstreamFindings}` }]
+  message: `## Supplementary Context\n${upstreamFindings}`
 })
 // Note: send_message queues info without interrupting the agent's current work
 ```
 
-Use `send_message` (not `assign_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
+Use `send_message` (not `followup_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
 
 ### Handle CHECKPOINT Tasks
 
@@ -158,16 +227,14 @@ For each ready CHECKPOINT task:
 2. Determine scope: list task IDs that this checkpoint depends on (its deps)
 3. Wake supervisor:
    ```javascript
-   assign_task({
-     id: supervisorId,
-     items: [
-       { type: "text", text: `## Checkpoint Request
+   followup_task({
+     target: supervisorId,
+     message: `## Checkpoint Request
    task_id: ${task.id}
    scope: [${task.deps.join(', ')}]
-   pipeline_progress: ${completedCount}/${totalCount} tasks completed` }
-     ]
+   pipeline_progress: ${completedCount}/${totalCount} tasks completed`
    })
-   const cpResult = wait_agent({ targets: [supervisorId], timeout_ms: 300000 })
+   const cpResult = wait_agent({ timeout_ms: 600000 })
    if (cpResult.timed_out) { /* mark checkpoint timed_out, close supervisor, STOP */ }
    ```
 4. Read checkpoint report from artifacts/${task.id}-report.md

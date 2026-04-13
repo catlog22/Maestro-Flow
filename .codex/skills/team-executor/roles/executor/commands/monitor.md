@@ -67,6 +67,16 @@ Receive callback from [<role>]
 
 Read-only status report. No pipeline advancement.
 
+```javascript
+// Read progress and blocker messages from message bus
+const progressMsgs = mcp__maestro-tools__team_msg({
+  operation: "list", session_id: sessionId, type: "progress", last: 50
+})
+const blockerMsgs = mcp__maestro-tools__team_msg({
+  operation: "list", session_id: sessionId, type: "blocker", last: 10
+})
+```
+
 ```
 [executor] Pipeline Status
 [executor] Progress: <completed>/<total> (<percent>%)
@@ -76,11 +86,18 @@ Read-only status report. No pipeline advancement.
 
   done=completed  >>>=running  o=pending  .=not created
 
-[executor] Active agents:
-  > <subject> (<role>) - running <elapsed>
+[executor] Active Workers:
+  <task_id>  <role>  <milestone_phase>  <pct>%  "<summary>"  <time_ago>
+
+[executor] Blockers:
+  <task_id>  <role>  "<blocker_summary>"  <time_ago>
+  (omit section if no blockers)
 
 [executor] Ready to spawn: <subjects>
 [executor] Commands: 'resume' to advance | 'check' to refresh
+
+**CLI monitoring** (works while executor is blocked):
+maestro msg list -s "<session_id>" --type progress --last 10
 ```
 
 Then STOP.
@@ -134,25 +151,30 @@ Ready tasks found?
 ```javascript
 const agentId = spawn_agent({
   agent_type: "team_worker",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: ${task.role}
 role_spec: ${sessionFolder}/role-specs/${task.role}.md
 session: ${sessionFolder}
 session_id: ${sessionId}
 team_name: ${teamName}
 requirement: ${task.description}
-inner_loop: ${hasInnerLoop(task.role)}` },
+inner_loop: ${hasInnerLoop(task.role)}
 
-    { type: "text", text: `Read role_spec file (${sessionFolder}/role-specs/${task.role}.md) to load Phase 2-4 domain instructions.` },
+Read role_spec file (${sessionFolder}/role-specs/${task.role}.md) to load Phase 2-4 domain instructions.
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: ${taskId}
 title: ${task.title}
-description: ${task.description}` },
+description: ${task.description}
 
-    { type: "text", text: `## Upstream Context\n${prevContext}` }
-  ]
+## Upstream Context
+${prevContext}
+
+## Progress Milestones
+session_id: ${sessionId}
+Report progress via team_msg at natural phase boundaries.
+Report blockers immediately via team_msg type="blocker".
+Report completion via team_msg type="task_complete" after report_agent_job_result.`
 })
 
 state.active_agents[taskId] = { agentId, role: task.role, started_at: now }
@@ -167,11 +189,25 @@ After spawning all ready tasks:
 const agentIds = Object.values(state.active_agents)
   .filter(a => !a.resident)
   .map(a => a.agentId)
-const waitResult = wait_agent({ targets: agentIds, timeout_ms: 900000 })
+const waitResult = wait_agent({ timeout_ms: 900000 })
+
+// Drain progress from message bus
+const progressMsgs = mcp__maestro-tools__team_msg({
+  operation: "list", session_id: sessionId, type: "progress", last: 100
+})
+for (const msg of (progressMsgs.result?.messages || [])) {
+  console.log(`[executor] trace: ${msg.summary}`)
+}
+
 if (waitResult.timed_out) {
   for (const [taskId, agent] of Object.entries(state.active_agents)) {
     if (agent.resident) continue
+    const lastProgress = (progressMsgs.result?.messages || [])
+      .filter(m => m.data?.task_id === taskId).pop()
     state.tasks[taskId].status = 'timed_out'
+    state.tasks[taskId].error = lastProgress
+      ? `Timed out at ${lastProgress.data.phase} (${lastProgress.data.progress_pct}%)`
+      : 'Timed out with no progress reported'
     close_agent({ target: agent.agentId })
     delete state.active_agents[taskId]
   }

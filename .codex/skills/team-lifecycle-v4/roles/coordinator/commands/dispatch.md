@@ -48,7 +48,7 @@ CHECKPOINT tasks are dispatched like regular tasks but handled differently at sp
 
 - Added to tasks.json with proper deps (upstream tasks that must complete first)
 - Owner: supervisor
-- **NOT spawned as tlv4_worker** — coordinator wakes the resident supervisor via assign_task
+- **NOT spawned as team_worker** — coordinator wakes the resident supervisor via followup_task
 - If `supervision: false` in tasks.json, skip creating CHECKPOINT tasks entirely
 - RoleSpec in description: `<project>/.codex/skills/team-lifecycle-v4/roles/supervisor/role.md`
 

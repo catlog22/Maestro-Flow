@@ -9,6 +9,8 @@
 | Wisdom | Append to `<session>/wisdom/*.md` | Any role | All roles |
 | Context Accumulator | In-memory aggregation | Inner loop only | Current task |
 | Exploration Cache | `<session>/explorations/` | Analyst / researcher | All roles |
+| **Progress Milestones** | `team_msg` type=progress/blocker/task_complete | Worker (all roles) | Coordinator + Human (CLI) |
+| **Cross-Worker Handoff** | `send_message` from coordinator to running worker | Coordinator | Running worker |
 
 ## 2. Context Loading Protocol (Before Task Execution)
 
@@ -126,7 +128,73 @@ Prevents redundant research across tasks.
 - Cache entries never expire within a session
 - Any role can read cached explorations; only the creator updates them
 
-## 6. Platform Mapping Reference
+## 6. Progress Milestone Protocol
+
+Workers report progress during execution via `team_msg`. This provides:
+- **Human CLI monitoring**: `maestro msg list -s <session-id> --type progress` works while coordinator is blocked in `wait_agent`
+- **Coordinator post-wait trace**: Full execution history for forensics and status display
+- **Blocker awareness**: Coordinator knows where worker got stuck on timeout
+
+### Message Types
+
+| Type | When | Purpose |
+|------|------|---------|
+| `progress` | At natural phase boundaries | Report milestone reached + progress % |
+| `blocker` | Immediately on error | Report blocking issue without waiting |
+| `task_complete` | After `report_agent_job_result` | Final status for coordinator trace |
+
+### Progress Message Schema
+
+```javascript
+mcp__maestro-tools__team_msg({
+  operation: "log",
+  session_id: "<session_id>",
+  from: "<task_id>",           // e.g., "IMPL-001"
+  to: "coordinator",
+  type: "progress",            // or "blocker" or "task_complete"
+  summary: "[<task_id>] <phase description> (<pct>%)",
+  data: {
+    task_id: "<task_id>",
+    role: "<role>",
+    status: "in_progress",     // in_progress | blocked | completed
+    progress_pct: 0-100,
+    phase: "<what just completed>",
+    key_info: "<most important finding>"
+  }
+})
+```
+
+### Timing Constraint
+
+`wait_agent` is **blocking** — coordinator cannot read team_msg during wait. Progress is only consumed:
+1. On `handleCheck` (user types "check" while coordinator is idle)
+2. On `handleResume` after `wait_agent` returns (drain bus before collecting discoveries)
+3. By human via `maestro msg list` CLI (works anytime, independent of coordinator)
+
+### Relationship to Discoveries
+
+- **Progress milestones** = lightweight trace during execution (via team_msg)
+- **Discovery files** = authoritative final output (via `discoveries/{task_id}.json`)
+- If team_msg fails, worker continues — discovery file is ground truth
+- Coordinator always reads both: team_msg for trace, discoveries for results
+
+## 7. Cross-Worker Handoff Protocol
+
+When worker A completes and worker B is still running, coordinator pushes A's findings to B via `send_message`:
+
+```javascript
+// In handleSpawnNext, after collecting A's discovery:
+send_message({
+  target: "IMPL-002",        // B's task_name
+  message: `## Supplementary Context from IMPL-001\n${findingsFromA}`
+})
+// Note: send_message queues info without interrupting B's current work
+```
+
+**When to send**: After each wave of discoveries is collected, if any running worker could benefit from the new findings.
+**What to send**: Key findings and decisions from completed tasks, especially those listed in `context_from` deps.
+
+## 8. Platform Mapping Reference
 
 | Claude Code Operation | Codex Equivalent |
 |----------------------|------------------|

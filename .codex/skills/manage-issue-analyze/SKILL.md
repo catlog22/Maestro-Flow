@@ -69,7 +69,7 @@ If `status` is not `open` or `registered`, emit W001 but continue.
 ```javascript
 spawn_agent({
   task_name: "ctx-explore",
-  fork_context: false,
+  fork_turns: "none",
   message: `## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS
@@ -87,7 +87,7 @@ Identify: affected locations (file:line), caller/callee chains, data flow, exist
 EXPECTED: JSON with: affected_files [{file, line, snippet, relevance}], related_modules, error_handling_gaps, test_coverage_gaps.
 `
 })
-const ctxResult = wait_agent({ targets: ["ctx-explore"], timeout_ms: 300000 })
+const ctxResult = wait_agent({ timeout_ms: 600000 })
 close_agent({ target: "ctx-explore" })
 ```
 

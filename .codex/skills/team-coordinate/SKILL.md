@@ -1,7 +1,7 @@
 ---
 name: team-coordinate
 description: Universal team coordination skill with dynamic role generation. Uses team-worker agent architecture with role-spec files. Only coordinator is built-in -- all worker roles are generated at runtime as role-specs and spawned via team-worker agent. Beat/cadence model for orchestration. Triggers on "Team Coordinate ".
-allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), assign_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), request_user_input(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
+allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), followup_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), request_user_input(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), mcp__maestro-tools__team_msg(*)
 ---
 
 # Team Coordinate
@@ -40,7 +40,7 @@ Before calling ANY tool, apply this check:
 
 | Tool Call | Verdict | Reason |
 |-----------|---------|--------|
-| `spawn_agent`, `wait_agent`, `close_agent`, `send_message`, `assign_task` | ALLOWED | Orchestration |
+| `spawn_agent`, `wait_agent`, `close_agent`, `send_message`, `followup_task` | ALLOWED | Orchestration |
 | `list_agents` | ALLOWED | Agent health check |
 | `request_user_input` | ALLOWED | User interaction |
 | `mcp__maestro-tools__team_msg` | ALLOWED | Message bus |
@@ -138,9 +138,8 @@ When coordinator spawns workers, use `team-worker` agent with role-spec path:
 spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
-  fork_context: false,
-  items: [
-    { type: "text", text: `## Role Assignment
+  fork_turns: "none",
+  message: `## Role Assignment
 role: <role>
 role_spec: <session-folder>/role-specs/<role>.md
 session: <session-folder>
@@ -148,21 +147,20 @@ session_id: <session-id>
 requirement: <task-description>
 inner_loop: <true|false>
 
-Read role_spec file to load Phase 2-4 domain instructions.` },
+Read role_spec file to load Phase 2-4 domain instructions.
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: <task-id>
 title: <task-title>
 description: <task-description>
-pipeline_phase: <pipeline-phase>` },
+pipeline_phase: <pipeline-phase>
 
-    { type: "text", text: `## Upstream Context
-<prev_context>` }
-  ]
+## Upstream Context
+<prev_context>`
 })
 ```
 
-After spawning, use `wait_agent({ targets: [...], timeout_ms: 900000 })` to collect results, then `close_agent({ target: <name> })` each worker.
+After spawning, use `wait_agent({ timeout_ms: 900000 })` to collect results, then `close_agent({ target: <name> })` each worker.
 
 **Inner Loop roles** (role has 2+ serial same-prefix tasks): Set `inner_loop: true`. The team-worker agent handles the loop internally.
 
@@ -190,10 +188,10 @@ Override model/reasoning_effort in spawn_agent when cost optimization is needed:
 spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
-  fork_context: false,
+  fork_turns: "none",
   model: "<model-override>",
   reasoning_effort: "<effort-level>",
-  items: [...]
+  message: "..."
 })
 ```
 
@@ -204,14 +202,14 @@ spawn_agent({
 | Intent | API | Example |
 |--------|-----|---------|
 | Queue supplementary info (don't interrupt) | `send_message` | Send upstream task findings to a running downstream worker |
-| Not used in this skill | `assign_task` | No resident agents -- all workers are one-shot |
+| Not used in this skill | `followup_task` | No resident agents -- all workers are one-shot |
 | Check running agents | `list_agents` | Verify agent health during resume |
 
 **Note**: Since roles are dynamically generated, the coordinator must resolve task prefixes and role names from `team-session.json#roles` at runtime. There are no hardcoded role-specific examples.
 
-### fork_context Strategy
+### fork_turns Strategy
 
-`fork_context: false` is the default. Consider `fork_context: true` only when:
+`fork_turns: "none"` is the default. Consider `fork_turns: "all"` only when:
 - Runtime analysis reveals the task requires deep familiarity with the full conversation context
 - The dynamically-generated role-spec indicates the worker needs project-wide understanding
 - The coordinator has already accumulated significant context about the codebase
@@ -232,7 +230,7 @@ const running = list_agents({})
 ### Named Agent Targeting
 
 Workers are spawned with `task_name: "<task-id>"` enabling direct addressing:
-- `send_message({ target: "<TASK-ID>", items: [...] })` -- queue upstream context without interrupting
+- `send_message({ target: "<TASK-ID>", message: "..." })` -- queue upstream context without interrupting
 - `close_agent({ target: "<TASK-ID>" })` -- cleanup by name
 
 ## Completion Action
