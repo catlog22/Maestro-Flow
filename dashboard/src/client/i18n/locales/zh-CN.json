@@ -7,8 +7,8 @@
     "mcp": "MCP 管理器",
     "specs": "规范管理器",
     "wiki": "知识库",
-    "teams": "团队会话",
-    "collab": "协作",
+    "teams": "Agents 团队",
+    "collab": "多用户协作",
     "requirement": "需求扩展",
     "supervisor": "调度中心",
     "views": "视图"
@@ -26,8 +26,8 @@
     "mcp_tooltip": "MCP 管理器",
     "specs_tooltip": "规范管理器",
     "wiki_tooltip": "项目知识库",
-    "teams_tooltip": "团队",
-    "collab_tooltip": "协作",
+    "teams_tooltip": "Agents 团队",
+    "collab_tooltip": "多用户协作",
     "requirement_tooltip": "需求",
     "supervisor_tooltip": "调度管理中心",
     "views_label": "视图",
@@ -48,6 +48,7 @@
     }
   },
   "status": {
+    "not_started": "未开始",
     "pending": "待处理",
     "exploring": "探索中",
     "planning": "规划中",
@@ -87,6 +88,8 @@
     "aria_breadcrumb": "面包屑导航"
   },
   "connection_error": "无法连接到仪表盘服务器。请确保它在 3001 端口上运行。",
+  "update_available": "Maestro 新版本 v{{version}} 可用，运行 `maestro update` 进行升级。",
+  "dismiss": "关闭",
   "language_switcher": {
     "en": "English",
     "zh": "中文",

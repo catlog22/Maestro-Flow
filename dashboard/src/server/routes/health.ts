@@ -1,17 +1,74 @@
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { Hono } from 'hono';
 
 import type { StateManager } from '../state/state-manager.js';
 
+// ---------------------------------------------------------------------------
+// Version helpers
+// ---------------------------------------------------------------------------
+
+function readCurrentVersion(): string {
+  try {
+    // Compiled JS at dashboard/dist-server/.../routes/health.js
+    // Walk up to project root to find package.json
+    const dir = dirname(fileURLToPath(import.meta.url));
+    // Try multiple levels to find package.json with name "maestro-flow"
+    let cur = dir;
+    for (let i = 0; i < 8; i++) {
+      const pkgPath = join(cur, 'package.json');
+      if (existsSync(pkgPath)) {
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+        if (pkg.name === 'maestro-flow') return (pkg.version as string) ?? '0.0.0';
+      }
+      const parent = dirname(cur);
+      if (parent === cur) break;
+      cur = parent;
+    }
+  } catch { /* fallback below */ }
+  return '0.0.0';
+}
+
+const CURRENT_VERSION = readCurrentVersion();
+
+// ---------------------------------------------------------------------------
+// npm registry version cache (non-blocking, 30-min TTL)
+// ---------------------------------------------------------------------------
+
+const PACKAGE_NAME = 'maestro-flow';
+const REGISTRY_URL = `https://registry.npmjs.org/${PACKAGE_NAME}/latest`;
+const VERSION_CHECK_TTL_MS = 30 * 60 * 1000;
+
+let versionCache: { latest: string; checkedAt: number } | null = null;
+
+function triggerVersionCheck(): void {
+  if (versionCache && Date.now() - versionCache.checkedAt < VERSION_CHECK_TTL_MS) return;
+  // Fire-and-forget — never blocks the response
+  fetch(REGISTRY_URL, { signal: AbortSignal.timeout(5000) })
+    .then((r) => r.json())
+    .then((data: any) => {
+      if (data?.version) {
+        versionCache = { latest: data.version as string, checkedAt: Date.now() };
+      }
+    })
+    .catch(() => { /* silently ignore */ });
+}
+
+// ---------------------------------------------------------------------------
+// Routes
+// ---------------------------------------------------------------------------
+
 export function createHealthRoute(workflowRoot: string, stateManager?: StateManager): Hono {
   const app = new Hono();
 
   app.get('/api/health', (c) => {
+    triggerVersionCheck();
     return c.json({
       status: 'ok',
-      version: '0.1.0',
+      version: CURRENT_VERSION,
+      latestVersion: versionCache?.latest ?? null,
       workspace: stateManager ? stateManager.getWorkspaceRoot() : resolve(workflowRoot, '..'),
     });
   });

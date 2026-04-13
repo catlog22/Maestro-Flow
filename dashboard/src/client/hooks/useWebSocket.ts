@@ -21,6 +21,46 @@ import type { RequirementProgressPayload, RequirementExpandedPayload, Requiremen
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30_000;
 
+/**
+ * Post-process history entries loaded from disk:
+ * 1. Clear partial flag on assistant messages (session is historical)
+ * 2. Consolidate consecutive assistant_message fragments into single messages
+ * 3. Merge tool_use running→completed pairs
+ */
+function consolidateHistoryEntries(raw: NormalizedEntry[], processId: string): NormalizedEntry[] {
+  const merged: NormalizedEntry[] = [];
+  for (const entry of raw) {
+    const fixed = { ...entry, processId } as NormalizedEntry;
+    if (fixed.type === 'assistant_message') {
+      (fixed as { partial: boolean }).partial = false;
+      const prev = merged[merged.length - 1];
+      if (prev && prev.type === 'assistant_message') {
+        (prev as { content: string }).content += (fixed as { content: string }).content;
+        continue;
+      }
+    }
+    if (fixed.type === 'tool_use' && ((fixed as { status?: string }).status === 'completed' || (fixed as { status?: string }).status === 'failed')) {
+      const runIdx = merged.findLastIndex(
+        (e) => e.type === 'tool_use' && (e as { status?: string }).status === 'running',
+      );
+      if (runIdx !== -1) {
+        const running = merged[runIdx] as typeof fixed;
+        merged[runIdx] = {
+          ...running,
+          status: (fixed as { status: string }).status,
+          result: (fixed as { result?: string }).result ?? (running as { result?: string }).result,
+          input: ((running as { input?: Record<string, unknown> }).input && Object.keys((running as { input: Record<string, unknown> }).input).length > 0)
+            ? (running as { input: Record<string, unknown> }).input
+            : (fixed as { input?: Record<string, unknown> }).input,
+        } as NormalizedEntry;
+        continue;
+      }
+    }
+    merged.push(fixed);
+  }
+  return merged;
+}
+
 /** Module-level send function so external code can send messages */
 let wsSendFn: ((msg: WsClientMessage) => void) | null = null;
 
@@ -101,12 +141,32 @@ export function useWebSocket(): void {
             for (const proc of agents) {
               const agentProc = proc as AgentProcess;
               addProcess(agentProc);
+              const isCliHistory = agentProc.id.startsWith('cli-history-');
+
               // Load buffered entries so chat history is visible after reconnect
               fetch(`/api/agents/${encodeURIComponent(agentProc.id)}/entries`)
                 .then(r => r.ok ? r.json() : null)
-                .then((entries: unknown) => {
-                  if (Array.isArray(entries)) {
-                    for (const entry of entries) addEntry(agentProc.id, entry as NormalizedEntry);
+                .then(async (entries: unknown) => {
+                  let raw = Array.isArray(entries) ? entries as NormalizedEntry[] : [];
+
+                  // cli-history processes: prefer disk entries (complete, partial=false)
+                  // over broker-monitor entries (fragments, partial=true)
+                  if (isCliHistory) {
+                    const execId = agentProc.id.slice('cli-history-'.length);
+                    try {
+                      const histRes = await fetch(`/api/cli-history/${encodeURIComponent(execId)}/entries`);
+                      if (histRes.ok) {
+                        const histEntries = (await histRes.json()) as NormalizedEntry[];
+                        if (Array.isArray(histEntries) && histEntries.length > 0) {
+                          raw = histEntries;
+                        }
+                      }
+                    } catch { /* silent */ }
+                    // Consolidate: clear partial flags, merge fragments
+                    const merged = consolidateHistoryEntries(raw, agentProc.id);
+                    for (const entry of merged) addEntry(agentProc.id, entry);
+                  } else {
+                    for (const entry of raw) addEntry(agentProc.id, entry as NormalizedEntry);
                   }
                 })
                 .catch(() => {});

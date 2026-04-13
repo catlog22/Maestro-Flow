@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { HOOK_LEVEL_DESCRIPTIONS, type HookLevel } from '../hooks.js';
+import { type HookLevel } from '../hooks.js';
+import { t } from '../../i18n/index.js';
 
 // ---------------------------------------------------------------------------
 // InstallHub — menu hub with status for each install category
@@ -54,8 +55,8 @@ export function InstallHub({ items, onToggle, onEnter, onInstall, onBack }: Inst
 
   return (
     <Box flexDirection="column">
-      <Text bold color="cyan">Installation Menu</Text>
-      <Text dimColor>Select items to configure, then Install.</Text>
+      <Text bold color="cyan">{t.install.hubTitle}</Text>
+      <Text dimColor>{t.install.hubHint}</Text>
 
       <Box flexDirection="column" marginTop={1}>
         {items.map((item, i) => {
@@ -75,7 +76,7 @@ export function InstallHub({ items, onToggle, onEnter, onInstall, onBack }: Inst
         {/* Install action row */}
         <Box marginTop={1}>
           <Text color={index === items.length ? 'greenBright' : 'gray'} bold={index === items.length}>
-            {index === items.length ? '>' : ' '} {'>>> Install >>>'}
+            {index === items.length ? '>' : ' '} {t.install.hubInstall}
           </Text>
         </Box>
       </Box>
@@ -103,24 +104,24 @@ export function buildHubItems(
       label: 'Components',
       enabled: enabled.components,
       summary: enabled.components
-        ? `${summaries.componentCount} selected (${summaries.fileCount} files)`
-        : 'skipped',
+        ? `${summaries.componentCount} selected (${t.install.hubFiles.replace('{count}', String(summaries.fileCount))})`
+        : t.install.hubSkipped,
     },
     {
       id: 'hooks',
       label: 'Hooks',
       enabled: enabled.hooks,
       summary: enabled.hooks
-        ? `${summaries.hookLevel} — ${HOOK_LEVEL_DESCRIPTIONS[summaries.hookLevel]}`
-        : 'skipped',
+        ? `${summaries.hookLevel} — ${t.install.hooksLevelDescriptions[summaries.hookLevel]}`
+        : t.install.hubSkipped,
     },
     {
       id: 'mcp',
       label: 'MCP Server',
       enabled: enabled.mcp,
       summary: enabled.mcp && summaries.mcpEnabled
-        ? `${summaries.mcpToolCount} tools`
-        : 'skipped',
+        ? t.install.hubTools.replace('{count}', String(summaries.mcpToolCount))
+        : t.install.hubSkipped,
     },
   ];
 }

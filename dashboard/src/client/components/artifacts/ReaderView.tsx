@@ -15,6 +15,10 @@ interface ReaderViewProps {
   onNavigate: (path: string) => void;
   loading: boolean;
   error: string | null;
+  /** Override the displayed title (default: file name from path) */
+  title?: string;
+  /** Subtitle shown below the title (e.g. "PROJECT · ACTIVE") */
+  subtitle?: string;
 }
 
 /** File extension to icon component */
@@ -28,7 +32,7 @@ function getFileIcon(path: string) {
   }
 }
 
-export function ReaderView({ content, path, onNavigate: _onNavigate, loading, error }: ReaderViewProps) {
+export function ReaderView({ content, path, onNavigate: _onNavigate, loading, error, title, subtitle }: ReaderViewProps) {
   const [rawView, setRawView] = useState(false);
 
   if (error) {
@@ -82,7 +86,10 @@ export function ReaderView({ content, path, onNavigate: _onNavigate, loading, er
             <Icon size={14} strokeWidth={1.8} />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[14px] font-[var(--font-weight-bold)] text-text-primary truncate">{fileName}</div>
+            {subtitle && (
+              <div className="text-[10px] uppercase tracking-wider text-text-tertiary font-medium truncate">{subtitle}</div>
+            )}
+            <div className="text-[14px] font-[var(--font-weight-bold)] text-text-primary truncate">{title ?? fileName}</div>
             <div className="text-[10px] font-mono text-text-tertiary truncate">{path}</div>
           </div>
           {/* Rendered / Source toggle */}

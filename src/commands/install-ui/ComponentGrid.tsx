@@ -9,6 +9,7 @@ import {
   clampIndex,
 } from './ComponentGrid.logic.js';
 import type { ScannedComponent } from '../install-backend.js';
+import { t } from '../../i18n/index.js';
 
 // ---------------------------------------------------------------------------
 // ComponentGrid — multi-select container for installable components
@@ -113,17 +114,19 @@ export function ComponentGrid({
     return (
       <Box flexDirection="column">
         <Text bold color="cyan">
-          Select Components
+          {t.install.componentsTitle}
         </Text>
-        <Text dimColor>No components found.</Text>
+        <Text dimColor>{t.install.componentsNone}</Text>
       </Box>
     );
   }
 
+  const availableCount = components.filter((c) => c.available).length;
+
   return (
     <Box flexDirection="column">
       <Text bold color="cyan">
-        Select Components
+        {t.install.componentsTitle}
       </Text>
       <Box flexDirection="column" marginTop={1}>
         {components.map((comp, i) => (
@@ -141,7 +144,9 @@ export function ComponentGrid({
       </Box>
       <Box marginTop={1}>
         <Text dimColor>
-          {selectedIds.length} of {components.filter((c) => c.available).length} available selected
+          {t.install.componentsSelected
+            .replace('{selected}', String(selectedIds.length))
+            .replace('{total}', String(availableCount))}
         </Text>
       </Box>
     </Box>

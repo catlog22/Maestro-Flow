@@ -19,6 +19,7 @@ import {
   loadClaudeSettings,
   getClaudeSettingsPath,
 } from '../hooks.js';
+import { t } from '../../i18n/index.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -170,17 +171,21 @@ export function UninstallFlow({ manifests }: UninstallFlowProps) {
 
   // Progress
   const progressSteps = [
-    ...(manifests.length > 1 ? [{ key: 'select', label: 'Select' }] : []),
-    { key: 'detail', label: 'Detail' },
-    { key: 'confirm', label: 'Confirm' },
-    { key: 'executing', label: 'Uninstall' },
-    { key: 'complete', label: 'Done' },
+    ...(manifests.length > 1 ? [{ key: 'select', label: t.uninstall.stepSelect }] : []),
+    { key: 'detail', label: t.uninstall.stepDetail },
+    { key: 'confirm', label: t.uninstall.stepConfirm },
+    { key: 'executing', label: t.uninstall.stepUninstall },
+    { key: 'complete', label: t.uninstall.stepDone },
   ];
   const stepIndex = progressSteps.findIndex((s) => s.key === step);
 
   const fileCount = selected.entries.filter((e) => e.type === 'file').length;
   const dirCount = selected.entries.filter((e) => e.type === 'dir').length;
   const visibleLines = Math.max(1, termRows - 14);
+
+  const timeStr = elapsed >= 60
+    ? `${Math.floor(elapsed / 60)}m ${(elapsed % 60).toString().padStart(2, '0')}s`
+    : `${elapsed}s`;
 
   return (
     <Box flexDirection="column" width="100%">
@@ -218,7 +223,7 @@ export function UninstallFlow({ manifests }: UninstallFlowProps) {
         {/* Select */}
         {step === 'select' && (
           <Box flexDirection="column">
-            <Text bold color="cyan">Select installation to remove:</Text>
+            <Text bold color="cyan">{t.uninstall.selectTitle}</Text>
             <Box flexDirection="column" marginTop={1}>
               {manifests.map((m, i) => {
                 const hl = i === selectedIndex;
@@ -231,7 +236,11 @@ export function UninstallFlow({ manifests }: UninstallFlowProps) {
                       [{m.scope}]
                     </Text>
                     <Text> {m.targetPath} </Text>
-                    <Text dimColor>({files} files, {date})</Text>
+                    <Text dimColor>
+                      ({t.uninstall.selectFileDate
+                        .replace('{files}', String(files))
+                        .replace('{date}', date)})
+                    </Text>
                   </Box>
                 );
               })}
@@ -242,29 +251,35 @@ export function UninstallFlow({ manifests }: UninstallFlowProps) {
         {/* Detail — scrollable file list */}
         {step === 'detail' && (
           <Box flexDirection="column">
-            <Text bold color="cyan">Installation Detail</Text>
+            <Text bold color="cyan">{t.uninstall.detailTitle}</Text>
 
             <Box flexDirection="column" borderStyle="single" borderColor="gray" paddingX={1} marginTop={1}>
               <Box>
-                <Text bold>{'Scope:'.padEnd(12)}</Text>
+                <Text bold>{t.uninstall.detailScope.padEnd(12)}</Text>
                 <Text>{selected.scope}</Text>
               </Box>
               <Box>
-                <Text bold>{'Target:'.padEnd(12)}</Text>
+                <Text bold>{t.uninstall.detailTarget.padEnd(12)}</Text>
                 <Text>{selected.targetPath}</Text>
               </Box>
               <Box>
-                <Text bold>{'Files:'.padEnd(12)}</Text>
-                <Text>{fileCount} files, {dirCount} dirs</Text>
+                <Text bold>{t.uninstall.detailFiles.padEnd(12)}</Text>
+                <Text>{t.uninstall.detailFiles
+                  .replace('{files}', String(fileCount))
+                  .replace('{dirs}', String(dirCount))
+                  .replace(/^.{12}/, '')}</Text>
               </Box>
               <Box>
-                <Text bold>{'Installed:'.padEnd(12)}</Text>
+                <Text bold>{t.uninstall.detailInstalled.padEnd(12)}</Text>
                 <Text>{selected.installedAt.split('T')[0]}</Text>
               </Box>
             </Box>
 
             <Text bold color="cyan" dimColor>
-              {'\n'}Files ({detailScroll + 1}-{Math.min(detailScroll + visibleLines, detailLines.length)} of {detailLines.length}):
+              {'\n'}{t.uninstall.detailFilesRange
+                .replace('{from}', String(detailScroll + 1))
+                .replace('{to}', String(Math.min(detailScroll + visibleLines, detailLines.length)))
+                .replace('{total}', String(detailLines.length))}
             </Text>
             <Box flexDirection="column">
               {detailLines.slice(detailScroll, detailScroll + visibleLines).map((line, i) => {
@@ -278,7 +293,7 @@ export function UninstallFlow({ manifests }: UninstallFlowProps) {
             </Box>
             {maxScroll > 0 && (
               <Text dimColor>
-                {detailScroll > 0 ? '▲' : ' '} scroll {detailScroll < maxScroll ? '▼' : ' '}
+                {detailScroll > 0 ? '▲' : ' '} {t.uninstall.detailScroll} {detailScroll < maxScroll ? '▼' : ' '}
               </Text>
             )}
           </Box>
@@ -287,27 +302,27 @@ export function UninstallFlow({ manifests }: UninstallFlowProps) {
         {/* Confirm */}
         {step === 'confirm' && (
           <Box flexDirection="column">
-            <Text bold color="yellow">Confirm Uninstall</Text>
+            <Text bold color="yellow">{t.uninstall.confirmTitle}</Text>
             <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} marginTop={1}>
               <Box>
-                <Text bold>{'Scope:'.padEnd(12)}</Text>
+                <Text bold>{t.uninstall.confirmScope.padEnd(12)}</Text>
                 <Text>{selected.scope}</Text>
               </Box>
               <Box>
-                <Text bold>{'Target:'.padEnd(12)}</Text>
+                <Text bold>{t.uninstall.confirmTarget.padEnd(12)}</Text>
                 <Text>{selected.targetPath}</Text>
               </Box>
               <Box>
-                <Text bold>{'Remove:'.padEnd(12)}</Text>
+                <Text bold>{t.uninstall.confirmRemove.padEnd(12)}</Text>
                 <Text color="red">{fileCount} files, {dirCount} dirs</Text>
               </Box>
               <Box>
-                <Text bold>{'Cleanup:'.padEnd(12)}</Text>
+                <Text bold>{t.uninstall.confirmCleanup.padEnd(12)}</Text>
                 <Text>MCP config + hooks + overlays</Text>
               </Box>
             </Box>
             <Box marginTop={1}>
-              <Text color="yellow">This action cannot be undone.</Text>
+              <Text color="yellow">{t.uninstall.confirmCannotUndo}</Text>
             </Box>
           </Box>
         )}
@@ -317,17 +332,17 @@ export function UninstallFlow({ manifests }: UninstallFlowProps) {
           <Box flexDirection="column">
             <Box>
               <Text color="cyan"><Spinner type="dots" /></Text>
-              <Text> Uninstalling...</Text>
+              <Text> {t.uninstall.executingText}</Text>
             </Box>
             <Box marginTop={1}>
-              <Text dimColor>Elapsed: {elapsed}s</Text>
+              <Text dimColor>{t.uninstall.executingElapsed.replace('{time}', timeStr)}</Text>
             </Box>
           </Box>
         )}
 
         {error && (
           <Box flexDirection="column">
-            <Text color="red" bold>Uninstall failed</Text>
+            <Text color="red" bold>{t.uninstall.execFailed}</Text>
             <Text color="red">{error}</Text>
           </Box>
         )}
@@ -336,32 +351,32 @@ export function UninstallFlow({ manifests }: UninstallFlowProps) {
         {step === 'complete' && result && (
           <Box flexDirection="column">
             <Box flexDirection="column" borderStyle="round" borderColor="green" paddingX={1}>
-              <Text bold color="green">Uninstall Complete</Text>
+              <Text bold color="green">{t.uninstall.resultTitle}</Text>
               <Box>
                 <Text color="cyan">{'Removed:'.padEnd(13)}</Text>
-                <Text color="green">{result.filesRemoved} files</Text>
+                <Text color="green">{t.uninstall.resultRemoved.replace('{count}', String(result.filesRemoved))}</Text>
               </Box>
               {result.filesSkipped > 0 && (
                 <Box>
                   <Text color="cyan">{'Preserved:'.padEnd(13)}</Text>
-                  <Text>{result.filesSkipped} settings files</Text>
+                  <Text>{t.uninstall.resultPreserved.replace('{count}', String(result.filesSkipped))}</Text>
                 </Box>
               )}
               <Box>
                 <Text color="cyan">{'MCP:'.padEnd(13)}</Text>
                 <Text color={result.mcpCleaned ? 'green' : 'gray'}>
-                  {result.mcpCleaned ? 'config cleaned' : 'no config found'}
+                  {result.mcpCleaned ? t.uninstall.resultMcpCleaned : t.uninstall.resultMcpNotFound}
                 </Text>
               </Box>
               <Box>
                 <Text color="cyan">{'Hooks:'.padEnd(13)}</Text>
                 <Text color={result.hooksCleaned ? 'green' : 'gray'}>
-                  {result.hooksCleaned ? 'removed' : 'no hooks found'}
+                  {result.hooksCleaned ? t.uninstall.resultHooksRemoved : t.uninstall.resultHooksNotFound}
                 </Text>
               </Box>
             </Box>
             <Box marginTop={1}>
-              <Text dimColor>Restart Claude Code to pick up changes.</Text>
+              <Text dimColor>{t.uninstall.resultRestart}</Text>
             </Box>
           </Box>
         )}
@@ -370,11 +385,11 @@ export function UninstallFlow({ manifests }: UninstallFlowProps) {
       {/* Footer */}
       <Box paddingX={1}>
         <Text dimColor>
-          {step === 'select' && '[Up/Down] Navigate  [Enter] View detail  [Esc] Exit'}
-          {step === 'detail' && '[Up/Down] Scroll files  [Enter] Proceed to uninstall  [Esc] Back'}
-          {step === 'confirm' && '[Enter] Uninstall  [Esc] Back to detail'}
-          {step === 'executing' && 'Uninstalling... please wait'}
-          {step === 'complete' && '[Enter] Exit'}
+          {step === 'select' && t.uninstall.footerSelect}
+          {step === 'detail' && t.uninstall.footerDetail}
+          {step === 'confirm' && t.uninstall.footerConfirm}
+          {step === 'executing' && t.uninstall.footerExecuting}
+          {step === 'complete' && t.uninstall.footerComplete}
         </Text>
       </Box>
     </Box>

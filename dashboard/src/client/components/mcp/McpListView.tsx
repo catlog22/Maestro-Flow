@@ -72,6 +72,7 @@ export function McpListView() {
   const toggleServer = useMcpStore((s) => s.toggleServer);
   const removeServer = useMcpStore((s) => s.removeServer);
   const removeGlobalServer = useMcpStore((s) => s.removeGlobalServer);
+  const setEditingServer = useMcpStore((s) => s.setEditingServer);
   const openInstallWizard = useInstallStore((s) => s.setOpen);
 
   // Computed counts
@@ -103,6 +104,10 @@ export function McpListView() {
     } else {
       void removeServer(srv.projectPath ?? '', srv.name);
     }
+  }
+
+  function handleEdit(srv: McpServerEntry) {
+    setEditingServer(srv);
   }
 
   return (
@@ -224,6 +229,7 @@ export function McpListView() {
                       selected={selectedServer === srv.id}
                       onSelect={() => setSelectedServer(selectedServer === srv.id ? null : srv.id)}
                       onToggle={() => handleToggle(srv)}
+                      onEdit={() => handleEdit(srv)}
                       onRemove={() => handleRemove(srv)}
                     />
                   ));
@@ -253,6 +259,7 @@ export function McpListView() {
                       selected={selectedServer === srv.id}
                       onSelect={() => setSelectedServer(selectedServer === srv.id ? null : srv.id)}
                       onToggle={() => handleToggle(srv)}
+                      onEdit={() => handleEdit(srv)}
                       onRemove={() => handleRemove(srv)}
                     />,
                   );
@@ -277,6 +284,7 @@ export function McpListView() {
                         selected={selectedServer === srv.id}
                         onSelect={() => setSelectedServer(selectedServer === srv.id ? null : srv.id)}
                         onToggle={() => handleToggle(srv)}
+                        onEdit={() => handleEdit(srv)}
                         onRemove={() => handleRemove(srv)}
                       />,
                     );
@@ -366,12 +374,14 @@ function ServerRow({
   selected,
   onSelect,
   onToggle,
+  onEdit,
   onRemove,
 }: {
   server: McpServerEntry;
   selected: boolean;
   onSelect: () => void;
   onToggle: () => void;
+  onEdit: () => void;
   onRemove: () => void;
 }) {
   const scopeStyle = SCOPE_BADGE[server.scope] ?? SCOPE_BADGE.global;
@@ -525,6 +535,7 @@ function ServerRow({
           {/* Edit */}
           <button
             type="button"
+            onClick={onEdit}
             className="flex items-center gap-1 px-[10px] py-[5px] rounded-[var(--radius-md)] border border-border bg-bg-card text-[10px] font-semibold text-text-secondary hover:border-text-tertiary hover:text-text-primary transition-all"
           >
             <Edit3 size={11} strokeWidth={2} />

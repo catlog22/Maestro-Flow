@@ -34,6 +34,12 @@ interface CollabStoreState {
   fetchAggregated: () => Promise<void>;
   fetchPreflight: () => Promise<CollabPreflightResult | null>;
 
+  // Write actions
+  initCollab: () => Promise<{ success: boolean; error?: string }>;
+  disableCollab: () => Promise<{ success: boolean; error?: string }>;
+  addMember: (name: string, email?: string, role?: string) => Promise<{ success: boolean; error?: string }>;
+  removeMember: (uid: string) => Promise<{ success: boolean; error?: string }>;
+
   // Setters
   setActiveTab: (tab: CollabTab) => void;
   setStatusFilter: (filter: string) => void;
@@ -132,6 +138,60 @@ export const useCollabStore = create<CollabStoreState>((set, get) => ({
     } catch (err) {
       set({ error: String(err) });
       return null;
+    }
+  },
+
+  // -- Write actions -----------------------------------------------------------
+
+  initCollab: async () => {
+    try {
+      const res = await fetch('/api/collab/init', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) return { success: false, error: data.error ?? `HTTP ${res.status}` };
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: String(err) };
+    }
+  },
+
+  disableCollab: async () => {
+    try {
+      const res = await fetch('/api/collab/disable', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) return { success: false, error: data.error ?? `HTTP ${res.status}` };
+      get().clearAll();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: String(err) };
+    }
+  },
+
+  addMember: async (name, email, role) => {
+    try {
+      const res = await fetch('/api/collab/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email: email || '', role: role || 'member' }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { success: false, error: data.error ?? `HTTP ${res.status}` };
+      // Re-fetch members list
+      await get().fetchMembers();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: String(err) };
+    }
+  },
+
+  removeMember: async (uid) => {
+    try {
+      const res = await fetch(`/api/collab/members/${encodeURIComponent(uid)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) return { success: false, error: data.error ?? `HTTP ${res.status}` };
+      await get().fetchMembers();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: String(err) };
     }
   },
 

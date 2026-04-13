@@ -21,6 +21,8 @@ export function AppLayout() {
   const { t } = useI18n();
   const connected = useBoardStore((s) => s.connected);
   const [fetchError, setFetchError] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState<string | null>(null);
+  const [updateDismissed, setUpdateDismissed] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
   const togglePin = () => setIsPinned((p) => !p);
   const viewSwitcherCtx = useViewSwitcherProvider();
@@ -56,9 +58,15 @@ export function AppLayout() {
         }
 
         if (healthRes.ok) {
-          const health = await healthRes.json() as { workspace?: string };
+          const health = await healthRes.json() as { workspace?: string; version?: string; latestVersion?: string | null };
           if (health.workspace) {
             useBoardStore.getState().setWorkspace(health.workspace);
+          }
+          if (health.latestVersion && health.version && health.latestVersion !== health.version) {
+            const dismissed = localStorage.getItem('maestro-update-dismissed');
+            if (dismissed !== health.latestVersion) {
+              setUpdateAvailable(health.latestVersion);
+            }
           }
         }
       } catch {
@@ -87,6 +95,32 @@ export function AppLayout() {
           }}
         >
           {t('connection_error')}
+        </div>
+      )}
+
+      {/* Version update banner */}
+      {updateAvailable && !updateDismissed && (
+        <div
+          role="status"
+          className="px-[var(--spacing-4)] py-[var(--spacing-2)] border-b text-[length:var(--font-size-xs)] shrink-0 rounded-[var(--radius-default)] mx-[var(--spacing-3)] mt-[var(--spacing-2)] flex items-center justify-center gap-[var(--spacing-2)]"
+          style={{
+            backgroundColor: 'var(--color-status-bg-exploring)',
+            color: 'var(--color-status-exploring)',
+            borderColor: 'var(--color-status-exploring)',
+          }}
+        >
+          <span>{t('update_available', { version: updateAvailable })}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setUpdateDismissed(true);
+              localStorage.setItem('maestro-update-dismissed', updateAvailable);
+            }}
+            className="ml-[var(--spacing-1)] hover:opacity-70 transition-opacity duration-[var(--duration-fast)]"
+            aria-label={t('dismiss')}
+          >
+            &times;
+          </button>
         </div>
       )}
 

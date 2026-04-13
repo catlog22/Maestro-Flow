@@ -1,10 +1,12 @@
 // ---------------------------------------------------------------------------
-// Collab REST API routes — read-only access to .workflow/collab/ data
+// Collab REST API routes — .workflow/collab/ data management
 // ---------------------------------------------------------------------------
 
 import { Hono } from 'hono';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { hostname, userInfo } from 'node:os';
 
 import type { DashboardEventBus } from '../state/event-bus.js';
 import type {
@@ -64,6 +66,134 @@ export function createCollabRoutes(
   const app = new Hono();
   const getCollabDir = () =>
     join(typeof workflowRoot === 'function' ? workflowRoot() : workflowRoot, '.workflow/collab');
+
+  // POST /api/collab/init — initialize collab workspace
+  app.post('/api/collab/init', async (c) => {
+    try {
+      const collabDir = getCollabDir();
+      const membersDir = join(collabDir, 'members');
+
+      if (existsSync(collabDir)) {
+        return c.json({ success: true, message: 'Already initialized' });
+      }
+
+      mkdirSync(membersDir, { recursive: true });
+
+      // Create initial activity.jsonl
+      writeFileSync(join(collabDir, 'activity.jsonl'), '');
+
+      // Auto-register the current machine user as the first member
+      const uid = userInfo().username || 'user';
+      const now = new Date().toISOString();
+      const memberData = {
+        uid,
+        name: uid,
+        email: '',
+        role: 'owner',
+        host: hostname(),
+        joinedAt: now,
+      };
+      writeFileSync(join(membersDir, `${uid}.json`), JSON.stringify(memberData, null, 2));
+
+      // Log the init + join activity
+      const initEntry = JSON.stringify({ ts: now, user: uid, host: hostname(), action: 'init' });
+      const joinEntry = JSON.stringify({ ts: now, user: uid, host: hostname(), action: 'join' });
+      writeFileSync(join(collabDir, 'activity.jsonl'), initEntry + '\n' + joinEntry + '\n');
+
+      return c.json({ success: true, uid, message: 'Initialized with owner: ' + uid });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return c.json({ error: message }, 500);
+    }
+  });
+
+  // POST /api/collab/disable — remove collab directory to disable team mode
+  app.post('/api/collab/disable', async (c) => {
+    try {
+      const collabDir = getCollabDir();
+
+      if (!existsSync(collabDir)) {
+        return c.json({ success: true, message: 'Already disabled' });
+      }
+
+      const { rmSync } = await import('node:fs');
+      rmSync(collabDir, { recursive: true, force: true });
+
+      return c.json({ success: true, message: 'Team mode disabled' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return c.json({ error: message }, 500);
+    }
+  });
+
+  // POST /api/collab/members — add a new team member
+  app.post('/api/collab/members', async (c) => {
+    try {
+      const collabDir = getCollabDir();
+      const membersDir = join(collabDir, 'members');
+
+      if (!existsSync(membersDir)) {
+        return c.json({ error: 'Collab not initialized. Call POST /api/collab/init first.' }, 400);
+      }
+
+      const body = await c.req.json<{ name?: string; email?: string; role?: string }>();
+      const name = (body.name || '').trim();
+      if (!name) {
+        return c.json({ error: 'name is required' }, 400);
+      }
+
+      const uid = name.toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-');
+      const memberPath = join(membersDir, `${uid}.json`);
+
+      if (existsSync(memberPath)) {
+        return c.json({ error: `Member "${uid}" already exists` }, 409);
+      }
+
+      const now = new Date().toISOString();
+      const memberData = {
+        uid,
+        name,
+        email: body.email || '',
+        role: body.role || 'member',
+        host: '',
+        joinedAt: now,
+      };
+      writeFileSync(memberPath, JSON.stringify(memberData, null, 2));
+
+      // Log join activity
+      const activityPath = join(collabDir, 'activity.jsonl');
+      const entry = JSON.stringify({ ts: now, user: uid, host: '', action: 'join' }) + '\n';
+      const existing = existsSync(activityPath) ? readFileSync(activityPath, 'utf-8') : '';
+      writeFileSync(activityPath, existing + entry);
+
+      return c.json({ success: true, uid, member: memberData });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return c.json({ error: message }, 500);
+    }
+  });
+
+  // DELETE /api/collab/members/:uid — remove a team member
+  app.delete('/api/collab/members/:uid', async (c) => {
+    try {
+      const collabDir = getCollabDir();
+      const membersDir = join(collabDir, 'members');
+      const uid = c.req.param('uid');
+      const memberPath = join(membersDir, `${uid}.json`);
+
+      if (!existsSync(memberPath)) {
+        return c.json({ error: `Member "${uid}" not found` }, 404);
+      }
+
+      const { unlinkSync } = await import('node:fs');
+      unlinkSync(memberPath);
+
+      return c.json({ success: true, uid });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return c.json({ error: message }, 500);
+    }
+  });
 
   // GET /api/collab/members
   app.get('/api/collab/members', async (c) => {

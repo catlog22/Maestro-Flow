@@ -65,6 +65,18 @@ const FILE_TYPE_MAP: Record<string, EntryType> = {
   'validation-rules': 'validation',
 };
 
+/** Map file basenames to default category when frontmatter lacks one. */
+const FILE_CATEGORY_MAP: Record<string, string> = {
+  'learnings': 'general',
+  'coding-conventions': 'execution',
+  'architecture-constraints': 'planning',
+  'quality-rules': 'execution',
+  'debug-notes': 'debug',
+  'test-conventions': 'test',
+  'review-standards': 'review',
+  'validation-rules': 'validation',
+};
+
 /** Detect entry type from heading text or fall back to file-based default. */
 function detectEntryType(heading: string, fileName: string): SpecEntry['type'] {
   const lower = heading.toLowerCase();
@@ -138,7 +150,9 @@ function parseEntries(body: string, fileName: string, frontmatter?: Record<strin
     const timestamp = dateMatch ? dateMatch[1] : '';
 
     const title = extractCleanTitle(sec.heading) || sec.heading;
-    const category = typeof frontmatter?.category === 'string' ? frontmatter.category : 'general';
+    const category = typeof frontmatter?.category === 'string'
+      ? frontmatter.category
+      : (FILE_CATEGORY_MAP[stem] ?? 'general');
     const keywords = Array.isArray(frontmatter?.keywords) ? frontmatter.keywords.map(String) : [];
     entries.push({ id, type, title, content, file: fileName, timestamp, category, keywords });
   }
@@ -244,7 +258,7 @@ export function createSpecsRoutes(workflowRoot: string | (() => string)): Hono {
           name: fileName,
           path: `specs/${fileName}`,
           title: typeof data.title === 'string' ? data.title : basename(fileName, extname(fileName)),
-          category: typeof data.category === 'string' ? data.category : 'general',
+          category: typeof data.category === 'string' ? data.category : (FILE_CATEGORY_MAP[basename(fileName, extname(fileName))] ?? 'general'),
           entryCount: entries.length,
         });
       }

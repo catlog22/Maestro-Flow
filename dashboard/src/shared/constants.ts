@@ -121,6 +121,7 @@ export const MCP_API_ENDPOINTS = {
   REMOVE_SERVER: '/api/mcp-remove-server',
   ADD_GLOBAL: '/api/mcp-add-global-server',
   REMOVE_GLOBAL: '/api/mcp-remove-global-server',
+  UPDATE_SERVER: '/api/mcp-update-server',
   INSTALL_MAESTRO: '/api/mcp-install-maestro',
   CODEX_CONFIG: '/api/codex-mcp-config',
   CODEX_ADD: '/api/codex-mcp-add',
@@ -305,6 +306,7 @@ export const INSTALL_API_ENDPOINTS = {
 // ---------------------------------------------------------------------------
 
 export const STATUS_COLORS: Record<PhaseStatus, string> = {
+  not_started: '#A09D97',
   pending: '#A09D97',
   exploring: '#5B8DB8',
   planning: '#9178B5',

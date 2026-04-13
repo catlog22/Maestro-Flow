@@ -33,6 +33,7 @@ interface McpDetailPanelProps {
 export function McpDetailPanel({ server, onClose }: McpDetailPanelProps) {
   const removeServer = useMcpStore((s) => s.removeServer);
   const removeGlobalServer = useMcpStore((s) => s.removeGlobalServer);
+  const setEditingServer = useMcpStore((s) => s.setEditingServer);
 
   const envEntries = useMemo(
     () => (server.env ? Object.entries(server.env) : []),
@@ -198,6 +199,7 @@ export function McpDetailPanel({ server, onClose }: McpDetailPanelProps) {
         <div className="flex gap-[6px] px-[18px] py-3 border-t border-border-divider shrink-0">
           <button
             type="button"
+            onClick={() => setEditingServer(server)}
             className="flex-1 flex items-center justify-center gap-[4px] px-[10px] py-[5px] rounded-[var(--radius-md)] border border-border bg-bg-card text-[10px] font-semibold text-text-secondary hover:border-text-tertiary hover:text-text-primary transition-all"
           >
             <Edit3 size={11} strokeWidth={2} />

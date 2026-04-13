@@ -51,6 +51,7 @@ export interface McpStore {
   selectedServer: string | null;
   templateSearch: string;
   templateCategory: string | null;
+  editingServer: McpServerEntry | null;
 
   setActiveView: (view: McpView) => void;
   setScopeFilter: (filter: ScopeFilter) => void;
@@ -58,6 +59,7 @@ export interface McpStore {
   setSelectedServer: (id: string | null) => void;
   setTemplateSearch: (q: string) => void;
   setTemplateCategory: (cat: string | null) => void;
+  setEditingServer: (server: McpServerEntry | null) => void;
 
   fetchConfig: () => Promise<void>;
   fetchTemplates: () => Promise<void>;
@@ -65,6 +67,7 @@ export interface McpStore {
   removeServer: (projectPath: string, serverName: string) => Promise<void>;
   addGlobalServer: (name: string, config: unknown) => Promise<void>;
   removeGlobalServer: (name: string) => Promise<void>;
+  updateServer: (server: McpServerEntry, config: unknown) => Promise<void>;
   installTemplate: (templateName: string, projectPath?: string, scope?: string) => Promise<void>;
 
   // Derived getters
@@ -173,6 +176,7 @@ export const useMcpStore = create<McpStore>((set, get) => ({
   selectedServer: null,
   templateSearch: '',
   templateCategory: null,
+  editingServer: null,
 
   setActiveView: (view) => set({ activeView: view }),
   setScopeFilter: (filter) => set({ scopeFilter: filter }),
@@ -180,6 +184,7 @@ export const useMcpStore = create<McpStore>((set, get) => ({
   setSelectedServer: (id) => set({ selectedServer: id }),
   setTemplateSearch: (q) => set({ templateSearch: q }),
   setTemplateCategory: (cat) => set({ templateCategory: cat }),
+  setEditingServer: (server) => set({ editingServer: server }),
 
   fetchConfig: async () => {
     set({ loading: true, error: null });
@@ -266,6 +271,25 @@ export const useMcpStore = create<McpStore>((set, get) => ({
       if (!res.ok) set({ servers: prev });
     } catch {
       set({ servers: prev });
+    }
+  },
+
+  updateServer: async (server, config) => {
+    try {
+      await fetch(MCP_API_ENDPOINTS.UPDATE_SERVER, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scope: server.scope,
+          serverName: server.name,
+          serverConfig: config,
+          projectPath: server.projectPath,
+        }),
+      });
+      set({ editingServer: null });
+      void get().fetchConfig();
+    } catch {
+      // ignore
     }
   },
 

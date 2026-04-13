@@ -2,6 +2,7 @@
 // Phase status — maps to kanban columns (from index.json status enum)
 // ---------------------------------------------------------------------------
 export type PhaseStatus =
+  | 'not_started'
   | 'pending'
   | 'exploring'
   | 'planning'

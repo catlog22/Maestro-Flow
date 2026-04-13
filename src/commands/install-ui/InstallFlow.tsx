@@ -11,6 +11,7 @@ import { InstallExecution, type InstallFlowResult } from './InstallExecution.js'
 import { InstallResult } from './InstallResult.js';
 import { scanComponents, MCP_TOOLS, COMPONENT_DEFS } from '../install-backend.js';
 import type { HookLevel } from '../hooks.js';
+import { t } from '../../i18n/index.js';
 
 // ---------------------------------------------------------------------------
 // InstallFlow — hub-based interactive install
@@ -159,16 +160,16 @@ export function InstallFlow({
   const progressSteps = isSubcommand
     ? [
         { key: step.replace('_config', '') as string, label: step.replace('_config', '').charAt(0).toUpperCase() + step.replace('_config', '').slice(1) },
-        { key: 'confirm', label: 'Confirm' },
-        { key: 'executing', label: 'Install' },
-        { key: 'complete', label: 'Done' },
+        { key: 'confirm', label: t.install.stepConfirm },
+        { key: 'executing', label: t.install.stepInstall },
+        { key: 'complete', label: t.install.stepDone },
       ]
     : [
-        { key: 'mode', label: 'Mode' },
-        { key: 'hub', label: 'Menu' },
-        { key: 'confirm', label: 'Confirm' },
-        { key: 'executing', label: 'Install' },
-        { key: 'complete', label: 'Done' },
+        { key: 'mode', label: t.install.stepMode },
+        { key: 'hub', label: t.install.stepMenu },
+        { key: 'confirm', label: t.install.stepConfirm },
+        { key: 'executing', label: t.install.stepInstall },
+        { key: 'complete', label: t.install.stepDone },
       ];
 
   // Map current step to progress key
@@ -179,12 +180,12 @@ export function InstallFlow({
 
   // Footer
   const footerHints: Partial<Record<FlowStep, string>> = {
-    mode: '[G]lobal  [P]roject  [Enter] Next  [Esc] Exit',
-    hub: '[Space/1-3] Toggle  [Enter] Configure/Install  [Esc] Back',
-    components_config: '[Space] Toggle  [1-9] Quick  [A]ll  [N]one  [Enter] Done  [Esc] Back',
-    hooks_config: '[1-4] Select level  [Enter] Done  [Esc] Back',
-    mcp_config: '[y/n] Enable  [1-6] Toggle tool  [Enter] Done  [Esc] Back',
-    confirm: '[Enter] Install  [Esc] Back',
+    mode: t.install.footerMode,
+    hub: t.install.footerHub,
+    components_config: t.install.footerComponents,
+    hooks_config: t.install.footerHooks,
+    mcp_config: t.install.footerMcp,
+    confirm: t.install.footerConfirm,
   };
 
   return (
@@ -201,7 +202,7 @@ export function InstallFlow({
             </Text>
           </Box>
           <Box marginLeft={2}>
-            <Text dimColor>install  v{version}</Text>
+            <Text dimColor>{t.install.headerVersion.replace('{version}', version)}</Text>
           </Box>
         </Box>
         <Box gap={1}>
@@ -221,21 +222,21 @@ export function InstallFlow({
       <Box flexGrow={1} flexDirection="column" paddingX={1} marginTop={1}>
         {step === 'mode' && (
           <Box flexDirection="column">
-            <Text bold color="cyan">Installation Mode</Text>
+            <Text bold color="cyan">{t.install.modeTitle}</Text>
             <Box marginTop={1}>
               <Text color={mode === 'global' ? 'green' : 'gray'}>
-                {mode === 'global' ? '[x]' : '[ ]'} Global
+                {mode === 'global' ? '[x]' : '[ ]'} {t.install.modeGlobal}
               </Text>
               <Text>  </Text>
               <Text color={mode === 'project' ? 'green' : 'gray'}>
-                {mode === 'project' ? '[x]' : '[ ]'} Project
+                {mode === 'project' ? '[x]' : '[ ]'} {t.install.modeProject}
               </Text>
             </Box>
             <Box marginTop={1}>
               <Text dimColor>
                 {mode === 'global'
-                  ? 'Install to home directory (~/.claude/, ~/.maestro/)'
-                  : `Install to project directory (${projectPath})`}
+                  ? t.install.modeGlobalDesc
+                  : t.install.modeProjectDesc.replace('{path}', projectPath)}
               </Text>
             </Box>
           </Box>

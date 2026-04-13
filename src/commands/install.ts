@@ -39,6 +39,7 @@ import {
   MCP_TOOLS,
   type CopyStats,
 } from './install-backend.js';
+import { t } from '../i18n/index.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -48,7 +49,7 @@ function resolveMode(opts: { global?: boolean; path?: string }): { mode: 'global
   if (opts.path) {
     const projectPath = resolve(opts.path);
     if (!existsSync(projectPath)) {
-      console.error(`Error: Target directory does not exist: ${projectPath}`);
+      console.error(t.install.errorTargetMissing.replace('{path}', projectPath));
       process.exit(1);
     }
     return { mode: 'project', projectPath };
@@ -140,7 +141,7 @@ export function registerInstallCommand(program: Command): void {
       const hasTemplates = existsSync(join(pkgRoot, 'templates'));
       const hasWorkflows = existsSync(join(pkgRoot, 'workflows'));
       if (!hasTemplates && !hasWorkflows) {
-        console.error(`Error: Package root missing source directories: ${pkgRoot}`);
+        console.error(t.install.errorMissingRoot.replace('{path}', pkgRoot));
         process.exit(1);
       }
 
@@ -178,14 +179,14 @@ function forceInstall(
   version: string,
   opts: { global?: boolean; path?: string; hooks?: string },
 ): void {
-  console.error(`maestro install v${version}`);
+  console.error(t.install.forceVersion.replace('{version}', version));
   console.error('');
 
   const mode: 'global' | 'project' = opts.global ? 'global' : (opts.path ? 'project' : 'global');
   const projectPath = opts.path ? resolve(opts.path) : '';
 
   if (mode === 'project' && projectPath && !existsSync(projectPath)) {
-    console.error(`Error: Target directory does not exist: ${projectPath}`);
+    console.error(t.install.errorTargetMissing.replace('{path}', projectPath));
     process.exit(1);
   }
 
@@ -204,7 +205,9 @@ function forceInstall(
   if (existingManifest) {
     const { removed, skipped } = cleanManifestFiles(existingManifest);
     if (removed > 0) {
-      console.error(`  Cleaned: ${removed} old files${skipped > 0 ? `, ${skipped} preserved` : ''}`);
+      let msg = t.install.forceCleaned.replace('{count}', String(removed));
+      if (skipped > 0) msg += t.install.forceCleanedPreserved.replace('{count}', String(skipped));
+      console.error(msg);
     }
   }
 
@@ -241,7 +244,10 @@ function forceInstall(
   const hookLevel = (opts.hooks ?? 'none') as HookLevel;
   if (hookLevel !== 'none' && HOOK_LEVELS.includes(hookLevel)) {
     const hookResult = installHooksByLevel(hookLevel, { project: mode === 'project' });
-    console.error(`  Hooks (${hookLevel}): ${hookResult.installedHooks.length} hooks → ${hookResult.settingsPath}`);
+    console.error(t.install.forceHooksResult
+      .replace('{level}', hookLevel)
+      .replace('{count}', String(hookResult.installedHooks.length))
+      .replace('{path}', hookResult.settingsPath));
   }
 
   saveManifest(manifest);
@@ -251,7 +257,7 @@ function forceInstall(
   if (totalStats.skipped > 0) parts.push(`${totalStats.skipped} preserved`);
   if (disabledRestored > 0) parts.push(`${disabledRestored} disabled restored`);
   if (overlaysAppliedCount > 0) parts.push(`${overlaysAppliedCount} overlays applied`);
-  console.error(`  Result: ${parts.join(', ')}`);
+  console.error(t.install.forceResult.replace('{summary}', parts.join(', ')));
   console.error('');
-  console.error('Done. Restart Claude Code or IDE to pick up changes.');
+  console.error(t.install.forceDone);
 }

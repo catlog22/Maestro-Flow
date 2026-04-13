@@ -8,6 +8,7 @@ import { useMcpStore } from '@/client/store/mcp-store.js';
 import { McpListView } from '@/client/components/mcp/McpListView.js';
 import { McpCardsView } from '@/client/components/mcp/McpCardsView.js';
 import { McpTemplatesView } from '@/client/components/mcp/McpTemplatesView.js';
+import { McpEditDialog } from '@/client/components/mcp/McpEditDialog.js';
 import { InstallWizardDialog } from '@/client/components/install/InstallWizardDialog.js';
 
 // ---------------------------------------------------------------------------
@@ -108,6 +109,7 @@ export function McpPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <InstallWizardDialog />
+      <McpEditDialog />
       <AnimatePresence mode="wait">
         {activeView === 'list' && (
           <motion.div

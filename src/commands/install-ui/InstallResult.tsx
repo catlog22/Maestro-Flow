@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import type { InstallFlowResult } from './InstallExecution.js';
+import { t } from '../../i18n/index.js';
 
 // ---------------------------------------------------------------------------
 // InstallResult — final summary dashboard
@@ -29,35 +30,35 @@ export function InstallResult({ result }: InstallResultProps) {
   return (
     <Box flexDirection="column" paddingX={1}>
       <Box flexDirection="column" borderStyle="round" borderColor="green" paddingX={1}>
-        <Text bold color="green">Installation Complete</Text>
+        <Text bold color="green">{t.install.resultTitle}</Text>
 
         {result.filesInstalled > 0 && (
-          <Row label="Files:" value={`${result.filesInstalled} installed`} />
+          <Row label={t.install.resultFiles.replace('{count}', '')} value={t.install.resultFiles.replace('{count}', String(result.filesInstalled))} />
         )}
         {result.dirsCreated > 0 && (
-          <Row label="Dirs:" value={`${result.dirsCreated} created`} />
+          <Row label="Dirs:" value={t.install.resultDirs.replace('{count}', String(result.dirsCreated))} />
         )}
         {result.filesSkipped > 0 && (
-          <Row label="Preserved:" value={`${result.filesSkipped} settings files`} />
+          <Row label="Preserved:" value={t.install.resultPreserved.replace('{count}', String(result.filesSkipped))} />
         )}
         {result.hooksInstalled > 0 && (
-          <Row label="Hooks:" value={`${result.hooksInstalled} installed`} />
+          <Row label="Hooks:" value={t.install.resultHooks.replace('{count}', String(result.hooksInstalled))} />
         )}
         <Row
           label="MCP:"
-          value={result.mcpRegistered ? 'maestro-tools registered' : 'skipped'}
+          value={result.mcpRegistered ? 'maestro-tools registered' : t.install.confirmSkipped}
           valueColor={result.mcpRegistered ? 'green' : 'gray'}
         />
         {result.manifestPath && (
           <Box>
-            <Text color="cyan">{'Manifest:'.padEnd(13)}</Text>
+            <Text color="cyan">{t.install.resultManifest.padEnd(13)}</Text>
             <Text dimColor>{result.manifestPath}</Text>
           </Box>
         )}
       </Box>
 
       <Box marginTop={1}>
-        <Text dimColor>Restart Claude Code to pick up changes. Press Enter to exit.</Text>
+        <Text dimColor>{t.install.resultExit}</Text>
       </Box>
     </Box>
   );

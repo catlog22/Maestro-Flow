@@ -8,6 +8,7 @@ import { useI18n } from '@/client/i18n/index.js';
 
 /** Shape per status for non-color differentiation (per spec) */
 const STATUS_SHAPES: Record<PhaseStatus, string> = {
+  not_started: 'rounded-full',    // circle
   pending: 'rounded-full',        // circle
   exploring: 'rounded-full',      // circle
   planning: 'rotate-45 rounded-none', // diamond
@@ -20,6 +21,7 @@ const STATUS_SHAPES: Record<PhaseStatus, string> = {
 
 /** Translation keys for each status */
 const STATUS_LABEL_KEYS: Record<PhaseStatus, string> = {
+  not_started: 'status.not_started',
   pending: 'status.pending',
   exploring: 'status.exploring',
   planning: 'status.planning',
@@ -32,6 +34,7 @@ const STATUS_LABEL_KEYS: Record<PhaseStatus, string> = {
 
 /** Status background token CSS variable names */
 const STATUS_BG_VARS: Record<PhaseStatus, string> = {
+  not_started: 'var(--color-status-bg-pending)',
   pending: 'var(--color-status-bg-pending)',
   exploring: 'var(--color-status-bg-exploring)',
   planning: 'var(--color-status-bg-planning)',

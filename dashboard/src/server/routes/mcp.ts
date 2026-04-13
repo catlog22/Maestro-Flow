@@ -607,6 +607,25 @@ export function createMcpRoutes(): Hono {
     return c.json(removeGlobalServer(serverName));
   });
 
+  app.post('/api/mcp-update-server', async (c) => {
+    const body = await c.req.json<Record<string, unknown>>();
+    const { scope, serverName, serverConfig, projectPath } = body;
+    if (typeof serverName !== 'string' || !serverName.trim()) return c.json({ error: 'serverName required' }, 400);
+    if (!serverConfig || typeof serverConfig !== 'object') return c.json({ error: 'serverConfig required' }, 400);
+
+    if (scope === 'global') {
+      return c.json(addGlobalServer(serverName, serverConfig));
+    }
+    if (scope === 'project') {
+      if (typeof projectPath !== 'string' || !projectPath.trim()) return c.json({ error: 'projectPath required for project scope' }, 400);
+      return c.json(addProjectServer(projectPath, serverName, serverConfig));
+    }
+    if (scope === 'codex') {
+      return c.json(addCodexServer(serverName, serverConfig as Record<string, unknown>));
+    }
+    return c.json({ error: 'Invalid scope' }, 400);
+  });
+
   // -----------------------------------------------------------------------
   // Maestro MCP install (replaces ccw-tools install)
   // -----------------------------------------------------------------------

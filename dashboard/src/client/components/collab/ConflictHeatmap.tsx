@@ -1,60 +1,25 @@
-import { useState, useMemo } from 'react';
 import { useCollabStore } from '@/client/store/collab-store.js';
 import type { CollabAggregatedActivity } from '@/shared/collab-types.js';
-import { HeatmapCell } from '@/client/components/collab/HeatmapCell.js';
 
 // ---------------------------------------------------------------------------
-// ConflictHeatmap — SVG-based phase x task member concentration heatmap
+// ConflictHeatmap — card-based activity concentration & risk analysis
 // ---------------------------------------------------------------------------
 
-const CELL_WIDTH = 80;
-const CELL_HEIGHT = 40;
-const LEFT_MARGIN = 120;
-const TOP_MARGIN = 60;
-const LEGEND_HEIGHT = 40;
-const CELL_GAP = 2;
+const RISK_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  high: { label: 'High', color: '#dc2626', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)' },
+  medium: { label: 'Medium', color: '#ca8a04', bg: 'rgba(234,179,8,0.08)', border: 'rgba(234,179,8,0.2)' },
+  low: { label: 'Low', color: '#16a34a', bg: 'rgba(34,197,94,0.08)', border: 'rgba(34,197,94,0.2)' },
+  none: { label: 'None', color: 'var(--color-text-tertiary, #9ca3af)', bg: 'var(--color-bg-secondary)', border: 'var(--color-border)' },
+};
 
-function getColorForRisk(risk: string): string {
-  switch (risk) {
-    case 'high':
-      return '#fca5a5';
-    case 'medium':
-      return '#fde047';
-    case 'low':
-      return '#bbf7d0';
-    default:
-      return '#f0fdf4';
-  }
+function getRiskConfig(risk: string) {
+  return RISK_CONFIG[risk] ?? RISK_CONFIG.none;
 }
 
 export function ConflictHeatmap() {
   const aggregated = useCollabStore((s) => s.aggregated);
+  const members = useCollabStore((s) => s.members);
   const loading = useCollabStore((s) => s.loading);
-
-  const [selectedCell, setSelectedCell] = useState<CollabAggregatedActivity | null>(null);
-
-  // Derive unique phases (rows) and tasks (columns)
-  const { phases, tasks, cellMap } = useMemo(() => {
-    const phaseSet = new Set<string>();
-    const taskSet = new Set<string>();
-    const map = new Map<string, CollabAggregatedActivity>();
-
-    for (const entry of aggregated) {
-      phaseSet.add(entry.phase);
-      taskSet.add(entry.task);
-      map.set(`${entry.phase}::${entry.task}`, entry);
-    }
-
-    return {
-      phases: Array.from(phaseSet).sort(),
-      tasks: Array.from(taskSet).sort(),
-      cellMap: map,
-    };
-  }, [aggregated]);
-
-  // Dimensions
-  const svgWidth = LEFT_MARGIN + tasks.length * CELL_WIDTH + 20;
-  const svgHeight = TOP_MARGIN + phases.length * CELL_HEIGHT + LEGEND_HEIGHT + 20;
 
   // Loading state
   if (loading && aggregated.length === 0) {
@@ -72,155 +37,156 @@ export function ConflictHeatmap() {
   // Empty state
   if (aggregated.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64 text-text-secondary text-[length:var(--font-size-sm)]">
-        No activity data available for analysis
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-quaternary">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18" />
+          <path d="M9 21V9" />
+        </svg>
+        <span className="text-text-tertiary text-[length:var(--font-size-sm)]">No activity data available for analysis</span>
+        <span className="text-text-quaternary text-[length:var(--font-size-xs)]">Activity will appear here as team members work on phases and tasks</span>
       </div>
     );
   }
 
+  // Summary stats
+  const totalActivity = aggregated.reduce((sum, a) => sum + a.count, 0);
+  const uniqueMembers = new Set(aggregated.flatMap((a) => a.members)).size;
+  const highRisk = aggregated.filter((a) => a.risk === 'high').length;
+  const mediumRisk = aggregated.filter((a) => a.risk === 'medium').length;
+
+  // Sort: high risk first, then by count
+  const sorted = [...aggregated].sort((a, b) => {
+    const riskOrder = { high: 0, medium: 1, low: 2, none: 3 };
+    const ra = riskOrder[a.risk] ?? 3;
+    const rb = riskOrder[b.risk] ?? 3;
+    if (ra !== rb) return ra - rb;
+    return b.count - a.count;
+  });
+
   return (
-    <div className="flex flex-col gap-4">
-      {/* Heatmap */}
-      <div className="overflow-auto">
-        <svg
-          width={svgWidth}
-          height={svgHeight}
-          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-          style={{ fontFamily: 'var(--font-family-sans, system-ui, sans-serif)' }}
-        >
-          {/* Column labels (tasks) — rotated 45 degrees */}
-          {tasks.map((task, colIdx) => {
-            const cx = LEFT_MARGIN + colIdx * CELL_WIDTH + CELL_WIDTH / 2;
-            const cy = TOP_MARGIN - 8;
-            return (
-              <text
-                key={`col-${task}`}
-                x={cx}
-                y={cy}
-                textAnchor="start"
-                dominantBaseline="middle"
-                fontSize={11}
-                fill="var(--color-text-secondary, #6b7280)"
-                transform={`rotate(-45, ${cx}, ${cy})`}
-              >
-                {task}
-              </text>
-            );
-          })}
-
-          {/* Row labels (phases) */}
-          {phases.map((phase, rowIdx) => {
-            const cy = TOP_MARGIN + rowIdx * CELL_HEIGHT + CELL_HEIGHT / 2;
-            return (
-              <text
-                key={`row-${phase}`}
-                x={LEFT_MARGIN - 8}
-                y={cy}
-                textAnchor="end"
-                dominantBaseline="central"
-                fontSize={11}
-                fill="var(--color-text-secondary, #6b7280)"
-              >
-                {phase}
-              </text>
-            );
-          })}
-
-          {/* Cells */}
-          {phases.map((phase, rowIdx) =>
-            tasks.map((task, colIdx) => {
-              const cell = cellMap.get(`${phase}::${task}`);
-              if (!cell) return null;
-              const x = LEFT_MARGIN + colIdx * CELL_WIDTH + CELL_GAP / 2;
-              const y = TOP_MARGIN + rowIdx * CELL_HEIGHT + CELL_GAP / 2;
-              return (
-                <HeatmapCell
-                  key={`${phase}-${task}`}
-                  cell={cell}
-                  x={x}
-                  y={y}
-                  width={CELL_WIDTH - CELL_GAP}
-                  height={CELL_HEIGHT - CELL_GAP}
-                  onClick={setSelectedCell}
-                />
-              );
-            }),
-          )}
-
-          {/* Color legend */}
-          <g transform={`translate(${LEFT_MARGIN}, ${TOP_MARGIN + phases.length * CELL_HEIGHT + 16})`}>
-            <text x={0} y={0} fontSize={10} fill="var(--color-text-tertiary, #9ca3af)" dominantBaseline="central">
-              Risk level:
-            </text>
-            {/* Gradient bar */}
-            <defs>
-              <linearGradient id="risk-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor={getColorForRisk('none')} />
-                <stop offset="25%" stopColor={getColorForRisk('low')} />
-                <stop offset="60%" stopColor={getColorForRisk('medium')} />
-                <stop offset="100%" stopColor={getColorForRisk('high')} />
-              </linearGradient>
-            </defs>
-            <rect x={70} y={-8} width={140} height={16} rx={3} fill="url(#risk-gradient)" stroke="#e5e7eb" strokeWidth={0.5} />
-            <text x={70} y={18} fontSize={9} fill="var(--color-text-tertiary, #9ca3af)">
-              None
-            </text>
-            <text x={105} y={18} fontSize={9} fill="var(--color-text-tertiary, #9ca3af)">
-              Low
-            </text>
-            <text x={155} y={18} fontSize={9} fill="var(--color-text-tertiary, #9ca3af)">
-              Medium
-            </text>
-            <text x={195} y={18} fontSize={9} fill="var(--color-text-tertiary, #9ca3af)">
-              High
-            </text>
-          </g>
-        </svg>
+    <div className="flex flex-col gap-5">
+      {/* Summary cards */}
+      <div className="grid grid-cols-4 gap-3">
+        <SummaryCard label="Total Activity" value={totalActivity} />
+        <SummaryCard label="Active Members" value={uniqueMembers} total={members.length} />
+        <SummaryCard label="High Risk" value={highRisk} color={highRisk > 0 ? '#dc2626' : undefined} />
+        <SummaryCard label="Medium Risk" value={mediumRisk} color={mediumRisk > 0 ? '#ca8a04' : undefined} />
       </div>
 
-      {/* Detail panel */}
-      {selectedCell && (
-        <div className="border border-border rounded-[var(--radius-md, 6px)] p-4 bg-bg-secondary">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-[length:var(--font-size-sm)] font-[var(--font-weight-semibold, 600)] text-text-primary">
-              {selectedCell.phase} / {selectedCell.task}
-            </h3>
-            <button
-              type="button"
-              onClick={() => setSelectedCell(null)}
-              className="text-text-tertiary hover:text-text-secondary text-[length:var(--font-size-xs)] transition-colors"
-            >
-              Close
-            </button>
-          </div>
-          <div className="flex flex-col gap-1 text-[length:var(--font-size-sm)] text-text-secondary">
-            <span>
-              Activity count: <strong className="text-text-primary">{selectedCell.count}</strong>
-            </span>
-            <span>
-              Risk level:{' '}
-              <strong
-                style={{ color: getColorForRisk(selectedCell.risk) === '#f0fdf4' ? '#6b7280' : getColorForRisk(selectedCell.risk) === '#fca5a5' ? '#dc2626' : getColorForRisk(selectedCell.risk) === '#fde047' ? '#ca8a04' : '#16a34a' }}
-              >
-                {selectedCell.risk}
-              </strong>
-            </span>
-            <div className="mt-1">
-              <span className="text-text-tertiary text-[length:var(--font-size-xs)]">Members:</span>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {selectedCell.members.map((name) => (
-                  <span
-                    key={name}
-                    className="px-2 py-0.5 rounded-full text-[length:var(--font-size-xs)] bg-bg-hover text-text-secondary"
-                  >
-                    {name}
-                  </span>
-                ))}
-              </div>
+      {/* Risk legend */}
+      <div className="flex items-center gap-4 text-[length:var(--font-size-xs)] text-text-tertiary">
+        <span>Risk levels:</span>
+        {['none', 'low', 'medium', 'high'].map((risk) => {
+          const cfg = getRiskConfig(risk);
+          return (
+            <div key={risk} className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: cfg.color, opacity: 0.7 }} />
+              <span>{cfg.label}</span>
+              <span className="text-text-quaternary">
+                ({risk === 'none' ? '1' : risk === 'low' ? '2' : risk === 'medium' ? '3' : '4+'}
+                {risk === 'none' ? ' member' : ' members'})
+              </span>
             </div>
-          </div>
+          );
+        })}
+      </div>
+
+      {/* Activity concentration cards */}
+      <div className="flex flex-col gap-2">
+        <h3 className="text-[length:var(--font-size-xs)] font-semibold text-text-secondary uppercase tracking-wider">
+          Activity Concentration
+        </h3>
+        <div className="grid grid-cols-1 gap-2">
+          {sorted.map((entry, i) => (
+            <ConcentrationCard key={`${entry.phase}::${entry.task}::${i}`} entry={entry} />
+          ))}
         </div>
-      )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SummaryCard
+// ---------------------------------------------------------------------------
+
+function SummaryCard({ label, value, total, color }: { label: string; value: number; total?: number; color?: string }) {
+  return (
+    <div className="rounded-[var(--radius-md,6px)] border border-border bg-bg-secondary px-4 py-3">
+      <div className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">{label}</div>
+      <div className="text-[length:var(--font-size-xl)] font-bold" style={{ color: color ?? 'var(--color-text-primary)' }}>
+        {value}
+        {total != null && (
+          <span className="text-[length:var(--font-size-sm)] font-normal text-text-quaternary"> / {total}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ConcentrationCard — single activity concentration entry
+// ---------------------------------------------------------------------------
+
+function ConcentrationCard({ entry }: { entry: CollabAggregatedActivity }) {
+  const cfg = getRiskConfig(entry.risk);
+  const phaseLabel = entry.phase || '(no phase)';
+  const taskLabel = entry.task || '(general)';
+
+  return (
+    <div
+      className="flex items-center gap-4 rounded-[var(--radius-md,6px)] px-4 py-3 border transition-colors"
+      style={{ backgroundColor: cfg.bg, borderColor: cfg.border }}
+    >
+      {/* Risk indicator */}
+      <div className="flex flex-col items-center gap-1 shrink-0 w-[52px]">
+        <span
+          className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+          style={{ color: cfg.color, backgroundColor: `${cfg.color}15` }}
+        >
+          {cfg.label}
+        </span>
+      </div>
+
+      {/* Phase/Task info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-[length:var(--font-size-sm)] font-medium text-text-primary truncate">
+            {phaseLabel}
+          </span>
+          {entry.task && (
+            <>
+              <span className="text-text-quaternary">/</span>
+              <span className="text-[length:var(--font-size-sm)] text-text-secondary truncate">
+                {taskLabel}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Activity count */}
+      <div className="flex flex-col items-center shrink-0">
+        <span className="text-[length:var(--font-size-sm)] font-bold text-text-primary">{entry.count}</span>
+        <span className="text-[10px] text-text-tertiary">actions</span>
+      </div>
+
+      {/* Members */}
+      <div className="flex items-center gap-1 shrink-0">
+        {entry.members.slice(0, 5).map((name) => (
+          <span
+            key={name}
+            className="w-6 h-6 rounded-full bg-bg-secondary border border-border flex items-center justify-center text-[10px] font-medium text-text-secondary uppercase"
+            title={name}
+          >
+            {name.charAt(0)}
+          </span>
+        ))}
+        {entry.members.length > 5 && (
+          <span className="text-[10px] text-text-tertiary">+{entry.members.length - 5}</span>
+        )}
+      </div>
     </div>
   );
 }

@@ -25,6 +25,7 @@ import {
   getClaudeSettingsPath,
 } from './hooks.js';
 import { runUninstallFlow } from './uninstall-ui/index.js';
+import { t } from '../i18n/index.js';
 
 // ---------------------------------------------------------------------------
 // Helpers (used by --all -y non-interactive path)
@@ -87,7 +88,7 @@ export function registerUninstallCommand(program: Command): void {
         if (!opts.yes) {
           try {
             const ok = await confirm({
-              message: `Uninstall all ${manifests.length} installation(s)?`,
+              message: t.uninstall.promptConfirm.replace('{count}', String(manifests.length)),
               default: false,
             });
             if (!ok) { console.error('Cancelled.'); return; }

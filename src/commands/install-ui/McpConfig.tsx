@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { TextInput } from '@inkjs/ui';
 import { MCP_TOOLS } from '../install-backend.js';
+import { t } from '../../i18n/index.js';
 
 // ---------------------------------------------------------------------------
 // McpConfig -- MCP tools configuration panel
@@ -86,22 +87,22 @@ export function McpConfig({
   return (
     <Box flexDirection="column">
       <Text bold color="cyan">
-        MCP Server Configuration
+        {t.install.mcpTitle}
       </Text>
 
       <Box marginTop={1}>
         <Text color={index === 0 ? 'cyan' : undefined}>
-          Enable MCP server?{' '}
+          {t.install.mcpEnable}{' '}
         </Text>
         <Text color={enabled ? 'green' : 'yellow'} bold>
-          {enabled ? '[Yes]' : '[No]'}
+          {enabled ? t.install.mcpYes : t.install.mcpNo}
         </Text>
         <Text dimColor> [y/n/Space]</Text>
       </Box>
 
       {enabled && (
         <Box flexDirection="column" marginTop={1}>
-          <Text bold>Tools:</Text>
+          <Text bold>{t.install.mcpTools}</Text>
           <Box flexDirection="column" marginTop={1}>
             {MCP_TOOLS.map((tool, i) => {
               const checked = tools.includes(tool);
@@ -117,14 +118,16 @@ export function McpConfig({
           </Box>
           <Box marginTop={1}>
             <Text dimColor>
-              {tools.length} of {MCP_TOOLS.length} tools enabled
+              {t.install.mcpToolsEnabled
+                .replace('{enabled}', String(tools.length))
+                .replace('{total}', String(MCP_TOOLS.length))}
             </Text>
           </Box>
 
           {mode === 'project' && (
             <Box flexDirection="column" marginTop={1}>
               <Text>
-                Project root:{' '}
+                {t.install.mcpProjectRoot}{' '}
                 {editingRoot ? (
                   <TextInput
                     placeholder={projectRoot || process.cwd()}
@@ -133,11 +136,11 @@ export function McpConfig({
                     onChange={setRootInput}
                   />
                 ) : (
-                  <Text color="cyan">{projectRoot || '(default)'}</Text>
+                  <Text color="cyan">{projectRoot || t.install.mcpProjectRootDefault}</Text>
                 )}
               </Text>
               {!editingRoot && (
-                <Text dimColor>Press [r] to edit</Text>
+                <Text dimColor>{t.install.mcpEditRoot}</Text>
               )}
             </Box>
           )}

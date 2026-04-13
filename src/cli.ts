@@ -1,11 +1,12 @@
 import { Command } from 'commander';
+import { getPackageVersion } from './utils/get-version.js';
 
 const program = new Command();
 
 program
   .name('maestro')
   .description('Workflow orchestration CLI with MCP support and extensible architecture')
-  .version('0.1.1');
+  .version(getPackageVersion());
 
 // ---------------------------------------------------------------------------
 // Lazy command registration
@@ -34,6 +35,7 @@ const commandLoaders: Record<string, () => Promise<(p: Command) => void>> = {
   msg:        async () => (await import('./commands/msg.js')).registerMsgCommand,
   overlay:    async () => (await import('./commands/overlay.js')).registerOverlayCommand,
   team:       async () => (await import('./commands/team.js')).registerTeamCommand,
+  update:     async () => (await import('./commands/update.js')).registerUpdateCommand,
 };
 
 // Determine which command is being invoked from argv (if any)

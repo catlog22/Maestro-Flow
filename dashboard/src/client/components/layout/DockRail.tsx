@@ -6,13 +6,14 @@ import MessageSquare from 'lucide-react/dist/esm/icons/message-square.js';
 import Clock from 'lucide-react/dist/esm/icons/clock.js';
 import Layers from 'lucide-react/dist/esm/icons/layers.js';
 import BookOpen from 'lucide-react/dist/esm/icons/book-open.js';
-import Library from 'lucide-react/dist/esm/icons/library.js';
-import Users from 'lucide-react/dist/esm/icons/users.js';
+import Bot from 'lucide-react/dist/esm/icons/bot.js';
 import ListChecks from 'lucide-react/dist/esm/icons/list-checks.js';
 import Activity from 'lucide-react/dist/esm/icons/activity.js';
 import UsersRound from 'lucide-react/dist/esm/icons/users-round.js';
 import PanelLeft from 'lucide-react/dist/esm/icons/panel-left.js';
 import Plus from 'lucide-react/dist/esm/icons/plus.js';
+import X from 'lucide-react/dist/esm/icons/x.js';
+import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down.js';
 import { useBoardStore } from '@/client/store/board-store.js';
 import { useAgentStore } from '@/client/store/agent-store.js';
 import { useIssueStore } from '@/client/store/issue-store.js';
@@ -31,7 +32,7 @@ interface DockNavItem {
   labelKey: string;
   tooltipKey: string;
   path: string;
-  icon: 'kanban' | 'artifacts' | 'chat' | 'workflow' | 'mcp' | 'specs' | 'wiki' | 'teams' | 'requirement' | 'supervisor' | 'collab';
+  icon: 'kanban' | 'artifacts' | 'chat' | 'workflow' | 'mcp' | 'specs' | 'teams' | 'requirement' | 'supervisor' | 'collab';
   shortcut?: string;
 }
 
@@ -42,7 +43,6 @@ const NAV_ITEMS: DockNavItem[] = [
   { labelKey: 'nav.workflow', tooltipKey: 'dock.workflow_tooltip', path: '/workflow', icon: 'workflow', shortcut: 'W' },
   { labelKey: 'nav.mcp', tooltipKey: 'dock.mcp_tooltip', path: '/mcp', icon: 'mcp', shortcut: 'M' },
   { labelKey: 'nav.specs', tooltipKey: 'dock.specs_tooltip', path: '/specs', icon: 'specs', shortcut: 'S' },
-  { labelKey: 'nav.wiki', tooltipKey: 'dock.wiki_tooltip', path: '/wiki', icon: 'wiki', shortcut: 'D' },
   { labelKey: 'nav.teams', tooltipKey: 'dock.teams_tooltip', path: '/teams', icon: 'teams', shortcut: 'T' },
   { labelKey: 'nav.collab', tooltipKey: 'dock.collab_tooltip', path: '/collab', icon: 'collab', shortcut: 'L' },
   { labelKey: 'nav.requirement', tooltipKey: 'dock.requirement_tooltip', path: '/requirement', icon: 'requirement', shortcut: 'R' },
@@ -89,7 +89,15 @@ export function DockRail({ isPinned, onTogglePin }: DockRailProps) {
   const panelRef = useRef<HTMLElement>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
 
-  const processList = Object.values(processes);
+  const processList = useMemo(() => {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    return Object.values(processes).filter(
+      (p) => new Date(p.startedAt).getTime() > cutoff,
+    );
+  }, [processes]);
+
+  const [sessionsExpanded, setSessionsExpanded] = useState(false);
+  const SESSION_COLLAPSE_LIMIT = 5;
 
   // Open panel on rail hover (if not pinned)
   const handleRailEnter = useCallback(() => {
@@ -209,12 +217,15 @@ export function DockRail({ isPinned, onTogglePin }: DockRailProps) {
           </nav>
         </div>
 
-        {/* Sessions section (if agents exist) */}
+        {/* Sessions section (if agents exist, filtered to <24h) */}
         {processList.length > 0 && (
           <div className="px-2 py-2.5 border-b border-border-divider">
             <div className="flex items-center justify-between px-2 mb-1">
               <h2 className="text-[length:var(--font-size-xs)] font-[var(--font-weight-semibold)] text-text-tertiary uppercase tracking-[var(--letter-spacing-wide)]">
                 Sessions
+                {processList.length > SESSION_COLLAPSE_LIMIT && (
+                  <span className="ml-1 font-normal text-text-placeholder">{processList.length}</span>
+                )}
               </h2>
               <button
                 type="button"
@@ -228,7 +239,7 @@ export function DockRail({ isPinned, onTogglePin }: DockRailProps) {
               </button>
             </div>
             <nav className="flex flex-col gap-0.5">
-              {processList.map((proc) => (
+              {(sessionsExpanded ? processList : processList.slice(0, SESSION_COLLAPSE_LIMIT)).map((proc) => (
                 <SessionItem
                   key={proc.id}
                   process={proc}
@@ -236,6 +247,20 @@ export function DockRail({ isPinned, onTogglePin }: DockRailProps) {
                 />
               ))}
             </nav>
+            {processList.length > SESSION_COLLAPSE_LIMIT && (
+              <button
+                type="button"
+                onClick={() => setSessionsExpanded((v) => !v)}
+                className="flex items-center gap-1 px-2 py-1 mt-0.5 w-full text-[10px] text-text-placeholder hover:text-text-secondary transition-colors"
+              >
+                <ChevronDown
+                  size={12}
+                  strokeWidth={2}
+                  className={`transition-transform duration-150 ${sessionsExpanded ? 'rotate-180' : ''}`}
+                />
+                <span>{sessionsExpanded ? 'Show less' : `${processList.length - SESSION_COLLAPSE_LIMIT} more…`}</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -253,15 +278,15 @@ export function DockRail({ isPinned, onTogglePin }: DockRailProps) {
               <span className="flex-1 text-text-secondary">
                 {issueCounts.total} issues
               </span>
-              <span className="flex items-center gap-1.5 text-[10px]">
+              <span className="flex items-center gap-2 text-[10px]">
                 {issueCounts.open > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full bg-[#5B8DB820] text-[#5B8DB8]">{issueCounts.open} open</span>
+                  <span style={{ color: '#5B8DB8' }}>{issueCounts.open} open</span>
                 )}
                 {issueCounts.in_progress > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full bg-[#B8954020] text-[#B89540]">{issueCounts.in_progress} active</span>
+                  <span style={{ color: '#B89540' }}>{issueCounts.in_progress} active</span>
                 )}
                 {issueCounts.resolved > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full bg-[#5A9E7820] text-[#5A9E78]">{issueCounts.resolved} done</span>
+                  <span style={{ color: '#5A9E78' }}>{issueCounts.resolved} done</span>
                 )}
               </span>
             </button>
@@ -347,8 +372,7 @@ const NAV_ICON_MAP = {
   workflow: Clock,
   mcp: Layers,
   specs: BookOpen,
-  wiki: Library,
-  teams: Users,
+  teams: Bot,
   requirement: ListChecks,
   supervisor: Activity,
   collab: UsersRound,
@@ -420,7 +444,7 @@ function PhaseDot({
         title: phase.title,
         status: phase.status,
       })}
-      className="w-2 h-2 rounded-full cursor-pointer transition-transform duration-150 hover:scale-[1.4]"
+      className="w-[7px] h-[7px] rotate-45 rounded-[1px] cursor-pointer transition-transform duration-150 hover:scale-[1.4]"
       style={{ backgroundColor: STATUS_COLORS[phase.status] }}
     />
   );
@@ -439,21 +463,21 @@ function SessionItem({
 }) {
   const color = AGENT_DOT_COLORS[process.type] ?? 'var(--color-text-tertiary)';
   const setActive = useAgentStore((s) => s.setActiveProcessId);
+  const removeProcess = useAgentStore((s) => s.removeProcess);
   const navigate = useNavigate();
   const elapsed = getElapsed(process.startedAt);
   const asyncDelegate = process.id.startsWith('cli-history-');
 
   return (
-    <button
-      type="button"
-      onClick={() => { setActive(process.id); navigate('/chat'); }}
+    <div
       className={[
-        'flex items-center gap-2 px-2.5 py-1.5 rounded-[8px] text-left text-[12px] w-full',
-        'transition-all duration-150',
+        'group flex items-center gap-2 px-2.5 py-1.5 rounded-[8px] text-left text-[12px] w-full',
+        'transition-all duration-150 cursor-pointer',
         isActive
           ? 'bg-bg-active'
           : 'hover:bg-bg-hover',
       ].join(' ')}
+      onClick={() => { setActive(process.id); navigate('/chat'); }}
     >
       <span
         className="w-[7px] h-[7px] rounded-full shrink-0"
@@ -476,7 +500,15 @@ function SessionItem({
       <span className="text-[10px] text-text-placeholder shrink-0">
         {elapsed}
       </span>
-    </button>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); removeProcess(process.id); }}
+        className="w-4 h-4 rounded flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 text-text-placeholder hover:text-text-primary hover:bg-bg-active transition-all duration-100"
+        aria-label="Close session"
+      >
+        <X size={10} strokeWidth={2} />
+      </button>
+    </div>
   );
 }
 

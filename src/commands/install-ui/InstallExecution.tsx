@@ -23,6 +23,7 @@ import {
 } from '../../core/manifest.js';
 import { installHooksByLevel, type HookLevel } from '../hooks.js';
 import type { InstallFlowConfig } from './InstallConfirm.js';
+import { t } from '../../i18n/index.js';
 
 // ---------------------------------------------------------------------------
 // InstallExecution — animated per-step progress
@@ -45,7 +46,7 @@ interface InstallExecutionProps {
 }
 
 export function InstallExecution({ config, pkgRoot, version, onComplete }: InstallExecutionProps) {
-  const [status, setStatus] = useState('Preparing...');
+  const [status, setStatus] = useState(t.install.execPreparing);
   const [elapsed, setElapsed] = useState(0);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,11 +73,11 @@ export function InstallExecution({ config, pkgRoot, version, onComplete }: Insta
         // Components
         if (config.installComponents) {
           if (cancelled) return;
-          setStatus('Scanning disabled items...');
+          setStatus(t.install.execScanning);
           const disabledItems = scanDisabledItems(targetBase);
 
           if (cancelled) return;
-          setStatus('Cleaning previous installation...');
+          setStatus(t.install.execCleaning);
           const existing = findManifest(config.mode, targetPath);
           if (existing) cleanManifestFiles(existing);
 
@@ -89,13 +90,13 @@ export function InstallExecution({ config, pkgRoot, version, onComplete }: Insta
 
           for (const comp of components) {
             if (cancelled) return;
-            setStatus(`Installing ${comp.def.label}...`);
+            setStatus(t.install.execInstalling.replace('{name}', comp.def.label));
             copyRecursive(comp.sourceFull, comp.targetDir, stats, manifest);
           }
 
           // Version marker
           if (cancelled) return;
-          setStatus('Writing version marker...');
+          setStatus(t.install.execWritingVersion);
           const versionPath = join(paths.home, 'version.json');
           writeFileSync(versionPath, JSON.stringify({
             version, installedAt: new Date().toISOString(), installer: 'maestro',
@@ -114,7 +115,7 @@ export function InstallExecution({ config, pkgRoot, version, onComplete }: Insta
         // Hooks
         if (config.installHooks) {
           if (cancelled) return;
-          setStatus(`Installing ${config.hookLevel} hooks...`);
+          setStatus(t.install.execInstallingHooks.replace('{level}', config.hookLevel));
           const result = installHooksByLevel(config.hookLevel, { project: config.mode === 'project' });
           hooksInstalled = result.installedHooks.length;
         }
@@ -122,12 +123,12 @@ export function InstallExecution({ config, pkgRoot, version, onComplete }: Insta
         // MCP
         if (config.installMcp) {
           if (cancelled) return;
-          setStatus('Registering MCP server...');
+          setStatus(t.install.execRegisteringMcp);
           mcpRegistered = addMcpServer(config.mode, config.projectPath, config.mcpTools, config.mcpProjectRoot || undefined);
         }
 
         setDone(true);
-        setStatus('Complete');
+        setStatus(t.install.execComplete);
         onComplete({ filesInstalled, dirsCreated, filesSkipped, hooksInstalled, mcpRegistered, manifestPath });
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -146,7 +147,7 @@ export function InstallExecution({ config, pkgRoot, version, onComplete }: Insta
   if (error) {
     return (
       <Box flexDirection="column" paddingX={1}>
-        <Text color="red" bold>Installation failed</Text>
+        <Text color="red" bold>{t.install.execFailed}</Text>
         <Text color="red">{error}</Text>
       </Box>
     );
@@ -156,7 +157,7 @@ export function InstallExecution({ config, pkgRoot, version, onComplete }: Insta
     <Box flexDirection="column" paddingX={1}>
       <Box>
         {done ? (
-          <Text color="green" bold>  Done</Text>
+          <Text color="green" bold>{t.install.execDone}</Text>
         ) : (
           <Box>
             <Text color="cyan"><Spinner type="dots" /></Text>
@@ -165,7 +166,7 @@ export function InstallExecution({ config, pkgRoot, version, onComplete }: Insta
         )}
       </Box>
       <Box marginTop={1}>
-        <Text dimColor>Elapsed: {timeStr}</Text>
+        <Text dimColor>{t.install.execElapsed.replace('{time}', timeStr)}</Text>
       </Box>
     </Box>
   );

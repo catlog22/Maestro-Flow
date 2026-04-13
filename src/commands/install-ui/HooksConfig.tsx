@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import {
   HOOK_LEVELS,
-  HOOK_LEVEL_DESCRIPTIONS,
   type HookLevel,
 } from '../hooks.js';
+import { t } from '../../i18n/index.js';
 
 // ---------------------------------------------------------------------------
 // HooksConfig -- Hook level selection panel (radio-style)
@@ -41,7 +41,7 @@ export function HooksConfig({ level, onLevelChange }: HooksConfigProps) {
   return (
     <Box flexDirection="column">
       <Text bold color="cyan">
-        Hooks Configuration
+        {t.install.hooksTitle}
       </Text>
 
       <Box flexDirection="column" marginTop={1}>
@@ -49,7 +49,7 @@ export function HooksConfig({ level, onLevelChange }: HooksConfigProps) {
           const isActive = lvl === level;
           const isHighlighted = i === index;
           const label = lvl.charAt(0).toUpperCase() + lvl.slice(1);
-          const desc = HOOK_LEVEL_DESCRIPTIONS[lvl];
+          const desc = t.install.hooksLevelDescriptions[lvl];
 
           return (
             <Box key={lvl}>
