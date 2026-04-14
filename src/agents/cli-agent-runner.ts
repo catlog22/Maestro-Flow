@@ -70,6 +70,9 @@ export interface CliRunOptions {
   includeDirs?: string[];
   sessionId?: string;
   backend?: 'direct' | 'terminal';
+  /** Synchronous blocking mode: suppress broker events and MCP notifications,
+   *  stream snapshot-style progress logs to stderr instead. */
+  sync?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -334,19 +337,9 @@ function summarizeEntry(entry: NormalizedEntry): string {
   }
 }
 
-function shouldPublishSnapshot(entry: NormalizedEntry): boolean {
-  switch (entry.type) {
-    case 'assistant_message':
-      return entry.partial !== true;
-    case 'tool_use':
-      return entry.status === 'completed' || entry.status === 'failed';
-    case 'file_change':
-    case 'command_exec':
-    case 'error':
-      return true;
-    default:
-      return false;
-  }
+/** Snapshots are disabled during execution — only start and end events are published. */
+function shouldPublishSnapshot(_entry: NormalizedEntry): boolean {
+  return false;
 }
 
 function createNoopBridge(): DashboardBridgeLike {
@@ -453,9 +446,10 @@ export class CliAgentRunner {
 
     // History store for persistence and resume
     const store = new CliHistoryStore();
-    const broker = this.dependencies.brokerClient ?? new DelegateBrokerClient();
+    const syncMode = options.sync === true;
+    const broker = syncMode ? undefined : (this.dependencies.brokerClient ?? new DelegateBrokerClient());
     const now = this.dependencies.now ?? (() => new Date().toISOString());
-    const jobMetadata = buildJobMetadata(options);
+    const jobMetadata = syncMode ? {} as JsonObject : buildJobMetadata(options);
 
     // Handle --resume: prepend previous session context to user prompt
     let userPrompt = options.prompt;
@@ -515,6 +509,11 @@ export class CliAgentRunner {
       startedAt: agentProcess.startedAt,
     });
 
+    /** Write a snapshot-style progress line to stderr (sync mode). */
+    const writeStreamLog = (label: string, summary: string) => {
+      process.stderr.write(`[DELEGATE ${label}] ${execId} ${summary}\n`);
+    };
+
     const publishEvent = (
       type: string,
       status: DelegateJobStatus,
@@ -522,9 +521,19 @@ export class CliAgentRunner {
       extraPayload: JsonObject = {},
       extraJobMetadata?: JsonObject,
     ) => {
+      if (syncMode) {
+        // In sync mode, write progress to stderr instead of broker
+        const label = status === 'running' ? 'RUNNING'
+          : status === 'completed' ? 'DONE'
+          : status === 'failed' ? 'FAILED'
+          : status === 'cancelled' ? 'CANCELLED'
+          : status.toUpperCase();
+        writeStreamLog(label, summary);
+        return;
+      }
       try {
         const snapshot = store.buildSnapshot(execId);
-        broker.publishEvent({
+        broker!.publishEvent({
           jobId: execId,
           type,
           status,
@@ -547,7 +556,7 @@ export class CliAgentRunner {
     // shell process tree doesn't fire exit/close reliably), write meta.json
     // from the synchronous process.on('exit') handler as a last resort.
     let metaWritten = false;
-    let cancellationRequested = Boolean(broker.getJob(execId)?.metadata?.cancelRequestedAt);
+    let cancellationRequested = !syncMode && Boolean(broker!.getJob(execId)?.metadata?.cancelRequestedAt);
     let cancellationInitiated = false;
     let cancellationPoller: NodeJS.Timeout | null = null;
 
@@ -586,31 +595,33 @@ export class CliAgentRunner {
         },
       );
 
-      // Write delegate completion notification (for hook fallback)
-      const sessionId = options.sessionId;
-      if (sessionId) {
-        // JSONL file write (for hook fallback)
-        try {
-          const notifyPath = join(tmpdir(), `${NOTIFY_PREFIX}${sessionId}.jsonl`);
-          const entry = JSON.stringify({
-            execId,
-            tool: options.tool,
-            mode: options.mode,
-            prompt: options.prompt.substring(0, 200),
-            exitCode,
-            completedAt,
-            status,
-          });
-          appendFileSync(notifyPath, entry + '\n', 'utf-8');
-        } catch (err) {
-          console.error(`[${execId}] Failed to write JSONL notification: ${err instanceof Error ? err.message : err}`);
-        }
+      // Write delegate completion notification (for hook fallback) — skip in sync mode
+      if (!syncMode) {
+        const sessionId = options.sessionId;
+        if (sessionId) {
+          // JSONL file write (for hook fallback)
+          try {
+            const notifyPath = join(tmpdir(), `${NOTIFY_PREFIX}${sessionId}.jsonl`);
+            const entry = JSON.stringify({
+              execId,
+              tool: options.tool,
+              mode: options.mode,
+              prompt: options.prompt.substring(0, 200),
+              exitCode,
+              completedAt,
+              status,
+            });
+            appendFileSync(notifyPath, entry + '\n', 'utf-8');
+          } catch (err) {
+            console.error(`[${execId}] Failed to write JSONL notification: ${err instanceof Error ? err.message : err}`);
+          }
 
-        // MCP channel notification (primary path)
-        try {
-          CliAgentRunner.sendChannelNotification(sessionId, execId, options.tool, options.mode, status, exitCode);
-        } catch (err) {
-          console.error(`[${execId}] Failed to send channel notification: ${err instanceof Error ? err.message : err}`);
+          // MCP channel notification (primary path)
+          try {
+            CliAgentRunner.sendChannelNotification(sessionId, execId, options.tool, options.mode, status, exitCode);
+          } catch (err) {
+            console.error(`[${execId}] Failed to send channel notification: ${err instanceof Error ? err.message : err}`);
+          }
         }
       }
     };
@@ -637,6 +648,7 @@ export class CliAgentRunner {
     };
 
     const dispatchQueuedFollowup = (finalStatus: 'completed' | 'failed' | 'cancelled'): void => {
+      if (!broker) return;
       let queuedMessage: ReturnType<typeof broker.listMessages>[number] | undefined;
       try {
         queuedMessage = broker.listMessages(execId).find((message) => (
@@ -696,10 +708,10 @@ export class CliAgentRunner {
     };
 
     const inFlightMessageIds = new Set<string>();
-    if (!isTerminalStatus(broker.getJob(execId)?.status)) {
+    if (!syncMode && !isTerminalStatus(broker!.getJob(execId)?.status)) {
       cancellationPoller = setInterval(() => {
         try {
-          const job = broker.getJob(execId);
+          const job = broker!.getJob(execId);
           if (job?.metadata?.cancelRequestedAt && !cancellationInitiated) {
             void requestCancellation();
           }
@@ -709,7 +721,7 @@ export class CliAgentRunner {
 
         // Poll for inject messages and auto-route based on adapter capabilities
         try {
-          const injectMessages = broker.listMessages(execId)
+          const injectMessages = broker!.listMessages(execId)
             .filter((msg) => msg.status === 'queued' && msg.delivery === 'inject' && !inFlightMessageIds.has(msg.messageId))
             .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
@@ -719,7 +731,7 @@ export class CliAgentRunner {
               // Interactive adapter: inject via stdin without interruption
               inFlightMessageIds.add(msg.messageId);
               void adapter.sendMessage(agentProcess.id, msg.message).then(() => {
-                broker.updateMessage({
+                broker!.updateMessage({
                   jobId: execId,
                   messageId: msg.messageId,
                   status: 'injected',
@@ -727,7 +739,7 @@ export class CliAgentRunner {
                   now: polledNow,
                 });
               }).catch(() => {
-                broker.updateMessage({
+                broker!.updateMessage({
                   jobId: execId,
                   messageId: msg.messageId,
                   status: 'dropped',
@@ -762,7 +774,18 @@ export class CliAgentRunner {
         (this.dependencies.renderEntry ?? renderEntry)(entry);
         bridge.forwardEntry(entry as unknown as Parameters<typeof bridge.forwardEntry>[0]);
 
-        if (shouldPublishSnapshot(entry)) {
+        if (syncMode) {
+          // In sync mode, stream key events to stderr as progress logs
+          if (entry.type === 'tool_use' && (entry.status === 'completed' || entry.status === 'failed')) {
+            writeStreamLog('RUNNING', `Tool ${entry.name} ${entry.status}`);
+          } else if (entry.type === 'file_change') {
+            writeStreamLog('RUNNING', `File ${entry.action}: ${entry.path}`);
+          } else if (entry.type === 'command_exec') {
+            writeStreamLog('RUNNING', `Command: ${entry.command}`);
+          } else if (entry.type === 'error') {
+            writeStreamLog('RUNNING', `Error: ${entry.message}`);
+          }
+        } else if (shouldPublishSnapshot(entry)) {
           publishEvent('snapshot', 'running', summarizeEntry(entry), {
             entryType: entry.type,
           });
@@ -790,7 +813,7 @@ export class CliAgentRunner {
         // more inject messages are queued, close stdin to let the process exit.
         if (config.interactive && entry.type === 'token_usage' && broker) {
           try {
-            const pending = broker.listMessages(execId)
+            const pending = broker!.listMessages(execId)
               .filter((m) => m.status === 'queued' && m.delivery === 'inject');
             if (pending.length === 0 && !cancellationRequested) {
               adapter.endInput?.(agentProcess.id);
@@ -803,7 +826,7 @@ export class CliAgentRunner {
           clearCancellationPoller();
           const finalStatus = cancellationRequested ? 'cancelled' : 'completed';
           saveMeta(finalStatus, cancellationRequested ? 130 : 0);
-          dispatchQueuedFollowup(finalStatus);
+          if (!syncMode) dispatchQueuedFollowup(finalStatus);
           process.removeListener('exit', processExitHandler);
           bridge.forwardStopped(agentProcess.id);
           bridge.close();
@@ -816,7 +839,7 @@ export class CliAgentRunner {
           clearCancellationPoller();
           const finalStatus = cancellationRequested ? 'cancelled' : 'failed';
           saveMeta(finalStatus, cancellationRequested ? 130 : 1);
-          dispatchQueuedFollowup(finalStatus);
+          if (!syncMode) dispatchQueuedFollowup(finalStatus);
           process.removeListener('exit', processExitHandler);
           bridge.forwardStopped(agentProcess.id);
           bridge.close();

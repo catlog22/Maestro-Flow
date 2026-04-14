@@ -81,7 +81,7 @@ export class StreamJsonAdapter extends BaseAgentAdapter {
   private readonly executable: string;
   private readonly childProcesses = new Map<string, ChildProcess>();
   private readonly readlineInterfaces = new Map<string, ReadlineInterface>();
-  private readonly lastContentLength = new Map<string, number>();
+  private readonly lastCumulativeText = new Map<string, string>();
   private readonly toolIdNames = new Map<string, string>();
   private readonly stoppedEmitted = new Set<string>();
   private readonly streamMonitors = new Map<string, StreamMonitor>();
@@ -288,6 +288,9 @@ export class StreamJsonAdapter extends BaseAgentAdapter {
           processId,
           EntryNormalizer.toolUse(processId, name, {}, status, content),
         );
+        // Reset cumulative text tracker so the next assistant message turn
+        // starts fresh instead of continuing from the previous turn.
+        this.lastCumulativeText.delete(processId);
         break;
       }
 
@@ -338,19 +341,34 @@ export class StreamJsonAdapter extends BaseAgentAdapter {
     }
 
     if (msg.delta) {
-      // Cumulative-to-delta conversion: stream-json sends cumulative text
-      const lastLen = this.lastContentLength.get(processId) ?? 0;
-      const delta = content.slice(lastLen);
-      this.lastContentLength.set(processId, content.length);
-      if (delta.length > 0) {
-        this.emitEntry(
-          processId,
-          EntryNormalizer.assistantMessage(processId, delta, true),
-        );
+      // Auto-detect cumulative vs incremental delta:
+      // If new content starts with the previously seen text, it's cumulative
+      // (each message contains all text so far). Otherwise it's an actual
+      // incremental delta (each message is only the new portion).
+      const lastText = this.lastCumulativeText.get(processId);
+      if (lastText !== undefined && content.startsWith(lastText)) {
+        // Cumulative: extract only the new portion
+        const delta = content.slice(lastText.length);
+        this.lastCumulativeText.set(processId, content);
+        if (delta.length > 0) {
+          this.emitEntry(
+            processId,
+            EntryNormalizer.assistantMessage(processId, delta, true),
+          );
+        }
+      } else {
+        // First message or actual incremental delta
+        this.lastCumulativeText.set(processId, content);
+        if (content.length > 0) {
+          this.emitEntry(
+            processId,
+            EntryNormalizer.assistantMessage(processId, content, true),
+          );
+        }
       }
     } else {
       // Complete message — reset cumulative tracker and emit full content
-      this.lastContentLength.delete(processId);
+      this.lastCumulativeText.delete(processId);
       if (content.length > 0) {
         this.emitEntry(
           processId,
@@ -436,7 +454,7 @@ export class StreamJsonAdapter extends BaseAgentAdapter {
       this.streamMonitors.delete(processId);
     }
     this.childProcesses.delete(processId);
-    this.lastContentLength.delete(processId);
+    this.lastCumulativeText.delete(processId);
     this.thinkingEmitted.delete(processId);
     this.toolIdNames.clear();
     // Note: stoppedEmitted is intentionally NOT cleared here — it must persist

@@ -33,7 +33,7 @@
     "dashboard/package.json"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "cd dashboard && npx tsc -p tsconfig.node.json && cd .. && tsc",
     "dev": "tsc --watch",
     "start": "node bin/maestro.js",
     "mcp": "node bin/maestro-mcp.js",

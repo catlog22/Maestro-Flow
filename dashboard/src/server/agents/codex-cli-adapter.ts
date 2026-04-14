@@ -133,7 +133,8 @@ export class CodexCliAdapter extends BaseAgentAdapter {
       this.parseCodexMessage(line, processId);
     });
 
-    // Stderr handling: classify progress vs error
+    // Stderr handling: Codex sends warnings, reasoning, and progress to stderr.
+    // Try JSON parse first to detect structured messages (warnings/errors).
     child.stderr.on('data', (chunk: Buffer) => {
       const text = chunk.toString().trim();
       if (text.length === 0) return;
@@ -142,13 +143,23 @@ export class CodexCliAdapter extends BaseAgentAdapter {
         const trimmed = line.trim();
         if (trimmed.length === 0) continue;
 
+        // Try to parse as JSON — Codex emits structured warnings/errors to stderr
+        try {
+          const json = JSON.parse(trimmed);
+          if (json && typeof json === 'object' && json.type === 'error') {
+            // Codex structured warning/error — emit as thinking (non-fatal info)
+            this.emitEntry(processId, EntryNormalizer.thinking(processId, json.message ?? trimmed));
+            continue;
+          }
+        } catch {
+          // Not JSON — fall through to text classification
+        }
+
         if (STDERR_ERROR_RE.test(trimmed)) {
           this.emitEntry(processId, EntryNormalizer.error(processId, trimmed, 'stderr'));
         } else {
-          this.emitEntry(
-            processId,
-            EntryNormalizer.assistantMessage(processId, trimmed, true),
-          );
+          // Codex emits reasoning/progress text to stderr; treat as thinking, not output
+          this.emitEntry(processId, EntryNormalizer.thinking(processId, trimmed));
         }
       }
     });

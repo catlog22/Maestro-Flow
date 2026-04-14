@@ -207,14 +207,21 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
+/**
+ * Resolve the relay session ID that matches the current Claude Code session.
+ * Matches by CLAUDE_CODE_SSE_PORT when available (precise), falls back to
+ * newest alive session (legacy).  Cleans up dead relay files along the way.
+ */
 function resolveRelaySessionId(): string | undefined {
   const asyncDir = join(paths.data, 'async');
+  const currentSsePort = process.env.CLAUDE_CODE_SSE_PORT;
   try {
     const files = readdirSync(asyncDir)
       .filter((f) => f.startsWith('relay-session-') && f.endsWith('.id'));
 
     if (files.length === 0) return undefined;
 
+    let portMatch: string | undefined;
     let newest: { sessionId: string; startedAt: string } | undefined;
 
     for (const file of files) {
@@ -225,6 +232,10 @@ function resolveRelaySessionId(): string | undefined {
           try { unlinkSync(filePath); } catch {}
           continue;
         }
+        // Precise match: relay recorded the same SSE port as this session
+        if (currentSsePort && data.ssePort === currentSsePort) {
+          portMatch = data.sessionId;
+        }
         if (!newest || data.startedAt > newest.startedAt) {
           newest = data;
         }
@@ -233,10 +244,33 @@ function resolveRelaySessionId(): string | undefined {
       }
     }
 
-    return newest?.sessionId;
+    return portMatch ?? newest?.sessionId;
   } catch {
     return undefined;
   }
+}
+
+/** Check if the MCP notification channel is functional for the current session. */
+function isChannelAvailable(): boolean {
+  if (process.env.CLAUDECODE !== '1') return false;
+  const currentSsePort = process.env.CLAUDE_CODE_SSE_PORT;
+  if (!currentSsePort) return false;
+
+  const asyncDir = join(paths.data, 'async');
+  try {
+    const files = readdirSync(asyncDir)
+      .filter((f) => f.startsWith('relay-session-') && f.endsWith('.id'));
+
+    for (const file of files) {
+      try {
+        const data = JSON.parse(readFileSync(join(asyncDir, file), 'utf-8'));
+        if (data.ssePort === currentSsePort && data.pid && isProcessAlive(data.pid)) {
+          return true;
+        }
+      } catch { /* skip */ }
+    }
+  } catch { /* dir missing */ }
+  return false;
 }
 
 export function registerDelegateCommand(program: Command): void {
@@ -257,7 +291,7 @@ export function registerDelegateCommand(program: Command): void {
     .option('--includeDirs <dirs>', 'Additional directories (comma-separated)')
     .option('--session <id>', 'Claude Code session ID for completion notifications')
     .option('--backend <type>', 'Adapter backend: direct (default) or terminal (tmux/wezterm)')
-    .option('--async', 'Run the delegate in the background and return immediately')
+    .option('--async', 'Run in the background with MCP notifications (default is synchronous)')
     .addOption(new Option('--worker').hideHelp())
     .action(async (prompt: string | undefined, opts: {
       to?: string;
@@ -310,7 +344,10 @@ export function registerDelegateCommand(program: Command): void {
       };
 
       try {
-        if (opts.async && !opts.worker) {
+        // Auto-detect: async only when the MCP notification channel can deliver
+        // results back. Checks CLAUDECODE env + relay session matched by SSE port.
+        const useAsync = !opts.worker && (opts.async || isChannelAvailable());
+        if (useAsync) {
           process.stderr.write(`[MAESTRO_EXEC_ID=${execId}]\n`);
           launchDetachedDelegateWorker(request);
           console.log(`Started async delegate: ${execId}`);
@@ -319,7 +356,20 @@ export function registerDelegateCommand(program: Command): void {
         }
 
         const runner = new CliAgentRunner();
-        const exitCode = await runner.run(request);
+        const syncMode = !opts.worker;
+        const exitCode = await runner.run({ ...request, sync: syncMode });
+
+        // In sync mode, output the final result after completion
+        if (syncMode) {
+          const store = new CliHistoryStore();
+          const output = store.getOutput(execId);
+          if (output) {
+            process.stderr.write('\n--- Output ---\n');
+            process.stdout.write(output);
+            if (!output.endsWith('\n')) process.stdout.write('\n');
+          }
+        }
+
         process.exit(exitCode);
       } catch (err) {
         saveFailedMeta(new CliHistoryStore(), request, new Date().toISOString());
@@ -380,7 +430,10 @@ export function registerDelegateCommand(program: Command): void {
     .command('output <id>')
     .description('Get assistant output for a delegated execution')
     .option('--verbose', 'Show full metadata and raw output')
-    .action((id: string, opts: { verbose?: boolean }) => {
+    .option('--all', 'Include thinking/reasoning entries in output')
+    .option('--offset <n>', 'Character offset to start from (for pagination)')
+    .option('--limit <n>', 'Max characters to return (for pagination)')
+    .action((id: string, opts: { verbose?: boolean; all?: boolean; offset?: string; limit?: string }) => {
       const store = new CliHistoryStore();
       const meta = store.loadMeta(id);
 
@@ -388,6 +441,9 @@ export function registerDelegateCommand(program: Command): void {
         console.error(`Execution not found: ${id}`);
         process.exit(1);
       }
+
+      const offset = opts.offset ? parseInt(opts.offset, 10) : undefined;
+      const limit = opts.limit ? parseInt(opts.limit, 10) : undefined;
 
       if (opts.verbose) {
         console.log(`ID:     ${meta.execId}`);
@@ -398,10 +454,15 @@ export function registerDelegateCommand(program: Command): void {
         if (meta.completedAt) {
           console.log(`End:    ${meta.completedAt}`);
         }
+        const totalChars = store.getOutputLength(meta.execId);
+        console.log(`Chars:  ${totalChars}`);
+        if (offset || limit) {
+          console.log(`Page:   offset=${offset ?? 0} limit=${limit ?? 'all'}`);
+        }
         console.log('---');
       }
 
-      const output = store.getOutput(id);
+      const output = store.getOutput(id, { includeAll: opts.all, offset, limit });
       if (!output) {
         console.error(`No output available for: ${id}`);
         process.exit(1);

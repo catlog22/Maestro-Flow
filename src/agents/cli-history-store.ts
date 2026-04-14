@@ -243,7 +243,18 @@ export class CliHistoryStore {
   }
 
   /** Get final output text from an execution's JSONL. */
-  getOutput(execId: string): string {
+  /**
+   * Extract output text from persisted JSONL history.
+   *
+   * By default returns only final assistant output (excludes thinking/reasoning).
+   * Use `includeAll` to include thinking entries as well.
+   * Use `offset`/`limit` for pagination (character-based).
+   */
+  getOutput(execId: string, options?: {
+    includeAll?: boolean;
+    offset?: number;
+    limit?: number;
+  }): string {
     let raw: string;
     try {
       raw = readFileSync(this.jsonlPath(execId), 'utf-8');
@@ -251,6 +262,7 @@ export class CliHistoryStore {
       return '';
     }
 
+    const { includeAll = false, offset, limit } = options ?? {};
     const parts: string[] = [];
     for (const line of raw.split('\n')) {
       const trimmed = line.trim();
@@ -259,12 +271,29 @@ export class CliHistoryStore {
         const entry = JSON.parse(trimmed) as EntryLike;
         if (entry.type === 'assistant_message') {
           parts.push(String(entry.content ?? ''));
+        } else if (includeAll && entry.type === 'thinking') {
+          parts.push(`[Thinking] ${String(entry.content ?? '')}\n`);
         }
       } catch {
         // skip
       }
     }
-    return parts.join('');
+
+    let result = parts.join('');
+
+    if (offset !== undefined && offset > 0) {
+      result = result.slice(offset);
+    }
+    if (limit !== undefined && limit > 0) {
+      result = result.slice(0, limit);
+    }
+
+    return result;
+  }
+
+  /** Return total character count of assistant output (for pagination metadata). */
+  getOutputLength(execId: string): number {
+    return this.getOutput(execId).length;
   }
 
   /** Build a compact snapshot for async broker updates from persisted history. */

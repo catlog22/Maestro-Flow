@@ -189,11 +189,16 @@ export class DelegateChannelRelay {
   private writeSessionFile(): void {
     try {
       mkdirSync(dirname(this.sessionFilePath), { recursive: true });
-      writeFileSync(this.sessionFilePath, JSON.stringify({
+      const data: Record<string, unknown> = {
         sessionId: this.sessionId,
         pid: process.pid,
         startedAt: this.now(),
-      }), 'utf-8');
+      };
+      // Record SSE port so delegate CLI can match relay to current Claude Code session
+      if (process.env.CLAUDE_CODE_SSE_PORT) {
+        data.ssePort = process.env.CLAUDE_CODE_SSE_PORT;
+      }
+      writeFileSync(this.sessionFilePath, JSON.stringify(data), 'utf-8');
     } catch {
       // Best-effort — file write failure shouldn't block relay
     }

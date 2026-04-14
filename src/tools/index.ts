@@ -392,11 +392,14 @@ export function registerBuiltinTools(
 
   registry.register({
     name: 'delegate_output',
-    description: 'Get the persisted assistant output for an async delegate execution.',
+    description: 'Get the persisted assistant output for an async delegate execution. Returns only final output by default (excludes thinking/reasoning). Use includeAll for full output, offset/limit for pagination.',
     inputSchema: {
       type: 'object',
       properties: {
         execId: { type: 'string', description: 'Delegate execution/job ID' },
+        includeAll: { type: 'boolean', description: 'Include thinking/reasoning entries (default: false)' },
+        offset: { type: 'number', description: 'Character offset for pagination (0-based)' },
+        limit: { type: 'number', description: 'Max characters to return' },
       },
       required: ['execId'],
     },
@@ -411,7 +414,12 @@ export function registerBuiltinTools(
         return jsonResult({ error: `Delegate execution not found: ${execId}` }, true);
       }
 
-      const output = historyStore.getOutput(execId);
+      const includeAll = input.includeAll === true;
+      const offset = typeof input.offset === 'number' ? input.offset : undefined;
+      const limit = typeof input.limit === 'number' ? input.limit : undefined;
+      const totalChars = historyStore.getOutputLength(execId);
+
+      const output = historyStore.getOutput(execId, { includeAll, offset, limit });
       if (!output) {
         return jsonResult({ error: `No output available for: ${execId}` }, true);
       }
@@ -427,6 +435,8 @@ export function registerBuiltinTools(
           completedAt: meta.completedAt ?? null,
           exitCode: meta.exitCode ?? null,
         },
+        totalChars,
+        offset: offset ?? 0,
         output,
       });
     },
