@@ -193,6 +193,27 @@ Maestro-Flow 不挑一个 AI —— 它让它们一起干：
 
 ---
 
+## 命令 Overlay 系统
+
+非侵入式地为 `.claude/commands/*.md` 文件打补丁 —— 增加步骤、阅读要求、质量门禁 —— 无需编辑原始文件。Overlay 在 `maestro install` 升级后自动重新应用。
+
+```bash
+# 自然语言创建
+/maestro-overlay "在 maestro-execute 执行后增加 CLI 验证"
+
+# 手动操作
+maestro overlay add my-overlay.json    # 安装 + 应用
+maestro overlay list                   # 交互式 TUI 管理
+maestro overlay bundle -o team.json    # 打包分享
+maestro overlay import-bundle team.json # 解包 + 应用
+```
+
+每个 overlay 声明目标命令和补丁列表（section + mode + content）。Patcher 使用哈希 HTML 注释标记包裹注入内容，实现幂等应用和精准移除。
+
+详见 **[Overlay 系统指南](guide/overlay-guide.md)**。
+
+---
+
 ## 36 个命令，21 个 Agent
 
 ### 命令（Claude Code 斜杠命令）
@@ -310,6 +331,7 @@ maestro/
 ## 文档
 
 - **[命令使用指南](guide/command-usage-guide.md)** — 全部 36 个命令，含工作流图表、管线衔接、Issue 闭环、快速通道
+- **[Overlay 系统指南](guide/overlay-guide.md)** — 非侵入式命令扩展：overlay 格式、section 注入、bundle 打包/导入、交互式 TUI 管理
 - **[Team Lite — 使用指南](guide/team-lite-guide.md)** — 2-8 人小团队日常协作：加入、同步、队友活跃、冲突预飞检
 - **[Team Lite — 设计文档](guide/team-lite-design.md)** — 架构、数据模型、人类协作域与 agent 流水线域的命名空间边界
 

@@ -237,6 +237,27 @@ See **[Hooks Guide](guide/hooks-guide.md)** for full documentation.
 
 ---
 
+## Command Overlay System
+
+Overlay non-invasive patches onto `.claude/commands/*.md` files — add steps, reading requirements, quality gates — without editing the originals. Overlays survive `maestro install` upgrades.
+
+```bash
+# Create via natural language
+/maestro-overlay "add CLI verification after maestro-execute"
+
+# Or manually
+maestro overlay add my-overlay.json    # Install + apply
+maestro overlay list                   # Interactive TUI management
+maestro overlay bundle -o team.json    # Pack for sharing
+maestro overlay import-bundle team.json # Unpack + apply
+```
+
+Each overlay declares targets (commands) and patches (section + mode + content). The patcher wraps injected content in hashed HTML-comment markers for idempotent apply and surgical removal.
+
+See **[Overlay Guide](guide/overlay-guide.md)** for full documentation.
+
+---
+
 ## 44 Commands, 21 Agents
 
 ### Commands (Slash Commands for Claude Code)
@@ -397,6 +418,7 @@ maestro/
 ## Documentation
 
 - **[Command Usage Guide](guide/command-usage-guide.md)** — All 36 commands with workflow diagrams, pipeline chaining, Issue closed-loop, and quick channels
+- **[Overlay Guide](guide/overlay-guide.md)** — Non-invasive command extensions: overlay format, section injection, bundle/import, interactive TUI management
 - **[Hooks Guide](guide/hooks-guide.md)** — Hook system architecture, 7 hooks, spec injection, context budget, configuration
 - **[Team Lite — User Guide](guide/team-lite-guide.md)** — Daily workflow for 2-8 person teams: join, sync, activity awareness, conflict preflight
 - **[Team Lite — Design](guide/team-lite-design.md)** — Architecture, data model, and namespace boundary between human-collab and agent-pipeline domains
