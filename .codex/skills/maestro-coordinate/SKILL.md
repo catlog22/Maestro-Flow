@@ -61,7 +61,7 @@ Intent  →  Resolve Chain  →  Step 1  →  Step 2  →  …  →  Step N  →
 
 ## Implementation
 
-> **Full implementation reference**: The complete `detectTaskType`, `detectNextAction`, and `chainMap` definitions (35+ intent patterns, 40+ chain types) are in `~/workflows/maestro-coordinate.codex.md`. Read that file for authoritative logic before executing any step.
+> **Full implementation reference**: The complete `detectTaskType`, `detectNextAction`, and `chainMap` definitions (35+ intent patterns, 40+ chain types) are in `~/.maestro/workflows/maestro-coordinate.codex.md`. Read that file for authoritative logic before executing any step.
 
 ### Session Initialization
 
@@ -213,9 +213,8 @@ The assembled prompt embeds the skill call so the agent knows exactly what to in
 ## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS
-1. Read: ~/.codex/agents/universal-executor.md
-2. Read: ~/workflows/maestro-coordinate.codex.md
-3. Read: ~/.codex/skills/{skill}/SKILL.md
+1. Read: ~/.maestro/workflows/maestro-coordinate.codex.md
+2. Read: ~/.codex/skills/{skill}/SKILL.md
 
 ---
 
