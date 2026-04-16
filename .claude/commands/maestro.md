@@ -75,6 +75,12 @@ In auto mode, maestro also:
 - Skips chain confirmation (Step 5d)
 - Auto-skips on step errors (retry once, then skip and continue)
 
+**Context window reminder:**
+
+Before each Step 7 Skill() call, if context usage is near the window limit:
+- `-y` active → print one-line warning and continue.
+- Otherwise → stop before the next step and ask the user (Continue / Pause to resume with `-c` / Abort). Wait for explicit choice.
+
 **Report format on completion:**
 
 ```
