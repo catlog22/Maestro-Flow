@@ -1,5 +1,5 @@
 ---
-name: maestro-test
+name: quality-test
 description: Conversational UAT with session persistence, auto-diagnosis, and gap-plan closure loop. Interactive testing flow with severity inference and parallel debug agents.
 argument-hint: "<phase> [--auto-fix] [--session ID]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, AskUserQuestion
@@ -14,10 +14,10 @@ No auto mode -- UAT is inherently interactive. `--auto-fix` only automates gap c
 ## Usage
 
 ```bash
-$maestro-test "3"                    # test phase 3
-$maestro-test "3 --smoke"            # smoke tests first, then UAT
-$maestro-test "3 --auto-fix"         # auto-trigger gap-fix loop on failures
-$maestro-test "--session 04-comments"  # resume specific session
+$quality-test "3"                    # test phase 3
+$quality-test "3 --smoke"            # smoke tests first, then UAT
+$quality-test "3 --auto-fix"         # auto-trigger gap-fix loop on failures
+$quality-test "--session 04-comments"  # resume specific session
 ```
 
 **Flags**:

@@ -1,5 +1,5 @@
 ---
-name: maestro-business-test
+name: quality-business-test
 description: PRD-forward business testing with requirement traceability, multi-layer execution (L1 Interface → L2 Business Rule → L3 Scenario), fixture generation, and feedback loop.
 argument-hint: "<phase> [--spec SPEC-xxx] [--layer L1|L2|L3] [--gen-code] [--dry-run] [--re-run] [--auto]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, AskUserQuestion
@@ -14,13 +14,13 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, AskUserQuestion
 ## Usage
 
 ```bash
-$maestro-business-test "3"                          # test phase 3 against PRD
-$maestro-business-test "3 --layer L1"               # L1 interface tests only
-$maestro-business-test "3 --gen-code"               # generate framework-specific test classes
-$maestro-business-test "3 --dry-run"                # extract scenarios only, don't execute
-$maestro-business-test "3 --re-run"                 # re-run only previously failed scenarios
-$maestro-business-test "3 --spec SPEC-auth-2026-04" # explicit spec reference
-$maestro-business-test "3 --auto"                   # skip plan confirmation
+$quality-business-test "3"                          # test phase 3 against PRD
+$quality-business-test "3 --layer L1"               # L1 interface tests only
+$quality-business-test "3 --gen-code"               # generate framework-specific test classes
+$quality-business-test "3 --dry-run"                # extract scenarios only, don't execute
+$quality-business-test "3 --re-run"                 # re-run only previously failed scenarios
+$quality-business-test "3 --spec SPEC-auth-2026-04" # explicit spec reference
+$quality-business-test "3 --auto"                   # skip plan confirmation
 ```
 
 **Flags**:

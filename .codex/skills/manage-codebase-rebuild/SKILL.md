@@ -1,5 +1,5 @@
 ---
-name: maestro-codebase-rebuild
+name: manage-codebase-rebuild
 description: Full codebase documentation rebuild via CSV wave pipeline. Spawns 5 parallel doc generator agents to scan project and produce complete .workflow/codebase/ documentation set. Replaces manage-codebase-rebuild command.
 argument-hint: "[-y|--yes] [-c|--concurrency 5] [--continue] \"[--force] [--skip-commit]\""
 allowed-tools: spawn_agents_on_csv, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
@@ -14,10 +14,10 @@ When `--yes` or `-y`: Auto-confirm rebuild (implies --force), skip all prompts.
 ## Usage
 
 ```bash
-$maestro-codebase-rebuild ""
-$maestro-codebase-rebuild -y "--force"
-$maestro-codebase-rebuild -c 5 "--force --skip-commit"
-$maestro-codebase-rebuild --continue "rebuild-full-20260318"
+$manage-codebase-rebuild ""
+$manage-codebase-rebuild -y "--force"
+$manage-codebase-rebuild -c 5 "--force --skip-commit"
+$manage-codebase-rebuild --continue "rebuild-full-20260318"
 ```
 
 **Flags**:

@@ -489,11 +489,11 @@ Files:
 
 | Result | Suggestion |
 |--------|------------|
-| All passed, no gaps | `$maestro-review "{phase}"` for code review |
-| Critical gaps found | `$maestro-debug` for investigation |
+| All passed, no gaps | `$quality-review "{phase}"` for code review |
+| Critical gaps found | `$quality-debug` for investigation |
 | Minor gaps only | `$maestro-plan "{phase} --gaps"` -> `$maestro-execute` -> re-run `$maestro-verify` |
-| Low test coverage | `$maestro-test-gen "{phase}"` to generate missing tests |
-| Human verification needed | `$maestro-test "{phase}"` for interactive UAT |
+| Low test coverage | `$quality-test-gen "{phase}"` to generate missing tests |
+| Human verification needed | `$quality-test "{phase}"` for interactive UAT |
 
 ---
 

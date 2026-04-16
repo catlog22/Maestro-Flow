@@ -1,5 +1,5 @@
 ---
-name: maestro-issue
+name: manage-issue
 description: Issue CRUD -- create, list, status, update, close, and link issues to tasks
 argument-hint: "<create|list|status|update|close|link> [options]"
 allowed-tools: Read, Write, Bash, Glob, Grep, AskUserQuestion
@@ -10,12 +10,12 @@ allowed-tools: Read, Write, Bash, Glob, Grep, AskUserQuestion
 ## Usage
 
 ```bash
-$maestro-issue "create --title 'Auth token expiry bug' --severity high --source manual"
-$maestro-issue "list --status open --severity high"
-$maestro-issue "status ISS-20260318-001"
-$maestro-issue "update ISS-20260318-001 --priority critical --tags auth,security"
-$maestro-issue "close ISS-20260318-001 --resolution fixed"
-$maestro-issue "link ISS-20260318-001 --task TASK-003"
+$manage-issue "create --title 'Auth token expiry bug' --severity high --source manual"
+$manage-issue "list --status open --severity high"
+$manage-issue "status ISS-20260318-001"
+$manage-issue "update ISS-20260318-001 --priority critical --tags auth,security"
+$manage-issue "close ISS-20260318-001 --resolution fixed"
+$manage-issue "link ISS-20260318-001 --task TASK-003"
 ```
 
 ---

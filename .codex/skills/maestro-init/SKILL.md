@@ -140,7 +140,7 @@ Next steps (choose one path to create roadmap):
   $maestro-roadmap "<requirement>"  -- Direct interactive roadmap (light)
 
 Other commands:
-  $maestro-status                   -- View project dashboard
+  $manage-status                   -- View project dashboard
   $maestro-brainstorm "<topic>"     -- Explore ideas first
   $maestro-quick "<task>"           -- Quick ad-hoc task
 ```

@@ -1,5 +1,5 @@
 ---
-name: maestro-spec-setup
+name: spec-setup
 description: Initialize project specs by scanning codebase for conventions and tech stack
 argument-hint: ""
 allowed-tools: Read, Write, Bash, Glob, Grep
@@ -10,7 +10,7 @@ allowed-tools: Read, Write, Bash, Glob, Grep
 ## Usage
 
 ```bash
-$maestro-spec-setup
+$spec-setup
 ```
 
 No arguments. Scans the codebase and generates spec files in `.workflow/specs/`.

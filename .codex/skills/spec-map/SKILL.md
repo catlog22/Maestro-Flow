@@ -1,5 +1,5 @@
 ---
-name: maestro-spec-map
+name: spec-map
 description: Analyze codebase with 4 parallel mapper agents via CSV wave pipeline. Produces .workflow/codebase/ documents for tech-stack, architecture, features, and cross-cutting concerns.
 argument-hint: "[-y|--yes] [-c|--concurrency 4] [--continue] \"[focus area]\""
 allowed-tools: spawn_agents_on_csv, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
@@ -14,10 +14,10 @@ When `--yes` or `-y`: Auto-confirm mapper assignment, skip validation.
 ## Usage
 
 ```bash
-$maestro-spec-map ""
-$maestro-spec-map "auth"
-$maestro-spec-map -c 4 "api layer"
-$maestro-spec-map --continue "map-auth-20260318"
+$spec-map ""
+$spec-map "auth"
+$spec-map -c 4 "api layer"
+$spec-map --continue "map-auth-20260318"
 ```
 
 **Flags**:

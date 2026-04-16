@@ -1,5 +1,5 @@
 ---
-name: maestro-spec-load
+name: spec-load
 description: Load relevant specs for current context, optionally filtered by category or keyword
 argument-hint: "[--category <type>] [keyword]"
 allowed-tools: Read, Bash, Glob, Grep
@@ -10,10 +10,10 @@ allowed-tools: Read, Bash, Glob, Grep
 ## Usage
 
 ```bash
-$maestro-spec-load
-$maestro-spec-load "--category execution"
-$maestro-spec-load "authentication"
-$maestro-spec-load "--category debug error handling"
+$spec-load
+$spec-load "--category execution"
+$spec-load "authentication"
+$spec-load "--category debug error handling"
 ```
 
 **Flags**: `--category <type>` filters by spec category. Optional keyword searches within loaded files.

@@ -1,5 +1,5 @@
 ---
-name: maestro-issue-analyze
+name: manage-issue-analyze
 description: Root cause analysis for a specific issue via CLI exploration. Gathers codebase context (grep or semantic deep search), runs maestro delegate gemini analysis, and attaches a structured analysis record to the issue in issues.jsonl.
 argument-hint: "<ISS-ID> [--tool gemini|qwen] [--depth standard|deep]"
 allowed-tools: Read, Write, Bash, Glob, Grep
@@ -10,9 +10,9 @@ allowed-tools: Read, Write, Bash, Glob, Grep
 ## Usage
 
 ```bash
-$maestro-issue-analyze "ISS-20260401-001"
-$maestro-issue-analyze "ISS-20260401-001 --depth deep"
-$maestro-issue-analyze "ISS-20260401-001 --tool qwen --depth standard"
+$manage-issue-analyze "ISS-20260401-001"
+$manage-issue-analyze "ISS-20260401-001 --depth deep"
+$manage-issue-analyze "ISS-20260401-001 --tool qwen --depth standard"
 ```
 
 **Flags**:
@@ -178,7 +178,7 @@ Impact:      <impact_scope>
 Confidence:  <confidence>
 Affected:    <N> files
 
-Next: $maestro-issue-plan "<ISS-ID>"
+Next: $manage-issue-plan "<ISS-ID>"
 ```
 
 ---
@@ -189,7 +189,7 @@ Next: $maestro-issue-plan "<ISS-ID>"
 |------|----------|-----------|----------|
 | E001 | error | No ISS-ID provided | Display usage hint with format example |
 | E002 | error | ISS-ID format invalid | Show correct format `ISS-XXXXXXXX-NNN` |
-| E003 | error | ISS-ID not found in issues.jsonl | Suggest `$maestro-issue "list"` |
+| E003 | error | ISS-ID not found in issues.jsonl | Suggest `$manage-issue "list"` |
 | E004 | error | CLI analysis returned no parseable result | Retry with different `--tool`; report partial |
 | W001 | warning | Issue status is not open/registered | Warn, allow analysis to continue |
 
@@ -204,4 +204,4 @@ Next: $maestro-issue-plan "<ISS-ID>"
 5. **Append-only history**: Append to `issue_history`, never overwrite existing entries
 - *Note*: `spawn_agent` / `wait_agent` / `close_agent` are Codex v4 built-in orchestration functions — they do not need to be listed in `allowed-tools`
 6. **Preserve existing fields**: Patch only `analysis` + `issue_history` — all other fields unchanged
-7. **Next-step routing**: Always display `$maestro-issue-plan "<ISS-ID>"` at the end
+7. **Next-step routing**: Always display `$manage-issue-plan "<ISS-ID>"` at the end

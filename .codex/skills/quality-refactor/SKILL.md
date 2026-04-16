@@ -1,5 +1,5 @@
 ---
-name: maestro-refactor
+name: quality-refactor
 description: Tech debt reduction with reflection-driven iteration. Analyze scope, plan refactoring, execute with test verification, reflect on strategy per round.
 argument-hint: "<phase|--dir path> [--max-iterations N]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, AskUserQuestion
@@ -10,11 +10,11 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, AskUserQuestion
 ## Usage
 
 ```bash
-$maestro-refactor "src/auth"                    # module path scope
-$maestro-refactor "authentication"              # feature area scope
-$maestro-refactor "all"                         # full codebase scan
-$maestro-refactor "src/api --max-iterations 5"  # limit iteration rounds
-$maestro-refactor "--dir .workflow/scratch/refactor-auth-2026-03-18"  # resume existing
+$quality-refactor "src/auth"                    # module path scope
+$quality-refactor "authentication"              # feature area scope
+$quality-refactor "all"                         # full codebase scan
+$quality-refactor "src/api --max-iterations 5"  # limit iteration rounds
+$quality-refactor "--dir .workflow/scratch/refactor-auth-2026-03-18"  # resume existing
 ```
 
 **Flags**:

@@ -1,5 +1,5 @@
 ---
-name: maestro-integration-test
+name: quality-integration-test
 description: Self-iterating integration test cycle via CSV wave pipeline. Progressive L0-L3 layers in linear pipeline topology with reflection-driven adaptive strategy engine. Replaces quality-integration-test command.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"<phase> [--max-iterations N] [--target-coverage N]\""
 allowed-tools: spawn_agents_on_csv, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
@@ -14,10 +14,10 @@ When `--yes` or `-y`: Auto-confirm test plan, skip interactive validation, use d
 ## Usage
 
 ```bash
-$maestro-integration-test "3"
-$maestro-integration-test -c 4 "3 --max-iterations 8"
-$maestro-integration-test -y "3 --target-coverage 90"
-$maestro-integration-test --continue "integration-test-phase3-20260318"
+$quality-integration-test "3"
+$quality-integration-test -c 4 "3 --max-iterations 8"
+$quality-integration-test -y "3 --target-coverage 90"
+$quality-integration-test --continue "integration-test-phase3-20260318"
 ```
 
 **Flags**:

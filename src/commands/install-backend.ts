@@ -261,9 +261,12 @@ export function addMcpServer(
   };
   if (projectRoot) env.MAESTRO_PROJECT_ROOT = projectRoot;
 
+  // Use the maestro-mcp binary exposed by the globally installed maestro-flow package.
+  // On Windows, npm generates maestro-mcp.cmd shim resolved via cmd.exe; on Unix, it's
+  // symlinked onto PATH directly.
   const serverConfig = {
-    command: isWin ? 'cmd' : 'npx',
-    args: isWin ? ['/c', 'npx', '-y', 'maestro-mcp'] : ['-y', 'maestro-mcp'],
+    command: isWin ? 'cmd' : 'maestro-mcp',
+    args: isWin ? ['/c', 'maestro-mcp'] : [],
     env,
   };
 

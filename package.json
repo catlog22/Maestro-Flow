@@ -10,6 +10,7 @@
   },
   "bin": {
     "maestro": "bin/maestro.js",
+    "maestro-mcp": "bin/maestro-mcp.js",
     "maestro-statusline": "bin/maestro-statusline.js",
     "maestro-context-monitor": "bin/maestro-context-monitor.js"
   },

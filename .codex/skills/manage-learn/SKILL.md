@@ -1,5 +1,5 @@
 ---
-name: maestro-learn
+name: manage-learn
 description: Capture atomic learning insights into .workflow/learning/lessons.jsonl. Lightweight CRUD over the shared learning store — supports capture, list, search, and show modes. No LLM or CLI calls; all operations are pure file reads and writes.
 argument-hint: "[\"<insight text>\"|list|search <query>|show <INS-id>] [--category pattern|antipattern|decision|tool|gotcha|technique] [--tag t1,t2] [--phase N] [--confidence high|medium|low]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
@@ -10,11 +10,11 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ## Usage
 
 ```bash
-$maestro-learn "Always read state.json before planning to detect current phase"
-$maestro-learn "list --limit 10 --category antipattern"
-$maestro-learn "search context propagation"
-$maestro-learn "show INS-a3f7b2c1"
-$maestro-learn "\"Zod v4 breaks z.object().strict() API\" --category gotcha --tag zod,typescript"
+$manage-learn "Always read state.json before planning to detect current phase"
+$manage-learn "list --limit 10 --category antipattern"
+$manage-learn "search context propagation"
+$manage-learn "show INS-a3f7b2c1"
+$manage-learn "\"Zod v4 breaks z.object().strict() API\" --category gotcha --tag zod,typescript"
 ```
 
 **Flags** (capture mode):
@@ -157,7 +157,7 @@ Phase:      3 (phase-03-api-layer)
 Confidence: medium
 Tags:       manual, zod, typescript
 
-Next: $maestro-learn "list"  or  $maestro-learn "search zod"
+Next: $manage-learn "list"  or  $manage-learn "search zod"
 ```
 
 ---

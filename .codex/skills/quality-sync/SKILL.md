@@ -1,5 +1,5 @@
 ---
-name: maestro-sync
+name: quality-sync
 description: Sync codebase docs after code changes -- traces git diff through component/feature/requirement layers
 argument-hint: "[--full] [--since <commit|HEAD~N>] [--dry-run]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
@@ -10,11 +10,11 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ## Usage
 
 ```bash
-$maestro-sync
-$maestro-sync "--since HEAD~5"
-$maestro-sync "--full"
-$maestro-sync "--dry-run"
-$maestro-sync "--since abc123 --dry-run"
+$quality-sync
+$quality-sync "--since HEAD~5"
+$quality-sync "--full"
+$quality-sync "--dry-run"
+$quality-sync "--since abc123 --dry-run"
 ```
 
 **Flags**:

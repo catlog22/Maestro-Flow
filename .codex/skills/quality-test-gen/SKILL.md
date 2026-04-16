@@ -1,5 +1,5 @@
 ---
-name: maestro-test-gen
+name: quality-test-gen
 description: Test generation via CSV wave pipeline. Decomposes source files into independent parallel agents, each generating tests with TDD/E2E classification and RED-GREEN methodology. Replaces quality-test-gen command.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"<phase> [--type unit|integration|e2e] [--framework jest|vitest|...]\""
 allowed-tools: spawn_agents_on_csv, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
@@ -14,10 +14,10 @@ When `--yes` or `-y`: Auto-confirm test plan, skip interactive validation, use d
 ## Usage
 
 ```bash
-$maestro-test-gen "3"
-$maestro-test-gen -c 4 "3 --type unit"
-$maestro-test-gen -y "3 --type e2e --framework vitest"
-$maestro-test-gen --continue "test-gen-phase3-20260318"
+$quality-test-gen "3"
+$quality-test-gen -c 4 "3 --type unit"
+$quality-test-gen -y "3 --type e2e --framework vitest"
+$quality-test-gen --continue "test-gen-phase3-20260318"
 ```
 
 **Flags**:

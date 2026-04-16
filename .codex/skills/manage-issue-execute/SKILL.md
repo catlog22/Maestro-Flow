@@ -1,5 +1,5 @@
 ---
-name: maestro-issue-execute
+name: manage-issue-execute
 description: Execute a planned solution for an issue via dual-mode dispatch. Auto-detects server UP (POST to /api/execution/dispatch) or DOWN (direct maestro delegate). Updates issue status on completion with next-step routing to close, debug, or verify.
 argument-hint: "<ISS-ID> [--executor claude-code|codex|gemini] [--dry-run]"
 allowed-tools: Read, Write, Bash, Glob, Grep
@@ -10,10 +10,10 @@ allowed-tools: Read, Write, Bash, Glob, Grep
 ## Usage
 
 ```bash
-$maestro-issue-execute "ISS-20260401-001"
-$maestro-issue-execute "ISS-20260401-001 --dry-run"
-$maestro-issue-execute "ISS-20260401-001 --executor codex"
-$maestro-issue-execute "ISS-20260401-001 --executor gemini"
+$manage-issue-execute "ISS-20260401-001"
+$manage-issue-execute "ISS-20260401-001 --dry-run"
+$manage-issue-execute "ISS-20260401-001 --executor codex"
+$manage-issue-execute "ISS-20260401-001 --executor gemini"
 ```
 
 **Flags**:
@@ -172,9 +172,9 @@ Mode:      <server|cli>
 Status:    resolved
 
 Next steps:
-  Close:   $maestro-issue "close <ISS-ID> --resolution fixed"
+  Close:   $manage-issue "close <ISS-ID> --resolution fixed"
   Verify:  $maestro-verify "<phase>"
-  Debug:   $maestro-debug "<failure description>" (if issues found)
+  Debug:   $quality-debug "<failure description>" (if issues found)
 ```
 
 ---
@@ -184,8 +184,8 @@ Next steps:
 | Code | Severity | Condition | Recovery |
 |------|----------|-----------|----------|
 | E001 | error | No ISS-ID provided | Display usage hint |
-| E002 | error | No solution record on issue | Run `$maestro-issue-plan "<ISS-ID>"` first |
-| E003 | error | ISS-ID not found in issues.jsonl | Suggest `$maestro-issue "list"` |
+| E002 | error | No solution record on issue | Run `$manage-issue-plan "<ISS-ID>"` first |
+| E003 | error | ISS-ID not found in issues.jsonl | Suggest `$manage-issue "list"` |
 | E004 | error | Server dispatch or CLI execution failed | Log error, revert status to `open`, display failure details |
 
 ---

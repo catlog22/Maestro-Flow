@@ -1,5 +1,5 @@
 ---
-name: maestro-status
+name: manage-status
 description: Display project dashboard with phase progress, active tasks, and next steps
 argument-hint: ""
 allowed-tools: Read, Bash, Glob, Grep
@@ -10,7 +10,7 @@ allowed-tools: Read, Bash, Glob, Grep
 ## Usage
 
 ```bash
-$maestro-status
+$manage-status
 ```
 
 No arguments required. Reads `.workflow/` state files and renders a formatted project overview.

@@ -1,5 +1,5 @@
 ---
-name: maestro-memory-capture
+name: manage-memory-capture
 description: Capture session memory (compact or tip) into .workflow/memory/ with JSON index
 argument-hint: "[compact|tip] [description] [--tag tag1,tag2]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
@@ -10,10 +10,10 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
 ## Usage
 
 ```bash
-$maestro-memory-capture
-$maestro-memory-capture "compact"
-$maestro-memory-capture "tip Always check state.json before phase operations --tag workflow,state"
-$maestro-memory-capture "compact Full auth implementation session"
+$manage-memory-capture
+$manage-memory-capture "compact"
+$manage-memory-capture "tip Always check state.json before phase operations --tag workflow,state"
+$manage-memory-capture "compact Full auth implementation session"
 ```
 
 **Modes**: `compact` (full session compression) or `tip` (quick note with tags).

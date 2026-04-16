@@ -1,5 +1,5 @@
 ---
-name: maestro-issue-plan
+name: manage-issue-plan
 description: Solution planning for a specific issue. Auto-detects analysis context, runs maestro delegate planning, and attaches a structured solution record with ordered steps and verification criteria to the issue in issues.jsonl.
 argument-hint: "<ISS-ID> [--tool gemini|qwen] [--from-analysis]"
 allowed-tools: Read, Write, Bash, Glob, Grep
@@ -10,9 +10,9 @@ allowed-tools: Read, Write, Bash, Glob, Grep
 ## Usage
 
 ```bash
-$maestro-issue-plan "ISS-20260401-001"
-$maestro-issue-plan "ISS-20260401-001 --from-analysis"
-$maestro-issue-plan "ISS-20260401-001 --tool qwen"
+$manage-issue-plan "ISS-20260401-001"
+$manage-issue-plan "ISS-20260401-001 --from-analysis"
+$manage-issue-plan "ISS-20260401-001 --tool qwen"
 ```
 
 **Flags**:
@@ -160,7 +160,7 @@ Steps:
 Verification:
   - <verification 1>
 
-Next: $maestro-issue-execute "<ISS-ID>"
+Next: $manage-issue-execute "<ISS-ID>"
 ```
 
 ---
@@ -170,9 +170,9 @@ Next: $maestro-issue-execute "<ISS-ID>"
 | Code | Severity | Condition | Recovery |
 |------|----------|-----------|----------|
 | E001 | error | No ISS-ID provided | Display usage hint |
-| E002 | error | ISS-ID not found in issues.jsonl | Suggest `$maestro-issue "list"` |
+| E002 | error | ISS-ID not found in issues.jsonl | Suggest `$manage-issue "list"` |
 | E003 | error | CLI planning returned no parseable result | Retry with different `--tool` |
-| W001 | warning | `--from-analysis` but no analysis record exists | Proceed without context; suggest `$maestro-issue-analyze` |
+| W001 | warning | `--from-analysis` but no analysis record exists | Proceed without context; suggest `$manage-issue-analyze` |
 
 ---
 
@@ -183,4 +183,4 @@ Next: $maestro-issue-execute "<ISS-ID>"
 3. **Concrete steps only**: Each step must have a file reference — no "investigate further" placeholders
 4. **Preserve existing fields**: Patch only `solution` + `issue_history` — all other issue fields unchanged
 5. **Append-only history**: Append to `issue_history`, never overwrite existing entries
-6. **Next-step routing**: Always display `$maestro-issue-execute "<ISS-ID>"` at the end
+6. **Next-step routing**: Always display `$manage-issue-execute "<ISS-ID>"` at the end

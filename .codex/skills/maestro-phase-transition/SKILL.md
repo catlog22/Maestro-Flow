@@ -145,7 +145,7 @@ State updated:       .workflow/state.json
 
 Next steps:
   $maestro-plan ""    -- Plan tasks for Phase {N+1}
-  $maestro-status     -- View project dashboard
+  $manage-status     -- View project dashboard
 ```
 
 ---

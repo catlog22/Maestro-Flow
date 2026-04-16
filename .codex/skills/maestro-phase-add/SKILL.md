@@ -130,7 +130,7 @@ Updated:
 
 Next steps:
   $maestro-plan ""         -- Plan tasks for the new phase
-  $maestro-status          -- View updated roadmap
+  $manage-status          -- View updated roadmap
 ```
 
 ---

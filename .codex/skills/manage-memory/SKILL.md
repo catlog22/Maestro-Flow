@@ -1,5 +1,5 @@
 ---
-name: maestro-memory
+name: manage-memory
 description: Manage memory entries across workflow and system stores (list, search, view, edit, delete, prune)
 argument-hint: "[list|search|view|edit|delete|prune] [query|id|file] [--store workflow|system|all] [--tag tag] [--type compact|tip]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
@@ -10,13 +10,13 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
 ## Usage
 
 ```bash
-$maestro-memory
-$maestro-memory "list --store workflow"
-$maestro-memory "search authentication"
-$maestro-memory "view MEM-20260318-001"
-$maestro-memory "edit MEMORY.md"
-$maestro-memory "delete TIP-20260318-001 --confirm"
-$maestro-memory "prune --before 2026-01-01 --type tip --dry-run"
+$manage-memory
+$manage-memory "list --store workflow"
+$manage-memory "search authentication"
+$manage-memory "view MEM-20260318-001"
+$manage-memory "edit MEMORY.md"
+$manage-memory "delete TIP-20260318-001 --confirm"
+$manage-memory "prune --before 2026-01-01 --type tip --dry-run"
 ```
 
 ---

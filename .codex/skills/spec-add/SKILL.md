@@ -1,5 +1,5 @@
 ---
-name: maestro-spec-add
+name: spec-add
 description: Add a spec entry (bug, pattern, decision, or rule) to the appropriate specs file
 argument-hint: "<type> <content>"
 allowed-tools: Read, Write, Bash, Glob, Grep
@@ -10,10 +10,10 @@ allowed-tools: Read, Write, Bash, Glob, Grep
 ## Usage
 
 ```bash
-$maestro-spec-add "pattern Always use named exports for utility functions"
-$maestro-spec-add "bug Off-by-one in pagination when page=0"
-$maestro-spec-add "decision Use Zod for runtime validation over io-ts"
-$maestro-spec-add "rule All API endpoints must return structured error objects"
+$spec-add "pattern Always use named exports for utility functions"
+$spec-add "bug Off-by-one in pagination when page=0"
+$spec-add "decision Use Zod for runtime validation over io-ts"
+$spec-add "rule All API endpoints must return structured error objects"
 ```
 
 **Arguments**: `<type> <content>` where type is one of: bug, pattern, decision, rule, debug, test, review, validation.

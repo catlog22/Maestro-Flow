@@ -1,5 +1,5 @@
 ---
-name: maestro-review
+name: quality-review
 description: Tiered code review via CSV wave pipeline. Decomposes into 6 dimension agents running in parallel, with optional deep-dive aggregation wave. Replaces quality-review command.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"<phase> [--level quick|standard|deep] [--dimensions list]\""
 allowed-tools: spawn_agents_on_csv, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
@@ -14,10 +14,10 @@ When `--yes` or `-y`: Auto-confirm dimension selection, skip interactive validat
 ## Usage
 
 ```bash
-$maestro-review "3"
-$maestro-review -c 6 "3 --level deep"
-$maestro-review -y "3 --dimensions security,performance"
-$maestro-review --continue "review-phase3-20260318"
+$quality-review "3"
+$quality-review -c 6 "3 --level deep"
+$quality-review -y "3 --dimensions security,performance"
+$quality-review --continue "review-phase3-20260318"
 ```
 
 **Flags**:

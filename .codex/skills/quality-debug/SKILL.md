@@ -1,5 +1,5 @@
 ---
-name: maestro-debug
+name: quality-debug
 description: Hypothesis-driven debugging via CSV wave pipeline. Wave 1 generates parallel hypotheses, Wave 2 attempts parallel fixes on confirmed hypotheses. Replaces quality-debug command.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"[bug description] [--from-uat <phase>] [--parallel]\""
 allowed-tools: spawn_agents_on_csv, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
@@ -14,10 +14,10 @@ When `--yes` or `-y`: Auto-confirm hypothesis selection, skip interactive sympto
 ## Usage
 
 ```bash
-$maestro-debug "Login button throws 500 error on click"
-$maestro-debug -y "JWT token not refreshed --from-uat 3"
-$maestro-debug -c 4 "Navigation crash --from-uat 3 --parallel"
-$maestro-debug --continue "debug-jwt-expiry-20260318"
+$quality-debug "Login button throws 500 error on click"
+$quality-debug -y "JWT token not refreshed --from-uat 3"
+$quality-debug -c 4 "Navigation crash --from-uat 3 --parallel"
+$quality-debug --continue "debug-jwt-expiry-20260318"
 ```
 
 **Flags**:

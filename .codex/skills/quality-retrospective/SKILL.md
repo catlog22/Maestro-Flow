@@ -1,5 +1,5 @@
 ---
-name: maestro-retrospective
+name: quality-retrospective
 description: Multi-lens 复盘 (retrospective) for completed phases. Context-Agent Fork loads phase artifacts once; four parallel lens agents (technical, process, quality, decision) analyze independently; synthesizer distills insights; outputs are routed to spec stubs, memory tips, issues, and lessons.jsonl.
 argument-hint: "[phase|N..M] [--lens technical|process|quality|decision] [--all] [--no-route] [--compare N] [--auto-yes]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
@@ -14,12 +14,12 @@ When `--auto-yes`: Accept all routing recommendations without prompting. Route a
 ## Usage
 
 ```bash
-$maestro-retrospective
-$maestro-retrospective "3"
-$maestro-retrospective "2..4"
-$maestro-retrospective "--all"
-$maestro-retrospective "3 --lens technical --no-route"
-$maestro-retrospective "3 --compare 2 --auto-yes"
+$quality-retrospective
+$quality-retrospective "3"
+$quality-retrospective "2..4"
+$quality-retrospective "--all"
+$quality-retrospective "3 --lens technical --no-route"
+$quality-retrospective "3 --compare 2 --auto-yes"
 ```
 
 **Flags**:
@@ -468,9 +468,9 @@ METRICS:
   Review:       <N> issues
 
 Next:
-  $maestro-status
-  $maestro-issue "list --source retrospective"
-  $maestro-learn "list --phase <N>"
+  $manage-status
+  $manage-issue "list --source retrospective"
+  $manage-learn "list --phase <N>"
 ```
 
 ---

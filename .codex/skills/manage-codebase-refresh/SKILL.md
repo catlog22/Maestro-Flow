@@ -1,5 +1,5 @@
 ---
-name: maestro-codebase-refresh
+name: manage-codebase-refresh
 description: Incremental refresh of codebase docs based on recent git changes
 argument-hint: "[--since <date>] [--deep]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
@@ -10,10 +10,10 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ## Usage
 
 ```bash
-$maestro-codebase-refresh
-$maestro-codebase-refresh "--since 2026-03-15"
-$maestro-codebase-refresh "--deep"
-$maestro-codebase-refresh "--since 3d --deep"
+$manage-codebase-refresh
+$manage-codebase-refresh "--since 2026-03-15"
+$manage-codebase-refresh "--deep"
+$manage-codebase-refresh "--since 3d --deep"
 ```
 
 **Flags**:

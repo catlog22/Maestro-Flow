@@ -1,5 +1,5 @@
 ---
-name: maestro-issue-discover
+name: manage-issue-discover
 description: Multi-perspective issue discovery via CSV wave pipeline. 8 parallel perspective agents scan the codebase independently, then a dedup agent aggregates and creates issues. Replaces manage-issue-discover command.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"[by-prompt 'what to look for']\""
 allowed-tools: spawn_agents_on_csv, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
@@ -14,10 +14,10 @@ When `--yes` or `-y`: Auto-confirm perspective selection, skip interactive valid
 ## Usage
 
 ```bash
-$maestro-issue-discover
-$maestro-issue-discover -c 8 ""
-$maestro-issue-discover -y "by-prompt 'error handling gaps in auth module'"
-$maestro-issue-discover --continue "discover-multi-20260318"
+$manage-issue-discover
+$manage-issue-discover -c 8 ""
+$manage-issue-discover -y "by-prompt 'error handling gaps in auth module'"
+$manage-issue-discover --continue "discover-multi-20260318"
 ```
 
 **Flags**:
@@ -429,10 +429,10 @@ Files:
 
 | Result | Suggestion |
 |--------|------------|
-| Critical issues found | `$maestro-issue "list --severity critical"` -- Review critical issues |
-| Issues created | `$maestro-issue "list"` -- View all issues |
-| Specific area needs deeper look | `$maestro-issue-discover "by-prompt '...'"` -- Explore deeper |
-| Full scan complete | `$maestro-issue "list --source discovery"` -- View discovered issues |
+| Critical issues found | `$manage-issue "list --severity critical"` -- Review critical issues |
+| Issues created | `$manage-issue "list"` -- View all issues |
+| Specific area needs deeper look | `$manage-issue-discover "by-prompt '...'"` -- Explore deeper |
+| Full scan complete | `$manage-issue "list --source discovery"` -- View discovered issues |
 
 ---
 
