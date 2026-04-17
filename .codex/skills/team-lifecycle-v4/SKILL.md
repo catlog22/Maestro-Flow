@@ -153,7 +153,7 @@ task_id: <CHECKPOINT-NNN>
 scope: [<upstream-task-ids>]
 pipeline_progress: <done>/<total> tasks completed`
 })
-wait_agent({ timeout_ms: 600000 })
+wait_agent({ timeout_ms: 1800000 })  // 30 min
 ```
 
 ### Shutdown (pipeline complete)
@@ -196,7 +196,7 @@ For each wave in the pipeline:
 3. **Build upstream context** -- For each task, gather findings from `context_from` tasks via tasks.json and `discoveries/{id}.json`
 4. **Separate task types** -- Split into regular tasks and CHECKPOINT tasks
 5. **Spawn regular tasks** -- For each regular task, call `spawn_agent({ agent_type: "team_worker", message: "..." })`, collect agent IDs
-6. **Wait** -- `wait_agent({ timeout_ms: 900000 })`
+6. **Wait** -- `wait_agent({ timeout_ms: 1800000 })` (30 min). If `result.timed_out`, send STATUS_CHECK via followup_task (wait 3 min), then FINALIZE with interrupt (wait 3 min), then mark timed_out and close agents.
 7. **Collect results** -- Read `discoveries/{task_id}.json` for each agent, update tasks.json status/findings/error, then `close_agent({ target })` each worker
 8. **Execute checkpoints** -- For each CHECKPOINT task, `followup_task` to supervisor, `wait_agent`, read checkpoint report from `artifacts/`, parse verdict
 9. **Handle block** -- If verdict is `block`, prompt user via `request_user_input` with options: Override / Revise upstream / Abort

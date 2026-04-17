@@ -199,7 +199,7 @@ EXPECTED: Comprehensive artifact summary covering:
 - Key metrics: lines changed, test coverage, time taken
 `
 })
-wait_agent({ timeout_ms: 600000 })
+wait_agent({ timeout_ms: 1800000 })  // initial spawn: 30 min
 ```
 
 **Step 4b: Fork 4 lens agents** (only active lenses based on `--lens` flag; default: all 4)
@@ -285,7 +285,7 @@ EXPECTED: Same JSON array schema as technical lens.
 })
 
 const lensResults = wait_agent({
-  timeout_ms: 600000
+  timeout_ms: 1800000  // initial spawn: 30 min
 })
 
 // Close lenses first
@@ -323,7 +323,7 @@ EXPECTED: JSON with:
 `
 })
 
-const synthResult = wait_agent({ timeout_ms: 600000 })
+const synthResult = wait_agent({ timeout_ms: 1800000 })  // initial spawn: 30 min
 close_agent({ target: "synthesizer" })
 ```
 

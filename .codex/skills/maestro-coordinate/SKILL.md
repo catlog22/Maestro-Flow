@@ -164,11 +164,25 @@ for (const step of state.steps.filter(s => s.status === 'pending')) {
   // Spawn step agent
   const agent = spawn_agent({ message: stepPrompt })
 
-  // Wait — with timeout urge
-  let result = wait_agent({ timeout_ms: 600000 })
+  // Wait — initial spawn: 30 min
+  let result = wait_agent({ timeout_ms: 1800000 })
   if (result.timed_out) {
-    send_message({ target: agent, message: "Please wrap up and output your findings JSON now." })
-    result = wait_agent({ timeout_ms: 600000 })
+    // Step 1: Status probe (non-interrupting, 3 min)
+    followup_task({ target: agent, message: "STATUS_CHECK: Report current progress, findings so far, and estimated remaining work." })
+    const status = wait_agent({ timeout_ms: 180000 })
+    if (status.timed_out) {
+      // Step 2: Force finalize (interrupt, 3 min)
+      followup_task({ target: agent, message: "FINALIZE: Output all current findings immediately. Time limit reached.", interrupt: true })
+      const forced = wait_agent({ timeout_ms: 180000 })
+      if (forced.timed_out) {
+        // Step 3: Abort
+        close_agent({ target: agent })
+      } else {
+        result = forced
+      }
+    } else {
+      result = status
+    }
   }
 
   // Parse structured output from agent
@@ -290,7 +304,7 @@ Resume: $maestro-coordinate --continue
 |------|----------|-----------|----------|
 | E001 | error | Intent unclassifiable after clarification | Default to `feature` chain; note in state.json |
 | E002 | error | `--chain` value not in chain map | List valid chains, abort |
-| E003 | error | Step agent timeout (both waits) | Mark step `failed`; skip remaining steps; suggest `--continue` |
+| E003 | error | Step agent timeout (4-step cascade exhausted) | Mark step `failed`; skip remaining steps; suggest `--continue` |
 | E004 | error | Step agent failed (non-JSON output) | Mark step `failed`; preserve raw output in `findings`; skip remaining |
 | E005 | error | `--continue`: no session found | Glob `.workflow/.maestro-coordinate/MCC-*/`, list sessions, prompt |
 | W001 | warning | Step output JSON missing `hints_for_next` | Continue with empty hints; next step still gets `findings` |
@@ -306,5 +320,5 @@ Resume: $maestro-coordinate --continue
 5. **Skip on Failure**: Step failure immediately marks all remaining steps `skipped` and aborts the loop
 6. **Close before spawn**: Always `close_agent` the current step agent before spawning the next
 7. **Dry-run is read-only**: Stop after displaying the chain plan — never spawn agents
-8. **Timeout handling**: One urge via `send_message`; if still timed out → mark `failed`
+8. **Timeout handling**: 4-step cascade — status probe → force finalize → abort; if all timed out → mark `failed`
 9. **No CLI fallback**: All execution is agent-native — no `exec_command("maestro delegate ...")`

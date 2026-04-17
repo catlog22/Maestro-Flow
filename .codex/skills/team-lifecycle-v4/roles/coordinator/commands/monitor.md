@@ -151,7 +151,7 @@ After spawning all ready regular tasks:
 const taskNames = Object.entries(state.active_agents)
   .filter(([_, a]) => !a.resident)
   .map(([taskId]) => taskId)
-const waitResult = wait_agent({ timeout_ms: 900000 })
+const waitResult = wait_agent({ timeout_ms: 1800000 })  // 30 min
 // 4a) Drain progress from message bus (before collecting discoveries)
 const progressMsgs = mcp__maestro-tools__team_msg({
   operation: "list", session_id: sessionId, type: "progress", last: 100
@@ -173,15 +173,26 @@ if (blockerMsgs.result?.messages?.length > 0) {
 if (waitResult.timed_out) {
   // Use progress trace to understand where workers got stuck
   for (const taskId of taskNames) {
-    const lastProgress = (progressMsgs.result?.messages || [])
-      .filter(m => m.data?.task_id === taskId)
-      .pop()
-    state.tasks[taskId].status = 'timed_out'
-    state.tasks[taskId].error = lastProgress
-      ? `Timed out at ${lastProgress.data.phase} (${lastProgress.data.progress_pct}%)`
-      : 'Timed out with no progress reported'
-    close_agent({ target: taskId })
-    delete state.active_agents[taskId]
+    // Status probe before closing
+    followup_task({ target: taskId, message: "STATUS_CHECK: Report current progress, findings so far, and estimated remaining work." })
+    const status = wait_agent({ timeout_ms: 180000 })  // 3 min
+    if (status.timed_out) {
+      followup_task({ target: taskId, message: "FINALIZE: Output all current findings immediately. Time limit reached.", interrupt: true })
+      const forced = wait_agent({ timeout_ms: 180000 })  // 3 min
+      if (forced.timed_out) {
+        const lastProgress = (progressMsgs.result?.messages || [])
+          .filter(m => m.data?.task_id === taskId)
+          .pop()
+        state.tasks[taskId].status = 'timed_out'
+        state.tasks[taskId].error = lastProgress
+          ? `Timed out at ${lastProgress.data.phase} (${lastProgress.data.progress_pct}%)`
+          : 'Timed out with no progress reported'
+        close_agent({ target: taskId })
+        delete state.active_agents[taskId]
+      }
+      // else: forced output received, process result
+    }
+    // else: status received, continue processing
   }
 } else {
   // 5) Collect results from discoveries/{task_id}.json
@@ -234,8 +245,16 @@ For each ready CHECKPOINT task:
    scope: [${task.deps.join(', ')}]
    pipeline_progress: ${completedCount}/${totalCount} tasks completed`
    })
-   const cpResult = wait_agent({ timeout_ms: 600000 })
-   if (cpResult.timed_out) { /* mark checkpoint timed_out, close supervisor, STOP */ }
+   const cpResult = wait_agent({ timeout_ms: 1800000 })  // 30 min
+   if (cpResult.timed_out) {
+     followup_task({ target: supervisorId, message: "STATUS_CHECK: Report current progress, findings so far, and estimated remaining work." })
+     const status = wait_agent({ timeout_ms: 180000 })  // 3 min
+     if (status.timed_out) {
+       followup_task({ target: supervisorId, message: "FINALIZE: Output all current findings immediately. Time limit reached.", interrupt: true })
+       const forced = wait_agent({ timeout_ms: 180000 })  // 3 min
+       if (forced.timed_out) { /* mark checkpoint timed_out, close supervisor, STOP */ }
+     }
+   }
    ```
 4. Read checkpoint report from artifacts/${task.id}-report.md
 5. Parse verdict (pass / warn / block):

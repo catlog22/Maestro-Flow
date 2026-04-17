@@ -189,7 +189,7 @@ After spawning all ready tasks:
 const agentIds = Object.values(state.active_agents)
   .filter(a => !a.resident)
   .map(a => a.agentId)
-const waitResult = wait_agent({ timeout_ms: 900000 })
+const waitResult = wait_agent({ timeout_ms: 1800000 })  // 30 min
 
 // Drain progress from message bus
 const progressMsgs = mcp__maestro-tools__team_msg({
@@ -202,14 +202,25 @@ for (const msg of (progressMsgs.result?.messages || [])) {
 if (waitResult.timed_out) {
   for (const [taskId, agent] of Object.entries(state.active_agents)) {
     if (agent.resident) continue
-    const lastProgress = (progressMsgs.result?.messages || [])
-      .filter(m => m.data?.task_id === taskId).pop()
-    state.tasks[taskId].status = 'timed_out'
-    state.tasks[taskId].error = lastProgress
-      ? `Timed out at ${lastProgress.data.phase} (${lastProgress.data.progress_pct}%)`
-      : 'Timed out with no progress reported'
-    close_agent({ target: agent.agentId })
-    delete state.active_agents[taskId]
+    // Status probe before closing
+    followup_task({ target: taskId, message: "STATUS_CHECK: Report current progress, findings so far, and estimated remaining work." })
+    const status = wait_agent({ timeout_ms: 180000 })  // 3 min
+    if (status.timed_out) {
+      followup_task({ target: taskId, message: "FINALIZE: Output all current findings immediately. Time limit reached.", interrupt: true })
+      const forced = wait_agent({ timeout_ms: 180000 })  // 3 min
+      if (forced.timed_out) {
+        const lastProgress = (progressMsgs.result?.messages || [])
+          .filter(m => m.data?.task_id === taskId).pop()
+        state.tasks[taskId].status = 'timed_out'
+        state.tasks[taskId].error = lastProgress
+          ? `Timed out at ${lastProgress.data.phase} (${lastProgress.data.progress_pct}%)`
+          : 'Timed out with no progress reported'
+        close_agent({ target: agent.agentId })
+        delete state.active_agents[taskId]
+      }
+      // else: forced output received, process result
+    }
+    // else: status received, continue processing
   }
 } else {
   // Collect results from discoveries/{task_id}.json

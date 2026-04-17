@@ -31,7 +31,7 @@ OK: Write(".workflow/.team/TC-xxx/tasks.json", ...)   — task management
 OK: Read("roles/coordinator/commands/analyze-task.md") — own instructions
 OK: Read("specs/role-spec-template.md")               — generating role-specs
 OK: spawn_agent({ agent_type: "team_worker", ... })   — delegation
-OK: wait_agent({ timeout_ms: 900000 })     — monitoring
+OK: wait_agent({ timeout_ms: 1800000 })     — monitoring (30 min)
 ```
 
 **Self-check gate**: After Phase 1 analysis, before ANY other action, ask yourself:
@@ -380,7 +380,7 @@ Delegate to `@commands/dispatch.md` which creates the full task chain:
 
 ### Message Semantics
 - **send_message**: Queue supplementary info to a running agent. Does NOT interrupt current processing. Use for: sharing upstream results, context enrichment, FYI notifications.
-- **followup_task**: Assign new work and trigger processing. Use for: waking idle agents, redirecting work, requesting new output.
+- **followup_task**: Assign new work and trigger processing. Use for: waking idle agents, redirecting work, requesting new output, and status probing on timeout (STATUS_CHECK / FINALIZE cascade before closing timed-out agents).
 
 ### Agent Lifecycle Management
 - **list_agents({})**: Returns all running agents. Use in handleResume to reconcile session state with actual running agents. Use in handleComplete to verify clean shutdown.

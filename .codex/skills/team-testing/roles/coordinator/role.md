@@ -166,7 +166,7 @@ Delegate to @commands/monitor.md#handleSpawnNext:
 
 ### Message Semantics
 - **send_message**: Queue supplementary info to a running agent. Does NOT interrupt current processing. Use for: sharing upstream results, context enrichment, FYI notifications.
-- **followup_task**: Assign new work and trigger processing. Use for: waking idle agents, redirecting work, requesting new output.
+- **followup_task**: Assign new work and trigger processing. Use for: waking idle agents, redirecting work, requesting new output, and status probing on timeout (STATUS_CHECK / FINALIZE cascade before closing timed-out agents).
 
 ### Agent Lifecycle Management
 - **list_agents({})**: Returns all running agents. Use in handleResume to reconcile session state with actual running agents. Use in handleComplete to verify clean shutdown.

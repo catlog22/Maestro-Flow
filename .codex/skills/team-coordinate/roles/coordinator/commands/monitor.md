@@ -226,7 +226,7 @@ Report blockers immediately via team_msg type="blocker".
 Report completion via team_msg type="task_complete" after report_agent_job_result.`
 })
 // Collect results — use task_name for stable targeting (v4):
-const result = wait_agent({ timeout_ms: 900000 })
+const result = wait_agent({ timeout_ms: 1800000 })  // 30 min
 
 // Drain progress from message bus (before processing results)
 const progressMsgs = mcp__maestro-tools__team_msg({
@@ -237,15 +237,24 @@ for (const msg of (progressMsgs.result?.messages || [])) {
 }
 
 if (result.timed_out) {
-  // Use progress trace for timeout forensics
-  const lastProgress = (progressMsgs.result?.messages || [])
-    .filter(m => m.data?.task_id === taskId).pop()
-  state.tasks[taskId].status = 'timed_out'
-  state.tasks[taskId].error = lastProgress
-    ? `Timed out at ${lastProgress.data.phase} (${lastProgress.data.progress_pct}%)`
-    : 'Timed out with no progress reported'
-  close_agent({ target: taskId })
-  // Report timeout, STOP — let user decide retry
+  // Status probe before closing
+  followup_task({ target: taskId, message: "STATUS_CHECK: Report current progress, findings so far, and estimated remaining work." })
+  const status = wait_agent({ timeout_ms: 180000 })  // 3 min
+  if (status.timed_out) {
+    followup_task({ target: taskId, message: "FINALIZE: Output all current findings immediately. Time limit reached.", interrupt: true })
+    const forced = wait_agent({ timeout_ms: 180000 })  // 3 min
+    if (forced.timed_out) {
+      const lastProgress = (progressMsgs.result?.messages || [])
+        .filter(m => m.data?.task_id === taskId).pop()
+      state.tasks[taskId].status = 'timed_out'
+      state.tasks[taskId].error = lastProgress
+        ? `Timed out at ${lastProgress.data.phase} (${lastProgress.data.progress_pct}%)`
+        : 'Timed out with no progress reported'
+      close_agent({ target: taskId })
+    }
+    // else: forced output received, process result
+  }
+  // else: status received, continue processing
 } else {
   // Process result, update tasks.json
   close_agent({ target: taskId })  // Use task_name, not agentId

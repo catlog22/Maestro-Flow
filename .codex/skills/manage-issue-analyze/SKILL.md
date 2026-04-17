@@ -87,7 +87,7 @@ Identify: affected locations (file:line), caller/callee chains, data flow, exist
 EXPECTED: JSON with: affected_files [{file, line, snippet, relevance}], related_modules, error_handling_gaps, test_coverage_gaps.
 `
 })
-const ctxResult = wait_agent({ timeout_ms: 600000 })
+const ctxResult = wait_agent({ timeout_ms: 1800000 })  // initial spawn: 30 min
 close_agent({ target: "ctx-explore" })
 ```
 
