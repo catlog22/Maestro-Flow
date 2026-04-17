@@ -292,9 +292,9 @@ async function readPhaseTasks(phaseDir: string): Promise<TaskCard[]> {
   const tasks: TaskCard[] = [];
   for (const entry of entries) {
     if (!entry.startsWith('TASK-') || !entry.endsWith('.json')) continue;
-    const task = await readJsonSafe<TaskCard>(join(basePath, entry));
-    if (task) {
-      tasks.push(task);
+    const raw = await readJsonSafe<Record<string, unknown>>(join(basePath, entry));
+    if (raw) {
+      tasks.push(normalizeTask(raw, entry));
     }
   }
 
@@ -411,6 +411,48 @@ function emptyBoard(): BoardState {
     scratch: [],
     lastUpdated: new Date().toISOString(),
   };
+}
+
+/** Normalize a raw task JSON into a TaskCard — handles variant field names */
+function normalizeTask(raw: Record<string, unknown>, filename: string): TaskCard {
+  const id = String(raw.taskId ?? raw.id ?? filename.replace('.json', ''));
+  const title = String(raw.title ?? '');
+  const status = String(raw.status ?? (raw.meta as Record<string, unknown>)?.status ?? 'pending');
+  const type = String(raw.type ?? raw.category ?? 'feature') as TaskCard['type'];
+  const meta = (raw.meta as Record<string, unknown>) ?? {};
+
+  return {
+    id,
+    title,
+    description: String(raw.description ?? raw.summary ?? ''),
+    type,
+    priority: String(raw.priority ?? ''),
+    effort: String(raw.effort ?? raw.estimate ?? ''),
+    action: String(raw.action ?? ''),
+    scope: String(raw.scope ?? ''),
+    focus_paths: Array.isArray(raw.focus_paths) ? raw.focus_paths : [],
+    depends_on: Array.isArray(raw.depends_on) ? raw.depends_on : (Array.isArray(raw.dependsOn) ? raw.dependsOn : []),
+    parallel_group: (raw.parallel_group as string) ?? null,
+    convergence: (raw.convergence as TaskCard['convergence']) ?? { criteria: [], verification: '', definition_of_done: '' },
+    files: Array.isArray(raw.files) ? raw.files : [],
+    implementation: Array.isArray(raw.implementation) ? raw.implementation : (Array.isArray(raw.implementationSteps) ? raw.implementationSteps : []),
+    test: (raw.test as TaskCard['test']) ?? { commands: [], unit: [], integration: [], success_metrics: [] },
+    reference: (raw.reference as TaskCard['reference']) ?? { pattern: '', files: [], examples: null },
+    rationale: (raw.rationale as TaskCard['rationale']) ?? { chosen_approach: '', decision_factors: [], tradeoffs: null },
+    risks: Array.isArray(raw.risks) ? raw.risks.map(String) : [],
+    code_skeleton: (raw.code_skeleton as string) ?? null,
+    doc_context: (raw.doc_context as TaskCard['doc_context']) ?? { affected_features: [], affected_components: [], affected_requirements: [], adr_ids: [] },
+    meta: {
+      status: String(meta.status ?? status) as TaskCard['meta']['status'],
+      estimated_time: (meta.estimated_time as string) ?? null,
+      risk: String(meta.risk ?? ''),
+      autonomous: Boolean(meta.autonomous ?? false),
+      checkpoint: Boolean(meta.checkpoint ?? false),
+      wave: typeof meta.wave === 'number' ? meta.wave : 0,
+      execution_group: (meta.execution_group as string) ?? null,
+      executor: String(meta.executor ?? ''),
+    },
+  } as TaskCard;
 }
 
 /** Fill missing fields in PhaseCard so components never crash on partial data */

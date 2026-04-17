@@ -16,6 +16,8 @@ const PIPELINE_STAGES: Array<{ status: PhaseStatus; label: string }> = [
 
 interface PipelineHeaderProps {
   phases: PhaseCard[];
+  hiddenCols?: Set<PhaseStatus>;
+  onToggleCol?: (status: PhaseStatus) => void;
 }
 
 function countByStatus(phases: PhaseCard[], status: PhaseStatus): number {
@@ -31,25 +33,35 @@ function countByStatus(phases: PhaseCard[], status: PhaseStatus): number {
   return phases.filter((p) => p.status === status).length;
 }
 
-export function PipelineHeader({ phases }: PipelineHeaderProps) {
+export function PipelineHeader({ phases, hiddenCols, onToggleCol }: PipelineHeaderProps) {
   return (
     <div className="flex items-center px-[var(--spacing-4)] py-[var(--spacing-3)] border-b border-border-divider bg-bg-primary shrink-0 gap-0 overflow-x-auto">
       {PIPELINE_STAGES.map((stage, i) => {
         const count = countByStatus(phases, stage.status);
         const color = STATUS_COLORS[stage.status];
+        const hidden = hiddenCols?.has(stage.status);
         return (
           <div key={stage.status} className="contents">
-            {/* Stage chip */}
-            <div className="flex items-center gap-[var(--spacing-2)] px-[var(--spacing-3-5)] py-[var(--spacing-1-5)] text-[length:var(--font-size-xs)] font-[var(--font-weight-semibold)] text-text-tertiary">
+            {/* Stage chip — clickable toggle */}
+            <button
+              type="button"
+              onClick={() => onToggleCol?.(stage.status)}
+              className={`flex items-center gap-[var(--spacing-2)] px-[var(--spacing-3-5)] py-[var(--spacing-1-5)] text-[length:var(--font-size-xs)] font-[var(--font-weight-semibold)] cursor-pointer transition-all rounded-full border ${
+                hidden
+                  ? 'opacity-40 border-border bg-bg-secondary'
+                  : 'opacity-100 border-transparent bg-transparent hover:bg-bg-secondary'
+              }`}
+              title={hidden ? `Show ${stage.label} column` : `Hide ${stage.label} column`}
+            >
               <span
                 className="inline-block w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: color }}
               />
-              {stage.label}
+              <span className="text-text-tertiary">{stage.label}</span>
               <span className="text-[10px] font-[var(--font-weight-semibold)] px-[var(--spacing-1-5)] py-px rounded-full bg-bg-secondary text-text-tertiary font-mono">
                 {count}
               </span>
-            </div>
+            </button>
 
             {/* Arrow connector */}
             {i < PIPELINE_STAGES.length - 1 && (

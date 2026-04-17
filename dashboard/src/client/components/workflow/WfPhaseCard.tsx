@@ -49,6 +49,37 @@ export function WfPhaseCard({ phase, onSelectTask, recommendedAdvance }: WfPhase
     (i) => i.execution?.status === 'running'
   ).length;
 
+  // Compact card for empty phases (no tasks)
+  if (!hasTasks) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setSelectedPhase(phase.phase)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setSelectedPhase(phase.phase);
+          }
+        }}
+        className="rounded-[8px] px-[var(--spacing-3)] py-[var(--spacing-2)] cursor-pointer transition-all duration-[var(--duration-normal)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)] focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-ring)] opacity-60 hover:opacity-80"
+        style={{ border: '1px dashed var(--color-border)', backgroundColor: 'transparent' }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-[var(--spacing-2)]">
+            <StatusBadge status={phase.status} cardVariant />
+            <span className="text-[length:var(--font-size-sm)] font-[var(--font-weight-medium)] text-text-secondary">
+              {phase.title}
+            </span>
+          </div>
+          <span className="text-[length:var(--font-size-xs)] font-mono text-text-tertiary">
+            P-{String(phase.phase).padStart(2, '0')}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div
@@ -67,21 +98,19 @@ export function WfPhaseCard({ phase, onSelectTask, recommendedAdvance }: WfPhase
         {/* Top row: badge + expand toggle + ID */}
         <div className="flex items-center justify-between mb-[var(--spacing-1-5)]">
           <div className="flex items-center gap-[var(--spacing-1-5)]">
-            {hasTasks && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-                className="w-4 h-4 flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors"
-                aria-label={expanded ? 'Collapse tasks' : 'Expand tasks'}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+              className="w-4 h-4 flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors"
+              aria-label={expanded ? 'Collapse tasks' : 'Expand tasks'}
+            >
+              <svg
+                className={`w-3 h-3 transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`}
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
               >
-                <svg
-                  className={`w-3 h-3 transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`}
-                  viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                >
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </button>
-            )}
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
             <StatusBadge status={phase.status} cardVariant />
           </div>
           <span className="text-[length:var(--font-size-xs)] font-mono text-text-tertiary">
