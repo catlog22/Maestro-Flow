@@ -49,10 +49,10 @@ User's issue: $ARGUMENTS
 Follow '~/.maestro/workflows/debug.md' completely.
 
 **Next-step routing on completion:**
-- Root cause found, fix needed → Skill({ skill: "maestro-plan", args: "{phase} --gaps" })
-- Root cause found (from UAT), auto-fix → Skill({ skill: "quality-test", args: "{phase} --auto-fix" })
-- Inconclusive, need more info → Skill({ skill: "quality-debug", args: "{issue} -c" }) (resume session)
-- Standalone fix already applied → Skill({ skill: "maestro-verify", args: "{phase}" })
+- Root cause found, fix needed → `/maestro-plan {phase} --gaps`
+- Root cause found (from UAT), auto-fix → `/quality-test {phase} --auto-fix`
+- Inconclusive, need more info → `/quality-debug {issue} -c` (resume session)
+- Standalone fix already applied → `/maestro-verify {phase}`
 
 Note: Debug output (.debug/) is auto-loaded by maestro-plan --gaps.
 </execution>

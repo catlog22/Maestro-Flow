@@ -94,10 +94,10 @@ Next steps:
 ```
 
 **Next-step routing by verdict:**
-- PASS → Skill({ skill: "quality-test", args: "{phase}" })
-- PASS + low test coverage → Skill({ skill: "quality-test-gen", args: "{phase}" })
-- WARN → Skill({ skill: "quality-test", args: "{phase}" }) (proceed with caveats)
-- BLOCK → Skill({ skill: "maestro-plan", args: "{phase} --gaps" }) (fix critical findings first)
+- PASS → `/quality-test {phase}`
+- PASS + low test coverage → `/quality-test-gen {phase}`
+- WARN → `/quality-test {phase}` (proceed with caveats)
+- BLOCK → `/maestro-plan {phase} --gaps` (fix critical findings first)
 </execution>
 
 <error_codes>

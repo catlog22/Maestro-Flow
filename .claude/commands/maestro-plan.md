@@ -37,7 +37,7 @@ Phase: $ARGUMENTS (required -- phase number or slug)
 - `--dir <path>` -- Use arbitrary directory instead of phase resolution (scratch mode, skip roadmap validation)
 
 Context files resolved from `.workflow/phases/{NN}-{slug}/` (or `--dir` path):
-- context.md (user decisions from Skill({ skill: "maestro-analyze" }))
+- context.md (user decisions from /maestro-analyze)
 - index.json (phase metadata)
 - spec-ref from index.json (if set)
 - codebase/doc-index.json (if exists)
@@ -100,10 +100,10 @@ Plan: {phase_dir}/plan.json
 Tasks: {phase_dir}/.task/TASK-*.json
 
 Next steps:
-  Skill({ skill: "maestro-execute", args: "{phase}" })  -- Execute the plan
-  Skill({ skill: "maestro-plan", args: "{phase}" })     -- Re-plan with modifications
+  /maestro-execute {phase}  -- Execute the plan
+  /maestro-plan {phase}     -- Re-plan with modifications
 
-Note: If this was a --gaps plan, after execute run Skill({ skill: "maestro-verify", args: "{phase}" }) to confirm gaps are closed.
+Note: If this was a --gaps plan, after execute run /maestro-verify {phase} to confirm gaps are closed.
 ```
 </execution>
 

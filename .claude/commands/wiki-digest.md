@@ -171,11 +171,11 @@ For each knowledge gap identified in Stage 5:
 4. Display summary with key findings
 
 **Next-step routing:**
-- Deep dive on a theme → `Skill({ skill: "learn-follow", args: "<wiki-id>" })`
-- Fix graph gaps → `Skill({ skill: "wiki-connect", args: "--fix" })`
-- Decompose code for missing patterns → `Skill({ skill: "learn-decompose", args: "<path>" })`
+- Deep dive on a theme → `/learn-follow <wiki-id>`
+- Fix graph gaps → `/wiki-connect --fix`
+- Decompose code for missing patterns → `/learn-decompose <path>`
 - Create missing entries → `maestro wiki create --type <type> --slug <slug>`
-- Triage gap issues → `Skill({ skill: "manage-issue", args: "list --source wiki-digest" })`
+- Triage gap issues → `/manage-issue list --source wiki-digest`
 </execution>
 
 <error_codes>

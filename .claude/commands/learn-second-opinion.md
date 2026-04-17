@@ -136,9 +136,9 @@ Across all perspectives (or from single agent in challenge/consult):
 4. Display summary with verdict and recommendations
 
 **Next-step routing:**
-- Create issue for a finding → `Skill({ skill: "manage-issue", args: "create <description>" })`
-- Decompose patterns found → `Skill({ skill: "learn-decompose", args: "<path>" })`
-- Follow-along on the code → `Skill({ skill: "learn-follow", args: "<path>" })`
+- Create issue for a finding → `/manage-issue create <description>`
+- Decompose patterns found → `/learn-decompose <path>`
+- Follow-along on the code → `/learn-follow <path>`
 </execution>
 
 <error_codes>

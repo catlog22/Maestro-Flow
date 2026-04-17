@@ -73,7 +73,7 @@ Follow `~/.maestro/workflows/retrospective.md` Stages 1–8 in order. Key invari
 <error_codes>
 | Code | Severity | Description | Stage |
 |------|----------|-------------|-------|
-| E001 | error | `.workflow/` not initialized — run `Skill({ skill: "maestro-init" })` first | parse_input |
+| E001 | error | `.workflow/` not initialized — run `/maestro-init` first | parse_input |
 | E002 | error | Unknown `--lens` name (allowed: technical, process, quality, decision) | parse_input |
 | E003 | error | `--compare` requires a single phase argument | parse_input |
 | E004 | error | Phase has not executed yet — no `.task/` or `.summaries/` artifacts | load_artifacts |
@@ -99,5 +99,5 @@ Follow `~/.maestro/workflows/retrospective.md` Stages 1–8 in order. Key invari
 - [ ] `learning-index.json` updated and parseable
 - [ ] No existing phase artifacts modified (verification.json, review.json, plan.json untouched)
 - [ ] Confirmation banner displays routing counts and next-step suggestions
-- [ ] Next step: `Skill({ skill: "manage-status" })` to review state, or `Skill({ skill: "manage-issue", args: "list --source retrospective" })` to triage created issues, or `Skill({ skill: "manage-learn", args: "list" })` to browse the lessons library
+- [ ] Next step: `/manage-status` to review state, or `/manage-issue list --source retrospective` to triage created issues, or `/manage-learn list` to browse the lessons library
 </success_criteria>

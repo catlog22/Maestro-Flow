@@ -145,9 +145,9 @@ Build the decomposition report grouped by dimension:
 6. Display summary with counts and next steps
 
 **Next-step routing:**
-- Follow-along on a specific pattern → `Skill({ skill: "learn-follow", args: "<anchor-file>" })`
-- Get second opinion on findings → `Skill({ skill: "learn-second-opinion", args: "<target>" })`
-- Add all new patterns to specs → `Skill({ skill: "spec-add", args: "pattern ..." })` per pattern
+- Follow-along on a specific pattern → `/learn-follow <anchor-file>`
+- Get second opinion on findings → `/learn-second-opinion <target>`
+- Add all new patterns to specs → `/spec-add pattern ...` per pattern
 </execution>
 
 <error_codes>

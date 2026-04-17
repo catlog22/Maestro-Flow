@@ -70,11 +70,11 @@ Context files:
 Follow '~/.maestro/workflows/business-test.md' completely.
 
 **Next-step routing on completion:**
-- All requirements verified → Skill({ skill: "maestro-phase-transition", args: "{phase}" })
-- Failures found → Skill({ skill: "quality-debug", args: "--from-business-test {phase}" })
-- Re-run all pass → Skill({ skill: "maestro-verify", args: "{phase}" })
-- Low coverage → Skill({ skill: "quality-test-gen", args: "{phase}" })
-- Need integration tests → Skill({ skill: "quality-integration-test", args: "{phase}" })
+- All requirements verified → `/maestro-phase-transition {phase}`
+- Failures found → `/quality-debug --from-business-test {phase}`
+- Re-run all pass → `/maestro-verify {phase}`
+- Low coverage → `/quality-test-gen {phase}`
+- Need integration tests → `/quality-integration-test {phase}`
 </execution>
 
 <error_codes>

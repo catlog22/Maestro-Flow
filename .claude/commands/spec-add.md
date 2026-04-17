@@ -43,7 +43,7 @@ Follow '~/.maestro/workflows/specs-add.md' completely.
 | Code | Severity | Description | Stage |
 |------|----------|-------------|-------|
 | E001 | fatal | Category and content are both required -- usage: `<type> <content>` | parse_input |
-| E002 | fatal | `.workflow/specs/` not initialized -- run Skill({ skill: "spec-setup" }) first | validate_entry |
+| E002 | fatal | `.workflow/specs/` not initialized -- run `/spec-setup` first | validate_entry |
 | E003 | fatal | Invalid category -- must be one of: bug, pattern, decision, rule, debug, test, review, validation | parse_input |
 </error_codes>
 
@@ -52,5 +52,5 @@ Follow '~/.maestro/workflows/specs-add.md' completely.
 - [ ] Entry appended to `.workflow/specs/learnings.md` with timestamp
 - [ ] Relevant spec file updated (if type is pattern/decision/rule)
 - [ ] Confirmation report displayed
-- [ ] Next step: Skill({ skill: "spec-load", args: "--category {type}" }) to verify, or continue current task
+- [ ] Next step: `/spec-load --category {type}` to verify, or continue current task
 </success_criteria>

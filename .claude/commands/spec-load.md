@@ -48,7 +48,7 @@ Follow '~/.maestro/workflows/specs-load.md' completely.
 <error_codes>
 | Code | Severity | Description | Stage |
 |------|----------|-------------|-------|
-| E001 | fatal | `.workflow/specs/` not initialized -- run Skill({ skill: "spec-setup" }) first | detect_context |
+| E001 | fatal | `.workflow/specs/` not initialized -- run `/spec-setup` first | detect_context |
 | W001 | warning | No matching specs found for keyword -- showing all specs in category instead | load_specs |
 </error_codes>
 

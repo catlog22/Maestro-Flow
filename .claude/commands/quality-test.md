@@ -55,22 +55,22 @@ Follow '~/.maestro/workflows/test.md' completely.
 - When review.json verdict is "BLOCK" and review-finding tests fail, auto-enter gap-fix loop without user confirmation (Step 12 auto-fix condition)
 
 **Next-step routing on completion:**
-- All tests pass → Skill({ skill: "maestro-phase-transition", args: "{phase}" })
-- Issues found, --auto-fix ran and succeeded → Skill({ skill: "maestro-verify", args: "{phase}" })
-- Issues found, --auto-fix ran but gaps remain → Skill({ skill: "quality-debug", args: "--from-uat {phase}" })
-- Issues found, manual fix needed → Skill({ skill: "quality-debug", args: "--from-uat {phase}" })
-- Coverage below threshold → Skill({ skill: "quality-test-gen", args: "{phase}" })
-- Need integration tests → Skill({ skill: "quality-integration-test", args: "{phase}" })
+- All tests pass → `/maestro-phase-transition {phase}`
+- Issues found, --auto-fix ran and succeeded → `/maestro-verify {phase}`
+- Issues found, --auto-fix ran but gaps remain → `/quality-debug --from-uat {phase}`
+- Issues found, manual fix needed → `/quality-debug --from-uat {phase}`
+- Coverage below threshold → `/quality-test-gen {phase}`
+- Need integration tests → `/quality-integration-test {phase}`
 </execution>
 
 <error_codes>
 | Code | Severity | Condition | Recovery |
 |------|----------|-----------|----------|
 | E001 | error | Phase or task target required (no active sessions) | Prompt user for phase number |
-| E002 | error | Phase not verified yet (no verification.json) | Suggest Skill({ skill: "maestro-verify" }) first |
-| E003 | error | Smoke test failed (app won't start) | Suggest Skill({ skill: "quality-debug" }) |
+| E002 | error | Phase not verified yet (no verification.json) | Suggest `/maestro-verify` first |
+| E003 | error | Smoke test failed (app won't start) | Suggest `/quality-debug` |
 | W001 | warning | One or more test scenarios failed | Auto-diagnose, suggest fix options |
-| W002 | warning | Coverage below threshold | Suggest Skill({ skill: "quality-test-gen" }) |
+| W002 | warning | Coverage below threshold | Suggest `/quality-test-gen` |
 </error_codes>
 
 <success_criteria>

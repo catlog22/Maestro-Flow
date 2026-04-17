@@ -43,11 +43,11 @@ $ARGUMENTS -- phase number to transition from (optional, defaults to current_pha
 Follow '~/.maestro/workflows/phase-transition.md' completely.
 
 **Next-step routing on completion:**
-- Next phase exists, ready to plan → Skill({ skill: "maestro-plan", args: "{next_phase}" })
-- Next phase needs analysis first → Skill({ skill: "maestro-analyze", args: "{next_phase}" })
-- Next phase needs UI design → Skill({ skill: "maestro-ui-design", args: "{next_phase}" })
-- All phases in milestone complete → Skill({ skill: "maestro-milestone-audit" })
-- View updated dashboard → Skill({ skill: "manage-status" })
+- Next phase exists, ready to plan → `/maestro-plan {next_phase}`
+- Next phase needs analysis first → `/maestro-analyze {next_phase}`
+- Next phase needs UI design → `/maestro-ui-design {next_phase}`
+- All phases in milestone complete → `/maestro-milestone-audit`
+- View updated dashboard → `/manage-status`
 </execution>
 
 <error_codes>
@@ -58,8 +58,8 @@ Follow '~/.maestro/workflows/phase-transition.md' completely.
 | E003 | Phase has unresolved critical gaps          |
 | W001 | Phase has warnings but no blockers          |
 | W002 | UAT test failures exist (quality-test) — review recommended before transition |
-| W003 | Code review verdict is BLOCK — Skill({ skill: "quality-review" }) findings should be fixed first |
-| W004 | Code review not yet run — Skill({ skill: "quality-review" }) recommended before transition |
+| W003 | Code review verdict is BLOCK — `/quality-review` findings should be fixed first |
+| W004 | Code review not yet run — `/quality-review` recommended before transition |
 | W005 | Orphan specs found in wiki — consider linking or removing before transition |
 </error_codes>
 

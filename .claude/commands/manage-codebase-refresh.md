@@ -53,5 +53,5 @@ Follow '~/.maestro/workflows/codebase-refresh.md' completely.
 - [ ] Only affected docs refreshed (selective mapper re-run)
 - [ ] doc-index.json timestamps updated per affected entry
 - [ ] state.json updated with codebase_last_refreshed timestamp
-- [ ] Next step routing: Skill({ skill: "manage-status" }) or Skill({ skill: "spec-load" }) to use updated docs
+- [ ] Next step routing: `/manage-status` or `/spec-load` to use updated docs
 </success_criteria>

@@ -73,5 +73,5 @@ Follow '~/.maestro/workflows/issue-discover.md' completely.
 - [ ] Findings deduplicated before issue creation
 - [ ] Issues appended to issues.jsonl with correct schema
 - [ ] Discovery session fully traceable via session directory
-- [ ] Next step routing: Skill({ skill: "manage-issue-analyze", args: "<ISS-ID>" }) for root cause analysis, or Skill({ skill: "manage-issue", args: "list" }) to review all issues
+- [ ] Next step routing: `/manage-issue-analyze <ISS-ID>` for root cause analysis, or `/manage-issue list` to review all issues
 </success_criteria>

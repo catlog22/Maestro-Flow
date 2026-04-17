@@ -134,17 +134,17 @@ Build a structured summary document:
 5. Display summary with key findings and next steps
 
 **Next-step routing:**
-- Deep dive into a discovered pattern → `Skill({ skill: "learn-decompose", args: "<path>" })`
-- Add undocumented pattern to specs → `Skill({ skill: "spec-add", args: "pattern <description>" })`
-- Get second opinion on a finding → `Skill({ skill: "learn-second-opinion", args: "<file>" })`
-- Browse related wiki entries → `Skill({ skill: "wiki-digest", args: "<topic>" })`
+- Deep dive into a discovered pattern → `/learn-decompose <path>`
+- Add undocumented pattern to specs → `/spec-add pattern <description>`
+- Get second opinion on a finding → `/learn-second-opinion <file>`
+- Browse related wiki entries → `/wiki-digest <topic>`
 </execution>
 
 <error_codes>
 | Code | Severity | Condition | Recovery |
 |------|----------|-----------|----------|
 | E001 | error | Target not resolvable (file not found, wiki ID not found, search returned 0) | Check path/ID, or rephrase topic for search |
-| E002 | error | `.workflow/` not initialized | Run `Skill({ skill: "maestro-init" })` first |
+| E002 | error | `.workflow/` not initialized | Run `/maestro-init` first |
 | W001 | warning | Wiki graph unavailable (no .workflow/ wiki entries) — skipping context web | Proceed with code-only context (imports/exports) |
 | W002 | warning | coding-conventions.md not found — skipping convention comparison | Patterns flagged as "unknown convention status" |
 | W003 | warning | Target is very large (>1000 lines) — auto-switching to shallow depth | Use --depth deep to override |

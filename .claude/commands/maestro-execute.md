@@ -13,7 +13,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 <purpose>
-Execute all tasks in a phase plan using wave-based parallel execution with dependency-aware ordering. Invoked after Skill({ skill: "maestro-plan" }) produces a confirmed plan.json. Produces task summaries, updated task statuses, commits, and execution progress in index.json.
+Execute all tasks in a phase plan using wave-based parallel execution with dependency-aware ordering. Invoked after /maestro-plan produces a confirmed plan.json. Produces task summaries, updated task statuses, commits, and execution progress in index.json.
 </purpose>
 
 <required_reading>
@@ -39,7 +39,7 @@ Context files resolved from `.workflow/phases/{NN}-{slug}/` (or `--dir` path):
 - plan.json (plan overview)
 - .task/TASK-{NNN}.json (individual task definitions, lazy-loaded per wave)
 
-**executionContext handoff:** If received from Skill({ skill: "maestro-plan" }) confirmation, skip disk reload and use in-memory plan + explorations + clarifications.
+**executionContext handoff:** If received from /maestro-plan confirmation, skip disk reload and use in-memory plan + explorations + clarifications.
 </context>
 
 <execution>
@@ -68,14 +68,14 @@ Summaries: {phase_dir}/.summaries/
 Tasks:     {phase_dir}/.task/
 
 Next steps:
-  Skill({ skill: "maestro-verify", args: "{phase}" })  -- Verify execution results
-  Skill({ skill: "manage-status" })          -- View project dashboard
+  /maestro-verify {phase}  -- Verify execution results
+  /manage-status           -- View project dashboard
 ```
 
 If this was a gap-fix execution (plan originated from `--gaps`), emphasize re-verification:
-  "Gap-fix execution complete. Run Skill({ skill: "maestro-verify", args: "{phase}" }) to confirm gaps are resolved."
+  "Gap-fix execution complete. Run /maestro-verify {phase} to confirm gaps are resolved."
 
-If failed tasks exist, suggest Skill({ skill: "quality-debug" }) for investigation.
+If failed tasks exist, suggest /quality-debug for investigation.
 </execution>
 
 <error_codes>

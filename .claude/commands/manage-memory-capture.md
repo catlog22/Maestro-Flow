@@ -40,8 +40,8 @@ Follow '~/.maestro/workflows/memory.md' Part B (Memory Capture) completely.
 <error_codes>
 | Code | Severity | Description | Stage |
 |------|----------|-------------|-------|
-| E001 | error | `.workflow/` not initialized — run Skill({ skill: "maestro-init" }) first | parse_input |
-| E002 | error | Tip mode removed — use `Skill({ skill: "manage-learn", args: "tip <text>" })` instead | parse_input |
+| E001 | error | `.workflow/` not initialized — run `/maestro-init` first | parse_input |
+| E002 | error | Tip mode removed — use `/manage-learn tip <text>` instead | parse_input |
 | W001 | warning | No active workflow session found — compact will capture conversation only | analyze_session |
 | W002 | warning | Plan detection found no explicit plan — using inferred plan | analyze_session |
 </error_codes>
@@ -54,6 +54,6 @@ Follow '~/.maestro/workflows/memory.md' Part B (Memory Capture) completely.
 - [ ] Execution plan preserved VERBATIM (not summarized)
 - [ ] All file paths are ABSOLUTE
 - [ ] Confirmation banner displayed with entry ID
-- [ ] Next step: Skill({ skill: "manage-status" }) to resume workflow, or Skill({ skill: "manage-memory", args: "view <entry_id>" }) to verify captured memory
-- [ ] For tips: redirect user to `Skill({ skill: "manage-learn", args: "tip <text>" })`
+- [ ] Next step: `/manage-status` to resume workflow, or `/manage-memory view <entry_id>` to verify captured memory
+- [ ] For tips: redirect user to `/manage-learn tip <text>`
 </success_criteria>

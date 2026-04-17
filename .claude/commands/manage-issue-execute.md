@@ -48,9 +48,9 @@ $ARGUMENTS -- ISS-ID (required) + optional flags.
 Follow '~/.maestro/workflows/issue-execute.md' completely.
 
 **Next-step routing on completion:**
-- Execution succeeded → Skill({ skill: "manage-issue", args: "close <ISS-ID> --resolution fixed" })
-- Execution failed → Skill({ skill: "quality-debug", args: "<failure description>" }) then retry
-- Want verification → Skill({ skill: "maestro-verify", args: "{phase}" })
+- Execution succeeded → `/manage-issue close <ISS-ID> --resolution fixed`
+- Execution failed → `/quality-debug <failure description>` then retry
+- Want verification → `/maestro-verify {phase}`
 </execution>
 
 <error_codes>
@@ -67,7 +67,7 @@ Follow '~/.maestro/workflows/issue-execute.md' completely.
 - [ ] Solution executed (or dry-run displayed)
 - [ ] Issue status updated in issues.jsonl (in_progress -> resolved or open on failure)
 - [ ] Result summary displayed with next-step routing:
-  - Execution succeeded → Skill({ skill: "manage-issue", args: "close <ISS-ID> --resolution fixed" })
-  - Execution failed → Skill({ skill: "quality-debug", args: "<failure description>" }) then retry
-  - Want verification → Skill({ skill: "maestro-verify", args: "{phase}" })
+  - Execution succeeded → `/manage-issue close <ISS-ID> --resolution fixed`
+  - Execution failed → `/quality-debug <failure description>` then retry
+  - Want verification → `/maestro-verify {phase}`
 </success_criteria>

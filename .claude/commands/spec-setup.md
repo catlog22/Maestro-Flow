@@ -27,7 +27,7 @@ All output lands in `.workflow/specs/` and `.workflow/project-tech.json`.
 $ARGUMENTS (no arguments expected)
 
 **Preconditions:**
-- `.workflow/` directory must exist (created by Skill({ skill: "maestro-init" }))  # (see code: E001)
+- `.workflow/` directory must exist (created by `/maestro-init`)  # (see code: E001)
 - Project must contain source files to scan  # (see code: E002)
 </context>
 
@@ -38,7 +38,7 @@ Follow '~/.maestro/workflows/specs-setup.md' completely.
 <error_codes>
 | Code | Severity | Description | Stage |
 |------|----------|-------------|-------|
-| E001 | fatal | `.workflow/` directory not initialized -- run Skill({ skill: "maestro-init" }) first | parse_input |
+| E001 | fatal | `.workflow/` directory not initialized -- run `/maestro-init` first | parse_input |
 | E002 | fatal | No source files found in project -- nothing to scan | scan_codebase |
 | W001 | warning | Convention detection uncertain for one or more categories -- marked `[UNCERTAIN]` | generate_specs |
 </error_codes>
@@ -51,7 +51,7 @@ Follow '~/.maestro/workflows/specs-setup.md' completely.
 - [ ] `learnings.md` initialized with format instructions
 - [ ] `project-tech.json` written with detected tech stack
 - [ ] Report displayed with summary and next steps:
-  - Build codebase docs → Skill({ skill: "manage-codebase-rebuild" })
-  - Load specs for task → Skill({ skill: "spec-load" })
-  - Add new knowledge → Skill({ skill: "spec-add", args: "<type> <content>" })
+  - Build codebase docs → `/manage-codebase-rebuild`
+  - Load specs for task → `/spec-load`
+  - Add new knowledge → `/spec-add <type> <content>`
 </success_criteria>

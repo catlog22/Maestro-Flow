@@ -162,9 +162,9 @@ Write final `report.md`:
 3. Display summary with answer and next steps
 
 **Next-step routing:**
-- Save finding to specs → `Skill({ skill: "spec-add", args: "debug <finding>" })`
-- Follow-along on discovered code → `Skill({ skill: "learn-follow", args: "<path>" })`
-- Decompose patterns found → `Skill({ skill: "learn-decompose", args: "<module>" })`
+- Save finding to specs → `/spec-add debug <finding>`
+- Follow-along on discovered code → `/learn-follow <path>`
+- Decompose patterns found → `/learn-decompose <module>`
 - Create wiki entry for understanding → `maestro wiki create --type note`
 </execution>
 

@@ -41,9 +41,9 @@ $ARGUMENTS -- phase slug and title (required), optional --after N flag.
 Follow '~/.maestro/workflows/phase-add.md' completely.
 
 **Next-step routing on completion:**
-- Plan the new phase → Skill({ skill: "maestro-plan", args: "{new_phase_number}" })
-- Analyze before planning → Skill({ skill: "maestro-analyze", args: "{new_phase_number}" })
-- View updated roadmap → Skill({ skill: "manage-status" })
+- Plan the new phase → `/maestro-plan {new_phase_number}`
+- Analyze before planning → `/maestro-analyze {new_phase_number}`
+- View updated roadmap → `/manage-status`
 </execution>
 
 <error_codes>

@@ -137,15 +137,15 @@ After all updates:
 3. Display summary
 
 **Next-step routing:**
-- Generate knowledge digest → `Skill({ skill: "wiki-digest", args: "<topic>" })`
-- Follow-along on orphan → `Skill({ skill: "learn-follow", args: "<wiki-id>" })`
+- Generate knowledge digest → `/wiki-digest <topic>`
+- Follow-along on orphan → `/learn-follow <wiki-id>`
 - View full graph → `maestro wiki graph`
 </execution>
 
 <error_codes>
 | Code | Severity | Condition | Recovery |
 |------|----------|-----------|----------|
-| E001 | error | No wiki entries found (empty index) | Initialize wiki content first, or run `Skill({ skill: "maestro-init" })` |
+| E001 | error | No wiki entries found (empty index) | Initialize wiki content first, or run `/maestro-init` |
 | E002 | error | `maestro wiki` CLI not available | Check maestro installation |
 | W001 | warning | No connection candidates found above threshold | Lower --min-similarity or check if graph is already well-connected |
 | W002 | warning | Some wiki update calls failed during --fix | Partial application; retry failed entries manually |

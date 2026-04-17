@@ -48,9 +48,9 @@ Parse subcommand from first token of $ARGUMENTS.
 Follow '~/.maestro/workflows/issue.md' completely.
 
 **Next-step routing on completion:**
-- create → Skill({ skill: "manage-issue-analyze", args: "<ISS-ID>" }) or Skill({ skill: "manage-issue-plan", args: "<ISS-ID>" })
-- list → Skill({ skill: "manage-issue-analyze", args: "<ISS-ID>" }) for any open issue
-- close → Skill({ skill: "manage-status" })
+- create → `/manage-issue-analyze <ISS-ID>` or `/manage-issue-plan <ISS-ID>`
+- list → `/manage-issue-analyze <ISS-ID>` for any open issue
+- close → `/manage-status`
 </execution>
 
 <error_codes>
@@ -67,7 +67,7 @@ Follow '~/.maestro/workflows/issue.md' completely.
 - [ ] Output displayed in appropriate format (table for list, detail for status)
 - [ ] Cross-references maintained (link creates bidirectional references)
 - [ ] Next step routing by subcommand:
-  - create → Skill({ skill: "manage-issue-analyze", args: "<ISS-ID>" }) or Skill({ skill: "manage-issue-plan", args: "<ISS-ID>" })
-  - list → Skill({ skill: "manage-issue-analyze", args: "<ISS-ID>" }) for any open issue
-  - close → Skill({ skill: "manage-status" })
+  - create → `/manage-issue-analyze <ISS-ID>` or `/manage-issue-plan <ISS-ID>`
+  - list → `/manage-issue-analyze <ISS-ID>` for any open issue
+  - close → `/manage-status`
 </success_criteria>

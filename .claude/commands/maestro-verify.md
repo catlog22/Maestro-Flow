@@ -51,9 +51,9 @@ Context files resolved from `.workflow/phases/{NN}-{slug}/`:
 Follow '~/.maestro/workflows/verify.md' completely.
 
 **Next-step routing on completion:**
-- All checks pass, no gaps → Skill({ skill: "quality-review", args: "{phase}" })
-- Gaps found (must-have failures or anti-pattern blockers) → Skill({ skill: "maestro-plan", args: "{phase} --gaps" })
-- Low test coverage (Nyquist gaps) → Skill({ skill: "quality-test-gen", args: "{phase}" })
+- All checks pass, no gaps → /quality-review {phase}
+- Gaps found (must-have failures or anti-pattern blockers) → /maestro-plan {phase} --gaps
+- Low test coverage (Nyquist gaps) → /quality-test-gen {phase}
 
 **Gap-fix closure loop:**
 Gaps found → maestro-plan --gaps → maestro-execute → maestro-verify (re-run)

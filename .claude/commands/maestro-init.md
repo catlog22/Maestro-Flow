@@ -48,13 +48,13 @@ Created:
   .workflow/specs/
 
 Next steps (choose one path to create roadmap):
-  Skill({ skill: "maestro-spec-generate", args: "<idea>" })   -- Full spec package + roadmap (heavy)
-  Skill({ skill: "maestro-roadmap", args: "<requirement>" })   -- Direct interactive roadmap (light)
+  /maestro-spec-generate <idea>                                -- Full spec package + roadmap (heavy)
+  /maestro-roadmap <requirement>                               -- Direct interactive roadmap (light)
 
 Other commands:
-  Skill({ skill: "manage-status" })                            -- View project dashboard
-  Skill({ skill: "maestro-brainstorm", args: "<topic>" })     -- Explore ideas first
-  Skill({ skill: "maestro-quick", args: "<task>" })           -- Quick ad-hoc task
+  /manage-status                                               -- View project dashboard
+  /maestro-brainstorm <topic>                                  -- Explore ideas first
+  /maestro-quick <task>                                        -- Quick ad-hoc task
 ```
 </execution>
 

@@ -14,7 +14,7 @@ allowed-tools:
 ---
 
 <purpose>
-Package a completed milestone into a releasable version. Bumps the project version (e.g. `package.json`, `pyproject.toml`, or language-specific manifest), generates or appends a changelog entry from phase/milestone summaries and git log, creates an annotated git tag, and optionally pushes to the remote. Runs after Skill({ skill: "maestro-milestone-complete" }) has archived the milestone; serves as the final delivery step in the SDLC loop.
+Package a completed milestone into a releasable version. Bumps the project version (e.g. `package.json`, `pyproject.toml`, or language-specific manifest), generates or appends a changelog entry from phase/milestone summaries and git log, creates an annotated git tag, and optionally pushes to the remote. Runs after `/maestro-milestone-complete` has archived the milestone; serves as the final delivery step in the SDLC loop.
 </purpose>
 
 <required_reading>
@@ -39,7 +39,7 @@ $ARGUMENTS -- optional explicit version string and flags.
 - Version manifest -- `package.json` / `pyproject.toml` / `Cargo.toml` / etc. (auto-detected)
 
 **Preconditions:**
-- Current milestone must be completed (audit PASS + Skill({ skill: "maestro-milestone-complete" }) run)
+- Current milestone must be completed (audit PASS + `/maestro-milestone-complete` run)
 - Working tree must be clean (no uncommitted changes) unless `--dry-run`
 </context>
 
@@ -65,8 +65,8 @@ Changelog: {N} entries written to CHANGELOG.md
 Manifest:  {file_path} updated
 
 Next steps:
-  Skill({ skill: "maestro-plan", args: "{next_phase}" })  -- Start next milestone's first phase
-  Skill({ skill: "manage-status" })                        -- View project dashboard
+  /maestro-plan {next_phase}   -- Start next milestone's first phase
+  /manage-status               -- View project dashboard
 ```
 
 For `--dry-run`, print the computed version, changelog diff, and tag name without side effects.
@@ -75,8 +75,8 @@ For `--dry-run`, print the computed version, changelog diff, and tag name withou
 <error_codes>
 | Code | Severity | Condition | Recovery |
 |------|----------|-----------|----------|
-| E001 | error | Current milestone not completed (no milestone-complete run) | Run Skill({ skill: "maestro-milestone-complete" }) first |
-| E002 | error | Audit verdict not PASS | Re-run Skill({ skill: "maestro-milestone-audit" }) and resolve findings |
+| E001 | error | Current milestone not completed (no milestone-complete run) | Run `/maestro-milestone-complete` first |
+| E002 | error | Audit verdict not PASS | Re-run `/maestro-milestone-audit` and resolve findings |
 | E003 | error | Working tree not clean (uncommitted changes) | Commit or stash changes, then retry |
 | E004 | error | Version manifest not found / unsupported | Add supported manifest or pass `<version>` explicitly with `--no-tag` |
 | E005 | error | Target version not greater than current (would break semver monotonicity) | Choose a higher version or run with explicit `<version>` |

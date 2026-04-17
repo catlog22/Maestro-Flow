@@ -31,14 +31,14 @@ $ARGUMENTS -- optional flags:
 Follow '~/.maestro/workflows/sync.md' completely.
 
 **Next-step routing on completion:**
-- Docs refreshed → Skill({ skill: "manage-status" })
-- Major structural changes detected → Skill({ skill: "manage-codebase-rebuild" }) (full rebuild recommended)
+- Docs refreshed → `/manage-status`
+- Major structural changes detected → `/manage-codebase-rebuild` (full rebuild recommended)
 </execution>
 
 <error_codes>
 | Code | Severity | Condition | Recovery |
 |------|----------|-----------|----------|
-| E001 | error | .workflow/ not initialized | Suggest running Skill({ skill: "maestro-init" }) first|
+| E001 | error | .workflow/ not initialized | Suggest running `/maestro-init` first|
 | W001 | warning | No changes detected since last sync | Report clean state, skip updates |
 </error_codes>
 

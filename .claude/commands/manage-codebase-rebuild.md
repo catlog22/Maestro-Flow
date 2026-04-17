@@ -16,7 +16,7 @@ allowed-tools:
 <purpose>
 Perform a full rebuild of the .workflow/codebase/ documentation system from scratch. Scans the entire project source to identify components, features, requirements, and ADRs, then spawns parallel workflow-codebase-mapper agents to generate all documentation artifacts. This is a destructive operation that overwrites existing codebase docs.
 
-Can run before or after Skill({ skill: "maestro-init" }) -- works on any codebase with source files. Also serves the previous `spec-map` use case via `--focus <area>` for scoped dimension analysis.
+Can run before or after `/maestro-init` -- works on any codebase with source files. Also serves the previous `spec-map` use case via `--focus <area>` for scoped dimension analysis.
 </purpose>
 
 <required_reading>
@@ -51,8 +51,8 @@ Follow '~/.maestro/workflows/codebase-rebuild.md' completely.
 **When `--focus <area>` is set:** pass the area string to each mapper agent as scoping context; only regenerate the docs relevant to that scope (leave others untouched unless missing).
 
 **Next-step routing on completion:**
-- View updated project state → Skill({ skill: "manage-status" })
-- Incremental updates later → Skill({ skill: "manage-codebase-refresh" })
+- View updated project state → `/manage-status`
+- Incremental updates later → `/manage-codebase-refresh`
 </execution>
 
 <error_codes>
@@ -72,5 +72,5 @@ Follow '~/.maestro/workflows/codebase-rebuild.md' completely.
 - [ ] state.json updated with rebuild timestamp
 - [ ] project-tech.json refreshed with detected tech stack
 - [ ] project.md Tech Stack section updated if changes detected
-- [ ] Next step routing: Skill({ skill: "manage-status" }) or Skill({ skill: "manage-codebase-refresh" }) for incremental updates later
+- [ ] Next step routing: `/manage-status` or `/manage-codebase-refresh` for incremental updates later
 </success_criteria>

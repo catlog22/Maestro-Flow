@@ -23,7 +23,7 @@ Mark a milestone as complete after its audit has passed. Validates that the audi
 <context>
 Milestone: $ARGUMENTS (optional -- defaults to current_milestone from state.json).
 
-**Requires:** Skill({ skill: "maestro-milestone-audit" }) should have passed (all phases completed, no integration gaps).
+**Requires:** `/maestro-milestone-audit` should have passed (all phases completed, no integration gaps).
 
 **State files:**
 - `.workflow/state.json` -- current_milestone, milestones array
@@ -35,10 +35,10 @@ Milestone: $ARGUMENTS (optional -- defaults to current_milestone from state.json
 Follow '~/.maestro/workflows/milestone-complete.md' completely.
 
 **Next-step routing on completion:**
-- Cut a release for this milestone → Skill({ skill: "maestro-milestone-release" })
-- Next milestone has phases → Skill({ skill: "maestro-plan", args: "{next_milestone_first_phase}" })
-- Need to capture learnings → Skill({ skill: "manage-memory-capture", args: "compact" })
-- View updated project state → Skill({ skill: "manage-status" })
+- Cut a release for this milestone → `/maestro-milestone-release`
+- Next milestone has phases → `/maestro-plan {next_milestone_first_phase}`
+- Need to capture learnings → `/manage-memory-capture compact`
+- View updated project state → `/manage-status`
 </execution>
 
 <error_codes>

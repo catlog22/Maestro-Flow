@@ -46,10 +46,10 @@ Context files:
 Follow '~/.maestro/workflows/test-gen.md' completely.
 
 **Next-step routing on completion:**
-- All tests pass → Skill({ skill: "quality-test", args: "{phase}" })
-- Bugs discovered (failing tests) → Skill({ skill: "quality-debug", args: "{phase}" })
-- Regressions in existing tests → Skill({ skill: "quality-debug", args: "{phase}" })
-- Coverage still low → Skill({ skill: "quality-test-gen", args: "{phase} --layer {missing_layer}" })
+- All tests pass → `/quality-test {phase}`
+- Bugs discovered (failing tests) → `/quality-debug {phase}`
+- Regressions in existing tests → `/quality-debug {phase}`
+- Coverage still low → `/quality-test-gen {phase} --layer {missing_layer}`
 </execution>
 
 <error_codes>

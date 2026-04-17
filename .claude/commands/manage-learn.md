@@ -69,7 +69,7 @@ Follow `~/.maestro/workflows/learn.md` Stages 1–5 in order. Key invariants:
 <error_codes>
 | Code | Severity | Description | Stage |
 |------|----------|-------------|-------|
-| E001 | error | `.workflow/` not initialized — run `Skill({ skill: "maestro-init" })` first | parse_input |
+| E001 | error | `.workflow/` not initialized — run `/maestro-init` first | parse_input |
 | E002 | error | Unknown `--category` value (allowed: pattern, antipattern, decision, tool, gotcha, technique, tip) | parse_input |
 | E003 | error | `show` mode requires an INS-id argument | show |
 | E004 | error | Insight id not found in lessons.jsonl | show |
@@ -88,5 +88,5 @@ Follow `~/.maestro/workflows/learn.md` Stages 1–5 in order. Key invariants:
 - [ ] Show: full insight displayed with phase context and routed-artifact link if any
 - [ ] No file modifications outside `.workflow/learning/`
 - [ ] Confirmation banner displayed with INS-id and next-step hints
-- [ ] Next step: `Skill({ skill: "manage-learn", args: "list" })` to browse, or `Skill({ skill: "manage-learn", args: "search <query>" })` to find related insights
+- [ ] Next step: `/manage-learn list` to browse, or `/manage-learn search <query>` to find related insights
 </success_criteria>

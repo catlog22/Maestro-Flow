@@ -59,13 +59,13 @@ Follow '~/.maestro/workflows/analyze.md' completely.
 **Next-step routing on completion:**
 
 Phase mode:
-- Go recommendation, UI work needed → Skill({ skill: "maestro-ui-design", args: "{phase}" })
-- Go recommendation, ready to plan → Skill({ skill: "maestro-plan", args: "{phase}" })
-- No-Go recommendation → revisit requirements or Skill({ skill: "maestro-brainstorm", args: "{topic}" })
+- Go recommendation, UI work needed → `/maestro-ui-design {phase}`
+- Go recommendation, ready to plan → `/maestro-plan {phase}`
+- No-Go recommendation → revisit requirements or `/maestro-brainstorm {topic}`
 
 Scratch mode:
-- Ready to plan → Skill({ skill: "maestro-plan", args: "--dir {scratch_dir}" })
-- Need more exploration → Skill({ skill: "maestro-analyze", args: "{topic} -c" })
+- Ready to plan → `/maestro-plan --dir {scratch_dir}`
+- Need more exploration → `/maestro-analyze {topic} -c`
 </execution>
 
 <error_codes>

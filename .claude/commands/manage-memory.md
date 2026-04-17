@@ -64,7 +64,7 @@ Follow '~/.maestro/workflows/memory.md' Part A (Memory Management) completely.
 <error_codes>
 | Code | Severity | Description | Stage |
 |------|----------|-------------|-------|
-| E001 | error | No memory stores found — run Skill({ skill: "manage-memory-capture" }) or create MEMORY.md | resolve_paths |
+| E001 | error | No memory stores found — run `/manage-memory-capture` or create MEMORY.md | resolve_paths |
 | E002 | error | Entry ID or filename not found | execute_view, execute_delete |
 | E003 | error | Prune requires at least one filter (--tag, --type, --before, --after) | execute_prune |
 | E004 | error | Cannot delete MEMORY.md — use `edit` subcommand instead | execute_delete |
@@ -84,5 +84,5 @@ Follow '~/.maestro/workflows/memory.md' Part A (Memory Management) completely.
 - [ ] Delete: MEMORY.md protected, confirmation required, references checked
 - [ ] Prune: workflow-only, filters validated, index updated
 - [ ] Integrity check catches orphans and broken links
-- [ ] Next step: Skill({ skill: "manage-memory-capture", args: "compact" }) to save new memory, or Skill({ skill: "manage-status" }) to continue workflow
+- [ ] Next step: `/manage-memory-capture compact` to save new memory, or `/manage-status` to continue workflow
 </success_criteria>

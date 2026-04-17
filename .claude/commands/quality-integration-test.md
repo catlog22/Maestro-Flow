@@ -54,10 +54,10 @@ Phase: $ARGUMENTS (required -- phase number)
 Follow '~/.maestro/workflows/integration-test.md' completely.
 
 **Next-step routing on completion:**
-- Converged (pass rate met) → Skill({ skill: "maestro-phase-transition", args: "{phase}" })
-- Max iterations, pass rate close → Skill({ skill: "quality-debug", args: "{phase}" }) (investigate remaining failures)
-- Regressions detected → Skill({ skill: "quality-debug", args: "{phase}" })
-- Stuck 3+ iterations → Skill({ skill: "maestro-analyze", args: "{phase} -q" }) (reassess approach)
+- Converged (pass rate met) → `/maestro-phase-transition {phase}`
+- Max iterations, pass rate close → `/quality-debug {phase}` (investigate remaining failures)
+- Regressions detected → `/quality-debug {phase}`
+- Stuck 3+ iterations → `/maestro-analyze {phase} -q` (reassess approach)
 </execution>
 
 <error_codes>

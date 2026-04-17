@@ -89,16 +89,16 @@ Follow '~/.maestro/workflows/harvest.md' Stages 1–8 in order. Key invariants:
 
 **Next-step routing on completion:**
 - Review wiki entries → `maestro wiki list --type note`
-- Connect wiki graph → `Skill({ skill: "wiki-connect", args: "--fix" })`
-- Triage issues → `Skill({ skill: "manage-issue", args: "list --source harvest" })`
-- View specs → `Skill({ skill: "spec-load", args: "--category general" })`
-- Full retrospective → `Skill({ skill: "quality-retrospective" })`
+- Connect wiki graph → `/wiki-connect --fix`
+- Triage issues → `/manage-issue list --source harvest`
+- View specs → `/spec-load --category general`
+- Full retrospective → `/quality-retrospective`
 </execution>
 
 <error_codes>
 | Code | Severity | Condition | Recovery |
 |------|----------|-----------|----------|
-| E001 | error | `.workflow/` not initialized | Run `Skill({ skill: "maestro-init" })` first |
+| E001 | error | `.workflow/` not initialized | Run `/maestro-init` first |
 | E002 | error | Invalid `--to` target (must be: wiki, spec, issue, auto) | Display valid options |
 | E003 | error | Invalid `--source` type | Display valid source types from registry |
 | E004 | error | Session ID not found in any source path | Show available sessions with `--source all` |

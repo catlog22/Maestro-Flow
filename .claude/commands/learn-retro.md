@@ -257,12 +257,12 @@ Write `.workflow/learning/retro-{date}.json` with structured data.
 4. Display summary
 
 **Next-step routing:**
-- Browse insights → `Skill({ skill: "manage-learn", args: "list --tag retro" })`
-- Deep dive on high-churn file → `Skill({ skill: "learn-follow", args: "<path>" })`
-- Fix test gaps → `Skill({ skill: "quality-test-gen", args: "<area>" })`
-- Create issue for questionable decision → `Skill({ skill: "manage-issue", args: "create ..." })`
-- Investigate stale decision → `Skill({ skill: "learn-investigate", args: "<question>" })`
-- Full phase retrospective → `Skill({ skill: "quality-retrospective" })`
+- Browse insights → `/manage-learn list --tag retro`
+- Deep dive on high-churn file → `/learn-follow <path>`
+- Fix test gaps → `/quality-test-gen <area>`
+- Create issue for questionable decision → `/manage-issue create ...`
+- Investigate stale decision → `/learn-investigate <question>`
+- Full phase retrospective → `/quality-retrospective`
 </execution>
 
 <error_codes>
