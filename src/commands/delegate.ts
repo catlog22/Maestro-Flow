@@ -512,7 +512,12 @@ export function registerDelegateCommand(program: Command): void {
 
       const output = store.getOutput(id, { includeAll: opts.all, offset, limit });
       if (!output) {
-        console.error(`No output available for: ${id}`);
+        const status = statusLabel(meta);
+        if (status === 'running') {
+          console.error(`Execution ${id} is still running — no output yet.`);
+        } else {
+          console.error(`No output available for: ${id}`);
+        }
         process.exit(1);
       }
 

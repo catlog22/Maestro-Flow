@@ -10,6 +10,12 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   return { ...orig, readFile: vi.fn().mockRejectedValue(new Error('ENOENT')) };
 });
 
+vi.mock('../utils/issue-store.js', () => ({
+  generateIssueId: vi.fn().mockReturnValue('ISS-mock-001'),
+  appendIssueJsonl: vi.fn().mockResolvedValue(undefined),
+  withIssueWriteLock: vi.fn().mockImplementation((fn: () => Promise<void>) => fn()),
+}));
+
 vi.mock('./commander-config.js', () => ({
   loadCommanderConfig: vi.fn().mockResolvedValue({}),
   PROFILES: {
@@ -609,7 +615,7 @@ describe('CommanderAgent', () => {
       expect(scheduler.executeIssue).not.toHaveBeenCalled();
       expect(agentManager.spawn).not.toHaveBeenCalled();
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Blocker flagged'));
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Issue creation recommended'));
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Created issue'));
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Phase advancement recommended'));
 
       consoleSpy.mockRestore();
@@ -1005,7 +1011,7 @@ describe('CommanderAgent', () => {
 
     it('parses valid assessment JSON from query result', async () => {
       const mockQuery = query as ReturnType<typeof vi.fn>;
-      const expected: Assessment = {
+      const expectedAssessment: Assessment = {
         priority_actions: [],
         observations: ['Healthy'],
         risks: ['None'],
@@ -1020,7 +1026,7 @@ describe('CommanderAgent', () => {
               done = true;
               return {
                 done: false,
-                value: { type: 'result', subtype: 'success', result: JSON.stringify(expected) },
+                value: { type: 'result', subtype: 'success', result: JSON.stringify(expectedAssessment) },
               };
             },
           };
@@ -1030,12 +1036,16 @@ describe('CommanderAgent', () => {
       const { agent } = createAgent();
       const result = await (agent as any).assess(validContext);
 
-      expect(result).toEqual(expected);
+      expect(result.assessment).toEqual(expectedAssessment);
+      expect(result.metrics).toEqual(expect.objectContaining({
+        input_tokens: 0,
+        output_tokens: 0,
+      }));
     });
 
     it('ignores non-result messages from query stream', async () => {
       const mockQuery = query as ReturnType<typeof vi.fn>;
-      const expected: Assessment = {
+      const expectedAssessment: Assessment = {
         priority_actions: [],
         observations: [],
         risks: [],
@@ -1052,7 +1062,7 @@ describe('CommanderAgent', () => {
             if (call === 2) {
               return {
                 done: false,
-                value: { type: 'result', subtype: 'success', result: JSON.stringify(expected) },
+                value: { type: 'result', subtype: 'success', result: JSON.stringify(expectedAssessment) },
               };
             }
             return { done: true, value: undefined };
@@ -1062,7 +1072,11 @@ describe('CommanderAgent', () => {
 
       const { agent } = createAgent();
       const result = await (agent as any).assess(validContext);
-      expect(result).toEqual(expected);
+      expect(result.assessment).toEqual(expectedAssessment);
+      expect(result.metrics).toEqual(expect.objectContaining({
+        input_tokens: 0,
+        output_tokens: 0,
+      }));
     });
   });
 

@@ -1,7 +1,7 @@
 ---
 name: manage-learn
-description: Capture, search, and review atomic learning insights into .workflow/learning/lessons.jsonl
-argument-hint: "[<text>|list|search|show <id>] [--category ...] [--tag t1,t2] [--phase N] [--confidence ...]"
+description: Capture, search, and review atomic learning insights and tips into .workflow/learning/lessons.jsonl
+argument-hint: "[<text>|tip <text>|list|search|show <id>] [--category ...] [--tag t1,t2] [--phase N] [--confidence ...]"
 allowed-tools:
   - Read
   - Write
@@ -12,7 +12,11 @@ allowed-tools:
   - AskUserQuestion
 ---
 <purpose>
-Atomic insight capture for the workflow learning library. Lightweight gstack-style "eureka moment" log that complements `quality-retrospective`: where retrospective extracts insights from a completed phase in bulk, `manage-learn` captures one timeless insight at a time during active work. Insights are appended to `.workflow/learning/lessons.jsonl` with auto-detected phase linkage and a simple keyword-based category inference. Same store as retrospective output, so search and list see both manual captures and retrospective-distilled insights.
+Unified atomic knowledge capture for the workflow learning library. Captures two types of knowledge:
+- **Insights**: Timeless "eureka moment" entries (patterns, gotchas, techniques) — the default mode
+- **Tips**: Quick contextual notes for cross-session recovery (formerly in `manage-memory-capture tip`)
+
+Both types are stored in `.workflow/learning/lessons.jsonl` with auto-detected phase linkage and keyword-based category inference. Tips are distinguished by `source: "tip"` and implicitly tagged `tip`. Same store as retrospective output, so search and list see the entire knowledge corpus.
 </purpose>
 
 <required_reading>
@@ -23,17 +27,18 @@ Atomic insight capture for the workflow learning library. Lightweight gstack-sty
 Arguments: $ARGUMENTS
 
 **Modes (auto-detected from first token):**
-- `"<insight text>"` (or any non-keyword text) → capture mode
-- `list` → list recent insights (default 20)
+- `"<insight text>"` (or any non-keyword text) → insight capture mode
+- `tip <text>` → tip capture mode (quick contextual note, auto-tagged `tip`)
+- `list` → list recent entries (default 20)
 - `search <query>` → text search across lessons.jsonl
-- `show <INS-id>` → full insight detail with phase context
-- empty → AskUserQuestion to prompt for insight text
+- `show <INS-id>` → full detail with phase context
+- empty → AskUserQuestion to prompt for text
 
-**Capture flags:**
-- `--category <name>` — pattern | antipattern | decision | tool | gotcha | technique. Default: inferred from text via keyword heuristics.
-- `--tag t1,t2` — comma-separated tags. Always implicitly adds `manual`.
+**Capture flags (both insight and tip modes):**
+- `--category <name>` — pattern | antipattern | decision | tool | gotcha | technique | tip. Default: inferred from text via keyword heuristics. Tip mode defaults to `tip`.
+- `--tag t1,t2` — comma-separated tags. Insight mode implicitly adds `manual`, tip mode implicitly adds `tip`.
 - `--phase <N>` — override auto-detected current phase. Use `--phase 0` to force "no phase".
-- `--confidence <level>` — high | medium | low. Default: medium.
+- `--confidence <level>` — high | medium | low. Default: medium (insight), low (tip).
 
 **List/search flags:**
 - `--tag t1,t2` — filter by tag
@@ -46,7 +51,7 @@ Arguments: $ARGUMENTS
 - `.workflow/learning/lessons.jsonl` — append-only JSONL row per insight (shared with `quality-retrospective` output)
 - `.workflow/learning/learning-index.json` — searchable index (mirrors `memory-index.json` schema)
 
-**Shared store rationale:** Manual captures (`source: "manual"`, `lens: null`) and retrospective-distilled insights (`source: "retrospective"`, `lens: <name>`) live side by side so search and list see the entire knowledge corpus. The `source` and `lens` fields disambiguate.
+**Shared store rationale:** Manual captures (`source: "manual"`), tips (`source: "tip"`), and retrospective-distilled insights (`source: "retrospective"`, `lens: <name>`) all live in the same store so search and list see the entire knowledge corpus. The `source` field disambiguates origin.
 </context>
 
 <execution>
@@ -58,6 +63,7 @@ Follow `~/.maestro/workflows/learn.md` Stages 1–5 in order. Key invariants:
 4. **Stable INS ids** — `INS-{8 lowercase hex}` from `hash(insight_text + timestamp)`.
 5. **Append-only lessons.jsonl** — never rewrite existing rows; duplicate detection is the user's job at search time.
 6. **Bootstrap on demand** — create `.workflow/learning/`, `lessons.jsonl`, `learning-index.json` on first use; do not require them to exist upfront.
+7. **Tip mode** — when first token is `tip`, set `source: "tip"`, `category: "tip"`, `confidence: "low"`, and implicitly add `tip` tag. Everything else follows the same pipeline as insight capture. This replaces the former `manage-memory-capture tip` mode.
 </execution>
 
 <error_codes>

@@ -135,15 +135,15 @@ describe('getDisplayStatus', () => {
 // ---------------------------------------------------------------------------
 
 describe('ISSUE_DISPLAY_STATUS_COLORS', () => {
-  it('has entries for all 6 display statuses', () => {
-    const expected: DisplayStatus[] = ['open', 'analyzing', 'planned', 'in_progress', 'resolved', 'closed'];
+  it('has entries for all 8 display statuses', () => {
+    const expected: DisplayStatus[] = ['open', 'registered', 'analyzing', 'planned', 'in_progress', 'resolved', 'closed', 'deferred'];
     for (const status of expected) {
       expect(ISSUE_DISPLAY_STATUS_COLORS[status]).toBeDefined();
       expect(typeof ISSUE_DISPLAY_STATUS_COLORS[status]).toBe('string');
     }
   });
 
-  it('has exactly 6 entries', () => {
-    expect(Object.keys(ISSUE_DISPLAY_STATUS_COLORS)).toHaveLength(6);
+  it('has exactly 8 entries', () => {
+    expect(Object.keys(ISSUE_DISPLAY_STATUS_COLORS)).toHaveLength(8);
   });
 });

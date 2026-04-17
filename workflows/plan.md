@@ -401,7 +401,8 @@ Build plan.json with gap-fix tasks
      task_ids: [extracted from plan.json],
      task_count: plan.json.task_count,
      complexity: plan.json.complexity,
-     waves: plan.json.waves
+     waves: plan.json.waves,
+     executor_assignments: {}  # populated by user override or auto-assignment in P5
    }
    index.json.status = "planning"
    index.json.updated_at = now()
@@ -442,6 +443,10 @@ Build plan.json with gap-fix tasks
 
 3. **executionContext handoff** (if "Execute now")
    ```
+   executionMethod = config.json.execution.method || "agent"
+   defaultExecutor = config.json.execution.default_executor || "gemini"
+   executorAssignments = index.json.plan.executor_assignments || {}
+
    executionContext = {
      planObject: {
        plan: plan.json contents,
@@ -449,7 +454,9 @@ Build plan.json with gap-fix tasks
      },
      explorations: [ exploration-*.json contents ],
      clarifications: clarificationContext,
-     executionMethod: config.json.execution.method || "agent",
+     executionMethod: executionMethod,
+     defaultExecutor: defaultExecutor,
+     executorAssignments: executorAssignments,
      phaseIndex: index.json contents,
      specRef: spec-ref contents (if loaded)
    }

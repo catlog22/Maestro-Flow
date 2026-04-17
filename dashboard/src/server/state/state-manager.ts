@@ -320,11 +320,33 @@ function emptyBoard(): BoardState {
 }
 
 /** Fill missing fields in PhaseCard so components never crash on partial data */
+/** Coerce must_haves to string[] — may be string[], object, or missing */
+function normalizeMustHaves(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map(String);
+  if (raw && typeof raw === 'object') {
+    // Object form: { truths_total, truths_verified, ... } → summary string
+    const obj = raw as Record<string, unknown>;
+    const parts: string[] = [];
+    if (typeof obj.truths_verified === 'number' && typeof obj.truths_total === 'number') {
+      parts.push(`Truths: ${obj.truths_verified}/${obj.truths_total}`);
+    }
+    if (typeof obj.artifacts_verified === 'number' && typeof obj.artifacts_total === 'number') {
+      parts.push(`Artifacts: ${obj.artifacts_verified}/${obj.artifacts_total}`);
+    }
+    if (typeof obj.key_links_wired === 'number' && typeof obj.key_links_total === 'number') {
+      parts.push(`Links: ${obj.key_links_wired}/${obj.key_links_total}`);
+    }
+    return parts.length > 0 ? parts : [];
+  }
+  return [];
+}
+
 function normalizePhase(p: PhaseCard): PhaseCard {
   const raw = p as unknown as Record<string, unknown>;
-  if (p.execution && raw.verification && raw.validation && raw.uat && raw.reflection
-    && Array.isArray(p.success_criteria) && Array.isArray(p.requirements)
-    && Array.isArray((raw.verification as Record<string, unknown>)?.must_haves)) return p;
+  const verification = (raw.verification as Record<string, unknown>) ?? {};
+  const validation = (raw.validation as Record<string, unknown>) ?? {};
+  const uat = (raw.uat as Record<string, unknown>) ?? {};
+  const execution = (raw.execution as Record<string, unknown>) ?? {};
   return {
     ...p,
     goal: p.goal ?? '',
@@ -332,23 +354,31 @@ function normalizePhase(p: PhaseCard): PhaseCard {
     requirements: p.requirements ?? [],
     spec_ref: p.spec_ref ?? null,
     plan: p.plan ?? { task_ids: [], task_count: 0, complexity: null, waves: [] },
-    execution: p.execution ?? { method: '', started_at: null, completed_at: null, tasks_completed: 0, tasks_total: 0, current_wave: 0, commits: [] },
+    execution: {
+      method: typeof execution.method === 'string' ? execution.method : '',
+      started_at: (execution.started_at as string) ?? null,
+      completed_at: (execution.completed_at as string) ?? null,
+      tasks_completed: typeof execution.tasks_completed === 'number' ? execution.tasks_completed : 0,
+      tasks_total: typeof execution.tasks_total === 'number' ? execution.tasks_total : 0,
+      current_wave: typeof execution.current_wave === 'number' ? execution.current_wave : 0,
+      commits: Array.isArray(execution.commits) ? execution.commits : [],
+    },
     verification: {
-      status: (raw.verification as any)?.status ?? 'pending',
-      verified_at: (raw.verification as any)?.verified_at ?? null,
-      must_haves: (raw.verification as any)?.must_haves ?? [],
-      gaps: (raw.verification as any)?.gaps ?? [],
+      status: String(verification.status ?? 'pending'),
+      verified_at: (verification.verified_at as string) ?? null,
+      must_haves: normalizeMustHaves(verification.must_haves),
+      gaps: Array.isArray(verification.gaps) ? verification.gaps : [],
     },
     validation: {
-      status: (raw.validation as any)?.status ?? 'pending',
-      test_coverage: (raw.validation as any)?.test_coverage ?? null,
-      gaps: (raw.validation as any)?.gaps ?? [],
+      status: String(validation.status ?? 'pending'),
+      test_coverage: (validation.test_coverage as any) ?? null,
+      gaps: Array.isArray(validation.gaps) ? validation.gaps : [],
     },
     uat: {
-      status: (raw.uat as any)?.status ?? 'pending',
-      test_count: (raw.uat as any)?.test_count ?? 0,
-      passed: (raw.uat as any)?.passed ?? 0,
-      gaps: (raw.uat as any)?.gaps ?? [],
+      status: String(uat.status ?? 'pending'),
+      test_count: typeof uat.test_count === 'number' ? uat.test_count : 0,
+      passed: typeof uat.passed === 'number' ? uat.passed : 0,
+      gaps: Array.isArray(uat.gaps) ? uat.gaps : [],
     },
     reflection: {
       rounds: (raw.reflection as any)?.rounds ?? 0,

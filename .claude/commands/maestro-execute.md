@@ -1,7 +1,7 @@
 ---
 name: maestro-execute
 description: Execute phase plan with wave-based parallel execution and atomic commits
-argument-hint: "<phase> [--auto-commit] [--method agent|cli] [--dir <path>]"
+argument-hint: "<phase> [--auto-commit] [--method agent|cli|auto] [--executor <tool>] [--dir <path>]"
 allowed-tools:
   - Read
   - Write
@@ -30,7 +30,8 @@ Phase: $ARGUMENTS (required -- phase number or slug)
 
 **Flags:**
 - `--auto-commit` -- Automatically commit after each task completion
-- `--method agent|cli` -- Override execution method (default: from config.json or index.json)
+- `--method agent|cli|auto` -- Override execution method (default: from config.json or index.json)
+- `--executor <tool>` -- Default CLI tool: gemini|codex|qwen|opencode|claude (used when method is cli or auto)
 - `--dir <path>` -- Use arbitrary directory instead of phase resolution (scratch mode, skip roadmap validation)
 
 Context files resolved from `.workflow/phases/{NN}-{slug}/` (or `--dir` path):

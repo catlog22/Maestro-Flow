@@ -1,7 +1,7 @@
 ---
 name: spec-load
-description: Load relevant specs for current context (used by agents before execution)
-argument-hint: "[--category <type>] [keyword]"
+description: Load relevant specs and lessons for current context (used by agents before execution)
+argument-hint: "[--category <type>] [--with-lessons] [keyword]"
 allowed-tools:
   - Read
   - Bash
@@ -36,6 +36,9 @@ $ARGUMENTS -- optional `--category <type>` flag and/or keyword to filter specs
 
 **Keyword:** If provided, search within loaded files for matching sections.
 If no arguments, loads all specs for the active phase/task context.
+
+**Flags:**
+- `--with-lessons` — Also search `.workflow/learning/lessons.jsonl` for entries with `category: "gotcha"`, `"antipattern"`, or `"pattern"` relevant to the keyword or current context. Appends matched lessons after spec output. This bridges the gap between specs (prescriptive rules) and lessons (discovered knowledge).
 </context>
 
 <execution>
@@ -53,6 +56,8 @@ Follow '~/.maestro/workflows/specs-load.md' completely.
 - [ ] Category filter parsed correctly (or defaults to all)
 - [ ] Spec files resolved and read
 - [ ] Keyword filtering applied if provided
+- [ ] If `--with-lessons`: lessons.jsonl searched for gotcha/antipattern/pattern entries matching context
+- [ ] If `--with-lessons`: matched lessons displayed after specs (max 10, newest first)
 - [ ] Results displayed with file:line references
 - [ ] Relevant specs loaded into agent context
 - [ ] Next step: proceed with current task using loaded specs as context

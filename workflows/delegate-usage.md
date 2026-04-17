@@ -1,7 +1,7 @@
 # Delegate Execution Specification
 
 <purpose>
-Unified reference for `maestro delegate` — async task delegation via detached worker processes, with broker-managed lifecycle, message injection, and MCP notifications. Superset of `maestro cli` with async execution, cancellation, and message chaining.
+Unified reference for `maestro delegate` — synchronous task delegation with broker-managed lifecycle, message injection, and MCP notifications. Superset of `maestro cli` with cancellation and message chaining.
 </purpose>
 
 **References**: `~/.maestro/cli-tools.json` (tool config), `~/.maestro/templates/cli/` (protocol + prompt templates)
@@ -30,9 +30,7 @@ maestro delegate "<PROMPT>" [options]
 | `--id <id>` | Execution ID | Auto: `{prefix}-{HHmmss}-{rand4}` |
 | `--resume [id]` | Resume previous session (last if no id) | — |
 | `--includeDirs <dirs>` | Additional directories (comma-separated) | — |
-| `--session <id>` | MCP session ID for completion notifications | Auto-detected |
 | `--backend <type>` | Adapter backend: `direct` or `terminal` (tmux/wezterm) | `direct` |
-| `--async` | Run in background and return immediately | foreground |
 
 ### Mode Definition (Authoritative)
 
@@ -154,7 +152,7 @@ MODE: analysis
 CONTEXT: @src/auth/**/* @src/middleware/auth.ts | Memory: Using bcrypt + JWT
 EXPECTED: Severity matrix, file:line references, remediation snippets, priority ranking
 CONSTRAINTS: Focus on authentication | Ignore test files
-" --to gemini --mode analysis --rule analysis-assess-security-risks --cd "src/auth" --async
+" --to gemini --mode analysis --rule analysis-assess-security-risks --cd "src/auth"
 ```
 </context>
 
@@ -163,6 +161,24 @@ CONSTRAINTS: Focus on authentication | Ignore test files
 ## 4. Execution
 
 <execution>
+
+### Calling Convention
+
+`maestro delegate` runs synchronously — it blocks until the delegate completes. To avoid blocking the conversation, **always** use `run_in_background: true` on the Bash tool call, then stop output immediately and wait for the background completion callback.
+
+```
+Bash({
+  command: "maestro delegate \"<PROMPT>\" --to gemini --mode analysis",
+  run_in_background: true
+})
+// STOP — do not output anything further
+// Wait for Bash background completion callback to receive results
+```
+
+**Rules:**
+- **Never** use foreground Bash for delegate calls — it blocks the conversation for the entire execution duration
+- After the `Bash(run_in_background: true)` call, **stop immediately** — no follow-up text, no polling, no `delegate status` checks
+- When the background callback arrives, retrieve output with `maestro delegate output <id>`
 
 ### Execution ID
 
@@ -173,7 +189,7 @@ Format: `{prefix}-{HHmmss}-{rand4}` (e.g. `gem-143022-a7f2`)
 Output to stderr: `[MAESTRO_EXEC_ID=<id>]`
 
 ```bash
-maestro delegate "analyze code" --to gemini --async         # auto-ID: gem-143022-a7f2
+maestro delegate "analyze code" --to gemini                        # auto-ID: gem-143022-a7f2
 maestro delegate "fix bug" --to gemini --mode write --id my-task-1  # custom ID
 ```
 
@@ -246,14 +262,6 @@ queued → running → completed
 | `inject` | Routes to running worker stdin; non-interactive adapters auto cancel + relaunch | Supplementary context, course correction |
 | `after_complete` | Queues message; relaunches delegate with queued message on completion | Chained tasks, post-processing |
 
-### Notification Channels
-
-Delegate completion notifies the caller through dual channels:
-
-1. **MCP channel** (primary) — push notification with structured meta (exec_id, event_type, status)
-2. **Hook fallback** — JSONL file read by `delegate-monitor` PostToolUse hook
-
-Throttling: `status_update` at 10s, `snapshot` at 15s.
 </execution>
 
 ---
@@ -275,11 +283,10 @@ Proactively invoke `maestro delegate` when these conditions are met — no user 
 ### Principles
 
 - Default `--mode analysis` (safe, read-only)
-- Use `--async` for non-blocking execution; await MCP notification for result
+- Always `Bash(run_in_background: true)` — stop immediately, wait for callback
 - Tool fallback: `gemini` → `qwen` → `codex`
 - Rule suggestions are guidelines — choose the best fit
 - Use `inject` for supplementary context mid-execution; `after_complete` for chained multi-step tasks
-- Check `delegate status` for snapshot preview instead of polling output
 </execution>
 
 ---
@@ -288,20 +295,15 @@ Proactively invoke `maestro delegate` when these conditions are met — no user 
 
 <execution>
 
-### Launch → Monitor → Retrieve
+### Basic Usage
 
-```bash
-maestro delegate "analyze auth module" --to gemini --async
-# → [MAESTRO_EXEC_ID=gem-143022-a7f2]
-
-maestro delegate status gem-143022-a7f2
-# → status: running, Preview: "Found 3 potential injection points..."
-
-# Await MCP channel notification...
-# → [DELEGATE DONE] gem-143022-a7f2 gemini/analysis completed
-
-maestro delegate output gem-143022-a7f2
-# → full analysis result
+```
+Bash({
+  command: 'maestro delegate "analyze auth module" --to gemini',
+  run_in_background: true
+})
+// → STOP, wait for callback
+// → on callback: maestro delegate output <id>
 ```
 
 ### Inject Supplementary Context
@@ -311,20 +313,16 @@ maestro delegate message gem-143022-a7f2 "Also check src/utils/sanitize.ts"
 # → accepted: true, delivery: inject
 ```
 
-### Chain: Analyze → Auto-Fix
+### Chain: Analyze → Fix
 
-```bash
-maestro delegate "find SQL injection vulnerabilities" --to gemini --async
-maestro delegate message gem-143022-a7f2 "Fix all critical vulnerabilities" --delivery after_complete
-# → queued, auto-relaunches after analysis completes
 ```
-
-### Cancel → Redirect
-
-```bash
-maestro delegate cancel gem-143022-a7f2
-# → cancellation requested
-
-maestro delegate "analyze only the payment module" --to gemini --async
+Bash({
+  command: 'maestro delegate "find SQL injection vulnerabilities" --to gemini',
+  run_in_background: true
+})
+// → STOP, wait for callback
+// → on callback: chain next step
+maestro delegate message gem-143022-a7f2 "Fix all critical vulnerabilities" --delivery after_complete
+// → queued, relaunches after analysis completes
 ```
 </execution>

@@ -37,7 +37,8 @@ ELSE (standard phase resolution):
 | Flag | Effect |
 |------|--------|
 | `--auto-commit` | Override config: commit after each task completion |
-| `--method agent\|cli` | Override execution method (default: config.json.execution.method) |
+| `--method agent\|cli\|auto` | Override execution method (default: config.json.execution.method) |
+| `--executor <tool>` | Default CLI tool: gemini\|codex\|qwen\|opencode\|claude (default: first enabled in cli-tools.json) |
 | `--dir <path>` | Use arbitrary directory instead of phase resolution (skip roadmap validation) |
 
 ---
@@ -53,7 +54,9 @@ If executionContext is available in memory:
   planObject = executionContext.planObject
   explorations = executionContext.explorations
   clarifications = executionContext.clarifications
-  executionMethod = executionContext.executionMethod
+  executionMethod = --method flag || executionContext.executionMethod
+  defaultExecutor = --executor flag || executionContext.defaultExecutor
+  executorAssignments = executionContext.executorAssignments || {}
   Skip disk reload
 ```
 
@@ -64,6 +67,8 @@ Read ${PHASE_DIR}/index.json
 Read ${PHASE_DIR}/plan.json
 
 executionMethod = --method flag || config.json.execution.method || "agent"
+defaultExecutor = --executor flag || config.json.execution.default_executor || "gemini"
+executorAssignments = index.json.plan.executor_assignments || {}
 ```
 
 ### Detect completed tasks (breakpoint resume)
@@ -110,7 +115,69 @@ Pass specs_content to each executor agent in E2.
 
 ## E2: Wave Parallel Execution
 
-**Purpose:** Execute tasks wave by wave, parallel within each wave.
+**Purpose:** Execute tasks wave by wave, parallel within each wave. Supports multi-backend dispatch — tasks route to Agent or CLI tools (via `maestro delegate`) based on executor resolution.
+
+### Executor Resolution
+
+```
+# Priority: per-task assignment > global method > auto fallback
+function resolveTaskExecutor(task_id):
+  If executorAssignments[task_id]:
+    return executorAssignments[task_id].executor   # "agent"|"gemini"|"codex"|"qwen"|"opencode"|"claude"
+  If executionMethod == "agent":
+    return "agent"
+  If executionMethod == "cli":
+    return defaultExecutor                         # e.g., "gemini"
+  # executionMethod == "auto":
+  task = loaded task definition
+  # Heuristic: tasks with many files or multi-step implementation → agent; otherwise → CLI
+  return (task.files.length > 5 || task.implementation.length > 8) ? "agent" : defaultExecutor
+```
+
+### Delegate Prompt Builder
+
+```
+# Unified prompt for CLI backends (maestro delegate). Same task info as Agent path.
+function buildDelegatePrompt(task_def, phase_context, specs_content, prior_summaries):
+  return """
+PURPOSE: Implement task ${task_def.id}: ${task_def.title}; success = all convergence criteria pass
+TASK: ${task_def.action} | Read existing code first | Verify convergence criteria after changes
+MODE: write
+CONTEXT: @${task_def.scope}/**/* | Phase: ${phase_context.goal}
+EXPECTED: Working code changes, all convergence criteria verified, summary of what was done
+CONSTRAINTS: Scope limited to task files | Follow project specs
+
+## Task Definition
+
+**Scope**: ${task_def.scope} | **Action**: ${task_def.action}
+
+### Files
+${task_def.files.map(f => '- ' + f.path + ' → ' + f.target + ': ' + f.change).join('\n')}
+
+### Read First
+${task_def.read_first.map(f => '- ' + f).join('\n')}
+
+### Implementation Steps
+${task_def.implementation.map(s => '- ' + s).join('\n')}
+
+### Convergence Criteria
+${task_def.convergence.criteria.map(c => '- [ ] ' + c).join('\n')}
+
+### Reference
+- Pattern: ${task_def.reference?.pattern || 'N/A'}
+- Files: ${task_def.reference?.files?.join(', ') || 'N/A'}
+
+## Phase Context
+- Goal: ${phase_context.goal}
+- Success criteria: ${phase_context.success_criteria}
+
+## Project Specs
+${specs_content}
+
+## Prior Task Summaries
+${prior_summaries}
+"""
+```
 
 ### Execution Loop
 
@@ -146,31 +213,59 @@ For each wave in execution_queue (sequential):
     1. Load task definition
        Read .task/${task_id}.json (lazy loading)
 
-    2. Spawn workflow-executor agent (fresh 200k context)
-       Input:
-         - Task definition (.task/${task_id}.json)
-         - Phase context (index.json goal, success_criteria)
-         - Relevant summaries from prior waves (.summaries/ of deps)
-         - Execution method override (if --method cli)
-         - Project specs (specs_content from E1.5 — coding conventions, architecture constraints, quality rules)
-        - Phase context decisions (context.md — Locked/Free/Deferred classification)
-        - Phase analysis scores (analysis.md — 6-dimension evaluation)
+    2. Resolve executor and dispatch
+       executor = resolveTaskExecutor(task_id)
 
-       Agent responsibilities:
-         a. Read task definition (read_first, files, action, convergence.criteria)
-         b. Implement the task (create/modify files per task.files)
-         c. Verify convergence.criteria pass
-         d. If verification fails: auto-fix (max 3 attempts)
-         e. If auto-fix fails: write checkpoint, mark task as "blocked"
-         f. Atomic commit (if auto-commit enabled):
+       IF executor == "agent":
+         # --- Agent path (existing) ---
+         Spawn workflow-executor agent (fresh 200k context)
+         Input:
+           - Task definition (.task/${task_id}.json)
+           - Phase context (index.json goal, success_criteria)
+           - Relevant summaries from prior waves (.summaries/ of deps)
+           - Project specs (specs_content from E1.5)
+           - Phase context decisions (context.md)
+           - Phase analysis scores (analysis.md)
+
+         Agent responsibilities:
+           a. Read task definition (read_first, files, action, convergence.criteria)
+           b. Implement the task (create/modify files per task.files)
+           c. Verify convergence.criteria pass
+           d. If verification fails: auto-fix (max 3 attempts)
+           e. If auto-fix fails: write checkpoint, mark task as "blocked"
+           f. Atomic commit (if auto-commit enabled):
+              git add <task files>
+              git commit -m "{type}({slug}): {task.title}"
+           g. Write .summaries/${task_id}-summary.md
+           h. Update .task/${task_id}.json:
+              status = "completed" | "blocked"
+
+       ELSE:
+         # --- CLI path (via maestro delegate) ---
+         fixedId = "${PHASE_NUM || 'scratch'}-${PHASE_SLUG}-${task_id}"
+         prompt = buildDelegatePrompt(task_def, phase_context, specs_content, prior_summaries)
+
+         # Store delegate ID for resume tracking
+         index.json.execution.delegate_ids[task_id] = fixedId
+
+         # Dispatch — synchronous, returns when done
+         Bash("maestro delegate \"${prompt}\" --to ${executor} --mode write --id ${fixedId}")
+
+         # Post-dispatch processing (CLI tools don't do this internally):
+         a. Verify convergence criteria against actual file state
+            For each criterion in task_def.convergence.criteria:
+              Check file contents / grep / test command
+         b. Determine status:
+            If all criteria pass: status = "completed"
+            Else: status = "blocked", log which criteria failed
+         c. Write .summaries/${task_id}-summary.md (from delegate output + verification result)
+         d. Update .task/${task_id}.json: status = status
+         e. Auto-commit (if --auto-commit and status == "completed"):
             git add <task files>
             git commit -m "{type}({slug}): {task.title}"
-         g. Write .summaries/${task_id}-summary.md
-         h. Update .task/${task_id}.json:
-            status = "completed" | "blocked"
 
     3. Collect result
-       result = { task_id, status, summary_path, commit_hash }
+       result = { task_id, status, executor, summary_path, commit_hash, delegate_id }
 
     4. Clear current_task_id in state.json
        Read .workflow/state.json
@@ -198,20 +293,36 @@ For each wave in execution_queue (sequential):
   Log "=== Wave {wave.wave} complete ==="
 ```
 
+### Parallel Dispatch Rules
+
+```
+Within a wave, tasks execute in parallel regardless of executor type:
+- Agent tasks: multiple Agent() calls in single message (run_in_background: false)
+- CLI tasks: multiple Bash("maestro delegate ...") calls in single message (run_in_background: true)
+- Mixed: Agent() + Bash() calls together in single message
+- Each task = one independent dispatch (never merge tasks into one delegate prompt)
+```
+
 ### Deviation Rule
 
 ```
 Per task, max 3 auto-fix attempts:
-  Attempt 1: Re-read error, try alternative approach
-  Attempt 2: Simplify implementation
-  Attempt 3: Minimal viable implementation
+
+Agent path: auto-fix handled internally by workflow-executor agent.
+
+CLI path: auto-fix via session resume:
+  Attempt 1: Re-dispatch with --resume ${fixedId}
+  Attempt 2: Re-dispatch with simplified prompt (reduce to core action + criteria)
+  Attempt 3: Fallback to agent executor for this task
 
 If all 3 fail:
   Mark task as "blocked" with checkpoint data:
     .task/${task_id}.json.meta.checkpoint = {
       attempt: 3,
       last_error: "...",
-      partial_files: [...]
+      partial_files: [...],
+      executor: executor,
+      delegate_id: fixedId
     }
   Continue wave (other tasks unaffected)
 ```
@@ -403,6 +514,7 @@ If NOT SCRATCH_MODE:
 | No plan exists | Abort: "No plan found. Run /workflow:plan first." |
 | Task file missing | Skip task, log error, continue wave |
 | Agent spawn fails | Retry once, then mark task as "blocked" |
+| Delegate fails | Resume with `--resume ${fixedId}`, then fallback to agent |
 | Git commit fails | Log warning, continue (task still marked completed) |
 | All tasks in wave blocked | Stop execution, report blocked wave |
 
@@ -414,14 +526,22 @@ The execute workflow is fully resumable:
 
 ```
 State tracking in index.json.execution:
-  tasks_completed: N     # Count of finished tasks
-  current_wave: W        # Last active wave
-  commits: [...]         # All commits made
+  tasks_completed: N       # Count of finished tasks
+  current_wave: W          # Last active wave
+  commits: [...]           # All commits made
+  method: "agent"|"cli"|"auto"    # Execution method used
+  default_executor: "gemini"|...  # CLI tool used (if method != "agent")
+  delegate_ids: { task_id: fixedId, ... }  # CLI task delegate IDs
 
 Re-running /workflow:execute <phase>:
   1. Reads index.json.execution.tasks_completed
   2. Checks each .task/TASK-*.json status
-  3. Builds queue of remaining tasks
-  4. Continues from next pending wave
-  5. No duplicate execution of completed tasks
+  3. For CLI-dispatched tasks with status "in-progress":
+     fixedId = index.json.execution.delegate_ids[task_id]
+     Check maestro delegate status ${fixedId}
+     If completed: retrieve output, process as completed
+     If failed: add to retry queue with --resume ${fixedId}
+  4. Builds queue of remaining tasks
+  5. Continues from next pending wave
+  6. No duplicate execution of completed tasks
 ```

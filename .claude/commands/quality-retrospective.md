@@ -22,7 +22,7 @@ Post-execution multi-perspective retrospective (复盘) for completed phases. Co
 
 <deferred_reading>
 - @~/.maestro/workflows/issue.md (issues.jsonl schema for auto-creation)
-- @~/.maestro/workflows/memory.md (Part B for note routing via manage-memory-capture)
+- @~/.maestro/workflows/memory.md (Part B for note routing via manage-learn tip)
 - @~/.maestro/workflows/verify.md (verification.json schema for quality lens parsing)
 - @~/.maestro/workflows/review.md (review.json schema for quality lens parsing)
 </deferred_reading>
@@ -47,7 +47,7 @@ Arguments: $ARGUMENTS
 - `.workflow/phases/{NN}-{slug}/retrospective.json` — structured record
 - `.workflow/specs/SPEC-retro-*.md` — spec stubs (one per spec-routed insight)
 - `.workflow/issues/issues.jsonl` — appended issue rows (`source: "retrospective"`)
-- `.workflow/memory/TIP-*.md` — memory tips (via `manage-memory-capture` skill)
+- `.workflow/learning/lessons.jsonl` — tips routed via `manage-learn tip` (formerly manage-memory-capture)
 - `.workflow/learning/lessons.jsonl` — append-only insight log
 - `.workflow/learning/learning-index.json` — searchable index
 
@@ -64,7 +64,7 @@ Follow `~/.maestro/workflows/retrospective.md` Stages 1–8 in order. Key invari
 1. **Read-only until Stage 6** — Stages 1–5 must not write anything except the in-memory retrospective record.
 2. **Parallel lens dispatch** — Stage 4 spawns one Agent per active lens in a single message (multiple Agent tool calls). All agents use `subagent_type: "general-purpose"` and `run_in_background: false`.
 3. **Match canonical issues schema** — Stage 6 issue routing must produce rows that pass `jq` parsing and match the schema in `workflows/issue.md` Step 4 exactly (status `"open"`, full `issue_history` entry, all required fields).
-4. **Reuse `manage-memory-capture` for note routing** — do not duplicate the memory pipeline; invoke via `Skill()`.
+4. **Reuse `manage-learn tip` for note routing** — do not duplicate the learning pipeline; invoke via `Skill({ skill: "manage-learn", args: "tip ..." })`.
 5. **Backward-compat with phase-transition** — append a one-line summary per insight to `.workflow/specs/learnings.md` if and only if that file already exists. Never create it.
 6. **Stable insight IDs** — `INS-{8 hex}` from `hash(phase_num + lens + title)` so re-runs do not duplicate.
 7. **Archive before overwrite** — if existing `retrospective.{md,json}` are being replaced, move them to `{phase_dir}/.history/` with a timestamp suffix first.
@@ -80,7 +80,7 @@ Follow `~/.maestro/workflows/retrospective.md` Stages 1–8 in order. Key invari
 | E005 | error | Phase argument out of range / phase directory not found | scan_unreviewed |
 | W001 | warning | One or more lens agents failed — proceeding with partial coverage | multi_lens_analysis |
 | W002 | warning | Existing retrospective.json found and not `--all` — prompted user to overwrite | scan_unreviewed |
-| W003 | warning | `manage-memory-capture` did not return parseable TIP id; fell back to direct write | route_outputs |
+| W003 | warning | `manage-learn tip` did not return parseable INS id; fell back to direct write | route_outputs |
 | W004 | warning | `--compare` target phase has no retrospective.json; delta omitted | load_artifacts |
 </error_codes>
 
@@ -94,7 +94,7 @@ Follow `~/.maestro/workflows/retrospective.md` Stages 1–8 in order. Key invari
 - [ ] If routing enabled (default): every recommendation either created an artifact or was explicitly skipped by user
 - [ ] Spec stubs (if any) written to `.workflow/specs/SPEC-retro-*.md` with proper frontmatter
 - [ ] Issue rows (if any) match canonical issues.jsonl schema (status "open", full issue_history, all required fields)
-- [ ] Note tips (if any) created via `Skill({ skill: "manage-memory-capture", args: "tip ..." })`
+- [ ] Note tips (if any) created via `Skill({ skill: "manage-learn", args: "tip ..." })`
 - [ ] `lessons.jsonl` appended with one row per insight regardless of routing target
 - [ ] `learning-index.json` updated and parseable
 - [ ] No existing phase artifacts modified (verification.json, review.json, plan.json untouched)

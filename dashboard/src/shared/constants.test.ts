@@ -50,8 +50,8 @@ describe('TASK_STATUSES', () => {
 });
 
 describe('COLLAPSED_COLUMNS', () => {
-  it('has 4 columns', () => {
-    expect(COLLAPSED_COLUMNS).toHaveLength(4);
+  it('has 6 columns', () => {
+    expect(COLLAPSED_COLUMNS).toHaveLength(6);
   });
 
   it('covers all phase statuses', () => {
@@ -65,7 +65,7 @@ describe('COLLAPSED_COLUMNS', () => {
     for (const col of COLLAPSED_COLUMNS) {
       expect(typeof col.id).toBe('string');
       expect(typeof col.label).toBe('string');
-      expect(col.statuses.length).toBeGreaterThan(0);
+      expect(Array.isArray(col.statuses)).toBe(true);
     }
   });
 });

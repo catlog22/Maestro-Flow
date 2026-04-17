@@ -1,7 +1,7 @@
 ---
 name: manage-memory-capture
-description: Capture session memory (compact or tips) into .workflow/memory/ with JSON index
-argument-hint: "[compact|tip] [description] [--tag tag1,tag2]"
+description: Capture session memory (compact mode) into .workflow/memory/ with JSON index
+argument-hint: "[compact] [description]"
 allowed-tools:
   - Read
   - Write
@@ -12,7 +12,9 @@ allowed-tools:
   - AskUserQuestion
 ---
 <purpose>
-Capture session working memory into `.workflow/memory/` for cross-session recovery. Supports two modes: compact (full session compression for recovery) and tip (quick note-taking with tags). Maintains a `memory-index.json` for search and retrieval. Invoked when saving session state before context loss or recording insights during work.
+Capture session working memory into `.workflow/memory/` for cross-session recovery. Compact mode only: full session compression for recovery. Maintains a `memory-index.json` for search and retrieval. Invoked when saving session state before context loss.
+
+**Note:** Quick tips/notes have been moved to `manage-learn tip <text>`. Use that command for atomic knowledge capture.
 </purpose>
 
 <required_reading>
@@ -22,13 +24,9 @@ Capture session working memory into `.workflow/memory/` for cross-session recove
 <context>
 Arguments: $ARGUMENTS
 
-**Modes:**
+**Mode:**
 - `compact` — Full session memory compression (files, decisions, plan state, pending work)
-- `tip` — Quick note with optional tags and context
-- No arguments — Auto-detect or ask user
-
-**Flags:**
-- `--tag tag1,tag2` — Categorization tags (tip mode)
+- No arguments — Defaults to compact mode
 
 **Storage:**
 - `.workflow/memory/` — Memory entries directory
@@ -49,13 +47,13 @@ Follow '~/.maestro/workflows/memory.md' Part B (Memory Capture) completely.
 </error_codes>
 
 <success_criteria>
-- [ ] Mode correctly detected (compact or tip)
+- [ ] Compact mode executed
 - [ ] Entry markdown file written to `.workflow/memory/`
 - [ ] `memory-index.json` updated with new entry metadata
-- [ ] Compact: all session fields populated (objective, files, decisions, plan)
-- [ ] Compact: execution plan preserved VERBATIM (not summarized)
-- [ ] Compact: all file paths are ABSOLUTE
-- [ ] Tip: content, tags, and context captured
+- [ ] All session fields populated (objective, files, decisions, plan)
+- [ ] Execution plan preserved VERBATIM (not summarized)
+- [ ] All file paths are ABSOLUTE
 - [ ] Confirmation banner displayed with entry ID
 - [ ] Next step: Skill({ skill: "manage-status" }) to resume workflow, or Skill({ skill: "manage-memory", args: "view <entry_id>" }) to verify captured memory
+- [ ] For tips: redirect user to `Skill({ skill: "manage-learn", args: "tip <text>" })`
 </success_criteria>

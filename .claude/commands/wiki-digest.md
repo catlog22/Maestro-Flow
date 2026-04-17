@@ -29,6 +29,7 @@ Arguments: $ARGUMENTS
 **Flags:**
 - `--format brief` — Compact summary, one paragraph per theme (default)
 - `--format full` — Detailed digest with per-entry summaries and full gap analysis
+- `--create-issues` — Auto-create `type: "knowledge-gap"` entries in `.workflow/issues/issues.jsonl` for each identified gap (closes the discovery→action loop)
 
 **Storage written:**
 - `.workflow/learning/digest-{slug}-{YYYY-MM-DD}.md` — Digest document
@@ -139,7 +140,26 @@ Produce `.workflow/learning/digest-{slug}-{date}.md`:
 2. ...
 ```
 
-### Stage 7: Persist
+### Stage 7: Gap → Issue Routing (if --create-issues)
+For each knowledge gap identified in Stage 5:
+1. Check `.workflow/issues/issues.jsonl` for existing gap with same theme + type
+2. If not duplicate, append to `issues.jsonl`:
+   ```json
+   {
+     "id": "ISS-{8hex}",
+     "title": "Knowledge gap: {gap description}",
+     "type": "knowledge-gap",
+     "status": "open",
+     "source": "wiki-digest",
+     "priority": "low",
+     "description": "Theme: {theme}, Missing type: {type}. Suggested action: {action}",
+     "tags": ["knowledge-gap", "{theme-slug}"],
+     "created": "{ISO date}"
+   }
+   ```
+3. Report created issue count
+
+### Stage 8: Persist
 1. Write digest file
 2. Append meta-insights to `lessons.jsonl`:
    - `source: "wiki-digest"`, `category: "technique"`
@@ -152,6 +172,7 @@ Produce `.workflow/learning/digest-{slug}-{date}.md`:
 - Fix graph gaps → `Skill({ skill: "wiki-connect", args: "--fix" })`
 - Decompose code for missing patterns → `Skill({ skill: "learn-decompose", args: "<path>" })`
 - Create missing entries → `maestro wiki create --type <type> --slug <slug>`
+- Triage gap issues → `Skill({ skill: "manage-issue", args: "list --source wiki-digest" })`
 </execution>
 
 <error_codes>
@@ -172,6 +193,7 @@ Produce `.workflow/learning/digest-{slug}-{date}.md`:
 - [ ] Cross-reference with lessons.jsonl completed
 - [ ] Coverage heatmap generated (type × theme matrix)
 - [ ] Knowledge gaps identified with suggested actions
+- [ ] If `--create-issues`: gap issues created in `issues.jsonl` (deduped)
 - [ ] Digest written to `digest-{slug}-{date}.md`
 - [ ] Meta-insights appended to `lessons.jsonl`
 - [ ] `learning-index.json` updated

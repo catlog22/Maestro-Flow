@@ -55,7 +55,7 @@ describe('useBoardStore', () => {
     it('sets the board state', () => {
       const board = makeBoardState([makePhaseCard(1)]);
       useBoardStore.getState().setBoard(board);
-      expect(useBoardStore.getState().board).toBe(board);
+      expect(useBoardStore.getState().board).toStrictEqual(board);
     });
   });
 
