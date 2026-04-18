@@ -175,6 +175,41 @@ Status icons:
 - `[ ]` pending
 - `[!]` blocked
 
+### Step 4.2: Render Worktree Status
+
+```
+IF file_exists(".workflow/worktree-scope.json"):
+  // Running inside a worktree
+  Read .workflow/worktree-scope.json → scope
+  Display:
+    ┌─────────────────────────────────────────┐
+    │ WORKTREE MODE                           │
+    ├─────────────────────────────────────────┤
+    │ Milestone: {scope.milestone}            │
+    │ Branch:    {scope.branch}               │
+    │ Phases:    {scope.owned_phases}         │
+    │ Main:      {scope.main_worktree}        │
+    └─────────────────────────────────────────┘
+
+ELSE IF file_exists(".workflow/worktrees.json"):
+  // Running in main worktree with active worktrees
+  Read .workflow/worktrees.json → registry
+  activeWorktrees = registry.worktrees.filter(w => w.status === "active")
+
+  IF activeWorktrees.length > 0:
+    Display:
+      ┌─────────────────────────────────────────┐
+      │ ACTIVE WORKTREES                        │
+      ├─────────────────────────────────────────┤
+      {for each wt in activeWorktrees}
+      │ {wt.milestone} | {wt.branch} | {wt.path} │
+      {/for}
+      │                                         │
+      │ Sync:  /maestro-fork <milestone> --sync │
+      │ Merge: /maestro-merge <milestone>       │
+      └─────────────────────────────────────────┘
+```
+
 ---
 
 ## Step 5: Route Next Step

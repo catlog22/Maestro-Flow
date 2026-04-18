@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { IssueType, IssuePriority } from '@/shared/issue-types.js';
+import type { Issue, IssueType, IssuePriority } from '@/shared/issue-types.js';
 import { useIssueStore } from '@/client/store/issue-store.js';
 
 // ---------------------------------------------------------------------------
@@ -30,7 +30,7 @@ interface Props {
   columnId: string;
   style: CreateModalStyle;
   onClose: () => void;
-  onCreated?: () => void;
+  onCreated?: (issue: Issue) => void;
 }
 
 // Shared chip row used across styles
@@ -120,9 +120,9 @@ export function IssueCreateModal({ open, columnId, style, onClose, onCreated }: 
     const t = title.trim();
     if (!t || submitting) return;
     setSubmitting(true);
-    await createIssue({ title: t, description: description.trim(), type, priority });
+    const created = await createIssue({ title: t, description: description.trim(), type, priority });
     setSubmitting(false);
-    onCreated?.();
+    if (created) onCreated?.(created);
     onClose();
   }, [title, description, type, priority, submitting, createIssue, onCreated, onClose]);
 

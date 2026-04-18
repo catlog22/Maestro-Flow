@@ -4,6 +4,15 @@ Project initialization with automatic state detection. Creates project infrastru
 
 ---
 
+## Worktree Guard
+
+```
+# Block in worktree
+IF file_exists(".workflow/worktree-scope.json"):
+  ERROR "Cannot run maestro-init inside a worktree. Run from the main worktree."
+  EXIT
+```
+
 ## Step 1: State Detection
 
 Detect current project state to determine initialization path.

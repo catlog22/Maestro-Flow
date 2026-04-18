@@ -1,0 +1,10 @@
+{
+  "worktree": true,
+  "milestone_num": "{{MILESTONE_NUMBER}}",
+  "milestone": "{{MILESTONE_NAME}}",
+  "owned_phases": [],
+  "main_worktree": "{{MAIN_WORKTREE_PATH}}",
+  "branch": "milestone/{{MILESTONE_SLUG}}",
+  "base_commit": "{{BASE_COMMIT}}",
+  "created_at": "{{TIMESTAMP}}"
+}

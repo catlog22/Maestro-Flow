@@ -1,0 +1,50 @@
+{
+  "$schema": "./chain-graph.schema.json",
+  "id": "milestone-fork-merge",
+  "name": "Milestone Fork & Merge",
+  "description": "Fork a milestone into a worktree, run full lifecycle, then merge back",
+  "version": "1.0.0",
+  "tags": ["worktree", "milestone", "parallel"],
+  "entry": "fork",
+  "inputs": {
+    "milestone_num": { "type": "number", "required": true }
+  },
+  "nodes": {
+    "fork": {
+      "type": "command",
+      "cmd": "maestro-fork",
+      "description": "Create worktree for milestone with all phases",
+      "args": "-m {milestone_num}",
+      "next": "lifecycle_in_worktree"
+    },
+    "lifecycle_in_worktree": {
+      "type": "command",
+      "cmd": "maestro",
+      "description": "Run sequential lifecycle for all phases in worktree (analyze, plan, execute, verify, transition per phase)",
+      "args": "continue",
+      "cwd": ".worktrees/m{milestone_num}-{milestone_slug}",
+      "next": "merge_decision"
+    },
+    "merge_decision": {
+      "type": "decision",
+      "description": "Check if all milestone phases are completed",
+      "condition": "all_phases_completed",
+      "branches": {
+        "true": "merge",
+        "false": "lifecycle_in_worktree"
+      }
+    },
+    "merge": {
+      "type": "command",
+      "cmd": "maestro-merge",
+      "description": "Merge milestone worktree back into main",
+      "args": "-m {milestone_num}",
+      "next": "done"
+    },
+    "done": {
+      "type": "terminal",
+      "status": "success",
+      "summary": "Milestone {milestone_num} forked, developed, and merged successfully"
+    }
+  }
+}

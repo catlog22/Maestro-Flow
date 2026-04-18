@@ -313,6 +313,7 @@ maestro/
 - **[Delegate 异步执行指南](guide/delegate-async-guide.md)** -- 异步任务委派: CLI & MCP 用法、消息注入、链式调用、Broker 生命周期
 - **[Overlay 系统指南](guide/overlay-guide.md)** -- 非侵入式命令扩展: overlay 格式、section 注入、bundle 打包/导入、交互式 TUI 管理
 - **[Hook 系统指南](guide/hooks-guide.md)** -- Hook 系统架构、9 个 Hook、Spec 注入、上下文预算、配置
+- **[Worktree 并行开发指南](guide/worktree-guide.md)** -- 里程碑级 worktree 并行: fork、sync、merge、scope 保护、Dashboard 集成
 - **[Team Lite -- 使用指南](guide/team-lite-guide.md)** -- 2-8 人小团队日常协作: 加入、同步、队友活跃、冲突预飞检
 - **[Team Lite -- 设计文档](guide/team-lite-design.md)** -- 架构、数据模型、人机协作与智能体管线的命名空间边界
 

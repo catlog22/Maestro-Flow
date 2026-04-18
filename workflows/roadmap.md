@@ -4,6 +4,15 @@ Interactive roadmap creation with iterative refinement. Lightweight path from re
 
 ---
 
+## Worktree Guard
+
+```
+# Block in worktree
+IF file_exists(".workflow/worktree-scope.json"):
+  ERROR "Cannot run maestro-roadmap inside a worktree. Run from the main worktree."
+  EXIT
+```
+
 ## Step 1: Session Initialization
 
 ```javascript

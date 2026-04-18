@@ -313,6 +313,7 @@ maestro/
 - **[Delegate Async Guide](guide/delegate-async-guide.md)** — Async task delegation: CLI & MCP usage, message injection, chaining, broker lifecycle
 - **[Overlay Guide](guide/overlay-guide.md)** — Non-invasive command extensions: overlay format, section injection, bundle/import, interactive TUI management
 - **[Hooks Guide](guide/hooks-guide.md)** — Hook system architecture, 9 hooks, spec injection, context budget, configuration
+- **[Worktree Parallel Dev Guide](guide/worktree-guide.md)** — Milestone-level worktree parallelism: fork, sync, merge, scope enforcement, dashboard integration
 - **[Team Lite — User Guide](guide/team-lite-guide.md)** — Daily workflow for 2-8 person teams: join, sync, activity awareness, conflict preflight
 - **[Team Lite — Design](guide/team-lite-design.md)** — Architecture, data model, and namespace boundary between human-collab and agent-pipeline domains
 

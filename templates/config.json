@@ -49,5 +49,12 @@
     "doc_index": true,
     "auto_sync_after_execute": true,
     "action_log": true
+  },
+
+  "worktree": {
+    "enabled": true,
+    "root": ".worktrees",
+    "branch_prefix": "milestone/",
+    "auto_cleanup": true
   }
 }

@@ -223,6 +223,8 @@ const chainMap = {
   'issue_plan':         [{ cmd: 'manage-issue-plan', args: '"{description}"' }],
   'issue_execute':      [{ cmd: 'manage-issue-execute', args: '"{description}"' }],
   'quick':              [{ cmd: 'maestro-quick', args: '"{description}"' }],
+  'fork':               [{ cmd: 'maestro-fork', args: '-m {milestone_num}' }],
+  'merge':              [{ cmd: 'maestro-merge', args: '-m {milestone_num}' }],
   'team_lifecycle':     [{ cmd: 'team-lifecycle-v4', args: '"{description}"' }],
   'team_coordinate':    [{ cmd: 'team-coordinate', args: '"{description}"' }],
   'team_qa':            [{ cmd: 'team-quality-assurance', args: '"{description}"' }],

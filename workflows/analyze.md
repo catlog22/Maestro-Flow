@@ -53,6 +53,13 @@ $ARGUMENTS: "<phase|topic> [-y] [-c] [-q]"
 ## Dual-Mode Routing
 
 ```
+// Worktree scope check
+IF file_exists(".workflow/worktree-scope.json"):
+  scope = read(".workflow/worktree-scope.json")
+  IF $ARGUMENTS matches /^\d+$/ AND parseInt($ARGUMENTS) NOT IN scope.owned_phases:
+    ERROR "Phase {$ARGUMENTS} not owned by this worktree. Owned: {scope.owned_phases}"
+    EXIT
+
 IF $ARGUMENTS matches /^\d+$/
   → Phase mode
   → Resolve phase dir from state.json + roadmap

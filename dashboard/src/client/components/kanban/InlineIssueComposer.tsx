@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import type { IssueType, IssuePriority, IssueStatus } from '@/shared/issue-types.js';
+import type { Issue, IssueType, IssuePriority, IssueStatus } from '@/shared/issue-types.js';
 import { useIssueStore } from '@/client/store/issue-store.js';
 
 // ---------------------------------------------------------------------------
@@ -34,7 +34,7 @@ const PRIORITIES: { value: IssuePriority; label: string; color: string }[] = [
 interface InlineIssueComposerProps {
   columnId: string;
   onClose: () => void;
-  onCreated?: () => void;
+  onCreated?: (issue: Issue) => void;
 }
 
 export function InlineIssueComposer({ columnId, onClose, onCreated }: InlineIssueComposerProps) {
@@ -68,8 +68,7 @@ export function InlineIssueComposer({ columnId, onClose, onCreated }: InlineIssu
     if (!trimmed || submitting) return;
 
     setSubmitting(true);
-    const defaultStatus = COLUMN_TO_STATUS[columnId] ?? 'open';
-    await createIssue({
+    const created = await createIssue({
       title: trimmed,
       description: '',
       type,
@@ -77,7 +76,7 @@ export function InlineIssueComposer({ columnId, onClose, onCreated }: InlineIssu
     });
     setSubmitting(false);
     setTitle('');
-    onCreated?.();
+    if (created) onCreated?.(created);
     onClose();
   }
 

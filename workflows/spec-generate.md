@@ -2,6 +2,15 @@
 
 Specification document chain producing a complete specification package (Product Brief, PRD, Architecture, Epics, Roadmap) through 7 sequential phases with multi-CLI analysis and interactive refinement. Pure documentation — no code generation.
 
+## Worktree Guard
+
+```
+# Block in worktree
+IF file_exists(".workflow/worktree-scope.json"):
+  ERROR "Cannot run maestro-spec-generate inside a worktree. Run from the main worktree."
+  EXIT
+```
+
 ## Pipeline Position
 
 ```

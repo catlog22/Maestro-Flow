@@ -95,7 +95,7 @@ test -f .workflow/state.json && echo "exists" || echo "missing"
 ### Step 3: Analyze Intent
 
 **If `$FORCED_CHAIN` is set:**
-- Validate against known chains: `full-lifecycle`, `spec-driven`, `brainstorm-driven`, `ui-design-driven`, `analyze-plan-execute`, `execute-verify`, `quality-loop`, `milestone-close`, `next-milestone`, `quick`, `review`, `issue-full`, `issue-quick`
+- Validate against known chains: `full-lifecycle`, `spec-driven`, `brainstorm-driven`, `ui-design-driven`, `analyze-plan-execute`, `execute-verify`, `quality-loop`, `milestone-close`, `next-milestone`, `quick`, `review`, `issue-full`, `issue-quick`, `fork`, `merge`
 - If valid: skip intent analysis, jump to **Step 5**
 - If invalid: display valid chains, ask user to choose
 
@@ -152,6 +152,8 @@ Instead of regex pattern matching, extract a structured intent tuple from the us
 | `transition` | Move to next phase/milestone — next phase, advance, complete milestone |
 | `continue` | Resume work — continue, next, go on, 继续 |
 | `sync` | Update docs/state — sync, refresh, update docs, 同步 |
+| `fork` | Create worktree for parallel milestone — fork, worktree, parallel, 分叉, 并行 |
+| `merge` | Merge worktree back — merge worktree, merge milestone, 合并工作树 |
 | `learn` | Capture insights — learn, capture insight, eureka, 记录洞察 |
 | `retrospect` | Post-mortem review — retrospective, retro, 复盘, post-mortem |
 
@@ -279,6 +281,8 @@ function routeIntent(intent, projectState) {
       'codebase':    'codebase_refresh',
       '_default':    'sync',
     },
+    'fork':        { '_default': 'fork' },
+    'merge':       { '_default': 'merge' },
     'learn':       { '_default': 'learn' },
     'retrospect':  { '_default': 'retrospective' },
   };
@@ -477,6 +481,15 @@ function detectNextAction(state) {
     return { chain: 'phase-transition', steps: ['maestro-phase-transition'] };
   }
 
+  // Phase forked (developed in a worktree)
+  if (ps === 'forked') {
+    // Check if worktree is complete — suggest merge
+    if (fileExists('.workflow/worktrees.json')) {
+      return { chain: 'merge', steps: ['maestro-merge'] };
+    }
+    return { chain: 'status', steps: ['manage-status'] };
+  }
+
   // Blocked
   if (ps === 'blocked') return { chain: 'debug', steps: ['quality-debug'] };
 
@@ -529,6 +542,8 @@ const chainMap = {
   'issue_execute':      [{ cmd: 'manage-issue-execute', args: '"{description}"' }],
   'memory':             [{ cmd: 'manage-memory', args: '"{description}"' }],
   'quick':              [{ cmd: 'maestro-quick', args: '"{description}"' }],
+  'fork':               [{ cmd: 'maestro-fork', args: '-m {milestone_num}' }],
+  'merge':              [{ cmd: 'maestro-merge', args: '-m {milestone_num}' }],
 
   // Team skills (independent, single-step)
   'team_lifecycle':     [{ cmd: 'team-lifecycle-v4', args: '"{description}"' }],
@@ -661,7 +676,7 @@ function resolvePhase(intent_analysis, project_state) {
   // 5. Chain doesn't need phase (init, status, memory, issue, etc.)
   const noPhaseCommands = ['manage-status', 'manage-issue', 'manage-issue-discover',
     'manage-issue-analyze', 'manage-issue-plan', 'manage-issue-execute',
-    'maestro-init', 'maestro-spec-generate',
+    'maestro-init', 'maestro-spec-generate', 'maestro-fork', 'maestro-merge',
     'maestro-roadmap', 'spec-setup', 'manage-memory', 'manage-memory-capture', 'manage-learn',
     'manage-codebase-rebuild', 'manage-codebase-refresh', 'maestro-milestone-audit',
     'maestro-milestone-complete', 'maestro-phase-transition', 'maestro-phase-add'];

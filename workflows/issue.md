@@ -65,14 +65,21 @@ Parse options from ARGS:
 Options:
   --title TEXT        Issue title (required)
   --severity VALUE    critical|high|medium|low (default: medium)
-  --source VALUE      verification|antipattern|discuss|discovery|manual (default: manual)
+  --source VALUE      planned|supplement|bug|review|verification|discovery|manual (default: manual)
   --phase VALUE       Phase reference, e.g. "01-auth" (optional)
+  --milestone VALUE   Milestone reference, e.g. "MVP" (optional, auto-derived from state.json if omitted)
   --description TEXT  Detailed description (optional, prompted if missing)
   --priority NUMBER   1-5, lower is higher priority (default: 3)
   --tags TAG1,TAG2    Comma-separated tags (optional)
 
 If --title is missing:
   AskUserQuestion({ question: "What is the issue title?" })
+
+Derive milestone_ref if not provided:
+  IF --milestone not provided AND file_exists(".workflow/state.json"):
+    milestone_ref = state.json.current_milestone
+  ELSE:
+    milestone_ref = --milestone value or null
 ```
 
 Generate issue ID:
@@ -96,6 +103,7 @@ Build issue record from template:
   "priority": {PRIORITY},
   "severity": "{SEVERITY}",
   "source": "{SOURCE}",
+  "milestone_ref": "{MILESTONE_REF or null}",
   "phase_ref": "{PHASE_REF or null}",
   "gap_ref": null,
   "description": "{DESCRIPTION}",
@@ -135,8 +143,56 @@ Write to storage:
    Title:   {TITLE}
    Status:  open
    Severity: {SEVERITY}
+```
 
-4. Suggest next steps:
+Ask for supplementary information:
+
+```
+4. Ask user for supplementary context:
+   AskUserQuestion({
+     question: "Do you have any supplementary information for this issue?\n1. Additional context or background?\n2. Reproduction steps or affected files?\n3. Related issues or tasks?\n4. Other notes?\n\n(Press Enter to skip)"
+   })
+
+5. Process user response:
+   - If response is non-empty:
+     a. Build supplement entry:
+        {
+          "content": "{RESPONSE_TEXT}",
+          "stage": "post_creation",
+          "author": "user",
+          "created_at": "{NOW_ISO}"
+        }
+     b. Read issues.jsonl
+     c. Find the just-created issue by {ID}
+     d. Initialize supplements as [] if not present
+     e. Append the supplement entry
+     f. Set updated_at = NOW_ISO
+     g. Rewrite issues.jsonl with updated record
+     h. Display: "Added supplement to {ID}"
+   - If response is empty: skip supplement step
+```
+
+Cross-milestone conflict check (for supplement issues):
+
+```
+6. IF source == "supplement" AND milestone_ref is not null:
+   a. Read .workflow/roadmap.md
+   b. Identify phases belonging to OTHER milestones (not milestone_ref)
+   c. For each other-milestone phase, check if plan.json exists:
+      Read .workflow/phases/{NN}-{slug}/plan.json (if exists)
+      Collect files_to_create[] as planned_files
+   d. IF affected_components in the new issue overlap with planned_files:
+      WARNING: "Conflict detected: this supplement issue affects components planned in milestone {other_milestone}"
+      Display:
+        "  Issue affects: {overlapping_components}"
+        "  Planned in: Phase {NN} ({milestone})"
+      Display: "Consider: minimal fix now (supplement), or defer to {other_milestone} for full rework"
+```
+
+Suggest next steps:
+
+```
+7. Suggest next steps:
    - Skill({ skill: "manage-issue", args: "status {ID}" }) -- View full details
    - Skill({ skill: "manage-issue", args: "link {ID} --task TASK-NNN" }) -- Link to a task
    - Skill({ skill: "manage-issue", args: "list" }) -- List all issues
@@ -150,11 +206,12 @@ Parse filter options from ARGS:
 
 ```
 Options:
-  --status VALUE    Filter by status (open|in_progress|completed|failed|deferred)
-  --phase VALUE     Filter by phase_ref
-  --severity VALUE  Filter by severity (critical|high|medium|low)
-  --source VALUE    Filter by source
-  --all             Include closed issues from issue-history.jsonl
+  --status VALUE      Filter by status (open|in_progress|completed|failed|deferred)
+  --phase VALUE       Filter by phase_ref
+  --milestone VALUE   Filter by milestone_ref
+  --severity VALUE    Filter by severity (critical|high|medium|low)
+  --source VALUE      Filter by source
+  --all               Include closed issues from issue-history.jsonl
 ```
 
 Read and filter:
@@ -167,6 +224,7 @@ Read and filter:
    - If --status: match record.status == VALUE
    - If --phase: match record.phase_ref contains VALUE
    - If --severity: match record.severity == VALUE
+   - If --milestone: match record.milestone_ref == VALUE
    - If --source: match record.source == VALUE
 5. Sort by priority (ascending), then severity order (critical > high > medium > low)
 ```
@@ -284,6 +342,7 @@ Options:
   --tags TAG1,TAG2        Replace tags
   --add-tag TAG           Add a tag
   --phase VALUE           Set phase_ref
+  --milestone VALUE       Set milestone_ref
   --fix-direction TEXT    Set fix_direction
   --description TEXT      Update description
   --note TEXT             Add feedback entry (type=clarification)

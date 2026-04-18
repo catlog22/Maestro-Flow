@@ -19,6 +19,13 @@ Produces two-layer plan output: `plan.json` (overview with task_ids[] and waves[
 ```
 Input: <phase> argument (number or slug) OR --dir <path>
 
+# Worktree scope check
+IF file_exists(".workflow/worktree-scope.json"):
+  scope = read(".workflow/worktree-scope.json")
+  IF <phase> is a number AND <phase> NOT IN scope.owned_phases:
+    ERROR "Phase {phase} not owned by this worktree. Owned: {scope.owned_phases}"
+    EXIT
+
 IF --dir <path> is provided:
   1. Set PHASE_DIR = <path> (absolute or relative to project root)
   2. Validate directory exists and contains index.json

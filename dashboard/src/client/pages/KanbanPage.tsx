@@ -176,8 +176,10 @@ export function KanbanPage() {
     setSelectedItem(null);
   }
 
-  function handleIssueCreated() {
+  function handleIssueCreated(created?: Issue) {
     void fetchIssues();
+    // Open detail modal for the newly created issue so user can add supplements
+    if (created) setDetailIssue(created);
   }
 
   const detailTitle = selectedItem?.type === 'linearIssue'

@@ -219,6 +219,7 @@ export const AGENT_API_ENDPOINTS = {
 export const ISSUE_API_ENDPOINTS = {
   ISSUES: '/api/issues',
   ISSUE: '/api/issues/:id',
+  ISSUE_SUPPLEMENTS: '/api/issues/:id/supplements',
 } as const;
 
 // ---------------------------------------------------------------------------

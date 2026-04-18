@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "worktrees": [
+    {
+      "milestone_num": "{{MILESTONE_NUMBER}}",
+      "milestone": "{{MILESTONE_NAME}}",
+      "slug": "{{MILESTONE_SLUG}}",
+      "branch": "milestone/{{MILESTONE_SLUG}}",
+      "path": "{{WORKTREE_ROOT}}/m{{MILESTONE_NUMBER}}-{{MILESTONE_SLUG}}",
+      "base_commit": "{{BASE_COMMIT}}",
+      "status": "active",
+      "created_at": "{{TIMESTAMP}}",
+      "owned_phases": [],
+      "fork_session": "{{FORK_SESSION_ID}}"
+    }
+  ],
+  "fork_sessions": [
+    {
+      "session_id": "fork-{{TIMESTAMP_SHORT}}",
+      "created_at": "{{TIMESTAMP}}",
+      "milestone_num": "{{MILESTONE_NUMBER}}",
+      "milestone": "{{MILESTONE_NAME}}",
+      "base_branch": "{{BASE_BRANCH}}",
+      "base_commit": "{{BASE_COMMIT}}"
+    }
+  ]
+}

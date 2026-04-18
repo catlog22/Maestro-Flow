@@ -27,6 +27,13 @@ Mark a phase as complete, validate readiness, extract learnings, update project 
 ### Step 1: Load Phase Data
 
 ```
+# Worktree scope check
+IF file_exists(".workflow/worktree-scope.json"):
+  scope = read(".workflow/worktree-scope.json")
+  IF phase-number argument is provided AND phase-number NOT IN scope.owned_phases:
+    ERROR "Phase {phase-number} not owned by this worktree. Owned: {scope.owned_phases}"
+    EXIT
+
 a. Read .workflow/state.json
    Extract: current_phase, phases_summary
 
@@ -97,17 +104,28 @@ Read .workflow/issues/issues.jsonl (if exists)
 Filter issues where phase_ref == completing_phase_slug
   AND status NOT in ["completed", "failed", "deferred"]
 
+Classify filtered issues into 3 groups:
+
 open_critical = filtered issues where severity == "critical"
-open_other = filtered issues where severity != "critical"
+open_milestone = filtered issues where severity != "critical"
+  AND milestone_ref is not null
+  AND milestone_ref == state.current_milestone
+  AND next_phase exists within same milestone
+open_phase_only = remaining filtered issues (no milestone_ref, or last phase in milestone)
 
 If open_critical.length > 0:
   BLOCKER: "Cannot transition: {open_critical.length} critical issues unresolved"
   For each issue in open_critical:
     Display: "  {issue.id} | {issue.title} | {issue.status}"
 
-If open_other.length > 0:
-  WARNING: "{open_other.length} non-critical issues still open -- will be auto-closed on transition"
-  For each issue in open_other:
+If open_milestone.length > 0:
+  INFO: "{open_milestone.length} milestone-scoped issues will carry forward to next phase"
+  For each issue in open_milestone:
+    Display: "  {issue.id} | {issue.title} | {issue.severity} | → Phase {next_phase}"
+
+If open_phase_only.length > 0:
+  WARNING: "{open_phase_only.length} phase-only issues still open -- will be auto-closed on transition"
+  For each issue in open_phase_only:
     Display: "  {issue.id} | {issue.title} | {issue.severity} | {issue.status}"
 
 Apply same BLOCKER/WARNING logic as Step 2d-2e above.
@@ -265,7 +283,7 @@ e. If learnings found:
    Display: "Extracted {count} learnings to specs/learnings.md"
 ```
 
-### Step 5.1: Extract Issue Learnings
+### Step 5.1: Extract Issue Learnings & Carry Forward
 
 ```
 IF file exists ".workflow/issues/issues.jsonl":
@@ -280,8 +298,30 @@ IF file exists ".workflow/issues/issues.jsonl":
       {issue.resolution}
       Phase: {NN} | Source: issue-resolution | Issue: {issue.id}
 
-  // Auto-close remaining open non-critical issues
-  FOR each issue in phase_issues where status NOT in ["completed", "failed", "deferred"]:
+  // Separate milestone-scoped vs phase-only issues
+  open_issues = phase_issues.filter(status NOT in ["completed", "failed", "deferred"])
+
+  carry_forward = open_issues.filter(i =>
+    i.milestone_ref != null
+    AND i.milestone_ref == state.current_milestone
+    AND next_phase exists within same milestone
+  )
+
+  auto_close = open_issues.filter(i => NOT in carry_forward)
+
+  // Carry forward milestone-scoped issues to next phase
+  FOR each issue in carry_forward:
+    Update issue in issues.jsonl:
+      phase_ref: next_phase_slug
+      updated_at: now()
+    Append to issue.issue_history:
+      { from: completing_phase_slug, to: next_phase_slug, changed_at: now(), actor: "phase-transition", note: "Carried forward" }
+
+  IF carry_forward.length > 0:
+    Display: "Carried forward {carry_forward.length} milestone-scoped issues to Phase {next_phase}"
+
+  // Auto-close phase-only issues (no milestone_ref or last phase in milestone)
+  FOR each issue in auto_close:
     Update issue in issues.jsonl:
       status: "completed"
       resolution: "phase_transitioned"
@@ -290,10 +330,10 @@ IF file exists ".workflow/issues/issues.jsonl":
     Append to issue.issue_history:
       { from: issue.status, to: "completed", changed_at: now(), actor: "phase-transition" }
 
-  // Archive phase issues to history
-  IF auto-closed issues exist:
+  // Archive auto-closed issues to history
+  IF auto_close.length > 0:
     Append auto-closed issues to .workflow/issues/issue-history.jsonl
-    Display: "Auto-closed {count} non-critical issues on phase transition"
+    Display: "Auto-closed {auto_close.length} phase-only issues on phase transition"
 ```
 
 ### Step 5.2: Update Project Artifacts

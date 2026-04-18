@@ -16,6 +16,14 @@ Dual verification: Goal-Backward structural verification + Nyquist test coverage
 
 ```
 Input: <phase> argument (number or slug)
+
+# Worktree scope check
+IF file_exists(".workflow/worktree-scope.json"):
+  scope = read(".workflow/worktree-scope.json")
+  IF <phase> is a number AND <phase> NOT IN scope.owned_phases:
+    ERROR "Phase {phase} not owned by this worktree. Owned: {scope.owned_phases}"
+    EXIT
+
   1. If number: find .workflow/phases/{NN}-*/index.json
   2. If slug: find .workflow/phases/*-{slug}/index.json
   3. Validate execution has occurred (index.json.execution.tasks_completed > 0)
