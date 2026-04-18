@@ -14,9 +14,19 @@ let cached: string | null = null;
  */
 export function getPackageVersion(): string {
   if (cached) return cached;
-  // Compiled JS lives at dist/src/utils/get-version.js → 4 levels up to project root
-  const pkgRoot = resolve(fileURLToPath(import.meta.url), '..', '..', '..', '..');
-  const pkg = JSON.parse(readFileSync(resolve(pkgRoot, 'package.json'), 'utf-8'));
-  cached = (pkg.version as string) ?? '0.0.0';
+  // Walk up from this file until we find a package.json with "maestro" in it
+  let dir = resolve(fileURLToPath(import.meta.url), '..');
+  for (let i = 0; i < 8; i++) {
+    const pkgPath = resolve(dir, 'package.json');
+    try {
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+      if (pkg.name === 'maestro-flow' || pkg.name === 'maestro') {
+        cached = (pkg.version as string) ?? '0.0.0';
+        return cached;
+      }
+    } catch { /* not found, keep going up */ }
+    dir = resolve(dir, '..');
+  }
+  cached = '0.0.0';
   return cached;
 }

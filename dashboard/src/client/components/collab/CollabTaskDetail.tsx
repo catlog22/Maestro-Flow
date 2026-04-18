@@ -41,14 +41,17 @@ export function CollabTaskDetail({ taskId, onClose }: { taskId: string; onClose:
   const statusColor = COLLAB_TASK_STATUS_COLORS[task.status];
 
   async function handleTransition(newStatus: string) {
+    if (!task) return;
     await updateTaskStatus(task.id, newStatus as CollabTask['status']);
   }
 
   async function handleAssign(assignee: string) {
+    if (!task) return;
     await assignTask(task.id, assignee || null);
   }
 
   async function handleDelete() {
+    if (!task) return;
     await deleteTask(task.id);
     setSelectedTaskId(null);
     onClose();

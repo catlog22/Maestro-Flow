@@ -32,6 +32,7 @@ function AppLayoutInner() {
   const [updateDismissed, setUpdateDismissed] = useState(false);
   const location = useLocation();
   const showOrchestrator = location.pathname.startsWith('/kanban');
+  const isChatPage = location.pathname.startsWith('/chat');
   const sidebarVisible = useLayoutSelector((s) => s.primarySidebar.visible);
   const secondaryVisible = useLayoutSelector((s) => s.secondarySidebar.visible);
   const { toggleVisible: toggleSecondary } = useSidebarActions('secondary');
@@ -184,8 +185,8 @@ function AppLayoutInner() {
 
       {/* Row 2: Activity Bar + Primary Side Bar + Editor Group + Secondary Side Bar */}
       <div className="flex flex-1 overflow-hidden relative">
-        <ActivityBar />
-        {sidebarVisible && <PrimarySideBar />}
+        {!isChatPage && <ActivityBar />}
+        {!isChatPage && sidebarVisible && <PrimarySideBar />}
         <EditorGroupContainer>
           <Outlet />
           {showOrchestrator && <OrchestratorStatusBar />}

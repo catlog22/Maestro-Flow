@@ -129,6 +129,17 @@ export interface ProjectState {
   };
 }
 
+/** Active workflow session (from active session directories) */
+export interface ActiveSession {
+  session_id: string;
+  type: string;
+  status: string;
+  topic: string;
+  phase_ref?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /** Mirrors index.json — one phase in the lifecycle pipeline */
 export interface PhaseCard {
   phase: number;
@@ -141,6 +152,8 @@ export interface PhaseCard {
   success_criteria: string[];
   requirements: string[];
   spec_ref: string | null;
+  /** Active workflow sessions contributing to this phase */
+  active_sessions?: string[];
   plan: {
     task_ids: string[];
     task_count: number;
@@ -257,6 +270,7 @@ export interface BoardState {
   project: ProjectState;
   phases: PhaseCard[];
   scratch: ScratchCard[];
+  activeSessions: ActiveSession[];
   lastUpdated: string;
 }
 

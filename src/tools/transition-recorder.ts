@@ -5,7 +5,10 @@
  * them to the transition_history array in .workflow/state.json.
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { evaluatePhaseGate } from './phase-gate-evaluator.js';
+import type { PhaseGateInput } from './phase-gate-evaluator.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -74,9 +77,33 @@ export function buildTransitionEntry(opts: BuildTransitionOpts): TransitionEntry
 /**
  * Append a transition entry to state.json's transition_history[].
  * Creates the array if it doesn't exist.
+ *
+ * For phase-completion transitions, evaluates the phase gate first.
+ * Throws if the gate blocks and force is false.
  */
 export function appendTransition(statePath: string, entry: TransitionEntry): void {
   if (!existsSync(statePath)) return;
+
+  // Gate check: validate phase readiness before allowing completion
+  if (entry.type === 'phase' && entry.from_phase != null) {
+    const phaseIndex = loadPhaseIndex(statePath, entry.from_phase);
+    if (phaseIndex) {
+      const gate = evaluatePhaseGate(phaseIndex);
+      if (!gate.allowed) {
+        if (!gate.overridable || !entry.force) {
+          const tag = gate.overridable ? '[GATE_BLOCKED]' : '[GATE_HARD_BLOCK]';
+          throw new Error(
+            `${tag} Phase ${entry.from_phase} cannot be completed:\n` +
+            gate.reasons.map((r) => `  - ${r}`).join('\n') +
+            (gate.overridable ? '\nUse force=true to override soft blocks.' : '\nResolve BLOCK verdict before completing.'),
+          );
+        }
+        // Force override — record the reasons in snapshot for audit
+        entry.snapshot.verification_status =
+          `force_override: ${gate.reasons.join('; ')}`;
+      }
+    }
+  }
 
   const state = JSON.parse(readFileSync(statePath, 'utf8'));
   if (!Array.isArray(state.transition_history)) {
@@ -85,4 +112,32 @@ export function appendTransition(statePath: string, entry: TransitionEntry): voi
   state.transition_history.push(entry);
   state.last_updated = new Date().toISOString();
   writeFileSync(statePath, JSON.stringify(state, null, 2));
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Load phase index.json from the phases directory sibling to state.json.
+ * Returns null if not found.
+ */
+function loadPhaseIndex(statePath: string, phaseNum: number): PhaseGateInput | null {
+  const workflowDir = dirname(statePath);
+  const phasesDir = join(workflowDir, 'phases');
+  if (!existsSync(phasesDir)) return null;
+
+  // Find directory starting with the phase number prefix (e.g. "01-")
+  try {
+    const prefix = String(phaseNum).padStart(2, '0') + '-';
+    const entries = readdirSync(phasesDir);
+    const phaseSlug = entries.find((e) => e.startsWith(prefix));
+    if (!phaseSlug) return null;
+
+    const indexPath = join(phasesDir, phaseSlug, 'index.json');
+    if (!existsSync(indexPath)) return null;
+    return JSON.parse(readFileSync(indexPath, 'utf8')) as PhaseGateInput;
+  } catch {
+    return null;
+  }
 }

@@ -75,6 +75,10 @@ if (exactMatch[normalized]) {
 
 #### 3a-2: Structured intent extraction (LLM-native)
 
+> **Implementation note**: The runtime (`src/coordinator/intent-router.ts`) currently
+> uses pattern-based regex matching via `chains/_intent-map.json`. The structured
+> extraction below is a design target, not the current implementation.
+
 Instead of regex, extract a structured intent tuple using LLM semantic understanding:
 
 ```json
