@@ -107,7 +107,7 @@ Output:
 [coordinator] Commands: 'resume' to advance | 'check' to refresh
 
 **CLI monitoring** (works while coordinator is blocked):
-maestro msg list -s "<session_id>" --type progress --last 10
+maestro agent-msg list -s "<session_id>" --type progress --last 10
 ```
 
 Then STOP.

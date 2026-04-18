@@ -67,8 +67,8 @@ Read-only status report from tasks.json + team_msg progress, then STOP.
 
 **CLI equivalent for human monitoring** (no coordinator needed):
 ```bash
-maestro msg list -s "<session_id>" --type progress --last 10
-maestro msg list -s "<session_id>" --type blocker
+maestro agent-msg list -s "<session_id>" --type progress --last 10
+maestro agent-msg list -s "<session_id>" --type blocker
 ```
 
 ## handleResume

@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// `maestro msg` — CLI wrapper over team_msg handler
+// `maestro agent-msg` — CLI wrapper over team_msg handler
 // ---------------------------------------------------------------------------
 
 import type { Command } from 'commander';
@@ -26,8 +26,9 @@ async function run(params: Record<string, unknown>): Promise<void> {
 
 export function registerMsgCommand(program: Command): void {
   const msg = program
-    .command('msg')
-    .description('Team message bus — send, list, and manage agent messages');
+    .command('agent-msg')
+    .alias('msg')
+    .description('Agent team message bus — send, list, and manage agent messages');
 
   // ---- send ----------------------------------------------------------------
 

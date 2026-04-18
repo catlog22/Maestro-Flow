@@ -131,7 +131,7 @@ Prevents redundant research across tasks.
 ## 6. Progress Milestone Protocol
 
 Workers report progress during execution via `team_msg`. This provides:
-- **Human CLI monitoring**: `maestro msg list -s <session-id> --type progress` works while coordinator is blocked in `wait_agent`
+- **Human CLI monitoring**: `maestro agent-msg list -s <session-id> --type progress` works while coordinator is blocked in `wait_agent`
 - **Coordinator post-wait trace**: Full execution history for forensics and status display
 - **Blocker awareness**: Coordinator knows where worker got stuck on timeout
 
@@ -169,7 +169,7 @@ mcp__maestro-tools__team_msg({
 `wait_agent` is **blocking** — coordinator cannot read team_msg during wait. Progress is only consumed:
 1. On `handleCheck` (user types "check" while coordinator is idle)
 2. On `handleResume` after `wait_agent` returns (drain bus before collecting discoveries)
-3. By human via `maestro msg list` CLI (works anytime, independent of coordinator)
+3. By human via `maestro agent-msg list` CLI (works anytime, independent of coordinator)
 
 ### Relationship to Discoveries
 

@@ -97,7 +97,7 @@ const blockerMsgs = mcp__maestro-tools__team_msg({
 [executor] Commands: 'resume' to advance | 'check' to refresh
 
 **CLI monitoring** (works while executor is blocked):
-maestro msg list -s "<session_id>" --type progress --last 10
+maestro agent-msg list -s "<session_id>" --type progress --last 10
 ```
 
 Then STOP.

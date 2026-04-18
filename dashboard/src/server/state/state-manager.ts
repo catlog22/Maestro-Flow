@@ -178,6 +178,13 @@ export class StateManager {
       this.eventBus.emit(SSE_EVENT_TYPES.COLLAB_ACTIVITY, { at: Date.now(), path: filePath });
       return;
     }
+
+    // collab/tasks/*.json — task updated
+    const collabTaskMatch = rel.match(/^collab\/tasks\/TASK-[^/]+\.json$/);
+    if (collabTaskMatch) {
+      this.eventBus.emit(SSE_EVENT_TYPES.COLLAB_TASKS_UPDATED, { at: Date.now(), path: filePath });
+      return;
+    }
   }
 
   // -------------------------------------------------------------------------

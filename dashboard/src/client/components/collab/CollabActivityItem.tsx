@@ -31,7 +31,9 @@ export function CollabActivityItem({ entry }: { entry: CollabActivityEntry }) {
         {entry.user}
       </span>
       <span className="text-text-secondary truncate">
-        {entry.action}{entry.target ? ` → ${entry.target}` : ''}
+        {entry.action}
+        {entry.task_id ? ` [${entry.task_id}]` : ''}
+        {entry.target ? ` \u2192 ${entry.target}` : ''}
       </span>
     </div>
   );

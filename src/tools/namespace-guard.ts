@@ -12,6 +12,8 @@
  *   SHARED (writable by any member):
  *     .workflow/collab/activity.jsonl
  *     .workflow/collab/overlays/manifest.json
+ *     .workflow/collab/tasks/TASK-*.json
+ *     .workflow/collab/tasks/.counter
  *   BLOCKED:
  *     Other members' files in the above namespaces.
  *
@@ -130,6 +132,16 @@ export function evaluateNamespaceGuard(
     return { allowed: true };
   }
 
+  // --- Tasks namespace (shared writable by any member) ---
+  if (collabRel.startsWith('tasks/')) {
+    const fileName = collabRel.slice('tasks/'.length);
+    if (fileName === '.counter' || /^TASK-\d+\.json$/.test(fileName)) {
+      return { allowed: true };
+    }
+    // Unknown files under tasks/ — allow (finer checks in team-tasks.ts).
+    return { allowed: true };
+  }
+
   // Other paths under .workflow/collab/ — allow by default (not namespaced).
   return { allowed: true };
 }
@@ -151,5 +163,6 @@ export function getNamespaceBoundaries(selfUid: string, projectRoot: string): st
     // Shared paths
     `${prefix}/activity.jsonl`,
     `${prefix}/overlays/manifest.json`,
+    `${prefix}/tasks/`,
   ];
 }

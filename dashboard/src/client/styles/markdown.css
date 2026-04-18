@@ -1,0 +1,196 @@
+/*
+ * StreamingMarkdown + CodeBlock styles
+ * Diff coloring, code block styling, KaTeX overrides, fold button, scroll button
+ */
+
+/* ===== Diff coloring (warm palette) ===== */
+
+.code-diff-added {
+  background-color: rgba(90, 158, 120, 0.10);
+}
+
+.code-diff-added .code-diff-marker {
+  color: var(--color-status-completed);
+}
+
+.code-diff-removed {
+  background-color: rgba(196, 101, 85, 0.10);
+}
+
+.code-diff-removed .code-diff-marker {
+  color: var(--color-status-blocked);
+}
+
+.code-diff-marker {
+  display: inline-block;
+  width: 1ch;
+  text-align: center;
+  user-select: none;
+  opacity: 0.7;
+}
+
+/* ===== Code block wrapper ===== */
+
+.code-block-wrapper {
+  border: 1px solid var(--code-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.code-block-wrapper table {
+  line-height: var(--line-height-normal);
+}
+
+.code-block-wrapper td {
+  vertical-align: top;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+/* First row in code block */
+.code-block-wrapper tbody tr:first-child td {
+  padding-top: var(--spacing-2);
+}
+
+/* Last row in code block */
+.code-block-wrapper tbody tr:last-child td {
+  padding-bottom: var(--spacing-2);
+}
+
+/* ===== Syntax highlighting (rehype-highlight) ===== */
+
+.hljs {
+  color: var(--code-t1);
+  background: transparent;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-type {
+  color: #D4A07A;
+}
+
+.hljs-string,
+.hljs-addition {
+  color: #A3BE8C;
+}
+
+.hljs-number,
+.hljs-literal {
+  color: #87B5A2;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--code-t2);
+  font-style: italic;
+}
+
+.hljs-function .hljs-title,
+.hljs-title.function_ {
+  color: #E0C094;
+}
+
+.hljs-operator {
+  color: var(--code-t1);
+}
+
+.hljs-variable,
+.hljs-template-variable,
+.hljs-attr {
+  color: #C4A882;
+}
+
+.hljs-built_in {
+  color: #B89540;
+}
+
+.hljs-symbol,
+.hljs-bullet {
+  color: #C14C8A;
+}
+
+.hljs-meta {
+  color: var(--code-t2);
+}
+
+.hljs-deletion {
+  color: var(--color-status-blocked);
+}
+
+/* ===== KaTeX overrides ===== */
+
+.streaming-markdown .katex-display {
+  margin: var(--spacing-3) 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: var(--spacing-2) 0;
+}
+
+.streaming-markdown .katex {
+  font-size: 1.05em;
+}
+
+/* KaTeX error fallback: show raw text, not red error */
+.streaming-markdown .katex-error {
+  color: var(--color-text-secondary);
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+/* ===== Streaming cursor ===== */
+
+@keyframes blink-cursor {
+  50% { opacity: 0; }
+}
+
+/* ===== Streaming markdown scroll container ===== */
+
+.streaming-markdown {
+  position: relative;
+}
+
+.streaming-markdown > div {
+  padding-bottom: var(--spacing-1);
+}
+
+/* ===== GFM task list styling ===== */
+
+.streaming-markdown ul:has(input[type="checkbox"]) {
+  list-style: none;
+  padding-left: var(--spacing-1);
+}
+
+.streaming-markdown ul:has(input[type="checkbox"]) li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-1-5);
+}
+
+.streaming-markdown ul:has(input[type="checkbox"]) li input[type="checkbox"] {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+/* ===== GFM table styling ===== */
+
+.streaming-markdown table {
+  font-size: var(--font-size-sm);
+}
+
+.streaming-markdown table th {
+  white-space: nowrap;
+}
+
+/* ===== Paragraph spacing (12px minimum) ===== */
+
+.streaming-markdown p + p {
+  margin-top: var(--spacing-3);
+}
+
+/* ===== Selection in code blocks ===== */
+
+.code-block-wrapper ::selection {
+  background: rgba(91, 141, 184, 0.25);
+}

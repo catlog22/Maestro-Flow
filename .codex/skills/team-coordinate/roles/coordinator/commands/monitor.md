@@ -126,8 +126,8 @@ Read-only status report with progress milestones. No pipeline advancement.
 
 **CLI equivalent for human monitoring** (works while coordinator is blocked):
 ```bash
-maestro msg list -s "<session_id>" --type progress --last 10
-maestro msg list -s "<session_id>" --type blocker
+maestro agent-msg list -s "<session_id>" --type progress --last 10
+maestro agent-msg list -s "<session_id>" --type blocker
 ```
 
 Then STOP.

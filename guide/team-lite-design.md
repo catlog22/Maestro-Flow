@@ -16,9 +16,9 @@
 | 路径 | 含义 | 归属 | 不要混用 |
 |---|---|---|---|
 | `.workflow/.team/` | **agent 流水线** 内部角色间消息总线 | `src/tools/team-msg.ts` | 只由 agent team pipeline 写 |
-| `.workflow/collab/` | **人类团队协作** 的成员 / 活动 / 同步记录 | 本方案 | 只由 `maestro team *` 命令写 |
+| `.workflow/collab/` | **人类团队协作** 的成员 / 活动 / 同步记录 | 本方案 | 只由 `maestro collab *` 命令写 |
 
-CLI 命令仍叫 `maestro team *`（用户感知友好），但磁盘布局用 `collab` 明确与 agent 域分开。两个域共享底层 JSONL 工具，但数据严格不互通。
+CLI 命令仍叫 `maestro collab *`（用户感知友好），但磁盘布局用 `collab` 明确与 agent 域分开。两个域共享底层 JSONL 工具，但数据严格不互通。
 
 ## 砍掉的复杂概念
 
@@ -47,7 +47,7 @@ CLI 命令仍叫 `maestro team *`（用户感知友好），但磁盘布局用 `
 1. **身份识别** — 映射本地 Git 身份到 `.workflow/collab/members/{uid}.json`
 2. **共享活跃日志** — 全团队 append-only JSONL，记录谁在做什么
 3. **冲突预警** — `/maestro-plan` / `/maestro-execute` 启动前扫日志，发现同 phase 活动即提示
-4. **一键同步** — `maestro team sync` 封装 `git stash + pull --rebase + pop + push`
+4. **一键同步** — `maestro collab sync` 封装 `git stash + pull --rebase + pop + push`
 
 ## 前置依赖
 
@@ -115,7 +115,7 @@ CLI 命令仍叫 `maestro team *`（用户感知友好），但磁盘布局用 `
 - 触发条件：文件 > 10MB 或 每周一 00:00
 - 轮转动作：重命名为 `activity-archives/activity-{YYYY}W{WW}.jsonl`
 - statusline 和冲突检测只读当前 `activity.jsonl`，归档仅供审计
-- 由 `maestro team sync` 顺带检查一次
+- 由 `maestro collab sync` 顺带检查一次
 
 ## CLI 命令清单
 
@@ -123,28 +123,28 @@ CLI 命令仍叫 `maestro team *`（用户感知友好），但磁盘布局用 `
 
 | 子命令 | 说明 | 备注 |
 |---|---|---|
-| `maestro team join` | 从 git config 读取 name/email，写入 `members/{uid}.json` | 幂等 |
-| `maestro team whoami` | 显示当前 uid / name / host / role | — |
-| `maestro team status` | ⭐ 展示谁在做什么（按时间倒序解析 `activity.jsonl`） | 核心命令 |
-| `maestro team report` | 手动上报一条 activity | 通常由 hook 自动调用 |
-| `maestro team sync` | ⭐ `git stash` → `pull --rebase` → `pop` → `push` + 日志轮转检查 | 核心命令 |
-| `maestro team preflight --phase N` | 冲突预扫描，供 `/maestro-plan` / `/maestro-execute` 显式调用 | 见"耦合点 3" |
+| `maestro collab join` | 从 git config 读取 name/email，写入 `members/{uid}.json` | 幂等 |
+| `maestro collab whoami` | 显示当前 uid / name / host / role | — |
+| `maestro collab status` | ⭐ 展示谁在做什么（按时间倒序解析 `activity.jsonl`） | 核心命令 |
+| `maestro collab report` | 手动上报一条 activity | 通常由 hook 自动调用 |
+| `maestro collab sync` | ⭐ `git stash` → `pull --rebase` → `pop` → `push` + 日志轮转检查 | 核心命令 |
+| `maestro collab preflight --phase N` | 冲突预扫描，供 `/maestro-plan` / `/maestro-execute` 显式调用 | 见"耦合点 3" |
 
 ### 使用示例
 
 ```bash
 # 加入团队
-maestro team join
+maestro collab join
 # > Joined as alice <alice@example.com> on alice-laptop (admin)
 
 # 查看谁在活动
-maestro team status
+maestro collab status
 # > Active in last 30 min:
 # >   alice@alice-laptop  maestro-execute   phase 3 / TASK-001    2 min ago
 # >   bob@bob-desktop     wiki-update       spec-auth             5 min ago
 
 # 同步
-maestro team sync
+maestro collab sync
 # > Stashing local changes...
 # > Pulling from origin/main (rebase)...
 # > Pushing...
@@ -152,7 +152,7 @@ maestro team sync
 # > Done.
 
 # 手动预飞检（通常由 /maestro-execute 自动调用）
-maestro team preflight --phase 3
+maestro collab preflight --phase 3
 # > ⚠ Bob is active on phase 3 (maestro-plan, 3 min ago @ bob-desktop)
 # > exit: 1
 ```
@@ -182,14 +182,14 @@ maestro team preflight --phase 3
 
 ### 耦合 3：Execution Gate（冲突预警）
 
-**不修改 .claude/commands/maestro-*.md**，而是提供 `maestro team preflight` 子命令，由命令 markdown 在执行步骤开头显式调用：
+**不修改 .claude/commands/maestro-*.md**，而是提供 `maestro collab preflight` 子命令，由命令 markdown 在执行步骤开头显式调用：
 
 - **算法**：
   1. `tailLast(activity.jsonl, 500)` 解析最近条目
   2. 过滤 `ts >= now - 30min - 5min`（±5 分钟时钟容忍带）
   3. 过滤 `phase_id == 目标 phase` 且 `user != self`
   4. 命中则 exit 1 + 打印警告；未命中 exit 0
-- **调用方改动**：`.claude/commands/maestro-plan.md` / `maestro-execute.md` 在 `<execution>` 顶部加一行 `Bash("maestro team preflight --phase $ARGUMENTS || confirm")`
+- **调用方改动**：`.claude/commands/maestro-plan.md` / `maestro-execute.md` 在 `<execution>` 顶部加一行 `Bash("maestro collab preflight --phase $ARGUMENTS || confirm")`
 - **`--force` 语义**：调用方用 `|| true` 或人工确认绕过
 
 ### 耦合 4：Commit Message 标签
@@ -250,7 +250,7 @@ maestro team preflight --phase 3
 ## 与现有单机模式的兼容性
 
 - **未执行 `team join`**：
-  - `maestro team *` 命令（除 join/whoami）返回 "team mode not enabled"
+  - `maestro collab *` 命令（除 join/whoami）返回 "team mode not enabled"
   - `team-monitor` hook 检测到 `.workflow/collab/members/` 为空时静默 exit 0
   - 现有 `/maestro-*` 命令行为 100% 不变
 - **已执行 `team join` 但独自工作**：心跳只写本地文件，`team status` 只显示自己，无任何副作用

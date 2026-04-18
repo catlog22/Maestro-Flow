@@ -115,6 +115,23 @@ export function runTeamMonitor(input: HookInput): void {
             : undefined;
 
       if (filePath) {
+        // Detect task file writes to .workflow/collab/tasks/
+        if (filePath.includes('.workflow/collab/tasks/') || filePath.includes('.workflow\\collab\\tasks\\')) {
+          const match = filePath.match(/tasks[\\/](TASK-\d+)\.json$/);
+          if (match) {
+            reportActivity({
+              user: self.uid,
+              host: self.host,
+              action: 'task.edit',
+              task_id: match[1],
+              target: action.toLowerCase(),
+            });
+            return; // Report once for task edits; skip generic heartbeat below.
+          }
+        }
+
+        // Namespace guard: check file write operations stay within boundaries.
+        // V1 is advisory — log warning but never block.
         const guardResult = evaluateNamespaceGuard(
           filePath,
           self.uid,

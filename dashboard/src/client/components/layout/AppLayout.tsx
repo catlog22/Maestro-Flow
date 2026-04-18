@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { TopBar } from '@/client/components/layout/TopBar.js';
-import { DockRail } from '@/client/components/layout/DockRail.js';
-import { MainContent } from '@/client/components/layout/MainContent.js';
+import { ActivityBar } from '@/client/components/layout/activity-bar/ActivityBar.js';
+import { PrimarySideBar } from '@/client/components/layout/sidebar/PrimarySideBar.js';
+import { SecondarySideBar } from '@/client/components/layout/sidebar/SecondarySideBar.js';
+import { LayoutProvider, useLayoutSelector, useSidebarActions, useLayoutContext } from '@/client/components/layout/LayoutContext.js';
+import { EditorGroupContainer } from '@/client/components/layout/editor-group/EditorGroupContainer.js';
+import { StatusBar, PanelArea } from '@/client/components/layout/status-bar/index.js';
 import { useBoardStore } from '@/client/store/board-store.js';
 import { useAgentStore } from '@/client/store/agent-store.js';
 import { useWebSocket } from '@/client/hooks/useWebSocket.js';
@@ -10,24 +14,28 @@ import { API_ENDPOINTS } from '@/shared/constants.js';
 import { useI18n } from '@/client/i18n/index.js';
 import { SettingsDialog } from '@/client/components/settings/SettingsDialog.js';
 import { OrchestratorStatusBar } from '@/client/components/kanban/OrchestratorStatusBar.js';
-import { ViewSwitcherContext, useViewSwitcherProvider } from '@/client/hooks/useViewSwitcher.js';
 import type { BoardState } from '@/shared/types.js';
 
 // ---------------------------------------------------------------------------
-// AppLayout — shared layout with TopBar + Sidebar + routed content (Outlet)
+// AppLayout -- shared layout with TopBar + Sidebar + routed content (Outlet)
 // ---------------------------------------------------------------------------
 
-export function AppLayout() {
+/**
+ * Inner layout that consumes LayoutContext.
+ * Separated so LayoutProvider wraps the entire tree.
+ */
+function AppLayoutInner() {
   const { t } = useI18n();
   const connected = useBoardStore((s) => s.connected);
   const [fetchError, setFetchError] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState<string | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
-  const [isPinned, setIsPinned] = useState(false);
-  const togglePin = () => setIsPinned((p) => !p);
-  const viewSwitcherCtx = useViewSwitcherProvider();
   const location = useLocation();
   const showOrchestrator = location.pathname.startsWith('/kanban');
+  const sidebarVisible = useLayoutSelector((s) => s.primarySidebar.visible);
+  const secondaryVisible = useLayoutSelector((s) => s.secondarySidebar.visible);
+  const { toggleVisible: toggleSecondary } = useSidebarActions('secondary');
+  const { dispatch } = useLayoutContext();
 
   // Establish WebSocket connection for real-time updates
   useWebSocket();
@@ -76,8 +84,55 @@ export function AppLayout() {
     fetchInitialState();
   }, []);
 
+  // Ctrl+Alt+B keyboard shortcut to toggle Secondary Side Bar
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key === 'b') {
+        e.preventDefault();
+        toggleSecondary();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleSecondary]);
+
+  // Responsive breakpoints: <1200px auto-collapse secondary, <900px auto-collapse primary
+  // Uses matchMedia to detect breakpoint changes and dispatch sidebar visibility.
+  // Only auto-collapses (never auto-expands); user can manually re-open via keyboard shortcuts.
+  useEffect(() => {
+    const mq1200 = window.matchMedia('(max-width: 1199px)');
+    const mq900 = window.matchMedia('(max-width: 899px)');
+
+    function handle1200(e: MediaQueryListEvent | MediaQueryList) {
+      if ('matches' in e ? e.matches : false) {
+        dispatch({ type: 'SET_SIDEBAR_VISIBLE', side: 'secondary', visible: false });
+      }
+    }
+
+    function handle900(e: MediaQueryListEvent | MediaQueryList) {
+      if ('matches' in e ? e.matches : false) {
+        dispatch({ type: 'SET_SIDEBAR_VISIBLE', side: 'primary', visible: false });
+        dispatch({ type: 'SET_SIDEBAR_VISIBLE', side: 'secondary', visible: false });
+      }
+    }
+
+    // Check on mount
+    if (mq900.matches) {
+      handle900(mq900);
+    } else if (mq1200.matches) {
+      handle1200(mq1200);
+    }
+
+    mq1200.addEventListener('change', handle1200);
+    mq900.addEventListener('change', handle900);
+
+    return () => {
+      mq1200.removeEventListener('change', handle1200);
+      mq900.removeEventListener('change', handle900);
+    };
+  }, [dispatch]);
+
   return (
-    <ViewSwitcherContext value={viewSwitcherCtx}>
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-bg-primary">
       {/* Settings dialog (global overlay) */}
       <SettingsDialog />
@@ -127,15 +182,34 @@ export function AppLayout() {
       {/* Row 1: top bar spans full width */}
       <TopBar />
 
-      {/* Row 2: dock rail + main content */}
+      {/* Row 2: Activity Bar + Primary Side Bar + Editor Group + Secondary Side Bar */}
       <div className="flex flex-1 overflow-hidden relative">
-        <DockRail isPinned={isPinned} onTogglePin={togglePin} />
-        <MainContent>
+        <ActivityBar />
+        {sidebarVisible && <PrimarySideBar />}
+        <EditorGroupContainer>
           <Outlet />
           {showOrchestrator && <OrchestratorStatusBar />}
-        </MainContent>
+        </EditorGroupContainer>
+        {secondaryVisible && <SecondarySideBar />}
       </div>
+
+      {/* Row 3: expandable Panel area (above Status Bar, collapsible) */}
+      <PanelArea />
+
+      {/* Row 4: Status Bar (always visible at 22px) */}
+      <StatusBar />
     </div>
-    </ViewSwitcherContext>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AppLayout -- wraps AppLayoutInner with LayoutProvider
+// ---------------------------------------------------------------------------
+
+export function AppLayout() {
+  return (
+    <LayoutProvider>
+      <AppLayoutInner />
+    </LayoutProvider>
   );
 }

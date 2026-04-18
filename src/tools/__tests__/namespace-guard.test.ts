@@ -1,5 +1,4 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert';
+import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
 import {
   evaluateNamespaceGuard,
@@ -21,8 +20,8 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, true);
-    assert.strictEqual(result.reason, undefined);
+    expect(result.allowed).toBe(true);
+    expect(result.reason).toBe(undefined);
   });
 
   it('allows write to own spec directory', () => {
@@ -31,7 +30,7 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, true);
+    expect(result.allowed).toBe(true);
   });
 
   it('allows write to own overlay bundle', () => {
@@ -40,7 +39,7 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, true);
+    expect(result.allowed).toBe(true);
   });
 
   // -- Shared paths (allowed) --
@@ -51,7 +50,7 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, true);
+    expect(result.allowed).toBe(true);
   });
 
   it('allows write to shared overlays/manifest.json', () => {
@@ -60,7 +59,7 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, true);
+    expect(result.allowed).toBe(true);
   });
 
   // -- Other members (blocked) --
@@ -71,10 +70,10 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, false);
-    assert.ok(result.reason?.includes('[NamespaceGuard] Blocked'));
-    assert.ok(result.reason?.includes('bob.json'));
-    assert.ok(result.reason?.includes('alice'));
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain('[NamespaceGuard] Blocked');
+    expect(result.reason).toContain('bob.json');
+    expect(result.reason).toContain('alice');
   });
 
   it('blocks write to another member spec directory', () => {
@@ -83,9 +82,9 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, false);
-    assert.ok(result.reason?.includes('[NamespaceGuard] Blocked'));
-    assert.ok(result.reason?.includes('bob'));
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain('[NamespaceGuard] Blocked');
+    expect(result.reason).toContain('bob');
   });
 
   it('blocks write to another member overlay bundle', () => {
@@ -94,9 +93,9 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, false);
-    assert.ok(result.reason?.includes('[NamespaceGuard] Blocked'));
-    assert.ok(result.reason?.includes('bob-bundle.json'));
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain('[NamespaceGuard] Blocked');
+    expect(result.reason).toContain('bob-bundle.json');
   });
 
   // -- Outside collab (allowed — not our concern) --
@@ -107,7 +106,7 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, true);
+    expect(result.allowed).toBe(true);
   });
 
   it('allows paths under .workflow/ but not collab/', () => {
@@ -116,7 +115,7 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, true);
+    expect(result.allowed).toBe(true);
   });
 
   it('allows paths outside project root', () => {
@@ -125,7 +124,7 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, true);
+    expect(result.allowed).toBe(true);
   });
 
   // -- Edge cases --
@@ -136,7 +135,47 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, true);
+    expect(result.allowed).toBe(true);
+  });
+
+  // -- Tasks namespace (shared writable) --
+
+  it('allows write to tasks/TASK-001.json for any member', () => {
+    const result = evaluateNamespaceGuard(
+      join(ROOT, '.workflow/collab/tasks/TASK-001.json'),
+      'alice',
+      ROOT,
+    );
+    expect(result.allowed).toBe(true);
+    expect(result.reason).toBe(undefined);
+  });
+
+  it('allows write to tasks/TASK-999.json for any member', () => {
+    const result = evaluateNamespaceGuard(
+      join(ROOT, '.workflow/collab/tasks/TASK-999.json'),
+      'bob',
+      ROOT,
+    );
+    expect(result.allowed).toBe(true);
+  });
+
+  it('allows write to tasks/.counter for any member', () => {
+    const result = evaluateNamespaceGuard(
+      join(ROOT, '.workflow/collab/tasks/.counter'),
+      'alice',
+      ROOT,
+    );
+    expect(result.allowed).toBe(true);
+    expect(result.reason).toBe(undefined);
+  });
+
+  it('allows write to unknown files under tasks/ for any member', () => {
+    const result = evaluateNamespaceGuard(
+      join(ROOT, '.workflow/collab/tasks/other-file.txt'),
+      'alice',
+      ROOT,
+    );
+    expect(result.allowed).toBe(true);
   });
 
   it('handles relative paths', () => {
@@ -146,7 +185,7 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, false);
+    expect(result.allowed).toBe(false);
   });
 
   it('blocks spec dir even for nested files', () => {
@@ -155,7 +194,7 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, false);
+    expect(result.allowed).toBe(false);
   });
 
   it('allows own spec dir for nested files', () => {
@@ -164,7 +203,7 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, true);
+    expect(result.allowed).toBe(true);
   });
 
   it('returns descriptive reason on blocked member file', () => {
@@ -173,11 +212,11 @@ describe('evaluateNamespaceGuard', () => {
       'alice',
       ROOT,
     );
-    assert.strictEqual(result.allowed, false);
-    assert.ok(typeof result.reason === 'string');
-    assert.ok(result.reason.length > 0);
-    assert.ok(result.reason.includes('charlie.json'));
-    assert.ok(result.reason.includes('alice'));
+    expect(result.allowed).toBe(false);
+    expect(typeof result.reason).toBe('string');
+    expect(result.reason!.length).toBeGreaterThan(0);
+    expect(result.reason).toContain('charlie.json');
+    expect(result.reason).toContain('alice');
   });
 });
 
@@ -189,18 +228,19 @@ describe('getNamespaceBoundaries', () => {
   it('returns expected boundaries for a user', () => {
     const boundaries = getNamespaceBoundaries('alice', ROOT);
 
-    assert.ok(boundaries.length >= 5);
-    assert.ok(boundaries.some((b) => b.includes('members/alice.json')));
-    assert.ok(boundaries.some((b) => b.includes('specs/alice/')));
-    assert.ok(boundaries.some((b) => b.includes('overlays/alice-bundle.json')));
-    assert.ok(boundaries.some((b) => b.includes('activity.jsonl')));
-    assert.ok(boundaries.some((b) => b.includes('overlays/manifest.json')));
+    expect(boundaries.length).toBeGreaterThanOrEqual(6);
+    expect(boundaries).toEqual(expect.arrayContaining([expect.stringContaining('members/alice.json')]));
+    expect(boundaries).toEqual(expect.arrayContaining([expect.stringContaining('specs/alice/')]));
+    expect(boundaries).toEqual(expect.arrayContaining([expect.stringContaining('overlays/alice-bundle.json')]));
+    expect(boundaries).toEqual(expect.arrayContaining([expect.stringContaining('activity.jsonl')]));
+    expect(boundaries).toEqual(expect.arrayContaining([expect.stringContaining('overlays/manifest.json')]));
+    expect(boundaries).toEqual(expect.arrayContaining([expect.stringContaining('tasks/')]));
   });
 
   it('does not include other users paths', () => {
     const boundaries = getNamespaceBoundaries('alice', ROOT);
     for (const b of boundaries) {
-      assert.ok(!b.includes('bob'));
+      expect(b).not.toContain('bob');
     }
   });
 });

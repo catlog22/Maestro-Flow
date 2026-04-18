@@ -38,7 +38,7 @@ import type {
   ExecutionCompletedPayload,
   ExecutionFailedPayload,
 } from '../../shared/ws-protocol.js';
-import type { CollabMember, CollabActivityEntry } from '../../shared/collab-types.js';
+import type { CollabMember, CollabActivityEntry, CollabTask } from '../../shared/collab-types.js';
 
 // ---------------------------------------------------------------------------
 // All event types — single source of truth for onAny / offAny
@@ -89,6 +89,7 @@ const ALL_EVENT_TYPES: SSEEventType[] = [
   'wiki:invalidated',
   'collab:members_updated',
   'collab:activity',
+  'collab:tasks_updated',
 ];
 
 // ---------------------------------------------------------------------------
@@ -148,6 +149,7 @@ export interface DashboardEventMap {
   // Collab events
   'collab:members_updated': CollabMember[];
   'collab:activity': CollabActivityEntry;
+  'collab:tasks_updated': { at: number; path?: string };
 }
 
 // ---------------------------------------------------------------------------

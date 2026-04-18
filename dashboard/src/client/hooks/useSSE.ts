@@ -91,6 +91,11 @@ export function useSSE(): void {
         void useCollabStore.getState().fetchActivity();
       });
 
+      // Collab tasks updated
+      es.addEventListener(SSE_EVENT_TYPES.COLLAB_TASKS_UPDATED, () => {
+        void useCollabStore.getState().fetchTasks();
+      });
+
       es.onerror = () => {
         setConnected(false);
         es.close();

@@ -25,6 +25,8 @@ import { execSync } from 'node:child_process';
 
 import { getProjectRoot } from '../utils/path-validator.js';
 
+export type ProjectRole = string; // e.g., 'frontend', 'backend', 'devops', 'designer', 'reviewer'
+
 export interface MemberRecord {
   uid: string;
   name: string;
@@ -32,6 +34,7 @@ export interface MemberRecord {
   host: string;
   role: 'admin' | 'member';
   joinedAt: string; // ISO 8601
+  projectRoles?: ProjectRole[];
 }
 
 // ---------------------------------------------------------------------------
@@ -238,6 +241,61 @@ export function joinTeam(opts?: { role?: 'admin' | 'member' }): MemberRecord {
 
   writeFileSync(getMemberFilePath(uid), JSON.stringify(record, null, 2), 'utf-8');
   return record;
+}
+
+// ---------------------------------------------------------------------------
+// Project roles
+// ---------------------------------------------------------------------------
+
+/**
+ * Add a project role to a member's record. Idempotent — adding a role that
+ * already exists is a no-op. Returns the updated record, or null if the
+ * member was not found.
+ */
+export function addProjectRole(uid: string, role: string): MemberRecord | null {
+  const member = getMemberByUid(uid);
+  if (!member) return null;
+
+  const roles = member.projectRoles ?? [];
+  if (roles.includes(role)) return member; // already present
+
+  member.projectRoles = [...roles, role];
+  writeFileSync(getMemberFilePath(uid), JSON.stringify(member, null, 2), 'utf-8');
+  return member;
+}
+
+/**
+ * Remove a project role from a member's record. No-op if the role is not
+ * present. Returns the updated record, or null if the member was not found.
+ */
+export function removeProjectRole(uid: string, role: string): MemberRecord | null {
+  const member = getMemberByUid(uid);
+  if (!member) return null;
+
+  const roles = member.projectRoles ?? [];
+  const filtered = roles.filter((r) => r !== role);
+  if (filtered.length === roles.length) return member; // role was not present
+
+  member.projectRoles = filtered.length > 0 ? filtered : undefined;
+  writeFileSync(getMemberFilePath(uid), JSON.stringify(member, null, 2), 'utf-8');
+  return member;
+}
+
+/**
+ * List project roles. When `uid` is provided, returns that member's roles
+ * (or an empty array). When omitted, returns a Map of all members' roles.
+ */
+export function listProjectRoles(uid?: string): ProjectRole[] | Map<string, ProjectRole[]> {
+  if (uid !== undefined) {
+    const member = getMemberByUid(uid);
+    return member?.projectRoles ?? [];
+  }
+
+  const map = new Map<string, ProjectRole[]>();
+  for (const m of listMembers()) {
+    map.set(m.uid, m.projectRoles ?? []);
+  }
+  return map;
 }
 
 // ---------------------------------------------------------------------------

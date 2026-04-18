@@ -1,13 +1,19 @@
 // ---------------------------------------------------------------------------
-// `maestro team` — human-team collaboration CLI (team-lite, Waves 2 + 3A)
+// `maestro collab` — human-team collaboration CLI (team-lite, Waves 2 + 3A)
 //
 // Subcommands:
-//   maestro team join      [--role admin|member]
-//   maestro team whoami
-//   maestro team report    --action <name> [--phase <n>] [--task-id <id>] [--target <s>]
-//   maestro team status    [--window <minutes>]
-//   maestro team sync      [--dry-run]
-//   maestro team preflight --phase <n> [--force] [--json]
+//   maestro collab join      [--role admin|member]
+//   maestro collab whoami
+//   maestro collab report    --action <name> [--phase <n>] [--task-id <id>] [--target <s>]
+//   maestro collab status    [--window <minutes>]
+//   maestro collab sync      [--dry-run]
+//   maestro collab preflight --phase <n> [--force] [--json]
+//   maestro collab task    create --title <t> [--description] [--priority] [--tags]
+//   maestro collab task    list   [--status <s>] [--assignee <uid>]
+//   maestro collab task    show   <task-id>
+//   maestro collab task    status <task-id> <status>
+//   maestro collab task    assign <task-id> <uid>
+//   maestro collab task    check  <task-id> --action <a> [--comment <text>]
 //
 // Namespace: writes only to `.workflow/collab/**`. Never touches
 // `.workflow/.team/` (that belongs to the agent pipeline, see team-msg.ts).
@@ -23,7 +29,11 @@ import {
   resolveSelf,
   requireRole,
   requireTeamMode,
+  getMemberByUid,
   type MemberRecord,
+  addProjectRole,
+  removeProjectRole,
+  listProjectRoles,
 } from '../tools/team-members.js';
 import {
   reportActivity,
@@ -35,6 +45,17 @@ import {
   importBundle,
   type OverlayBundle,
 } from '../core/overlay/applier.js';
+import {
+  createTask,
+  listTasks,
+  getTask,
+  updateTaskStatus,
+  assignTask,
+  addCheckEntry,
+  type TaskStatus,
+  type TaskPriority,
+  type CheckAction,
+} from '../tools/team-tasks.js';
 import { paths } from '../config/paths.js';
 import { getProjectRoot } from '../utils/path-validator.js';
 import { CATEGORY_MAP, TEAM_SPECS_DIR } from '../tools/spec-loader.js';
@@ -808,23 +829,24 @@ function runPreflightCli(opts: {
 // Register
 // ---------------------------------------------------------------------------
 
-export function registerTeamCommand(program: Command): void {
-  const team = program
-    .command('team')
+export function registerCollabCommand(program: Command): void {
+  const collab = program
+    .command('collab')
+    .alias('team')
     .description('Human-team collaboration — join, report, and view activity');
 
-  team
+  collab
     .command('join')
     .description('Register the current git identity as a team member (idempotent)')
     .option('--role <role>', 'Force role: admin or member')
     .action((opts: { role?: string }) => runJoin(opts));
 
-  team
+  collab
     .command('whoami')
     .description('Show the current team member record')
     .action(() => runWhoami());
 
-  team
+  collab
     .command('report')
     .description('Append an activity event (usually called from hooks)')
     .requiredOption('--action <name>', 'Command or tool name')
@@ -835,20 +857,20 @@ export function registerTeamCommand(program: Command): void {
       runReport(opts),
     );
 
-  team
+  collab
     .command('status')
     .description('Show recent team activity')
     .option('--window <minutes>', 'Look-back window in minutes', '30')
     .action((opts: { window?: string }) => runStatus(opts));
 
-  team
+  collab
     .command('sync')
     .description('Sync with remote: git stash/pull --rebase/pop/push + log rotation')
     .option('--dry-run', 'Print the plan without executing any git command')
     .option('--with-overlays', 'Import team overlay bundles after sync')
     .action((opts: { dryRun?: boolean; withOverlays?: boolean }) => runSync(opts));
 
-  team
+  collab
     .command('preflight')
     .description('Warn if teammates are active on the same phase')
     .option('--phase <n>', 'Phase id to check')
@@ -858,13 +880,13 @@ export function registerTeamCommand(program: Command): void {
       runPreflightCli(opts),
     );
 
-  team
+  collab
     .command('guard')
     .description('Show namespace boundaries for the current team member')
     .action(() => runGuard());
 
   // spec subcommand group
-  const spec = team
+  const spec = collab
     .command('spec')
     .description('Manage personal spec overrides');
 
@@ -878,6 +900,84 @@ export function registerTeamCommand(program: Command): void {
     .description('Create or edit a personal spec file')
     .argument('<filename>', 'Spec filename (e.g. coding-conventions or coding-conventions.md)')
     .action((filename: string) => runSpecEdit(filename));
+
+  // role subcommand group
+  const role = collab
+    .command('role')
+    .description('Manage project roles for team members');
+
+  role
+    .command('add')
+    .description('Add one or more project roles to a team member')
+    .argument('<uid>', 'Member uid')
+    .argument('<roles...>', 'Project role(s) to add')
+    .action((uid: string, roles: string[]) => runRoleAdd(uid, roles));
+
+  role
+    .command('remove')
+    .description('Remove one or more project roles from a team member')
+    .argument('<uid>', 'Member uid')
+    .argument('<roles...>', 'Project role(s) to remove')
+    .action((uid: string, roles: string[]) => runRoleRemove(uid, roles));
+
+  role
+    .command('list')
+    .description('List project roles for one or all team members')
+    .option('--uid <uid>', 'Filter to a specific member')
+    .action((opts: { uid?: string }) => runRoleList(opts.uid));
+
+  // task subcommand group
+  const task = collab
+    .command('task')
+    .description('Manage collaboration tasks');
+
+  task
+    .command('create')
+    .description('Create a new task')
+    .requiredOption('--title <title>', 'Task title')
+    .option('--description <desc>', 'Task description')
+    .option('--priority <priority>', 'Priority: low, medium, high, critical')
+    .option('--tags <tags>', 'Comma-separated tags')
+    .action((opts: { title: string; description?: string; priority?: string; tags?: string }) =>
+      runTaskCreate(opts),
+    );
+
+  task
+    .command('list')
+    .description('List tasks with optional filters')
+    .option('--status <status>', 'Filter by status')
+    .option('--assignee <uid>', 'Filter by assignee uid')
+    .action((opts: { status?: string; assignee?: string }) => runTaskList(opts));
+
+  task
+    .command('show')
+    .description('Show full details for a task')
+    .argument('<task-id>', 'Task id (e.g. TASK-001)')
+    .action((taskId: string) => runTaskShow(taskId));
+
+  task
+    .command('status')
+    .description('Update task status')
+    .argument('<task-id>', 'Task id (e.g. TASK-001)')
+    .argument('<status>', 'New status: open|assigned|in_progress|pending_review|done|closed')
+    .action((taskId: string, status: string) => runTaskStatus(taskId, status));
+
+  task
+    .command('assign')
+    .description('Assign a task to a team member')
+    .argument('<task-id>', 'Task id (e.g. TASK-001)')
+    .argument('<uid>', 'Member uid to assign')
+    .action((taskId: string, uid: string) => runTaskAssign(taskId, uid));
+
+  task
+    .command('check')
+    .description('Add a check entry to a task')
+    .argument('<task-id>', 'Task id (e.g. TASK-001)')
+    .requiredOption('--action <action>', 'Action: confirmed|rejected|commented')
+    .option('--comment <text>', 'Comment text')
+    .action((taskId: string, opts: { action: string; comment?: string }) =>
+      runTaskCheck(taskId, opts),
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -887,7 +987,7 @@ export function registerTeamCommand(program: Command): void {
 function runGuard(): void {
   const self = resolveSelf();
   if (!self) {
-    console.error("Team mode not enabled. Run 'maestro team join' first.");
+    console.error("Team mode not enabled. Run 'maestro collab join' first.");
     process.exit(1);
     return;
   }
@@ -921,7 +1021,7 @@ function runGuard(): void {
 function runSpecList(): void {
   const self = resolveSelf();
   if (!self) {
-    console.error("Team mode not enabled. Run 'maestro team join' first.");
+    console.error("Team mode not enabled. Run 'maestro collab join' first.");
     process.exit(1);
     return;
   }
@@ -932,7 +1032,7 @@ function runSpecList(): void {
   if (!existsSync(personalDir)) {
     console.log(`No personal specs found for ${self.uid}.`);
     console.log(`Directory: ${personalDir}`);
-    console.log(`Run 'maestro team spec edit <filename>' to create one.`);
+    console.log(`Run 'maestro collab spec edit <filename>' to create one.`);
     return;
   }
 
@@ -962,7 +1062,7 @@ function runSpecList(): void {
 function runSpecEdit(filename: string): void {
   const self = resolveSelf();
   if (!self) {
-    console.error("Team mode not enabled. Run 'maestro team join' first.");
+    console.error("Team mode not enabled. Run 'maestro collab join' first.");
     process.exit(1);
     return;
   }
@@ -1000,4 +1100,340 @@ function runSpecEdit(filename: string): void {
   } else {
     console.log(`No $EDITOR set. Edit manually: ${filePath}`);
   }
+}
+
+// ---------------------------------------------------------------------------
+// role add / role remove / role list
+// ---------------------------------------------------------------------------
+
+function runRoleAdd(uid: string, roles: string[]): void {
+  requireTeamMode();
+
+  if (!getMemberByUid(uid)) {
+    console.error(`Error: member "${uid}" not found.`);
+    process.exit(1);
+    return;
+  }
+
+  let current: MemberRecord | null = null;
+  for (const role of roles) {
+    current = addProjectRole(uid, role);
+  }
+
+  console.log(`Updated roles for ${uid}: ${(current?.projectRoles ?? []).join(', ') || '(none)'}`);
+}
+
+function runRoleRemove(uid: string, roles: string[]): void {
+  requireTeamMode();
+
+  if (!getMemberByUid(uid)) {
+    console.error(`Error: member "${uid}" not found.`);
+    process.exit(1);
+    return;
+  }
+
+  let current: MemberRecord | null = null;
+  for (const role of roles) {
+    current = removeProjectRole(uid, role);
+  }
+
+  console.log(`Updated roles for ${uid}: ${(current?.projectRoles ?? []).join(', ') || '(none)'}`);
+}
+
+function runRoleList(uid?: string): void {
+  requireTeamMode();
+
+  const result = listProjectRoles(uid);
+
+  if (Array.isArray(result)) {
+    // Single-member result
+    if (result.length === 0) {
+      console.log(uid ? `No project roles for ${uid}.` : 'No project roles found.');
+    } else {
+      console.log(`Project roles for ${uid}:`);
+      for (const r of result) {
+        console.log(`  ${r}`);
+      }
+    }
+  } else {
+    // Map of all members
+    let hasAny = false;
+    for (const [memberUid, roles] of result) {
+      if (roles.length > 0) {
+        hasAny = true;
+        const roleStr = roles.join(', ');
+        console.log(`${pad(memberUid, 20)}  ${roleStr}`);
+      }
+    }
+    if (!hasAny) {
+      console.log('No project roles assigned to any member.');
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// task create / task list / task show / task status / task assign / task check
+// ---------------------------------------------------------------------------
+
+const VALID_TASK_STATUSES: TaskStatus[] = [
+  'open', 'assigned', 'in_progress', 'pending_review', 'done', 'closed',
+];
+
+const VALID_PRIORITIES: TaskPriority[] = [
+  'low', 'medium', 'high', 'critical',
+];
+
+const VALID_CHECK_ACTIONS: CheckAction[] = [
+  'confirmed', 'rejected', 'commented',
+];
+
+function runTaskCreate(opts: {
+  title: string;
+  description?: string;
+  priority?: string;
+  tags?: string;
+}): void {
+  let self: MemberRecord;
+  try {
+    self = requireTeamMode();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Error: ${msg}`);
+    process.exit(1);
+    return;
+  }
+
+  let priority: TaskPriority | undefined;
+  if (opts.priority !== undefined) {
+    if (!VALID_PRIORITIES.includes(opts.priority as TaskPriority)) {
+      console.error(
+        `Error: --priority must be one of ${VALID_PRIORITIES.join(', ')} (got "${opts.priority}")`,
+      );
+      process.exit(1);
+      return;
+    }
+    priority = opts.priority as TaskPriority;
+  }
+
+  const tags = opts.tags
+    ? opts.tags.split(',').map((t) => t.trim()).filter((t) => t.length > 0)
+    : undefined;
+
+  try {
+    const task = createTask({
+      title: opts.title,
+      description: opts.description,
+      priority,
+      reporter: self.uid,
+      tags,
+    });
+    console.log(`Created ${task.id}:`);
+    console.log(`  title:    ${task.title}`);
+    console.log(`  status:   ${task.status}`);
+    console.log(`  priority: ${task.priority}`);
+    if (task.tags && task.tags.length > 0) {
+      console.log(`  tags:     ${task.tags.join(', ')}`);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Error: ${msg}`);
+    process.exit(1);
+  }
+}
+
+function runTaskList(opts: { status?: string; assignee?: string }): void {
+  let self: MemberRecord;
+  try {
+    self = requireTeamMode();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Error: ${msg}`);
+    process.exit(1);
+    return;
+  }
+
+  if (opts.status !== undefined && !VALID_TASK_STATUSES.includes(opts.status as TaskStatus)) {
+    console.error(
+      `Error: --status must be one of ${VALID_TASK_STATUSES.join(', ')} (got "${opts.status}")`,
+    );
+    process.exit(1);
+    return;
+  }
+
+  try {
+    const tasks = listTasks({
+      status: opts.status as TaskStatus | undefined,
+      assignee: opts.assignee,
+    });
+
+    if (tasks.length === 0) {
+      console.log('No tasks found.');
+      return;
+    }
+
+    // Table header
+    const idW = 10;
+    const titleW = 30;
+    const statusW = 15;
+    const priorityW = 10;
+    const assigneeW = 15;
+
+    console.log(
+      `${pad('ID', idW)}  ${pad('TITLE', titleW)}  ${pad('STATUS', statusW)}  ${pad('PRIORITY', priorityW)}  ${pad('ASSIGNEE', assigneeW)}`,
+    );
+    console.log('-'.repeat(idW + titleW + statusW + priorityW + assigneeW + 8));
+
+    for (const t of tasks) {
+      console.log(
+        `${pad(t.id, idW)}  ${pad(truncate(t.title, titleW), titleW)}  ${pad(t.status, statusW)}  ${pad(t.priority, priorityW)}  ${pad(t.assignee ?? '-', assigneeW)}`,
+      );
+    }
+
+    console.log(`\n${tasks.length} task(s) listed.`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Error: ${msg}`);
+    process.exit(1);
+  }
+}
+
+function runTaskShow(taskId: string): void {
+  try {
+    requireTeamMode();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Error: ${msg}`);
+    process.exit(1);
+    return;
+  }
+
+  try {
+    const task = getTask(taskId);
+    if (!task) {
+      console.error(`Error: task "${taskId}" not found.`);
+      process.exit(1);
+      return;
+    }
+
+    console.log(`ID:          ${task.id}`);
+    console.log(`Title:       ${task.title}`);
+    console.log(`Status:      ${task.status}`);
+    console.log(`Priority:    ${task.priority}`);
+    console.log(`Reporter:    ${task.reporter}`);
+    if (task.assignee) console.log(`Assignee:    ${task.assignee}`);
+    if (task.description) console.log(`Description: ${task.description}`);
+    if (task.tags && task.tags.length > 0) {
+      console.log(`Tags:        ${task.tags.join(', ')}`);
+    }
+    if (task.external_refs && task.external_refs.length > 0) {
+      console.log(`References:`);
+      for (const ref of task.external_refs) {
+        console.log(`  ${ref.type}: ${ref.id}${ref.url ? ` (${ref.url})` : ''}`);
+      }
+    }
+    console.log(`Created:     ${task.created_at}`);
+    console.log(`Updated:     ${task.updated_at} by ${task.updated_by}`);
+
+    if (task.check_log.length > 0) {
+      console.log(`\nCheck log (${task.check_log.length} entries):`);
+      for (const entry of task.check_log) {
+        const comment = entry.comment ? ` -- ${entry.comment}` : '';
+        console.log(`  ${entry.ts}  ${entry.uid}  ${entry.action}${comment}`);
+      }
+    } else {
+      console.log('\nCheck log: (empty)');
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Error: ${msg}`);
+    process.exit(1);
+  }
+}
+
+function runTaskStatus(taskId: string, status: string): void {
+  let self: MemberRecord;
+  try {
+    self = requireTeamMode();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Error: ${msg}`);
+    process.exit(1);
+    return;
+  }
+
+  if (!VALID_TASK_STATUSES.includes(status as TaskStatus)) {
+    console.error(
+      `Error: status must be one of ${VALID_TASK_STATUSES.join(', ')} (got "${status}")`,
+    );
+    process.exit(1);
+    return;
+  }
+
+  try {
+    const task = updateTaskStatus(taskId, status as TaskStatus, self.uid);
+    console.log(`${task.id} status -> ${task.status}`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Error: ${msg}`);
+    process.exit(1);
+  }
+}
+
+function runTaskAssign(taskId: string, uid: string): void {
+  try {
+    requireTeamMode();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Error: ${msg}`);
+    process.exit(1);
+    return;
+  }
+
+  try {
+    const task = assignTask(taskId, uid);
+    console.log(`${task.id} assigned to ${task.assignee} (status: ${task.status})`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Error: ${msg}`);
+    process.exit(1);
+  }
+}
+
+function runTaskCheck(taskId: string, opts: { action: string; comment?: string }): void {
+  let self: MemberRecord;
+  try {
+    self = requireTeamMode();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Error: ${msg}`);
+    process.exit(1);
+    return;
+  }
+
+  if (!VALID_CHECK_ACTIONS.includes(opts.action as CheckAction)) {
+    console.error(
+      `Error: --action must be one of ${VALID_CHECK_ACTIONS.join(', ')} (got "${opts.action}")`,
+    );
+    process.exit(1);
+    return;
+  }
+
+  try {
+    const task = addCheckEntry(taskId, {
+      uid: self.uid,
+      action: opts.action as CheckAction,
+      comment: opts.comment,
+    });
+    console.log(`${task.id} check entry added: ${opts.action}${opts.comment ? ` -- ${opts.comment}` : ''}`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Error: ${msg}`);
+    process.exit(1);
+  }
+}
+
+/** Truncate a string to maxLen, appending '...' if truncated. */
+function truncate(s: string, maxLen: number): string {
+  if (s.length <= maxLen) return s;
+  return s.slice(0, maxLen - 3) + '...';
 }

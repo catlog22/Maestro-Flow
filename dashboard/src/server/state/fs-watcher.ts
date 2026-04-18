@@ -44,6 +44,8 @@ export class FSWatcher {
       // Collab — member profiles and activity log
       `${this.workflowRoot}/collab/members/*.json`,
       `${this.workflowRoot}/collab/activity.jsonl`,
+      // Collab tasks
+      `${this.workflowRoot}/collab/tasks/*.json`,
     ];
 
     this.watcher = watch(patterns, {
