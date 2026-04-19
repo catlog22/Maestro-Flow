@@ -1,8 +1,7 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useLayoutContext, useLayoutSelector } from '@/client/components/layout/LayoutContext.js';
 import { EditorGroupContainer } from '@/client/components/layout/editor-group/EditorGroupContainer.js';
 import { useAgentStore } from '@/client/store/agent-store.js';
-import { useUIPrefsStore } from '@/client/store/ui-prefs-store.js';
 import { AGENT_LABELS } from '@/shared/constants.js';
 import { MessageSquare } from 'lucide-react';
 import { ChatInput } from '@/client/pages/chat/ChatInput.js';
@@ -10,9 +9,8 @@ import { ChatInput } from '@/client/pages/chat/ChatInput.js';
 // ---------------------------------------------------------------------------
 // ChatWorkspace — connects agent-store sessions to LayoutContext editor tabs
 // ---------------------------------------------------------------------------
-// - Syncs agent processes as chat tabs in the editor group
-// - Syncs activeProcessId with LayoutContext focused tab
-// - Renders EditorGroupContainer which handles all split/tab UI
+// Single-direction sync: agent-store → LayoutContext (one-way)
+// Tab selection in LayoutContext does NOT write back to agent-store to avoid loops
 // ---------------------------------------------------------------------------
 
 /** Get the first leaf node from a tree */
@@ -21,26 +19,45 @@ function getFirstLeaf(node: import('@/client/types/layout-types.js').EditorGroup
 }
 
 export function ChatWorkspace() {
-  const { state, dispatch } = useLayoutContext();
+  const { dispatch } = useLayoutContext();
+  const editorArea = useLayoutSelector((s) => s.editorArea);
   const processes = useAgentStore((s) => s.processes);
   const activeProcessId = useAgentStore((s) => s.activeProcessId);
   const setActiveProcessId = useAgentStore((s) => s.setActiveProcessId);
-  const stylePreset = useUIPrefsStore((s) => s.stylePreset);
 
-  const defaultGroup = getFirstLeaf(state.editorArea);
-  const defaultGroupId = defaultGroup.id;
+  // Stable ref to the default group ID (doesn't change unless tree is restructured)
+  const defaultGroupId = getFirstLeaf(editorArea).id;
 
-  // Track which process IDs are already represented as tabs
-  const tabbedProcessIds = useRef<Set<string>>(new Set());
+  // Track which process IDs have been synced as tabs (persists across renders)
+  const syncedProcessIds = useRef<Set<string>>(new Set());
 
-  // Sync agent processes → editor group tabs
+  // Filter: only show active processes as tabs (not stopped/error older than 2 min)
+  const activeProcessEntries = useMemo(() => {
+    const TWO_MIN = 2 * 60 * 1000;
+    const now = Date.now();
+    return Object.entries(processes).filter(([id, proc]) => {
+      // Always show running/spawning/paused
+      if (proc.status === 'running' || proc.status === 'spawning' || proc.status === 'paused') return true;
+      // Show active process regardless
+      if (id === activeProcessId) return true;
+      // Show recently stopped (within 2 min)
+      if (proc.status === 'stopped' || proc.status === 'error') {
+        const age = now - new Date(proc.startedAt).getTime();
+        return age < TWO_MIN;
+      }
+      return false;
+    });
+  }, [processes, activeProcessId]);
+
+  // Sync agent processes → LayoutContext tabs (one-way: agent-store → layout)
   useEffect(() => {
-    const processIds = new Set(Object.keys(processes));
+    const activeIds = new Set(activeProcessEntries.map(([id]) => id));
+    const leaf = getFirstLeaf(editorArea);
+    const existingTabRefs = new Set(leaf.tabs.map((t) => t.ref));
 
-    // Add tabs for new processes
-    for (const [procId, proc] of Object.entries(processes)) {
-      if (!tabbedProcessIds.current.has(procId)) {
-        tabbedProcessIds.current.add(procId);
+    // Open tabs for active processes
+    for (const [procId, proc] of activeProcessEntries) {
+      if (!existingTabRefs.has(procId)) {
         const label = AGENT_LABELS[proc.type] ?? proc.type;
         dispatch({
           type: 'OPEN_TAB',
@@ -56,57 +73,33 @@ export function ChatWorkspace() {
       }
     }
 
-    // Close tabs for removed processes
-    for (const tabbedId of tabbedProcessIds.current) {
-      if (!processIds.has(tabbedId)) {
-        tabbedProcessIds.current.delete(tabbedId);
+    // Close tabs for removed/dismissed processes
+    for (const tab of leaf.tabs) {
+      if (tab.type === 'chat' && tab.ref && !activeIds.has(tab.ref)) {
         dispatch({
           type: 'CLOSE_TAB',
           groupId: defaultGroupId,
-          tabId: `chat-${tabbedId}`,
+          tabId: tab.id,
         });
       }
     }
-  }, [processes, defaultGroupId, dispatch]);
+  }, [activeProcessEntries, defaultGroupId, dispatch, editorArea]);
 
-  // Sync activeProcessId → LayoutContext active tab
+  // Sync activeProcessId → LayoutContext active tab (one-way)
   useEffect(() => {
-    if (activeProcessId) {
-      const tabId = `chat-${activeProcessId}`;
-      // Check if tab exists in default group
-      const leaf = getFirstLeaf(state.editorArea);
-      const hasTab = leaf.tabs.some((t) => t.id === tabId);
-      if (hasTab) {
-        dispatch({ type: 'SET_ACTIVE_TAB', groupId: leaf.id, tabId });
-      }
+    if (!activeProcessId) return;
+    const tabId = `chat-${activeProcessId}`;
+    const leaf = getFirstLeaf(editorArea);
+    const hasTab = leaf.tabs.some((t) => t.id === tabId);
+    if (hasTab && leaf.activeTabId !== tabId) {
+      dispatch({ type: 'SET_ACTIVE_TAB', groupId: leaf.id, tabId });
     }
-  }, [activeProcessId, state.editorArea, dispatch]);
+  }, [activeProcessId, editorArea, dispatch]);
 
-  // Sync LayoutContext tab changes → agent-store activeProcessId
-  const handleTabChange = useCallback(() => {
-    const leaf = getFirstLeaf(state.editorArea);
-    if (leaf.activeTabId && leaf.activeTabId.startsWith('chat-')) {
-      const processId = leaf.activeTabId.replace('chat-', '');
-      if (processId !== activeProcessId && processes[processId]) {
-        setActiveProcessId(processId);
-      }
-    }
-  }, [state.editorArea, activeProcessId, processes, setActiveProcessId]);
+  // Show welcome view when no active processes exist
+  const hasProcesses = activeProcessEntries.length > 0;
 
-  // Watch for tab focus changes via focusedGroupId
-  const prevFocusedTabRef = useRef<string | null>(null);
-  useEffect(() => {
-    const leaf = getFirstLeaf(state.editorArea);
-    if (leaf.activeTabId !== prevFocusedTabRef.current) {
-      prevFocusedTabRef.current = leaf.activeTabId;
-      handleTabChange();
-    }
-  }, [state.editorArea, handleTabChange]);
-
-  // Show welcome view when no active session
-  const showWelcome = !activeProcessId && Object.keys(processes).length === 0;
-
-  if (showWelcome) {
+  if (!hasProcesses) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center" style={{ marginTop: '-5vh' }}>
         <div className="w-full px-4" style={{ maxWidth: 'clamp(360px, calc(100% - 32px), 780px)' }}>
