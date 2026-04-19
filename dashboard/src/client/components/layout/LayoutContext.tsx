@@ -8,7 +8,7 @@ import {
   type ReactNode,
   type Dispatch,
 } from 'react';
-import type { LayoutState, LayoutAction, EditorGroupLeaf } from '@/client/types/layout-types.js';
+import type { LayoutState, LayoutAction, EditorGroupLeaf, WorkspaceMode } from '@/client/types/layout-types.js';
 
 // ---------------------------------------------------------------------------
 // LayoutContext — VS Code-style layout state with localStorage persistence
@@ -16,7 +16,7 @@ import type { LayoutState, LayoutAction, EditorGroupLeaf } from '@/client/types/
 
 const STORAGE_KEY = 'maestro-layout-state';
 const PERSIST_DEBOUNCE_MS = 500;
-const CURRENT_VERSION = 4;
+const CURRENT_VERSION = 5;
 
 // ---- Defaults ----
 
@@ -48,6 +48,7 @@ function createInitialState(): LayoutState {
       isMaximized: false,
     },
     focusedGroupId: 'editor-group-1',
+    workspaceMode: 'conversation',
   };
 }
 
@@ -85,12 +86,21 @@ function migrateLayoutState(prev: Record<string, unknown>): LayoutState {
     state = {
       ...base,
       ...state,
-      version: CURRENT_VERSION,
+      version: 4,
       // Ensure nested objects have all required fields
       primarySidebar: { ...base.primarySidebar, ...(state.primarySidebar as object) },
       secondarySidebar: { ...base.secondarySidebar, ...(state.secondarySidebar as object) },
       activityBar: { ...base.activityBar, ...(state.activityBar as object) },
       panel: { ...base.panel, ...(state.panel as object) },
+    };
+  }
+
+  // v4 -> v5: add workspaceMode
+  if ((state.version as number) < 5) {
+    state = {
+      ...state,
+      workspaceMode: (state.workspaceMode as WorkspaceMode) ?? 'conversation',
+      version: 5,
     };
   }
 
@@ -194,6 +204,32 @@ function layoutReducer(state: LayoutState, action: LayoutAction): LayoutState {
           activeTabId: action.tabId,
         }),
       };
+
+    case 'SET_WORKSPACE_MODE': {
+      let newState = { ...state, workspaceMode: action.mode };
+      // Apply mode presets
+      switch (action.mode) {
+        case 'conversation':
+          newState = {
+            ...newState,
+            panel: { ...newState.panel, visible: false },
+          };
+          break;
+        case 'files':
+          newState = {
+            ...newState,
+            panel: { ...newState.panel, visible: false },
+          };
+          break;
+        case 'fusion':
+          newState = {
+            ...newState,
+            panel: { ...newState.panel, visible: true },
+          };
+          break;
+      }
+      return newState;
+    }
 
     case 'SPLIT_GROUP': {
       const newGroupId = getNextGroupId();

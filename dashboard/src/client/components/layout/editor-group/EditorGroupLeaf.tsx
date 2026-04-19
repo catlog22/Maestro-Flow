@@ -3,7 +3,11 @@ import { SplitSquareHorizontal, Rows } from 'lucide-react';
 import { useLayoutContext, useLayoutSelector } from '@/client/components/layout/LayoutContext.js';
 import { useEditorContent } from './EditorContentContext.js';
 import { TabBar } from './TabBar.js';
-import type { EditorGroupLeaf as EditorGroupLeafType } from '@/client/types/layout-types.js';
+import type { EditorGroupLeaf as EditorGroupLeafType, TabSession } from '@/client/types/layout-types.js';
+import { MessageArea } from '@/client/pages/chat/MessageArea.js';
+import { ChatInput } from '@/client/pages/chat/ChatInput.js';
+import { ThoughtDisplay } from '@/client/pages/chat/ThoughtDisplay.js';
+import { FileViewer } from '@/client/pages/chat/FileViewer.js';
 
 // ---------------------------------------------------------------------------
 // EditorGroupLeaf -- renders TabBar slot + content area for a leaf node
@@ -65,6 +69,31 @@ function WelcomeCard({ label, shortcut }: { label: string; shortcut: string }) {
       <span className="text-[length:var(--font-size-xs)] text-text-tertiary">{shortcut}</span>
     </div>
   );
+}
+
+/** Renders content based on tab type */
+function TabContentRenderer({ tab }: { tab: TabSession }) {
+  switch (tab.type) {
+    case 'chat':
+    case 'agent':
+      return (
+        <div className="flex flex-col h-full">
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <MessageArea processId={tab.ref} />
+          </div>
+          <ThoughtDisplay processId={tab.ref} />
+          <ChatInput processId={tab.ref} />
+        </div>
+      );
+    case 'file':
+      return <FileViewer filePath={tab.ref} onClose={() => {}} />;
+    default:
+      return (
+        <div className="flex items-center justify-center h-full text-text-tertiary text-[length:var(--font-size-sm)]">
+          {tab.title}
+        </div>
+      );
+  }
 }
 
 export const EditorGroupLeaf = memo(function EditorGroupLeaf({ node }: EditorGroupLeafProps) {
@@ -203,14 +232,11 @@ export const EditorGroupLeaf = memo(function EditorGroupLeaf({ node }: EditorGro
           node.tabs.map((tab) => (
             <div
               key={tab.id}
-              className="absolute inset-0 overflow-auto"
-              style={{ display: tab.id === node.activeTabId ? 'block' : 'none' }}
+              className="absolute inset-0 flex flex-col overflow-hidden"
+              style={{ display: tab.id === node.activeTabId ? 'flex' : 'none' }}
               data-tab-content={tab.id}
             >
-              {/* Tab content placeholder -- actual content rendered by page-level integration */}
-              <div className="flex items-center justify-center h-full text-text-tertiary text-[length:var(--font-size-sm)]">
-                {tab.title}
-              </div>
+              <TabContentRenderer tab={tab} />
             </div>
           ))
         )}

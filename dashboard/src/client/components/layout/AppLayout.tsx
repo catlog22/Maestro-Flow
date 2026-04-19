@@ -3,6 +3,9 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { TopBar } from '@/client/components/layout/TopBar.js';
 import { DockRail } from '@/client/components/layout/DockRail.js';
 import { MainContent } from '@/client/components/layout/MainContent.js';
+import { LayoutProvider } from '@/client/components/layout/LayoutContext.js';
+import { StatusBar } from '@/client/components/layout/status-bar/StatusBar.js';
+import { PanelArea } from '@/client/components/layout/status-bar/PanelArea.js';
 import { useBoardStore } from '@/client/store/board-store.js';
 import { useAgentStore } from '@/client/store/agent-store.js';
 import { useWebSocket } from '@/client/hooks/useWebSocket.js';
@@ -77,6 +80,7 @@ export function AppLayout() {
   }, []);
 
   return (
+    <LayoutProvider>
     <ViewSwitcherContext value={viewSwitcherCtx}>
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-bg-primary">
       {/* Settings dialog (global overlay) */}
@@ -135,7 +139,12 @@ export function AppLayout() {
           {showOrchestrator && <OrchestratorStatusBar />}
         </MainContent>
       </div>
+
+      {/* Row 3: status bar + collapsible bottom panel */}
+      <StatusBar />
+      <PanelArea />
     </div>
     </ViewSwitcherContext>
+    </LayoutProvider>
   );
 }

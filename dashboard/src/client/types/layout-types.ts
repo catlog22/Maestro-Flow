@@ -68,6 +68,10 @@ export interface StatusBarItem {
   visible?: boolean;
 }
 
+// ---- Workspace Mode ----
+
+export type WorkspaceMode = 'conversation' | 'files' | 'fusion';
+
 // ---- Layout State ----
 
 export interface SidebarState {
@@ -104,6 +108,7 @@ export interface LayoutState {
   editorArea: EditorGroupNode;
   panel: PanelState;
   focusedGroupId: string;
+  workspaceMode: WorkspaceMode;
 }
 
 // ---- Layout Actions ----
@@ -124,6 +129,7 @@ export type LayoutAction =
   | { type: 'OPEN_TAB'; groupId: string; tab: TabSession }
   | { type: 'CLOSE_TAB'; groupId: string; tabId: string }
   | { type: 'SET_ACTIVE_TAB'; groupId: string; tabId: string | null }
+  | { type: 'SET_WORKSPACE_MODE'; mode: WorkspaceMode }
   | { type: 'RESTORE_STATE'; state: LayoutState };
 
 // ---- Event Bus ----
