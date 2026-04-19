@@ -1,5 +1,5 @@
-import { memo, useCallback, useEffect, useRef } from 'react';
-import { SplitSquareHorizontal, Rows } from 'lucide-react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { SplitSquareHorizontal, Rows, FolderTree, Clock } from 'lucide-react';
 import { useLayoutContext, useLayoutSelector } from '@/client/components/layout/LayoutContext.js';
 import { useEditorContent } from './EditorContentContext.js';
 import { TabBar } from './TabBar.js';
@@ -8,6 +8,8 @@ import { MessageArea } from '@/client/pages/chat/MessageArea.js';
 import { ChatInput } from '@/client/pages/chat/ChatInput.js';
 import { ThoughtDisplay } from '@/client/pages/chat/ThoughtDisplay.js';
 import { FileViewer } from '@/client/pages/chat/FileViewer.js';
+import { WorkspaceModeSwitcher } from '@/client/components/chat/WorkspaceModeSwitcher.js';
+import { useChatSidebar } from '@/client/components/chat/ChatSidebarContext.js';
 
 // ---------------------------------------------------------------------------
 // EditorGroupLeaf -- renders TabBar slot + content area for a leaf node
@@ -38,35 +40,23 @@ function getNodeDepth(
   return -1;
 }
 
-/** Welcome view shown when no tabs are open */
+/** Welcome view shown when no tabs are open — includes ChatInput */
 function WelcomeView() {
   return (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="text-center max-w-[320px]">
-        <h2
-          className="text-[length:var(--font-size-lg)] font-[var(--font-weight-semibold)] text-text-secondary mb-[var(--spacing-2)]"
-        >
-          Maestro Dashboard
-        </h2>
-        <p className="text-[length:var(--font-size-sm)] text-text-tertiary mb-[var(--spacing-4)]">
-          Open a session or file to get started.
-        </p>
-        <div className="grid grid-cols-2 gap-[var(--spacing-2)]">
-          <WelcomeCard label="New Chat" shortcut="Ctrl+Shift+C" />
-          <WelcomeCard label="Open File" shortcut="Ctrl+O" />
-          <WelcomeCard label="Workflow" shortcut="Ctrl+Shift+W" />
-          <WelcomeCard label="Settings" shortcut="Ctrl+," />
+    <div className="flex-1 flex flex-col items-center justify-center h-full">
+      <div className="w-full px-4" style={{ maxWidth: 'clamp(360px, calc(100% - 32px), 780px)' }}>
+        <div className="flex flex-col items-center mb-6">
+          <h2
+            className="text-[length:var(--font-size-lg)] font-[var(--font-weight-semibold)] text-text-secondary mb-[var(--spacing-2)]"
+          >
+            Start a new conversation
+          </h2>
+          <p className="text-[length:var(--font-size-sm)] text-text-tertiary">
+            Select an agent, type a message, and press Enter to begin.
+          </p>
         </div>
+        <ChatInput />
       </div>
-    </div>
-  );
-}
-
-function WelcomeCard({ label, shortcut }: { label: string; shortcut: string }) {
-  return (
-    <div className="flex flex-col items-center gap-[var(--spacing-1)] p-[var(--spacing-3)] rounded-[var(--radius-default)] border border-border hover:bg-bg-hover cursor-pointer transition-colors">
-      <span className="text-[length:var(--font-size-sm)] text-text-secondary">{label}</span>
-      <span className="text-[length:var(--font-size-xs)] text-text-tertiary">{shortcut}</span>
     </div>
   );
 }
@@ -102,6 +92,7 @@ export const EditorGroupLeaf = memo(function EditorGroupLeaf({ node }: EditorGro
   const routedContent = useEditorContent();
   const isFocused = focusedGroupId === node.id;
   const isDefaultGroup = node.id === 'editor-group-1';
+  const { fileTreeOpen, setFileTreeOpen, historyOpen, setHistoryOpen } = useChatSidebar();
 
   // Refs for keyboard shortcut values
   const tabsRef = useRef(node.tabs);
@@ -183,37 +174,76 @@ export const EditorGroupLeaf = memo(function EditorGroupLeaf({ node }: EditorGro
       onMouseDown={handleFocus}
       data-editor-group={node.id}
     >
-      {/* Header row: TabBar + split buttons */}
-      <div className="relative flex items-center shrink-0">
-        <TabBar
-          tabs={node.tabs}
-          activeTabId={node.activeTabId}
-          groupId={node.id}
-          isFocused={isFocused}
-          onTabSelect={handleTabClick}
-          onTabClose={handleTabClose}
-        />
-        {/* Split buttons -- hover reveal, only when depth allows */}
-        {canSplit && (
-          <div className="flex items-center gap-[2px] px-[var(--spacing-1)] opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity shrink-0">
-            <button
-              className="p-[var(--spacing-1)] rounded-[var(--radius-sm)] hover:bg-bg-active text-text-tertiary hover:text-text-secondary"
-              onClick={handleSplitHorizontal}
-              title="Split Right (Ctrl+\\)"
-              aria-label="Split right"
-            >
-              <SplitSquareHorizontal size={14} />
-            </button>
-            <button
-              className="p-[var(--spacing-1)] rounded-[var(--radius-sm)] hover:bg-bg-active text-text-tertiary hover:text-text-secondary"
-              onClick={handleSplitVertical}
-              title="Split Down (Ctrl+K Ctrl+\\)"
-              aria-label="Split down"
-            >
-              <Rows size={14} />
-            </button>
-          </div>
-        )}
+      {/* Header row: mode switcher + TabBar + action buttons */}
+      <div className="flex items-center shrink-0 h-[35px] border-b border-border bg-bg-secondary">
+        {/* Workspace mode switcher */}
+        <div className="pl-2 shrink-0">
+          <WorkspaceModeSwitcher />
+        </div>
+
+        {/* Divider */}
+        <div className="w-px h-4 mx-1 shrink-0" style={{ backgroundColor: 'var(--color-border-divider)' }} />
+
+        {/* Tab bar */}
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <TabBar
+            tabs={node.tabs}
+            activeTabId={node.activeTabId}
+            groupId={node.id}
+            isFocused={isFocused}
+            onTabSelect={handleTabClick}
+            onTabClose={handleTabClose}
+          />
+        </div>
+
+        {/* Action buttons — always visible */}
+        <div className="flex items-center gap-[1px] px-1 shrink-0">
+          {canSplit && (
+            <>
+              <button
+                className="p-1 rounded-[var(--radius-sm)] hover:bg-bg-active text-text-tertiary hover:text-text-secondary transition-colors"
+                onClick={handleSplitHorizontal}
+                title="Split Right (Ctrl+\\)"
+                aria-label="Split right"
+              >
+                <SplitSquareHorizontal size={14} />
+              </button>
+              <button
+                className="p-1 rounded-[var(--radius-sm)] hover:bg-bg-active text-text-tertiary hover:text-text-secondary transition-colors"
+                onClick={handleSplitVertical}
+                title="Split Down (Ctrl+K Ctrl+\\)"
+                aria-label="Split down"
+              >
+                <Rows size={14} />
+              </button>
+              <div className="w-px h-4 mx-0.5 shrink-0" style={{ backgroundColor: 'var(--color-border-divider)' }} />
+            </>
+          )}
+          <button
+            className="p-1 rounded-[var(--radius-sm)] hover:bg-bg-active transition-colors"
+            onClick={() => setFileTreeOpen(!fileTreeOpen)}
+            title="Toggle file tree"
+            aria-label="Toggle file tree"
+            style={{
+              color: fileTreeOpen ? 'var(--color-accent-blue)' : 'var(--color-text-tertiary)',
+              backgroundColor: fileTreeOpen ? 'var(--color-tint-exploring)' : undefined,
+            }}
+          >
+            <FolderTree size={14} />
+          </button>
+          <button
+            className="p-1 rounded-[var(--radius-sm)] hover:bg-bg-active transition-colors"
+            onClick={() => setHistoryOpen(!historyOpen)}
+            title="Toggle history"
+            aria-label="Toggle history"
+            style={{
+              color: historyOpen ? 'var(--color-accent-blue)' : 'var(--color-text-tertiary)',
+              backgroundColor: historyOpen ? 'var(--color-tint-exploring)' : undefined,
+            }}
+          >
+            <Clock size={14} />
+          </button>
+        </div>
       </div>
 
       {/* Content area */}
