@@ -71,7 +71,16 @@
       "edges": [
         { "value": null, "target": "to_review" },
         { "value": "BLOCK", "target": "to_quality_loop_partial" },
-        { "default": true, "target": "check_all_phases" }
+        { "default": true, "target": "check_uat" }
+      ]
+    },
+    "check_uat": {
+      "type": "decision",
+      "eval": "ctx.project.uat_status",
+      "edges": [
+        { "value": null, "target": "to_test" },
+        { "value": "passed", "target": "check_all_phases" },
+        { "default": true, "target": "to_debug_from_uat" }
       ]
     },
     "check_all_phases": {
@@ -117,6 +126,11 @@
       "type": "terminal",
       "status": "delegate",
       "delegate_graph": "singles/debug"
+    },
+    "to_test": {
+      "type": "terminal",
+      "status": "delegate",
+      "delegate_graph": "singles/test"
     },
     "to_debug_from_uat": {
       "type": "terminal",

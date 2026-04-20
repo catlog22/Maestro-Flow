@@ -75,6 +75,12 @@ In auto mode, maestro also:
 - Skips chain confirmation (Step 5d)
 - Auto-skips on step errors (retry once, then skip and continue)
 
+**Context cleanup hint:**
+
+After completing step 3+, proactively suggest `-c` resume:
+- Interactive mode: display `⚡ 已执行 {N} 步，上下文较重。可随时 /maestro -c 在新上下文中恢复。`
+- `-y` mode and step 4+: log one-line warning to status.json, continue.
+
 **Context window reminder:**
 
 Before each Step 7 Skill() call, if context usage is near the window limit:

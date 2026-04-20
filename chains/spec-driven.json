@@ -54,18 +54,29 @@
       "eval": "ctx.result.verification_status",
       "edges": [
         { "value": "passed", "target": "done", "description": "Verification passed" },
-        { "default": true, "target": "done_with_issues", "description": "Verification failed" }
+        { "default": true, "target": "fix_plan", "description": "Verification failed" }
       ]
+    },
+    "fix_plan": {
+      "type": "command",
+      "cmd": "maestro-plan",
+      "description": "Re-plan to address verification gaps",
+      "args": "{phase} --gaps",
+      "auto_flag": "--auto",
+      "next": "fix_execute"
+    },
+    "fix_execute": {
+      "type": "command",
+      "cmd": "maestro-execute",
+      "description": "Re-execute from gap-fix plan",
+      "args": "{phase}",
+      "next": "verify",
+      "max_visits": 2
     },
     "done": {
       "type": "terminal",
       "status": "success",
       "summary": "Spec-driven pipeline completed successfully"
-    },
-    "done_with_issues": {
-      "type": "terminal",
-      "status": "paused",
-      "summary": "Spec-driven pipeline completed with verification issues"
     }
   }
 }

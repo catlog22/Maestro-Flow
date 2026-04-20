@@ -249,6 +249,24 @@
       "route": { "graph": "singles/team-tech-debt" }
     },
     {
+      "type": "learn",
+      "regex": "\\blearn|capture.*insight|eureka|记录.*洞察",
+      "flags": "i",
+      "route": { "graph": "singles/memory-capture" }
+    },
+    {
+      "type": "fork",
+      "regex": "\\bfork|worktree.*creat|parallel.*milestone|分叉|并行.*里程碑",
+      "flags": "i",
+      "route": { "graph": "milestone-fork-merge" }
+    },
+    {
+      "type": "merge",
+      "regex": "merge.*worktree|merge.*milestone|合并.*工作树",
+      "flags": "i",
+      "route": { "graph": "milestone-fork-merge" }
+    },
+    {
       "type": "quick",
       "regex": "quick|small.*task|ad.?hoc|简单|快速",
       "flags": "i",

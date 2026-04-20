@@ -62,18 +62,29 @@
       "eval": "ctx.result.verification_status",
       "edges": [
         { "value": "passed", "target": "done" },
-        { "default": true, "target": "done_with_issues" }
+        { "default": true, "target": "fix_plan" }
       ]
+    },
+    "fix_plan": {
+      "type": "command",
+      "cmd": "maestro-plan",
+      "description": "Re-plan to address verification gaps",
+      "args": "{phase} --gaps",
+      "auto_flag": "--auto",
+      "next": "fix_execute"
+    },
+    "fix_execute": {
+      "type": "command",
+      "cmd": "maestro-execute",
+      "description": "Re-execute from gap-fix plan",
+      "args": "{phase}",
+      "next": "verify",
+      "max_visits": 2
     },
     "done": {
       "type": "terminal",
       "status": "success",
       "summary": "Brainstorm-driven pipeline completed successfully"
-    },
-    "done_with_issues": {
-      "type": "terminal",
-      "status": "paused",
-      "summary": "Brainstorm-driven pipeline completed with verification issues"
     }
   }
 }

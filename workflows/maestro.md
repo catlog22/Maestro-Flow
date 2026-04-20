@@ -828,6 +828,14 @@ function assembleArgs(step, context) {
   Args: {assembled_args}
 ```
 
+**7a-1. Context cleanup hint (after step 3+):**
+
+If `i >= 3` and not `$AUTO_MODE`:
+```
+  ⚡ 已执行 {i} 步，上下文较重。可随时 /maestro -c 在新上下文中恢复。
+```
+If `$AUTO_MODE` and `i >= 4`: log one-line warning to status.json, continue.
+
 **7b. Update status.json:** Set step status = `"running"`, started_at = now.
 
 **7c. Execute via Skill():**
