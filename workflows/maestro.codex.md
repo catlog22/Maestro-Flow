@@ -1,8 +1,8 @@
 # Workflow: Maestro (Codex Edition)
 
-Codex team-agent version of the intelligent coordinator. Replaces `maestro delegate` background execution + hook callbacks with synchronous `spawn_agent / wait / close_agent`. Each chain step assembles a prompt containing the skill invocation (`$skill-name args`) and spawns one agent; the analysis step spawns a second agent inline. All async state-machine concerns are eliminated.
+CSV wave coordinator version of the intelligent coordinator. Replaces `spawn_agent / wait / close_agent` loop with `spawn_agents_on_csv` (max_workers=1) for sequential pipeline execution. Each chain step is a CSV row with `skill_call` column; agents read prior results from session directory for context propagation.
 
-> Referenced by: `~/.codex/skills/Maestro/SKILL.md`
+> Referenced by: `~/.codex/skills/maestro/SKILL.md`
 
 ---
 
@@ -399,37 +399,11 @@ const sessionId = `coord-${ts}`;
 const sessionDir = `.workflow/.maestro-coordinate/${sessionId}`;
 Bash(`mkdir -p "${sessionDir}"`);
 
-const state = {
-  session_id: sessionId,
-  status: 'running',
-  created_at: new Date().toISOString(),
-  intent,
-  task_type: taskType,
-  chain_name: chainName,
-  auto_yes: AUTO_YES,
-  phase: resolvedPhase,
-  current_step: 0,
-  step_analyses: [],      // analysis results per step (for hints chaining)
-  steps: chain.map((s, i) => ({
-    index: i,
-    cmd: s.cmd,
-    args: s.args ?? '',
-    status: 'pending',
-    findings: null,
-    quality_score: null,
-    hints_for_next: null
-  }))
-};
-Write(`${sessionDir}/state.json`, JSON.stringify(state, null, 2));
-```
+const BARRIER_SKILLS = new Set([
+  'maestro-analyze', 'maestro-plan', 'maestro-brainstorm',
+  'maestro-spec-generate', 'maestro-execute'
+]);
 
----
-
-## Step 6: Execute Step via spawn_agent
-
-### 6a: Assemble args
-
-```javascript
 const AUTO_FLAG_MAP = {
   'maestro-analyze':        '-y',
   'maestro-brainstorm':     '-y',
@@ -440,287 +414,282 @@ const AUTO_FLAG_MAP = {
   'quality-retrospective':  '--auto-yes',
 };
 
-function assembleArgs(step) {
-  let a = (step.args ?? '')
-    .replaceAll('{phase}',           context.current_phase   ?? '')
-    .replaceAll('{description}',     context.user_intent     ?? '')
-    .replaceAll('{issue_id}',        context.issue_id        ?? '')
-    .replaceAll('{spec_session_id}', context.spec_session_id ?? '')
-    .replaceAll('{scratch_dir}',     context.scratch_dir     ?? '');
+const context = {
+  phase: resolvedPhase,
+  plan_dir: null,
+  analysis_dir: null,
+  brainstorm_dir: null,
+  spec_session_id: null,
+  issue_id: resolvedIssueId,
+  gaps: null
+};
 
-  if (AUTO_YES) {
+const state = {
+  session_id: sessionId,
+  status: 'running',
+  created_at: new Date().toISOString(),
+  intent,
+  task_type: taskType,
+  chain_name: chainName,
+  auto_yes: AUTO_YES,
+  context,
+  waves: [],
+  steps: chain.map((s, i) => ({
+    index: i,
+    cmd: s.cmd,
+    args: s.args ?? '',
+    status: 'pending',
+    wave_n: null,
+    findings: null,
+    artifacts: null
+  }))
+};
+Write(`${sessionDir}/state.json`, JSON.stringify(state, null, 2));
+```
+
+---
+
+## Step 6: Wave Execution Loop
+
+### 6a: Helper functions
+
+```javascript
+function buildSkillCall(step, ctx) {
+  let a = (step.args ?? '')
+    .replaceAll('{phase}',           ctx.phase ?? '')
+    .replaceAll('{description}',     state.intent ?? '')
+    .replaceAll('{issue_id}',        ctx.issue_id ?? '')
+    .replaceAll('{plan_dir}',        ctx.plan_dir ?? '')
+    .replaceAll('{analysis_dir}',    ctx.analysis_dir ?? '')
+    .replaceAll('{brainstorm_dir}',  ctx.brainstorm_dir ?? '')
+    .replaceAll('{spec_session_id}', ctx.spec_session_id ?? '')
+    .replaceAll('{scratch_dir}',     ctx.scratch_dir ?? '');
+
+  if (state.auto_yes) {
     const flag = AUTO_FLAG_MAP[step.cmd];
     if (flag && !a.includes(flag)) a = a ? `${a} ${flag}` : flag;
   }
-  return a.trim();
+  return `$${step.cmd} ${a}`.trim();
+}
+
+function buildNextWave(steps) {
+  const pending = steps.filter(s => s.status === 'pending');
+  if (!pending.length) return [];
+  const first = pending[0];
+  // Barrier skill → solo wave
+  if (BARRIER_SKILLS.has(first.cmd)) return [first];
+  // Group consecutive non-barriers
+  const wave = [first];
+  for (let i = 1; i < pending.length; i++) {
+    if (BARRIER_SKILLS.has(pending[i].cmd)) break;
+    wave.push(pending[i]);
+  }
+  return wave;
 }
 ```
 
-### 6b: Build analysis hints from previous step
+### 6b: Wave instruction template (simple)
 
 ```javascript
-function buildAnalysisHints(stepIdx) {
-  const prev = state.step_analyses.find(a => a.step_index === stepIdx - 1);
-  if (!prev?.next_step_hints) return '';
-  const h = prev.next_step_hints;
-  const parts = [];
-  if (h.prompt_additions)   parts.push(h.prompt_additions);
-  if (h.cautions?.length)   parts.push('Cautions: ' + h.cautions.join('; '));
-  if (h.context_to_carry)   parts.push('Context from prior step: ' + h.context_to_carry);
-  return parts.join('\n');
-}
-```
+const WAVE_INSTRUCTION = `你是 CSV job 子 agent。
 
-### 6c: Assemble step prompt (replaces coordinate-step.txt template)
+先原样执行这一段技能调用：
+{skill_call}
 
-The prompt embeds the skill invocation so the agent knows exactly what to call:
+然后基于结果完成这一行任务说明：
+{topic}
 
-```javascript
-function buildStepPrompt(step, stepIdx, assembledArgs, analysisHints) {
-  const skillCall = assembledArgs
-    ? `$${step.cmd} ${assembledArgs}`
-    : `$${step.cmd}`;
+限制：
+- 不要修改 .workflow/.maestro-coordinate/ 下的 state 文件
+- skill 内部有自己的 session 管理，按 skill SKILL.md 执行即可
 
-  return `## TASK ASSIGNMENT
+最后必须调用 report_agent_job_result，返回 JSON：
+{"status":"completed|failed","skill_call":"{skill_call}","summary":"一句话结果","artifacts":"产物路径或空字符串","error":"失败原因或空字符串"}`;
 
-### MANDATORY FIRST STEPS
-1. Read: ~/.codex/agents/universal-executor.md
-2. Read: ~/.codex/skills/${step.cmd}/SKILL.md
-
----
-
-**Coordinate Step ${stepIdx + 1}/${state.steps.length}: ${step.cmd}**
-Chain: ${state.chain_name}
-Intent: ${state.intent}
-
-## Skill Invocation
-Execute this skill to complete your task:
-
-  ${skillCall}
-
-Follow the Implementation section of the skill file you loaded in step 2.
-${AUTO_YES ? 'Auto mode: skip all confirmation prompts within the skill.' : ''}
-
-${analysisHints ? `## Analysis Hints from Previous Step\n${analysisHints}\n` : ''}
-## Output (required — last JSON block in your response)
-\`\`\`json
-{
-  "status": "completed",
-  "quality_score": <0-100>,
-  "step_summary": "<what was accomplished — max 500 chars>",
-  "phase_detected": <number or null>,
-  "spec_session_id": "<if a spec session was created, else null>",
-  "scratch_dir": "<if a scratch dir was created, else null>",
-  "hints_for_next": "<specific guidance for the next chain step, or null>"
-}
-\`\`\`
-
-Session artifacts: ${sessionDir}/`;
-}
-```
-
-### 6d: Spawn, wait, close
-
-```javascript
-const step = state.steps[state.current_step];
-const assembledArgs = assembleArgs(step);
-const analysisHints = buildAnalysisHints(state.current_step);
-const stepPrompt = buildStepPrompt(step, state.current_step, assembledArgs, analysisHints);
-
-step.status = 'running';
-step.started_at = new Date().toISOString();
-Write(`${sessionDir}/state.json`, JSON.stringify(state, null, 2));
-
-const stepAgent = spawn_agent({ message: stepPrompt });
-
-let result = wait({ ids: [stepAgent], timeout_ms: 600000 });
-if (result.timed_out) {
-  send_input({ id: stepAgent, message: "Please finalize and output your results JSON now." });
-  result = wait({ ids: [stepAgent], timeout_ms: 120000 });
-}
-
-const rawOutput = result.status[stepAgent].completed ?? '';
-close_agent({ id: stepAgent });
-
-// Save raw output for analysis
-Write(`${sessionDir}/step-${state.current_step + 1}-output.txt`, rawOutput);
-```
-
----
-
-## Step 7: Post-Step Processing
-
-### 7a: Parse output and propagate context
-
-```javascript
-const output = parseLastJSON(rawOutput) ?? {
-  status: result.timed_out ? 'failed' : 'completed',
-  quality_score: null,
-  step_summary: rawOutput.slice(-500),
-  phase_detected: null,
-  spec_session_id: null,
-  scratch_dir: null,
-  hints_for_next: null
+const RESULT_SCHEMA = {
+  type: "object",
+  properties: {
+    status: { type: "string", enum: ["completed", "failed"] },
+    skill_call: { type: "string" },
+    summary: { type: "string" },
+    artifacts: { type: "string" },
+    error: { type: "string" }
+  },
+  required: ["status", "skill_call", "summary", "artifacts", "error"]
 };
-
-// Propagate context to subsequent steps
-if (output.phase_detected)    context.current_phase   = output.phase_detected;
-if (output.spec_session_id)   context.spec_session_id = output.spec_session_id;
-if (output.scratch_dir)       context.scratch_dir     = output.scratch_dir;
-
-// Determine step outcome
-const stepFailed = output.status === 'failed' || result.timed_out;
-
-if (stepFailed && AUTO_YES && !step.retried) {
-  // One auto-retry
-  step.retried = true;
-  Write(`${sessionDir}/state.json`, JSON.stringify(state, null, 2));
-  // → back to Step 6d with same step
-} else if (stepFailed && !AUTO_YES) {
-  // Ask: Retry / Skip / Abort
-  const choice = functions.request_user_input({
-    id: 'step-failure',
-    items: [{ type: 'text', text: `Step ${state.current_step + 1} (${step.cmd}) failed. Retry / Skip / Abort?` }]
-  });
-  if (choice === 'Retry') { /* → back to Step 6d */ }
-  if (choice === 'Abort') {
-    state.status = 'aborted';
-    Write(`${sessionDir}/state.json`, JSON.stringify(state, null, 2));
-    return; // exit
-  }
-  // Skip: fall through
-  step.status = 'skipped';
-} else if (stepFailed) {
-  step.status = 'skipped';
-} else {
-  step.status = 'completed';
-}
-
-step.findings      = output.step_summary;
-step.quality_score = output.quality_score;
-step.hints_for_next= output.hints_for_next;
-step.completed_at  = new Date().toISOString();
-Write(`${sessionDir}/state.json`, JSON.stringify(state, null, 2));
 ```
 
-### 7b: Analyze step output (inline analysis agent)
-
-Skip if: step failed/skipped **or** chain has only one step.
+### 6c: Main loop
 
 ```javascript
-if (step.status === 'completed' && state.steps.length > 1) {
-  const nextStep = state.steps[state.current_step + 1] ?? null;
-  const priorAnalysesSummary = state.step_analyses
-    .map(a => `- Step ${a.step_index + 1} (${a.cmd}): score=${a.quality_score}, issues=${a.issues?.length ?? 0}`)
-    .join('\n');
+let waveNum = 0;
 
-  const analysisPrompt = `## TASK ASSIGNMENT
+while (state.steps.some(s => s.status === 'pending')) {
+  waveNum++;
+  const waveSteps = buildNextWave(state.steps);
+  if (!waveSteps.length) break;
 
-### MANDATORY FIRST STEPS
-1. Read: ~/.codex/agents/cli-explore-agent.md
+  // Build wave CSV — skill_call assembled with latest context
+  const csvRows = waveSteps.map(step => {
+    const skillCall = buildSkillCall(step, context);
+    const topic = `Chain "${state.chain_name}" step ${step.index + 1}/${state.steps.length}`;
+    return `"${step.index + 1}","${skillCall.replace(/"/g, '""')}","${topic.replace(/"/g, '""')}"`;
+  });
+  Write(`${sessionDir}/wave-${waveNum}.csv`, 'id,skill_call,topic\n' + csvRows.join('\n'));
+
+  // Execute wave
+  spawn_agents_on_csv({
+    csv_path: `${sessionDir}/wave-${waveNum}.csv`,
+    id_column: "id",
+    instruction: WAVE_INSTRUCTION,
+    max_workers: waveSteps.length,   // parallel for non-barriers, 1 for barriers
+    max_runtime_seconds: 1800,
+    output_csv_path: `${sessionDir}/wave-${waveNum}-results.csv`,
+    output_schema: RESULT_SCHEMA
+  });
+
+  // Read results
+  const results = parseCSV(Read(`${sessionDir}/wave-${waveNum}-results.csv`));
+
+  // Update step status
+  for (const row of results) {
+    const step = state.steps[parseInt(row.id) - 1];
+    step.status = row.status;
+    step.findings = row.summary;
+    step.artifacts = row.artifacts;
+    step.wave_n = waveNum;
+    step.completed_at = new Date().toISOString();
+  }
+
+  // Barrier analysis — coordinator reads artifacts, updates context
+  if (waveSteps.length === 1 && BARRIER_SKILLS.has(waveSteps[0].cmd)) {
+    analyzeBarrierArtifacts(waveSteps[0], results[0], context);
+  }
+
+  // Record wave
+  state.waves.push({ wave_n: waveNum, step_ids: waveSteps.map(s => s.index + 1) });
+  Write(`${sessionDir}/state.json`, JSON.stringify(state, null, 2));
+
+  // Abort on failure
+  if (results.some(r => r.status === 'failed')) {
+    state.status = 'aborted';
+    state.steps.filter(s => s.status === 'pending').forEach(s => { s.status = 'skipped'; });
+    Write(`${sessionDir}/state.json`, JSON.stringify(state, null, 2));
+    break;
+  }
+}
+```
 
 ---
 
-Goal: Evaluate execution quality of coordinate step and generate optimization hints for the next step.
+## Step 7: Barrier Artifact Analysis
 
-Step: $${step.cmd} (step ${state.current_step + 1}/${state.steps.length})
-Chain: ${state.chain_name} | Intent: ${state.intent}
-
-Step output (last 200 lines):
-${rawOutput.split('\n').slice(-200).join('\n')}
-
-${priorAnalysesSummary ? `Prior step analyses:\n${priorAnalysesSummary}\n` : ''}
-Next step: ${nextStep ? `$${nextStep.cmd} ${assembleArgs(nextStep)}` : 'None (last step)'}
-
-## Output (strict JSON)
-\`\`\`json
-{
-  "quality_score": <0-100>,
-  "execution_assessment": {
-    "success": <bool>,
-    "completeness": "full|partial|minimal",
-    "key_outputs": [],
-    "missing_outputs": []
-  },
-  "issues": [{ "severity": "critical|high|medium|low", "description": "" }],
-  "next_step_hints": {
-    "prompt_additions": "<extra context or constraints to inject into next step prompt>",
-    "cautions": ["<things next step should watch out for>"],
-    "context_to_carry": "<key facts from this step that next step needs>"
-  },
-  "step_summary": ""
-}
-\`\`\``;
-
-  const analysisAgent = spawn_agent({ message: analysisPrompt });
-  let aResult = wait({ ids: [analysisAgent], timeout_ms: 300000 });
-  if (aResult.timed_out) {
-    send_input({ id: analysisAgent, message: "Finalize and output analysis JSON now." });
-    aResult = wait({ ids: [analysisAgent], timeout_ms: 60000 });
-  }
-  close_agent({ id: analysisAgent });
-
-  const analysis = parseLastJSON(aResult.status[analysisAgent].completed ?? '') ?? {};
-  state.step_analyses.push({
-    step_index: state.current_step,
-    cmd: step.cmd,
-    quality_score: analysis.quality_score,
-    issues: analysis.issues,
-    next_step_hints: analysis.next_step_hints,
-    summary: analysis.step_summary
-  });
-  step.quality_score = analysis.quality_score ?? step.quality_score;
-  Write(`${sessionDir}/step-${state.current_step + 1}-analysis.json`, JSON.stringify(analysis, null, 2));
-  Write(`${sessionDir}/state.json`, JSON.stringify(state, null, 2));
-}
-```
-
-### 7c: Advance
+After a barrier skill completes, the coordinator reads its artifacts and updates `context` for subsequent waves:
 
 ```javascript
-state.current_step += 1;
-Write(`${sessionDir}/state.json`, JSON.stringify(state, null, 2));
+function analyzeBarrierArtifacts(step, result, ctx) {
+  const artifactPath = result.artifacts;
+  if (!artifactPath) return;
 
-if (state.current_step < state.steps.length) {
-  // → back to Step 6
-} else {
-  // → Step 8
+  switch (step.cmd) {
+    case 'maestro-analyze': {
+      // Read analysis conclusions → extract gaps, phase
+      ctx.analysis_dir = artifactPath;
+      const contextMd = Read(`${artifactPath}/context.md`);
+      // Extract gap markers
+      const gapLines = contextMd.match(/^[-*]\s.*gap|issue|problem.*/gmi);
+      if (gapLines) ctx.gaps = gapLines.join('; ').slice(0, 500);
+      // Extract phase if detected
+      const phaseMatch = contextMd.match(/phase\s*[:=]\s*(\d+)/i);
+      if (phaseMatch && !ctx.phase) ctx.phase = phaseMatch[1];
+      break;
+    }
+    case 'maestro-plan': {
+      // Read plan.json → know task count and structure
+      ctx.plan_dir = artifactPath;
+      if (fileExists(`${artifactPath}/plan.json`)) {
+        const plan = JSON.parse(Read(`${artifactPath}/plan.json`));
+        ctx.task_count = plan.tasks?.length ?? 0;
+        ctx.wave_count = plan.waves?.length ?? 0;
+      }
+      break;
+    }
+    case 'maestro-brainstorm': {
+      ctx.brainstorm_dir = artifactPath;
+      break;
+    }
+    case 'maestro-spec-generate': {
+      ctx.spec_session_id = artifactPath.match(/SPEC-[\w-]+/)?.[0] ?? artifactPath;
+      break;
+    }
+    case 'maestro-execute': {
+      // Read execution results for verify context
+      if (fileExists(`${artifactPath}/results.csv`)) {
+        const execResults = parseCSV(Read(`${artifactPath}/results.csv`));
+        ctx.exec_completed = execResults.filter(r => r.status === 'completed').length;
+        ctx.exec_failed = execResults.filter(r => r.status === 'failed').length;
+      }
+      break;
+    }
+  }
 }
 ```
+
+**Key principle**: The coordinator owns all context assembly. Sub-agents receive a fully-resolved `skill_call` — they don't need to discover or resolve anything themselves.
 
 ---
 
 ## Step 8: Completion Report
 
 ```javascript
-const done    = state.steps.filter(s => s.status === 'completed').length;
-const skipped = state.steps.filter(s => s.status === 'skipped').length;
-const avgScore = state.step_analyses.length
-  ? Math.round(state.step_analyses.reduce((s, a) => s + (a.quality_score ?? 0), 0) / state.step_analyses.length)
-  : null;
+const done = state.steps.filter(s => s.status === 'completed').length;
+const failed = state.steps.filter(s => s.status === 'failed').length;
+const total = state.steps.length;
 
-state.status = state.steps.some(s => s.status === 'failed') ? 'completed_with_errors' : 'completed';
+state.status = state.steps.every(s => s.status === 'completed') ? 'completed' : state.status;
 state.completed_at = new Date().toISOString();
 Write(`${sessionDir}/state.json`, JSON.stringify(state, null, 2));
 ```
 
+Generate `context.md`:
+
+```markdown
+# Coordinate Report — {chainName}
+
+## Summary
+- Session: {sessionId}
+- Chain: {chainName}
+- Waves: {waveNum} executed
+- Steps: {done}/{total} completed, {failed} failed
+
+## Wave Results
+### Wave {N}
+| Step | Skill Call | Status | Summary |
+|------|-----------|--------|---------|
+| {index+1} | {skill_call} | {status} | {summary} |
+
+Context update: {what changed in ctx}
+```
+
 Display:
+
 ```
 ============================================================
   MAESTRO-COORDINATE COMPLETE
 ============================================================
   Session:  {session_id}
-  Chain:    {chain_name}  ({done}/{total} steps)
+  Chain:    {chain_name}
+  Waves:    {waveNum} executed
+  Steps:    {done}/{total}
 
-  Steps:
-    [✓] 1. {cmd}  — completed  (quality: {score}/100)
-    [✓] 2. {cmd}  — completed  (quality: {score}/100)
-    [⚠] 3. {cmd}  — skipped
+  WAVE RESULTS:
+    [W1] $maestro-analyze --gaps  →  ✓  found 3 gaps
+    [W2] $maestro-plan --gaps     →  ✓  12 tasks in 3 waves
+    [W3] $maestro-execute         →  ✓  12/12 tasks done
+    [W4] $maestro-verify          →  ✓  all criteria met
 
-  Avg Quality:  {avgScore}/100
-  Artifacts:    .workflow/.maestro-coordinate/{session_id}/
-
-  Resume:  $Maestro --continue
+  Artifacts:  .workflow/.maestro-coordinate/{session_id}/
+  Resume:     $maestro --continue
 ============================================================
 ```
 
@@ -729,14 +698,13 @@ Display:
 ## Core Rules
 
 1. **Semantic routing**: LLM-native structured extraction (`action × object`) replaces regex; disambiguates "问题" by context
-2. **Sequential**: Advance `current_step` only after the current step agent is **closed** and state written
-3. **Skill in prompt**: Every step agent's message MUST contain `$skill-name args` — this is the skill invocation
-4. **MANDATORY FIRST STEPS**: Step agents read `universal-executor.md` + the target `SKILL.md`; analysis agents read `cli-explore-agent.md`
-5. **Context propagation**: Parse `phase_detected`, `spec_session_id`, `scratch_dir`, `issue_id` from each step's output JSON; feed into next step's `assembleArgs`
-6. **Quality gates**: Issue chains auto-include review; `issue-full` is default for issue execution
-7. **Analysis hints chain**: `step_analyses[N].next_step_hints` → `buildAnalysisHints(N+1)` → injected into step N+1's prompt
-8. **Timeout handling**: One `send_input` urge, then close agent regardless
-9. **Auto-retry**: One silent retry if `AUTO_YES` and step fails; no retry in interactive mode
-10. **State.json is source of truth**: Write after every state change; `--continue` reads it to resume
-11. **Dry-run is read-only**: Display chain and exit — no agents spawned
-12. **Analysis skip conditions**: Single-step chains and failed/skipped steps skip the analysis agent
+2. **Wave-by-wave**: Never start wave N+1 before wave N results are read and barrier artifacts analyzed
+3. **Barrier = solo wave**: A barrier skill always executes alone; coordinator analyzes its artifacts before proceeding
+4. **Non-barriers can parallel**: Consecutive non-barrier skills share a wave with `max_workers = N`
+5. **Coordinator owns context**: Sub-agents receive fully-resolved `skill_call` — no context discovery needed
+6. **Simple instruction**: Sub-agent instruction is minimal — "execute {skill_call}, report result"
+7. **Quality gates**: Issue chains auto-include review; `issue-full` is default for issue execution
+8. **report_agent_job_result**: Every agent MUST call this with the output schema
+9. **State.json tracks waves**: Each wave recorded with step IDs and results; `--continue` resumes from next pending
+10. **Dry-run is read-only**: Display chain with [BARRIER] markers, no execution
+11. **Abort on failure**: Failed step → skip remaining → report

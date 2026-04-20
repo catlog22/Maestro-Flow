@@ -2,7 +2,7 @@
 
 Autonomous CLI coordinator for Codex. Classifies intent, selects command chain, executes each step via `codex delegate` with template-driven prompts and async state machine. After each step, gemini evaluates output quality and generates optimization hints for subsequent steps.
 
-> Referenced by: `~/.codex/skills/Maestro-coordinate/SKILL.md`
+> Referenced by: `~/.codex/skills/maestro-coordinate/SKILL.md`
 
 ---
 

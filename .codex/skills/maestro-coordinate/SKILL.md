@@ -1,5 +1,5 @@
 ---
-name: Maestro-coordinate
+name: maestro-coordinate
 description: CLI-based coordinator — analyze intent → select command chain → execute sequentially via codex delegate with auto-confirm. Async state machine with template-driven prompts and gemini analysis between steps.
 argument-hint: "\"intent text\" [-y] [-c] [--dry-run] [--chain <name>] [--tool <tool>]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
@@ -14,12 +14,12 @@ When `-y` or `--yes`: Skip clarification and confirmation prompts. Auto-confirm 
 ## Usage
 
 ```bash
-$Maestro-coordinate "implement user authentication with JWT"
-$Maestro-coordinate -y "refactor the payment module"
-$Maestro-coordinate --continue
-$Maestro-coordinate --dry-run "add rate limiting to API endpoints"
-$Maestro-coordinate --chain feature "add dark mode toggle"
-$Maestro-coordinate --tool gemini "fix auth regression"
+$maestro-coordinate "implement user authentication with JWT"
+$maestro-coordinate -y "refactor the payment module"
+$maestro-coordinate --continue
+$maestro-coordinate --dry-run "add rate limiting to API endpoints"
+$maestro-coordinate --chain feature "add dark mode toggle"
+$maestro-coordinate --tool gemini "fix auth regression"
 ```
 
 **Flags**:
@@ -345,7 +345,7 @@ Write(`${sessionDir}/state.json`, JSON.stringify(state, null, 2));
     [✓] 2. maestro-execute — completed (quality: 78/100)
 
   Avg Quality: {avg_score}/100
-  Next: $Maestro-coordinate --continue
+  Next: $maestro-coordinate --continue
 ============================================================
 ```
 
