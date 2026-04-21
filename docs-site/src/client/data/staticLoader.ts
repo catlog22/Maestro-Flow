@@ -141,6 +141,16 @@ const codexSkillModules = import.meta.glob('/.codex/skills/*/SKILL.md', { query:
 const guideModules = import.meta.glob('/guides/*.md', { query: '?raw', import: 'default' });
 
 /**
+ * Normalize allowedTools — frontmatter may be a string or an array
+ */
+function normalizeTools(value: unknown): string[] | undefined {
+  if (!value) return undefined;
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value === 'string') return value.split(',').map((s: string) => s.trim()).filter(Boolean);
+  return undefined;
+}
+
+/**
  * Parse command markdown content
  */
 function parseCommand(markdown: string): CommandContent {
@@ -151,7 +161,7 @@ function parseCommand(markdown: string): CommandContent {
     name: String(frontmatter.name || ''),
     description: String(frontmatter.description || ''),
     argumentHint: frontmatter['argument-hint'] as string | undefined,
-    allowedTools: frontmatter['allowed-tools'] as string[] | undefined,
+    allowedTools: normalizeTools(frontmatter['allowed-tools']),
     purpose: xmlTags.purpose,
     requiredReading: xmlTags.required_reading,
     context: xmlTags.context,
@@ -176,7 +186,7 @@ function parseSkill(markdown: string): SkillContent {
     name: String(frontmatter.name || ''),
     description: String(frontmatter.description || ''),
     argumentHint: frontmatter['argument-hint'] as string | undefined,
-    allowedTools: frontmatter['allowed-tools'] as string[] | undefined,
+    allowedTools: normalizeTools(frontmatter['allowed-tools']),
     documentation: content,
     roles,
     phases,
