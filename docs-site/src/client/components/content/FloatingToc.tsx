@@ -40,7 +40,7 @@ export function FloatingToc({ content }: FloatingTocProps) {
   if (headings.length === 0) return null;
 
   return (
-    <aside className="hidden xl:block shrink-0">
+    <aside className="hidden xl:block shrink-0 w-[180px]">
       <div className="sticky top-[calc(var(--size-topbar-height)+var(--spacing-6))] max-h-[calc(100vh-var(--size-topbar-height)-var(--spacing-12))] overflow-y-auto p-[var(--spacing-2)]">
         <nav aria-label="Table of contents">
           <div className="text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[var(--letter-spacing-wide)] text-text-tertiary mb-[var(--spacing-3)] px-[var(--spacing-1)]">
