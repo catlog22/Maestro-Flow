@@ -540,6 +540,89 @@ function opClear(params: Params, teamId: string): CcwToolResult {
   return { success: true, result: { cleared: count, message: `Cleared ${count} messages for team "${teamId}".` } };
 }
 
+/** Rewrite all messages to the JSONL file (used for batch status updates). */
+function writeAllMessages(teamId: string, messages: TeamMessage[]): void {
+  const logPath = ensureLogFile(teamId);
+  writeFileSync(logPath, messages.map(m => JSON.stringify(m)).join('\n') + (messages.length > 0 ? '\n' : ''), 'utf-8');
+}
+
+function opReadMailbox(params: Params, teamId: string): CcwToolResult {
+  if (!params.role) return { success: false, error: 'read_mailbox requires "role"' };
+
+  const messages = readAllMessages(teamId);
+  const now = nowISO();
+
+  // Find messages addressed to this role that are pending or notified (unread)
+  const unreadStatuses: DispatchStatus[] = ['pending', 'notified'];
+  const unreadIndices: number[] = [];
+  const unreadMessages: TeamMessage[] = [];
+
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    if (m.to === params.role && unreadStatuses.includes(m.dispatch_status ?? 'delivered')) {
+      unreadIndices.push(i);
+      unreadMessages.push(m);
+    }
+  }
+
+  // Batch-update dispatch_status to 'delivered' with delivered_at timestamp
+  if (unreadIndices.length > 0) {
+    for (const idx of unreadIndices) {
+      messages[idx] = {
+        ...messages[idx],
+        dispatch_status: 'delivered',
+        delivered_at: now,
+      };
+    }
+    writeAllMessages(teamId, messages);
+  }
+
+  return {
+    success: true,
+    result: {
+      role: params.role,
+      count: unreadMessages.length,
+      messages: unreadMessages,
+      formatted: unreadMessages.length > 0
+        ? unreadMessages.map(m => `${m.id} [${m.ts.substring(11, 19)}] ${m.from} → ${m.to} (${m.type}) ${m.summary}`).join('\n')
+        : `No unread messages for role "${params.role}".`,
+    },
+  };
+}
+
+function opMailboxStatus(params: Params, teamId: string): CcwToolResult {
+  const messages = readAllMessages(teamId);
+
+  // Group dispatch counts by role (using the "to" field)
+  const counts: Record<string, Record<DispatchStatus, number>> = {};
+
+  for (const msg of messages) {
+    const role = msg.to;
+    if (!counts[role]) {
+      counts[role] = { pending: 0, notified: 0, delivered: 0, failed: 0 };
+    }
+    // Backward compat: messages without dispatch_status default to 'delivered'
+    const status: DispatchStatus = msg.dispatch_status ?? 'delivered';
+    counts[role][status]++;
+  }
+
+  // Format as a summary table
+  const roles = Object.keys(counts).sort();
+  const formatted = roles.map(role => {
+    const c = counts[role];
+    return `${role.padEnd(12)} | pending: ${c.pending} | notified: ${c.notified} | delivered: ${c.delivered} | failed: ${c.failed}`;
+  }).join('\n');
+
+  return {
+    success: true,
+    result: {
+      roles: counts,
+      total_messages: messages.length,
+      formatted: formatted || 'No messages recorded yet.',
+    },
+  };
+}
+
 // --- Handler ---
 
 export async function handler(params: Record<string, unknown>): Promise<CcwToolResult> {
@@ -564,6 +647,8 @@ export async function handler(params: Record<string, unknown>): Promise<CcwToolR
     case 'clear': return opClear(p, teamId);
     case 'broadcast': return opBroadcast(p, teamId);
     case 'get_state': return opGetState(p, teamId);
+    case 'read_mailbox': return opReadMailbox(p, teamId);
+    case 'mailbox_status': return opMailboxStatus(p, teamId);
     default:
       return { success: false, error: `Unknown operation: ${p.operation}` };
   }
