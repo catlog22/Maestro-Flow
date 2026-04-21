@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 // Import inventory JSON with type assertion
-import inventoryJson from '../../../../.workflow/.team/TLV4-docsite-2026-03-15/spec/inventory.json';
+import inventoryJson from '../data/inventory.json';
 
 // Type definitions
 export interface Category {

@@ -66,14 +66,18 @@
     "data": "Data",
     "experiment": "Experiment",
     "ui_design": "UI Design",
-    "session": "Session"
+    "session": "Session",
+    "learn": "Learning",
+    "wiki": "Wiki"
   },
   "category_descriptions": {
     "maestro": "Intelligent coordinator and core workflow commands — init, plan, execute, verify, and lifecycle management",
     "spec": "Project specifications, conventions, and codebase knowledge management",
     "quality": "Testing, debugging, code review, refactoring, and quality assurance",
     "manage": "Project status, memory management, codebase documentation, and issue tracking",
-    "team": "Multi-agent team collaboration skills for orchestrated parallel workflows"
+    "team": "Multi-agent team collaboration skills for orchestrated parallel workflows",
+    "learn": "Pattern extraction, guided reading, investigation, retrospectives, and multi-perspective analysis",
+    "wiki": "Knowledge graph management, connection discovery, and digest generation"
   },
   "landing": {
     "title": "Maestro Documentation",

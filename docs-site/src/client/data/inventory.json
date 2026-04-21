@@ -1,0 +1,498 @@
+{
+  "categories": [
+    {
+      "id": "maestro",
+      "name": "Maestro",
+      "description": "Intelligent coordinator and core workflow commands — init, plan, execute, verify, and lifecycle management",
+      "icon": "cpu",
+      "color": "orange"
+    },
+    {
+      "id": "spec",
+      "name": "Specification",
+      "description": "Project specifications, conventions, and codebase knowledge management",
+      "icon": "file-text",
+      "color": "blue"
+    },
+    {
+      "id": "quality",
+      "name": "Quality",
+      "description": "Testing, debugging, code review, refactoring, and quality assurance",
+      "icon": "check-circle",
+      "color": "green"
+    },
+    {
+      "id": "manage",
+      "name": "Management",
+      "description": "Project status, memory management, codebase documentation, and issue tracking",
+      "icon": "settings",
+      "color": "gray"
+    },
+    {
+      "id": "team",
+      "name": "Team Skills",
+      "description": "Multi-agent team collaboration skills for orchestrated parallel workflows",
+      "icon": "users",
+      "color": "indigo"
+    },
+    {
+      "id": "learn",
+      "name": "Learning",
+      "description": "Pattern extraction, guided reading, investigation, retrospectives, and multi-perspective analysis",
+      "icon": "book-open",
+      "color": "purple"
+    },
+    {
+      "id": "wiki",
+      "name": "Wiki",
+      "description": "Knowledge graph management, connection discovery, and digest generation",
+      "icon": "network",
+      "color": "teal"
+    }
+  ],
+  "commands": [
+    {
+      "name": "maestro",
+      "file": ".claude/commands/maestro.md",
+      "category": "maestro",
+      "description": "Intelligent coordinator — analyze intent + read project state → select optimal command chain → execute via Skill()",
+      "argumentHint": "\"intent text\" [-y] [-c] [--dry-run] [--chain <name>]",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-init",
+      "file": ".claude/commands/maestro-init.md",
+      "category": "maestro",
+      "description": "Initialize project with auto state detection (empty/code/existing) — creates .workflow/ directory structure",
+      "argumentHint": "[--auto] [--from-brainstorm SESSION-ID]",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-plan",
+      "file": ".claude/commands/maestro-plan.md",
+      "category": "maestro",
+      "description": "Explore, clarify, plan, check, and confirm a phase execution plan — produces plan.json with waves and task definitions",
+      "argumentHint": "<phase> [--collab] [--spec SPEC-xxx] [--auto] [--gaps] [--dir <path>]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-execute",
+      "file": ".claude/commands/maestro-execute.md",
+      "category": "maestro",
+      "description": "Execute phase plan with wave-based parallel execution and atomic commits",
+      "argumentHint": "<phase> [--auto-commit] [--method agent|cli] [--dir <path>]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-verify",
+      "file": ".claude/commands/maestro-verify.md",
+      "category": "maestro",
+      "description": "Goal-Backward verification with 3-layer must-have checks, anti-pattern scan, Nyquist test coverage validation, and gap-fix plan generation",
+      "argumentHint": "<phase> [--skip-tests] [--skip-antipattern]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-quick",
+      "file": ".claude/commands/maestro-quick.md",
+      "category": "maestro",
+      "description": "Execute a quick task with workflow guarantees but skip optional agents",
+      "argumentHint": "[description] [--full] [--discuss]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Task", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-brainstorm",
+      "file": ".claude/commands/maestro-brainstorm.md",
+      "category": "maestro",
+      "description": "Unified brainstorming with dual-mode operation — auto pipeline (multi-role synthesis) and single role analysis",
+      "argumentHint": "[topic|role-name] [--yes] [--count N] [--session ID] [--update] [--style-skill PKG]",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-analyze",
+      "file": ".claude/commands/maestro-analyze.md",
+      "category": "maestro",
+      "description": "Multi-dimensional analysis with CLI exploration, decision extraction, and intent tracking",
+      "argumentHint": "<phase|topic> [-y] [-c] [-q]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-roadmap",
+      "file": ".claude/commands/maestro-roadmap.md",
+      "category": "maestro",
+      "description": "Interactive roadmap creation with iterative refinement — lightweight alternative to spec-generate",
+      "argumentHint": "<requirement> [-y] [-c] [-m progressive|direct|auto] [--from-brainstorm SESSION-ID]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-ui-design",
+      "file": ".claude/commands/maestro-ui-design.md",
+      "category": "maestro",
+      "description": "Generate UI design prototypes with multiple styles via ui-ux-pro-max — user selects winner, solidify as code reference",
+      "argumentHint": "<phase|topic> [--styles N] [--stack <stack>] [--targets <pages>] [--refine] [--persist] [-y]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-spec-generate",
+      "file": ".claude/commands/maestro-spec-generate.md",
+      "category": "maestro",
+      "description": "Generate specification package from idea/requirements through 7-phase document chain producing product brief, PRD, architecture, epics, and interactive roadmap",
+      "argumentHint": "<idea or @file> [-y] [-c] [--count N]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-milestone-audit",
+      "file": ".claude/commands/maestro-milestone-audit.md",
+      "category": "maestro",
+      "description": "Audit current milestone for cross-phase integration gaps",
+      "argumentHint": "[milestone, e.g., 'v1.0']",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep"]
+    },
+    {
+      "name": "maestro-milestone-complete",
+      "file": ".claude/commands/maestro-milestone-complete.md",
+      "category": "maestro",
+      "description": "Archive completed milestone and prepare for next",
+      "argumentHint": "[milestone, e.g., 'v1.0']",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep"]
+    },
+    {
+      "name": "spec-setup",
+      "file": ".claude/commands/spec-setup.md",
+      "category": "spec",
+      "description": "Initialize system specs by scanning project structure and generating conventions",
+      "argumentHint": "",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep"]
+    },
+    {
+      "name": "spec-add",
+      "file": ".claude/commands/spec-add.md",
+      "category": "spec",
+      "description": "Add a spec entry (bug, pattern, decision, or rule) to the appropriate specs file",
+      "argumentHint": "<type> <content>",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep"]
+    },
+    {
+      "name": "spec-load",
+      "file": ".claude/commands/spec-load.md",
+      "category": "spec",
+      "description": "Load relevant specs for current context — used by agents before execution",
+      "argumentHint": "[--category <type>] [keyword]",
+      "allowedTools": ["Read", "Bash", "Glob", "Grep"]
+    },
+    {
+      "name": "quality-review",
+      "file": ".claude/commands/quality-review.md",
+      "category": "quality",
+      "description": "Tiered code review (quick/standard/deep) with parallel agents, severity classification, and auto-issue creation",
+      "argumentHint": "<phase> [--level quick|standard|deep] [--dimensions security,architecture,...] [--skip-specs]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "quality-test",
+      "file": ".claude/commands/quality-test.md",
+      "category": "quality",
+      "description": "Conversational UAT with session persistence, auto-diagnosis, and gap-plan closure loop",
+      "argumentHint": "[phase] [--smoke] [--auto-fix]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "quality-test-gen",
+      "file": ".claude/commands/quality-test-gen.md",
+      "category": "quality",
+      "description": "Generate missing tests with TDD/E2E classification and RED-GREEN methodology",
+      "argumentHint": "<phase> [--layer <unit|e2e|all>]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "quality-debug",
+      "file": ".claude/commands/quality-debug.md",
+      "category": "quality",
+      "description": "Parallel hypothesis-driven debugging with UAT integration and structured root cause collection",
+      "argumentHint": "[issue description] [--from-uat <phase>] [--parallel]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "quality-integration-test",
+      "file": ".claude/commands/quality-integration-test.md",
+      "category": "quality",
+      "description": "Self-iterating integration test cycle with reflection-driven strategy and L0-L3 progressive layers",
+      "argumentHint": "<phase> [--max-iter <N>] [--layer <L0|L1|L2|L3>]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "quality-refactor",
+      "file": ".claude/commands/quality-refactor.md",
+      "category": "quality",
+      "description": "Tech debt reduction with reflection-driven iteration",
+      "argumentHint": "[scope: module path, feature area, or 'all']",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "quality-sync",
+      "file": ".claude/commands/quality-sync.md",
+      "category": "quality",
+      "description": "Sync codebase docs after code changes — traces git diff through component/feature/requirement impact chain",
+      "argumentHint": "[--full] [--since <commit|HEAD~N>] [--dry-run]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "manage-status",
+      "file": ".claude/commands/manage-status.md",
+      "category": "manage",
+      "description": "Display project dashboard with phase progress, active tasks, and next steps",
+      "argumentHint": "",
+      "allowedTools": ["Read", "Bash", "Glob", "Grep"]
+    },
+    {
+      "name": "manage-memory",
+      "file": ".claude/commands/manage-memory.md",
+      "category": "manage",
+      "description": "Manage memory entries — workflow memory (.workflow/memory/) and system memory (~/.claude/projects/*/memory/)",
+      "argumentHint": "[list|search|view|edit|delete|prune] [query|id|file] [--store workflow|system|all] [--type compact|tip]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
+    },
+    {
+      "name": "manage-memory-capture",
+      "file": ".claude/commands/manage-memory-capture.md",
+      "category": "manage",
+      "description": "Capture session memory (compact or tips) into .workflow/memory/ with JSON index",
+      "argumentHint": "[compact|tip] [description] [--tag tag1,tag2]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
+    },
+    {
+      "name": "manage-codebase-rebuild",
+      "file": ".claude/commands/manage-codebase-rebuild.md",
+      "category": "manage",
+      "description": "Full rebuild of codebase documentation — scans project, builds doc-index.json, generates all tech-registry and feature-maps",
+      "argumentHint": "[--force] [--skip-commit]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "manage-codebase-refresh",
+      "file": ".claude/commands/manage-codebase-refresh.md",
+      "category": "manage",
+      "description": "Incremental refresh of codebase docs based on recent changes",
+      "argumentHint": "[--since <date>] [--deep]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "manage-issue",
+      "file": ".claude/commands/manage-issue.md",
+      "category": "manage",
+      "description": "Issue CRUD operations — create, query, update, close, and link issues to tasks",
+      "argumentHint": "<create|list|status|update|close|link> [options]",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep"]
+    },
+    {
+      "name": "manage-issue-discover",
+      "file": ".claude/commands/manage-issue-discover.md",
+      "category": "manage",
+      "description": "Automated issue discovery — multi-perspective analysis or prompt-driven exploration",
+      "argumentHint": "[by-prompt \"what to look for\"]",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep"]
+    },
+    {
+      "name": "maestro-coordinate",
+      "file": ".claude/commands/maestro-coordinate.md",
+      "category": "maestro",
+      "description": "CLI-based coordinator - analyze intent → select command chain → execute sequentially via maestro delegate with auto-confirm",
+      "argumentHint": "\"intent text\" [-y] [-c] [--dry-run] [--chain <name>] [--tool <tool>]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-fork",
+      "file": ".claude/commands/maestro-fork.md",
+      "category": "maestro",
+      "description": "Create a worktree for milestone-level parallel development, or sync existing worktree with main",
+      "argumentHint": "-m <milestone-number> [--base <branch>] [--sync]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-learn",
+      "file": ".claude/commands/maestro-learn.md",
+      "category": "maestro",
+      "description": "Learning coordinator — route intent to learn commands, execute single or multi-step chains",
+      "argumentHint": "\"intent text\" [-y] [--dry-run] [--chain <name>]",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-link-coordinate",
+      "file": ".claude/commands/maestro-link-coordinate.md",
+      "category": "maestro",
+      "description": "Step-mode graph coordinator via maestro coordinate endpoint — executes chain nodes one by one with session tracking",
+      "argumentHint": "\"intent text\" [--list] [-c [sessionId]] [--chain <name>] [--tool <tool>] [-y]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent"]
+    },
+    {
+      "name": "maestro-merge",
+      "file": ".claude/commands/maestro-merge.md",
+      "category": "maestro",
+      "description": "Two-phase merge of milestone worktree branch back — git merge first, artifact sync only on success",
+      "argumentHint": "-m <milestone-number> [--force] [--dry-run] [--no-cleanup] [--continue]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-milestone-release",
+      "file": ".claude/commands/maestro-milestone-release.md",
+      "category": "maestro",
+      "description": "Version bump, changelog generation, and git tag for a completed milestone",
+      "argumentHint": "[<version>] [--bump patch|minor|major] [--dry-run] [--no-tag] [--no-push]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "maestro-overlay",
+      "file": ".claude/commands/maestro-overlay.md",
+      "category": "maestro",
+      "description": "Create or edit a non-invasive overlay that augments existing slash commands based on natural-language intent",
+      "argumentHint": "<intent>",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep", "AskUserQuestion"]
+    },
+    {
+      "name": "learn-decompose",
+      "file": ".claude/commands/learn-decompose.md",
+      "category": "learn",
+      "description": "Decompose code into cataloged design patterns, saving findings to specs and wiki",
+      "argumentHint": "<path|module> [--patterns <list>] [--save-spec] [--save-wiki]",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "learn-follow",
+      "file": ".claude/commands/learn-follow.md",
+      "category": "learn",
+      "description": "Guided follow-along reading of code or wiki entries, extracting patterns and building understanding",
+      "argumentHint": "<path|wiki-id|topic> [--depth shallow|deep] [--save-wiki]",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "learn-investigate",
+      "file": ".claude/commands/learn-investigate.md",
+      "category": "learn",
+      "description": "Systematic question investigation with hypothesis testing, evidence logging, and 3-strike escalation",
+      "argumentHint": "<question> [--scope <path>] [--max-hypotheses N]",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "learn-retro",
+      "file": ".claude/commands/learn-retro.md",
+      "category": "learn",
+      "description": "Unified retrospective — git activity metrics and decision quality evaluation with lens-based selection",
+      "argumentHint": "[--lens git|decision|all] [--days N] [--author <name>] [--area <path>] [--phase N] [--tag <tag>] [--id <id>] [--compare]",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "learn-second-opinion",
+      "file": ".claude/commands/learn-second-opinion.md",
+      "category": "learn",
+      "description": "Multi-perspective analysis with review, challenge, and consult modes",
+      "argumentHint": "<target> [--mode review|challenge|consult]",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "manage-harvest",
+      "file": ".claude/commands/manage-harvest.md",
+      "category": "manage",
+      "description": "Extract knowledge from workflow artifacts and route to wiki / spec / issue stores",
+      "argumentHint": "[<session-id|path>] [--to wiki|spec|issue|auto] [--source <type>] [--recent N] [--dry-run] [-y]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "manage-learn",
+      "file": ".claude/commands/manage-learn.md",
+      "category": "manage",
+      "description": "Capture, search, and review atomic learning insights and tips into .workflow/learning/lessons.jsonl",
+      "argumentHint": "[<text>|tip <text>|list|search|show <id>] [--category ...] [--tag t1,t2] [--phase N] [--confidence ...]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "AskUserQuestion"]
+    },
+    {
+      "name": "quality-business-test",
+      "file": ".claude/commands/quality-business-test.md",
+      "category": "quality",
+      "description": "PRD-forward business testing with requirement traceability, fixture generation, and multi-layer execution",
+      "argumentHint": "<phase> [--spec SPEC-xxx] [--layer L1|L2|L3] [--gen-code] [--dry-run] [--re-run] [--auto]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "quality-retrospective",
+      "file": ".claude/commands/quality-retrospective.md",
+      "category": "quality",
+      "description": "Multi-lens 复盘 of completed phase(s); routes insights to spec/note/issue stores and the lessons library",
+      "argumentHint": "[phase|N..M] [--lens technical|process|quality|decision] [--all] [--no-route] [--compare N] [--auto-yes]",
+      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "wiki-connect",
+      "file": ".claude/commands/wiki-connect.md",
+      "category": "wiki",
+      "description": "Surface hidden connections in the wiki knowledge graph and suggest or apply new links",
+      "argumentHint": "[--scope <type>] [--min-similarity N] [--fix] [--max N]",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    },
+    {
+      "name": "wiki-digest",
+      "file": ".claude/commands/wiki-digest.md",
+      "category": "wiki",
+      "description": "Generate knowledge digest from wiki entries with theme clustering, gap analysis, and coverage heatmap",
+      "argumentHint": "[<topic>|--recent N] [--type <type>] [--format brief|full]",
+      "allowedTools": ["Read", "Write", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+    }
+  ],
+  "claude_skills": [
+    {
+      "name": "team-lifecycle-v4",
+      "path": ".claude/skills/team-lifecycle-v4/SKILL.md",
+      "category": "team",
+      "description": "Full lifecycle team skill — specification → planning → implementation → testing → review with clean multi-agent architecture",
+      "roles": ["coordinator", "planner", "implementer", "tester", "reviewer"],
+      "phases": ["specification", "planning", "implementation", "testing", "review"]
+    },
+    {
+      "name": "team-coordinate",
+      "path": ".claude/skills/team-coordinate/SKILL.md",
+      "category": "team",
+      "description": "Universal team coordination skill with dynamic role generation — analyze task → generate role-specs → dispatch → execute → deliver",
+      "roles": ["coordinator"],
+      "phases": ["task-analysis", "role-generation", "dispatch", "execution", "delivery"]
+    },
+    {
+      "name": "team-executor",
+      "path": ".claude/skills/team-executor/SKILL.md",
+      "category": "team",
+      "description": "Lightweight session execution skill — resumes existing team sessions for pure execution via team-worker agents",
+      "roles": ["executor"],
+      "phases": ["session-load", "state-reconcile", "execution", "delivery"]
+    },
+    {
+      "name": "team-testing",
+      "path": ".claude/skills/team-testing/SKILL.md",
+      "category": "team",
+      "description": "Multi-agent testing team — strategist → generator → executor → analyst with progressive L1/L2/L3 coverage and Generator-Critic loops",
+      "roles": ["coordinator", "strategist", "generator", "executor", "analyst"],
+      "phases": ["strategy", "generation", "execution", "analysis"]
+    },
+    {
+      "name": "team-review",
+      "path": ".claude/skills/team-review/SKILL.md",
+      "category": "team",
+      "description": "Multi-agent code review — scanner → reviewer → fixer with 4-dimension analysis (SEC/COR/PRF/MNT)",
+      "roles": ["coordinator", "scanner", "reviewer", "fixer"],
+      "phases": ["scan", "review", "fix"]
+    },
+    {
+      "name": "team-quality-assurance",
+      "path": ".claude/skills/team-quality-assurance/SKILL.md",
+      "category": "team",
+      "description": "Full closed-loop QA team — scout → strategist → generator → executor → analyst with discovery, testing, and full modes",
+      "roles": ["coordinator", "scout", "strategist", "generator", "executor", "analyst"],
+      "phases": ["discovery", "strategy", "generation", "execution", "analysis"]
+    },
+    {
+      "name": "team-tech-debt",
+      "path": ".claude/skills/team-tech-debt/SKILL.md",
+      "category": "team",
+      "description": "Tech debt governance team — scanner → assessor → planner → executor → validator with 5 debt dimensions",
+      "roles": ["coordinator", "scanner", "assessor", "planner", "executor", "validator"],
+      "phases": ["scan", "assess", "plan", "fix", "validate"]
+    }
+  ],
+  "codex_skills": []
+}

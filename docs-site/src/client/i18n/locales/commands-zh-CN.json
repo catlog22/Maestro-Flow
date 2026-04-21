@@ -120,28 +120,6 @@
       "next_commands": ["maestro-plan"],
       "flags": ["<idea or @file> (必填)", "-y (自动模式)", "-c (恢复会话)", "--count N (并行角色数)"]
     },
-    "maestro-phase-transition": {
-      "name": "maestro-phase-transition",
-      "name_zh": "阶段转换",
-      "description": "Mark current or specified phase as complete, extract learnings, advance to next phase",
-      "description_zh": "验证当前阶段完成标准（任务完成、验证通过、无未解决缺口），标记完成并推进到下一阶段",
-      "workflow": "verify → **phase-transition** → plan (next phase)",
-      "workflow_zh": "验证通过后执行，推进到下一阶段的规划",
-      "prev_commands": ["maestro-verify", "quality-review"],
-      "next_commands": ["maestro-plan"],
-      "flags": ["[phase-number] (可选，默认当前阶段)", "--force (强制转换，跳过检查)"]
-    },
-    "maestro-phase-add": {
-      "name": "maestro-phase-add",
-      "name_zh": "添加阶段",
-      "description": "Add or insert a new phase into the project roadmap with automatic renumbering",
-      "description_zh": "向路线图追加或插入新阶段，自动重新编号后续阶段目录并初始化新阶段的 index.json",
-      "workflow": "在路线图管理时按需使用",
-      "workflow_zh": "管理命令，不属于主流程",
-      "prev_commands": [],
-      "next_commands": ["maestro-plan"],
-      "flags": ["<slug> (阶段标识，必填)", "<title> (阶段标题，必填)", "--after N (插入到第 N 阶段之后)"]
-    },
     "maestro-milestone-audit": {
       "name": "maestro-milestone-audit",
       "name_zh": "里程碑审计",
@@ -196,17 +174,6 @@
       "prev_commands": [],
       "next_commands": [],
       "flags": ["--category <type> (按分类过滤)", "[keyword] (关键词搜索)"]
-    },
-    "spec-map": {
-      "name": "spec-map",
-      "name_zh": "映射代码库",
-      "description": "Analyze codebase with parallel mapper agents to produce .workflow/codebase/ documents",
-      "description_zh": "使用并行映射代理深度分析代码库，生成 .workflow/codebase/ 下的技术注册表、功能图谱和需求映射文档",
-      "workflow": "项目初始化或代码库变化较大时使用",
-      "workflow_zh": "为后续规划和验证提供代码库文档基础",
-      "prev_commands": ["maestro-init"],
-      "next_commands": [],
-      "flags": ["[focus area] (可选：如 'api' 或 'auth')"]
     },
     "quality-review": {
       "name": "quality-review",
@@ -361,6 +328,204 @@
       "prev_commands": [],
       "next_commands": ["manage-issue"],
       "flags": ["[by-prompt \"what to look for\"] (可选，提示驱动模式)"]
+    },
+    "maestro-coordinate": {
+      "name": "maestro-coordinate",
+      "name_zh": "CLI 协调器",
+      "description": "CLI-based coordinator - analyze intent → select command chain → execute sequentially via maestro delegate with auto-confirm",
+      "description_zh": "CLI 协调器：分析用户意图 → 选择命令链 → 通过 maestro delegate 顺序执行，支持自动确认和非阻塞后台执行",
+      "workflow": "替代交互式 maestro 命令的 CLI 入口",
+      "workflow_zh": "通过 maestro delegate 端点执行命令链，适合自动化和脚本场景",
+      "prev_commands": [],
+      "next_commands": ["maestro-plan", "maestro-execute", "maestro-verify"],
+      "flags": ["\"intent text\" (意图文本)", "-y (自动模式)", "-c (恢复会话)", "--dry-run (演练)", "--chain <name> (指定命令链)", "--tool <tool> (指定工具)"]
+    },
+    "maestro-fork": {
+      "name": "maestro-fork",
+      "name_zh": "创建工作树",
+      "description": "Create a worktree for milestone-level parallel development, or sync existing worktree with main",
+      "description_zh": "为整个里程碑创建 git worktree，实现里程碑间并行开发。显式复制项目上下文和阶段目录到工作树",
+      "workflow": "里程碑规划完成后使用，支持多里程碑并行开发",
+      "workflow_zh": "maestro-merge 的前置操作，创建并行开发环境",
+      "prev_commands": ["maestro-init", "maestro-roadmap"],
+      "next_commands": ["maestro-merge"],
+      "flags": ["-m <milestone-number> (里程碑编号，必填)", "--base <branch> (基准分支)", "--sync (同步工作树)"]
+    },
+    "maestro-learn": {
+      "name": "maestro-learn",
+      "name_zh": "学习路由",
+      "description": "Learning coordinator — route intent to learn commands, execute single or multi-step chains",
+      "description_zh": "学习协调器：根据意图文本路由到最优学习命令，支持单命令或链式多步学习",
+      "workflow": "学习操作的统一入口",
+      "workflow_zh": "自动识别学习意图并路由到 learn-* 命令",
+      "prev_commands": [],
+      "next_commands": ["learn-decompose", "learn-follow", "learn-investigate", "learn-retro", "learn-second-opinion"],
+      "flags": ["\"intent text\" (意图文本)", "-y (自动模式)", "--dry-run (演练)", "--chain <name> (指定链)"]
+    },
+    "maestro-link-coordinate": {
+      "name": "maestro-link-coordinate",
+      "name_zh": "步进协调器",
+      "description": "Step-mode graph coordinator via maestro coordinate endpoint — executes chain nodes one by one with session tracking",
+      "description_zh": "步进式工作流协调器：逐节点执行命令链图，决策/门控/评估节点自动解析，会话持久化支持恢复",
+      "workflow": "maestro-coordinate 的步进版本，适合需要逐步确认的场景",
+      "workflow_zh": "适合长时间运行的复杂工作流，每步可暂停恢复",
+      "prev_commands": [],
+      "next_commands": ["maestro-plan", "maestro-execute"],
+      "flags": ["\"intent text\" (意图文本)", "--list (列出可用链图)", "-c [sessionId] (恢复会话)", "--chain <name> (指定链图)", "--tool <tool> (指定工具)", "-y (自动模式)"]
+    },
+    "maestro-merge": {
+      "name": "maestro-merge",
+      "name_zh": "合并工作树",
+      "description": "Two-phase merge of milestone worktree branch back — git merge first, artifact sync only on success",
+      "description_zh": "两阶段合并：先 git merge（源代码），成功后再同步工作流产物（工件）。防止合并冲突时的部分状态损坏",
+      "workflow": "maestro-fork → **merge** → continue",
+      "workflow_zh": "maestro-fork 的收尾操作，将工作树成果合并回主分支",
+      "prev_commands": ["maestro-fork"],
+      "next_commands": ["maestro-milestone-release"],
+      "flags": ["-m <milestone-number> (里程碑编号)", "--force (强制合并)", "--dry-run (演练)", "--no-cleanup (不清理)", "--continue (继续中断的合并)"]
+    },
+    "maestro-milestone-release": {
+      "name": "maestro-milestone-release",
+      "name_zh": "里程碑发布",
+      "description": "Version bump, changelog generation, and git tag for a completed milestone",
+      "description_zh": "版本号递增、变更日志生成和 git 标签创建。支持 semver 自动递增和自定义版本号",
+      "workflow": "milestone-complete → **milestone-release**",
+      "workflow_zh": "里程碑归档后的最终交付步骤",
+      "prev_commands": ["maestro-milestone-complete"],
+      "next_commands": [],
+      "flags": ["[<version>] (显式版本号)", "--bump patch|minor|major (semver 递增)", "--dry-run (演练)", "--no-tag (不创建标签)", "--no-push (不推送)"]
+    },
+    "maestro-overlay": {
+      "name": "maestro-overlay",
+      "name_zh": "命令叠加层",
+      "description": "Create or edit a non-invasive overlay that augments existing slash commands based on natural-language intent",
+      "description_zh": "创建或编辑非侵入式命令叠加层：JSON 补丁文件增强 .claude/commands/*.md，存储于 ~/.maestro/overlays/，自动应用",
+      "workflow": "自定义命令行为，无需修改原始 .md 文件",
+      "workflow_zh": "叠加层在 maestro install 时自动应用，支持追加/前置/替换 XML 段落",
+      "prev_commands": [],
+      "next_commands": [],
+      "flags": ["<intent> (自然语言意图描述)"]
+    },
+    "learn-decompose": {
+      "name": "learn-decompose",
+      "name_zh": "代码分解",
+      "description": "Decompose code into cataloged design patterns, saving findings to specs and wiki",
+      "description_zh": "系统性模式提取：4 维度（结构/行为/数据/错误）分析代码，并行代理探索，发现可复用设计模式并编目",
+      "workflow": "学习或理解代码时使用",
+      "workflow_zh": "将代码经验固化为可复用模式，供后续规划和开发参考",
+      "prev_commands": [],
+      "next_commands": ["spec-add", "wiki-digest"],
+      "flags": ["<path|module> (目标路径或模块)", "--patterns <list> (指定模式类型)", "--save-spec (保存到规格)", "--save-wiki (保存到知识图谱)"]
+    },
+    "learn-follow": {
+      "name": "learn-follow",
+      "name_zh": "跟读理解",
+      "description": "Guided follow-along reading of code or wiki entries, extracting patterns and building understanding",
+      "description_zh": "引导式阅读体验：逐段遍历代码或知识图谱条目，通过强制提问提取模式、识别假设、构建结构化理解图",
+      "workflow": "学习代码库或理解已有知识时使用",
+      "workflow_zh": "输出阅读笔记，包含提取的模式、开放问题和连接点",
+      "prev_commands": [],
+      "next_commands": ["learn-decompose", "spec-add"],
+      "flags": ["<path|wiki-id|topic> (目标)", "--depth shallow|deep (深度)", "--save-wiki (保存到知识图谱)"]
+    },
+    "learn-investigate": {
+      "name": "learn-investigate",
+      "name_zh": "系统调查",
+      "description": "Systematic question investigation with hypothesis testing, evidence logging, and 3-strike escalation",
+      "description_zh": "系统性调查工作流：假设生成 → 测试验证 → 结构化证据记录，3 次假设失败后升级询问用户",
+      "workflow": "回答「X 是如何工作的？」「为什么会发生 Y？」等问题",
+      "workflow_zh": "不同于 quality-debug（修复 bug），此命令专注于理解性问题",
+      "prev_commands": [],
+      "next_commands": ["manage-learn", "wiki-digest"],
+      "flags": ["<question> (调查问题)", "--scope <path> (限制范围)", "--max-hypotheses N (最大假设数，默认 3)"]
+    },
+    "learn-retro": {
+      "name": "learn-retro",
+      "name_zh": "学习复盘",
+      "description": "Unified retrospective — git activity metrics and decision quality evaluation with lens-based selection",
+      "description_zh": "统一复盘：结合 git 活动分析（提交指标、会话检测、文件热点）和决策质量评估（跨 wiki/spec/git 追踪），支持独立或组合使用",
+      "workflow": "定期复盘项目进展或评估决策质量",
+      "workflow_zh": "所有洞察持久化到 lessons.jsonl，支持跨会话查询",
+      "prev_commands": [],
+      "next_commands": ["manage-learn"],
+      "flags": ["--lens git|decision|all (视角选择)", "--days N (天数)", "--author <name> (作者)", "--area <path> (区域)", "--phase N (阶段)", "--tag <tag> (标签)", "--id <id> (会话ID)", "--compare (对比)"]
+    },
+    "learn-second-opinion": {
+      "name": "learn-second-opinion",
+      "name_zh": "第二意见",
+      "description": "Multi-perspective analysis with review, challenge, and consult modes",
+      "description_zh": "结构化第二意见：review（3 个并行代理独立评估）、challenge（对抗性代理寻找隐藏假设）、consult（交互式问答）",
+      "workflow": "审查代码、验证决策或评估方案时使用",
+      "workflow_zh": "与阶段/执行生命周期解耦，可随时对任意代码或知识调用",
+      "prev_commands": [],
+      "next_commands": ["manage-learn"],
+      "flags": ["<target> (目标：文件路径/wiki ID/HEAD/staged)", "--mode review|challenge|consult (模式)"]
+    },
+    "manage-harvest": {
+      "name": "manage-harvest",
+      "name_zh": "知识收获",
+      "description": "Extract knowledge from workflow artifacts and route to wiki / spec / issue stores",
+      "description_zh": "从工作流产物（分析结果、头脑风暴输出、调试会话、规划/修复结果）提取知识片段，路由到 wiki/spec/issue 三类存储",
+      "workflow": "任意工作流完成后使用，防止知识流失",
+      "workflow_zh": "闭环：harvest 提取 → wiki/spec/issue 存储 → 下游命令消费（wiki-digest、spec-load、maestro-plan --gaps）",
+      "prev_commands": [],
+      "next_commands": ["wiki-digest", "spec-load"],
+      "flags": ["[<session-id|path>] (会话或路径)", "--to wiki|spec|issue|auto (路由目标)", "--source <type> (产物类型)", "--recent N (最近 N 个)", "--dry-run (演练)", "-y (自动模式)"]
+    },
+    "manage-learn": {
+      "name": "manage-learn",
+      "name_zh": "学习管理",
+      "description": "Capture, search, and review atomic learning insights and tips into .workflow/learning/lessons.jsonl",
+      "description_zh": "统一原子知识捕获：洞察（模式、陷阱、技术）和提示（跨会话恢复笔记），存储到 .workflow/learning/lessons.jsonl",
+      "workflow": "随时使用，管理和查询学习库",
+      "workflow_zh": "与 learn-retro、quality-retrospective 共享 lessons.jsonl 存储",
+      "prev_commands": [],
+      "next_commands": [],
+      "flags": ["[<text>] (洞察文本)", "[tip <text>] (提示模式)", "[list] (列表)", "[search] (搜索)", "[show <id>] (查看)", "--category ... (分类)", "--tag t1,t2 (标签)", "--phase N (阶段)", "--confidence ... (置信度)"]
+    },
+    "quality-business-test": {
+      "name": "quality-business-test",
+      "name_zh": "业务测试",
+      "description": "PRD-forward business testing with requirement traceability, fixture generation, and multi-layer execution",
+      "description_zh": "从 PRD 验收标准出发的业务测试：REQ-*.md 解析 → RFC 2119 优先级映射 → 三级夹具生成 → L1-L3 渐进层 → Generator-Critic 循环",
+      "workflow": "quality-test-gen → **business-test** (PRD 验证) → quality-debug",
+      "workflow_zh": "不同于 quality-test（代码缺口驱动）和 quality-test-gen（覆盖率驱动），此命令从需求文档正向验证",
+      "prev_commands": ["maestro-execute", "maestro-spec-generate"],
+      "next_commands": ["quality-debug"],
+      "flags": ["<phase> (阶段)", "--spec SPEC-xxx (指定规格)", "--layer L1|L2|L3 (测试层级)", "--gen-code (生成测试代码)", "--dry-run (演练)", "--re-run (重新运行)", "--auto (自动模式)"]
+    },
+    "quality-retrospective": {
+      "name": "quality-retrospective",
+      "name_zh": "质量复盘",
+      "description": "Multi-lens 复盘 of completed phase(s); routes insights to spec/note/issue stores and the lessons library",
+      "description_zh": "执行后多视角复盘：技术/流程/质量/决策 4 个并行视角，提取可复用洞察，路由到 spec/memory/issue 存储",
+      "workflow": "maestro-verify 通过后使用",
+      "workflow_zh": "自动扫描未复盘的已完成阶段，所有洞察持久化到 lessons.jsonl",
+      "prev_commands": ["maestro-verify"],
+      "next_commands": ["manage-learn", "spec-add"],
+      "flags": ["[phase|N..M] (阶段或范围)", "--lens technical|process|quality|decision (视角)", "--all (所有阶段)", "--no-route (不路由到存储)", "--compare N (与阶段 N 对比)", "--auto-yes (自动模式)"]
+    },
+    "wiki-connect": {
+      "name": "wiki-connect",
+      "name_zh": "知识关联",
+      "description": "Surface hidden connections in the wiki knowledge graph and suggest or apply new links",
+      "description_zh": "知识图谱关联发现：分析 wiki 索引找到孤立条目、缺失连接和传递链接缺口，建议或自动应用新关联",
+      "workflow": "定期维护知识图谱完整性",
+      "workflow_zh": "利用 BM25 搜索和反向链接基础设施，改善图谱连通性",
+      "prev_commands": ["manage-harvest"],
+      "next_commands": ["wiki-digest"],
+      "flags": ["--scope <type> (限制类型)", "--min-similarity N (最小相似度)", "--fix (自动应用建议)", "--max N (最大建议数)"]
+    },
+    "wiki-digest": {
+      "name": "wiki-digest",
+      "name_zh": "知识摘要",
+      "description": "Generate knowledge digest from wiki entries with theme clustering, gap analysis, and coverage heatmap",
+      "description_zh": "知识综合命令：语义主题聚类 → 知识缺口识别 → 覆盖度热力图，产出可操作的摘要和推荐下一步",
+      "workflow": "定期综合知识图谱内容",
+      "workflow_zh": "不同于 wiki list（原始条目），此命令综合解释知识库，产出精选摘要",
+      "prev_commands": ["manage-harvest", "wiki-connect"],
+      "next_commands": ["learn-follow", "spec-add"],
+      "flags": ["[<topic>] (主题)", "--recent N (最近 N 天)", "--type <type> (类型过滤)", "--format brief|full (输出格式)"]
     }
   },
   "skills": {
