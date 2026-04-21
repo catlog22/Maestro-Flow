@@ -86,9 +86,11 @@ export default function GuidePage({ slug }: GuidePageProps) {
       </div>
 
       {/* Guide content + floating TOC */}
-      <div className="relative">
+      <div className="flex gap-[var(--spacing-8)]">
+        <div className="flex-1 min-w-0">
+          <MarkdownRenderer content={content?.rawContent || ''} />
+        </div>
         <FloatingToc content={content?.rawContent || ''} />
-        <MarkdownRenderer content={content?.rawContent || ''} />
       </div>
     </div>
   );
