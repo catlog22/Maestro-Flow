@@ -1,6 +1,7 @@
 import { useI18n } from '@/client/i18n/index.js';
 import type { Category } from '@/client/routes/route-config.js';
 import { getCategoryIcon } from '@/client/utils/categoryIcons.js';
+import { Link } from 'react-router-dom';
 
 // ---------------------------------------------------------------------------
 // LandingPage — warm minimal home page with hero + card grid
@@ -83,8 +84,8 @@ function CategoryCard({ category }: { category: Category }) {
   const tint = tintColors[category.id] || 'bg-tint-gray';
 
   return (
-    <a
-      href={`/${category.id}`}
+    <Link
+      to={`/${category.id}`}
       className="block p-[var(--spacing-5)] bg-bg-card border border-border rounded-[var(--radius-lg)] no-underline transition-all duration-[180ms] ease-[var(--ease-bounce)] hover:border-text-placeholder hover:-translate-y-[2px] hover:shadow-[var(--shadow-md)]"
     >
       {/* Icon */}
@@ -101,6 +102,6 @@ function CategoryCard({ category }: { category: Category }) {
       <p className="text-[length:12px] text-text-secondary leading-[var(--line-height-normal)] line-clamp-2">
         {description}
       </p>
-    </a>
+    </Link>
   );
 }
