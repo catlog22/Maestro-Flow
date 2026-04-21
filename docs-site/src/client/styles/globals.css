@@ -472,6 +472,56 @@ body {
   background: var(--color-scrollbar-thumb-hover);
 }
 
+
+/* ===== MERMAID DIAGRAMS ===== */
+/* Dark code-block background with high-contrast nodes */
+.mermaid-diagram svg {
+  max-width: 100%;
+  margin: 0 auto;
+}
+.mermaid-diagram .node rect,
+.mermaid-diagram .node polygon,
+.mermaid-diagram .node circle {
+  fill: #3A3632 !important;
+  stroke: #5A554F !important;
+  stroke-width: 1.5px;
+}
+.mermaid-diagram .node .label,
+.mermaid-diagram .node .label span,
+.mermaid-diagram .node text {
+  color: #E8E5DE !important;
+  fill: #E8E5DE !important;
+}
+.mermaid-diagram .edgePath .path {
+  stroke: #A09D97 !important;
+  stroke-width: 1.5px;
+}
+.mermaid-diagram .edgeLabel,
+.mermaid-diagram .edgeLabel .label {
+  background-color: #2D2A26 !important;
+  color: #C8C5BE !important;
+  fill: #C8C5BE !important;
+}
+.mermaid-diagram .cluster rect {
+  fill: rgba(255,255,255,0.04) !important;
+  stroke: #4A4740 !important;
+  stroke-width: 1px;
+  rx: 8;
+}
+.mermaid-diagram .cluster .nodeLabel,
+.mermaid-diagram .cluster text {
+  color: #A09D97 !important;
+  fill: #A09D97 !important;
+}
+.mermaid-diagram .arrowheadPath {
+  fill: #A09D97 !important;
+}
+.mermaid-diagram marker path {
+  fill: #A09D97 !important;
+  stroke: #A09D97 !important;
+}
+
+
 /* Selection */
 ::selection {
   background-color: var(--color-selection);
