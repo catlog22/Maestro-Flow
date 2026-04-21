@@ -113,10 +113,13 @@ export function MermaidBlock({ chart }: MermaidBlockProps) {
     <>
       {/* Inline diagram — click to expand */}
       <div
-        className="mermaid-diagram bg-bg-code rounded-[var(--radius-lg)] p-[var(--spacing-5)] my-[var(--spacing-4)] overflow-x-auto cursor-zoom-in relative group"
+        className="bg-bg-code rounded-[var(--radius-lg)] p-[var(--spacing-5)] my-[var(--spacing-4)] overflow-x-auto cursor-zoom-in relative"
         onClick={() => setExpanded(true)}
-        dangerouslySetInnerHTML={{ __html: svg }}
       >
+        <div
+          className="mermaid-diagram"
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
       </div>
 
       {/* Expanded overlay */}
