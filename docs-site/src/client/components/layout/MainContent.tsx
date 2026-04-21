@@ -18,7 +18,7 @@ export function MainContent({ children, showBreadcrumbs = true }: MainContentPro
     <main
       role="main"
       aria-label={t('accessibility.main_content')}
-      className="ml-[var(--size-sidebar-width)] flex-1 overflow-y-auto bg-bg-primary min-h-screen"
+      className="ml-[var(--size-sidebar-width)] flex-1 overflow-y-auto bg-bg-primary"
     >
       {/* Skip to content link */}
       <a

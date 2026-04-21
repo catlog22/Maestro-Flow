@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { extractToc } from './MarkdownRenderer.js';
 
 // ---------------------------------------------------------------------------
@@ -13,36 +13,45 @@ interface FloatingTocProps {
 export function FloatingToc({ content }: FloatingTocProps) {
   const headings = extractToc(content);
   const [activeId, setActiveId] = useState<string>('');
+  const rafRef = useRef(0);
 
   useEffect(() => {
     if (headings.length === 0) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible.length > 0) {
-          setActiveId(visible[0].target.id);
+    const scrollContainer = document.querySelector('main');
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        const containerTop = scrollContainer.getBoundingClientRect().top;
+        let current = headings[0]?.id || '';
+        for (const { id } of headings) {
+          const el = document.getElementById(id);
+          if (!el) continue;
+          // Heading is "active" when it has scrolled past the top of the container + offset
+          if (el.getBoundingClientRect().top <= containerTop + 80) {
+            current = id;
+          }
         }
-      },
-      { rootMargin: '-80px 0px -70% 0px' }
-    );
+        setActiveId(current);
+      });
+    };
 
-    headings.forEach(({ id }) => {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    });
-
-    return () => observer.disconnect();
+    handleScroll();
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+      cancelAnimationFrame(rafRef.current);
+    };
   }, [headings]);
 
   if (headings.length === 0) return null;
 
   return (
-    <aside className="hidden xl:block shrink-0 w-[160px]">
+    <aside className="hidden xl:block shrink-0 w-[var(--size-toc-width)]">
       <nav
-        className="sticky top-[calc(var(--size-topbar-height)+var(--spacing-6))] max-h-[calc(100vh-var(--size-topbar-height)-var(--spacing-12))] overflow-y-auto"
+        className="sticky top-[var(--spacing-6)] max-h-[calc(100vh-var(--size-topbar-height)-var(--spacing-12))] overflow-y-auto"
         aria-label="Table of contents"
       >
         <div className="text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[var(--letter-spacing-wide)] text-text-tertiary mb-[var(--spacing-3)] px-[var(--spacing-1)]">

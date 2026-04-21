@@ -11,10 +11,29 @@ const MermaidBlock = lazy(() => import('./MermaidBlock.js').then(m => ({ default
 // Dark code blocks, tinted callouts, clean typography
 // ---------------------------------------------------------------------------
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\u4e00-\u9fff\u3400-\u4dbf-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function getTextContent(node: React.ReactNode): string {
+  if (typeof node === 'string') return node;
+  if (typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(getTextContent).join('');
+  if (node && typeof node === 'object' && 'props' in node) {
+    return getTextContent((node as React.ReactElement).props.children);
+  }
+  return '';
+}
+
 const components: Components = {
   // Code blocks — dark warm background, mermaid rendering
   code({ className, children, ...props }) {
-    const isInline = !className;
+    const isInline = !className && !String(children).includes('\n');
     if (isInline) {
       return (
         <code
@@ -62,7 +81,8 @@ const components: Components = {
     );
   },
   // Headings — warm minimal with border-bottom for h1/h2
-  h1({ children, id }) {
+  h1({ children }) {
+    const id = slugify(getTextContent(children));
     return (
       <h1 id={id} className="group relative text-[length:28px] font-[var(--font-weight-bold)] text-text-primary mt-[var(--spacing-12)] mb-[var(--spacing-4)] pb-[var(--spacing-2)] border-b border-border-divider leading-[1.3]">
         {children}
@@ -70,7 +90,8 @@ const components: Components = {
       </h1>
     );
   },
-  h2({ children, id }) {
+  h2({ children }) {
+    const id = slugify(getTextContent(children));
     return (
       <h2 id={id} className="group relative text-[length:20px] font-[var(--font-weight-bold)] text-text-primary mt-[var(--spacing-12)] mb-[var(--spacing-4)] pb-[var(--spacing-2)] border-b border-border-divider">
         {children}
@@ -78,7 +99,8 @@ const components: Components = {
       </h2>
     );
   },
-  h3({ children, id }) {
+  h3({ children }) {
+    const id = slugify(getTextContent(children));
     return (
       <h3 id={id} className="group relative text-[length:16px] font-[var(--font-weight-semibold)] text-text-primary mt-[var(--spacing-8)] mb-[var(--spacing-3)]">
         {children}
@@ -86,7 +108,8 @@ const components: Components = {
       </h3>
     );
   },
-  h4({ children, id }) {
+  h4({ children }) {
+    const id = slugify(getTextContent(children));
     return (
       <h4 id={id} className="group relative text-[length:var(--font-size-base)] font-[var(--font-weight-semibold)] text-text-primary mt-[var(--spacing-6)] mb-[var(--spacing-2)]">
         {children}
@@ -195,7 +218,7 @@ export function extractToc(content: string): Array<{ id: string; level: number; 
   while ((match = headingRegex.exec(content)) !== null) {
     const level = match[1].length;
     const text = match[2].trim();
-    const id = text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+    const id = slugify(text);
     headings.push({ id, level, text });
   }
   return headings;

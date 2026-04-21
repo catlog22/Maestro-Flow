@@ -27,7 +27,7 @@ export default function GuidePage({ slug }: GuidePageProps) {
       try {
         setLoading(true);
         setError(null);
-        const data = await loadGuide(slug);
+        const data = await loadGuide(slug, locale);
         setContent(data);
         if (!data) setError(`Guide "${slug}" not found`);
       } catch (err) {
@@ -37,7 +37,7 @@ export default function GuidePage({ slug }: GuidePageProps) {
       }
     }
     fetchGuide();
-  }, [slug]);
+  }, [slug, locale]);
 
   if (loading) {
     return (
@@ -86,7 +86,7 @@ export default function GuidePage({ slug }: GuidePageProps) {
       </div>
 
       {/* Guide content + floating TOC — centered together */}
-      <div className="flex gap-[var(--spacing-6)] justify-center">
+      <div className="flex gap-[var(--spacing-10)] justify-center">
         <div className="flex-1 min-w-0 max-w-[860px]">
           <MarkdownRenderer content={content?.rawContent || ''} />
         </div>

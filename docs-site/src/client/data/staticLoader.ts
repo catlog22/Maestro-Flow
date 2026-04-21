@@ -41,9 +41,11 @@ export interface GuideContent {
 }
 
 // Guide registry — bilingual metadata for each guide
+// file = Chinese content (default), file_en = English content (optional, falls back to file)
 export const guideRegistry: Array<{
   slug: string;
   file: string;
+  file_en?: string;
   title: string;
   description: string;
   title_zh: string;
@@ -53,6 +55,7 @@ export const guideRegistry: Array<{
   {
     slug: 'command-usage',
     file: 'command-usage-guide.md',
+    file_en: 'command-usage-guide.en.md',
     title: 'Command Usage Guide',
     description: 'Complete guide to all 51 commands with workflow diagrams and usage examples',
     title_zh: '命令使用指南',
@@ -62,6 +65,7 @@ export const guideRegistry: Array<{
   {
     slug: 'spec-system',
     file: 'spec-system-guide.md',
+    file_en: 'spec-system-guide.en.md',
     title: 'Spec System Guide',
     description: 'Project specs with <spec-entry> closed-tag format, keyword loading, validation hooks',
     title_zh: 'Spec 系统指南',
@@ -71,6 +75,7 @@ export const guideRegistry: Array<{
   {
     slug: 'overlay',
     file: 'overlay-guide.md',
+    file_en: 'overlay-guide.en.md',
     title: 'Overlay System Guide',
     description: 'Non-invasive command extension with JSON patches and idempotent injection',
     title_zh: 'Overlay 系统指南',
@@ -80,6 +85,7 @@ export const guideRegistry: Array<{
   {
     slug: 'team-lite',
     file: 'team-lite-design.md',
+    file_en: 'team-lite-design.en.md',
     title: 'Team Lite Collaboration',
     description: 'Git-native team collaboration for 2-8 person teams with zero infrastructure',
     title_zh: 'Team Lite 协作方案',
@@ -89,6 +95,7 @@ export const guideRegistry: Array<{
   {
     slug: 'worktree',
     file: 'worktree-guide.md',
+    file_en: 'worktree-guide.en.md',
     title: 'Worktree Parallel Development',
     description: 'Milestone-level parallel development using git worktrees',
     title_zh: 'Worktree 并行开发指南',
@@ -98,6 +105,7 @@ export const guideRegistry: Array<{
   {
     slug: 'hooks-codex',
     file: 'hooks-guide-codex.md',
+    file_en: 'hooks-guide-codex.en.md',
     title: 'Codex Hooks Integration',
     description: 'Hooks integration design for OpenAI Codex CLI',
     title_zh: 'Codex Hooks 集成设计',
@@ -107,6 +115,7 @@ export const guideRegistry: Array<{
   {
     slug: 'introduction',
     file: 'maestro-flow-introduction.md',
+    file_en: 'maestro-flow-introduction.en.md',
     title: 'Maestro Flow Introduction',
     description: 'Overview of Maestro Flow philosophy and command landscape',
     title_zh: 'Maestro Flow 介绍',
@@ -116,6 +125,7 @@ export const guideRegistry: Array<{
   {
     slug: 'hooks',
     file: 'hooks-guide.md',
+    file_en: 'hooks-guide.en.md',
     title: 'Hooks System Guide',
     description: 'Complete guide to the Maestro hooks system for Claude Code',
     title_zh: 'Hooks 系统指南',
@@ -125,6 +135,7 @@ export const guideRegistry: Array<{
   {
     slug: 'delegate-async',
     file: 'delegate-async-guide.md',
+    file_en: 'delegate-async-guide.en.md',
     title: 'Async Delegate Guide',
     description: 'Asynchronous task delegation with broker-managed lifecycle',
     title_zh: '异步委派指南',
@@ -134,11 +145,22 @@ export const guideRegistry: Array<{
   {
     slug: 'team-lite-usage',
     file: 'team-lite-guide.md',
+    file_en: 'team-lite-guide.en.md',
     title: 'Team Lite Usage Guide',
     description: 'Practical usage guide for Team Lite collaboration features',
     title_zh: 'Team Lite 使用指南',
     description_zh: 'Team Lite 协作功能的实际使用指南',
     icon: 'handshake',
+  },
+  {
+    slug: 'mcp-tools',
+    file: 'mcp-tools-guide.md',
+    file_en: 'mcp-tools-guide.en.md',
+    title: 'MCP Tools Reference',
+    description: 'Complete reference for all 9 MCP tools — file operations, team collaboration, and persistent memory',
+    title_zh: 'MCP 工具参考',
+    description_zh: '全部 9 个 MCP 工具的完整参考 — 文件操作、团队协作和持久记忆',
+    icon: 'wrench',
   },
 ];
 
@@ -350,19 +372,29 @@ export async function loadSkill(
 }
 
 /**
- * Load a single guide by slug
+ * Load a single guide by slug, with locale-aware file selection.
+ * For 'en' locale: tries file_en first, falls back to file (Chinese).
+ * For 'zh-CN' locale: uses file directly.
  */
-export async function loadGuide(slug: string): Promise<GuideContent | null> {
+export async function loadGuide(slug: string, locale: string = 'zh-CN'): Promise<GuideContent | null> {
   const entry = guideRegistry.find(g => g.slug === slug);
   if (!entry) return null;
 
-  const modulePath = `/guides/${entry.file}`;
+  // Determine which file to load
+  const isEn = locale === 'en';
+  const targetFile = isEn && entry.file_en ? entry.file_en : entry.file;
+
+  const modulePath = `/guides/${targetFile}`;
   const loader = guideModules[modulePath] || guideModules[modulePath.replace(/^\//, '')];
 
-  if (!loader) return null;
+  // If English file not found, fall back to Chinese
+  const fallbackPath = `/guides/${entry.file}`;
+  const finalLoader = loader || guideModules[fallbackPath] || guideModules[fallbackPath.replace(/^\//, '')];
+
+  if (!finalLoader) return null;
 
   try {
-    const markdown = await loader() as string;
+    const markdown = await finalLoader() as string;
     return {
       slug: entry.slug,
       title: entry.title,

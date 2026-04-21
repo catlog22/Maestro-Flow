@@ -272,7 +272,7 @@ function SidebarGuidesSection() {
           to="/guides"
           className={({ isActive: linkIsActive }) => [
             'flex items-center gap-[var(--spacing-2)] px-[var(--spacing-3)] py-[var(--spacing-2)]',
-            'text-[length:10px] font-[var(--font-weight-semibold)] uppercase tracking-[var(--letter-spacing-wide)]',
+            'text-[length:var(--font-size-sm)] font-[var(--font-weight-semibold)] uppercase tracking-[var(--letter-spacing-wide)]',
             'transition-all duration-[var(--duration-fast)]',
             'rounded-[var(--radius-default)] flex-1',
             linkIsActive || isGuidesActive
@@ -280,7 +280,7 @@ function SidebarGuidesSection() {
               : 'text-text-tertiary hover:text-text-secondary',
           ].join(' ')}
         >
-          {getGuideIcon('book-open', 'w-3 h-3')}
+          {getGuideIcon('book-open', 'w-3.5 h-3.5')}
           {isZh ? '指南' : 'Guides'}
         </NavLink>
 

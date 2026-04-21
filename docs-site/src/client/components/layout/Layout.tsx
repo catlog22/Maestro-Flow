@@ -14,7 +14,7 @@ export function Layout({ children }: { children?: ReactNode }) {
       <TopBar />
 
       {/* Main area: Fixed Sidebar + Scrollable Content */}
-      <div className="flex pt-[var(--size-topbar-height)] min-h-screen">
+      <div className="flex pt-[var(--size-topbar-height)] h-screen">
         <Sidebar />
         <MainContent>{children}</MainContent>
       </div>

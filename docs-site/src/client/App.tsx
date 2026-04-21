@@ -9,7 +9,6 @@ const CategoryPage = lazy(() => import('./pages/CategoryPage.js'));
 const CommandDetailPage = lazy(() => import('./pages/CommandDetailPage.js'));
 const SkillDetailPage = lazy(() => import('./pages/SkillDetailPage.js'));
 const SearchPage = lazy(() => import('./pages/SearchPage.js'));
-const GuidesIndexPage = lazy(() => import('./pages/GuidesIndexPage.js'));
 const GuidePage = lazy(() => import('./pages/GuidePage.js'));
 
 // Import Router components
@@ -114,7 +113,7 @@ export function App() {
               <Route path="/search" element={<SearchPage />} />
 
               {/* Guides */}
-              <Route path="/guides" element={<GuidesIndexPage />} />
+              <Route path="/guides" element={<Navigate to="/guides/command-usage" replace />} />
               <Route path="/guides/:slug" element={<GuideRouteWrapper />} />
 
               {/* Catch-all - redirect to home */}
