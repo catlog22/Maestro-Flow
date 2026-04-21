@@ -67,7 +67,7 @@ Follow '~/.maestro/workflows/issue.md' completely.
 - [ ] Output displayed in appropriate format (table for list, detail for status)
 - [ ] Cross-references maintained (link creates bidirectional references)
 - [ ] Next step routing by subcommand:
-  - create → `/manage-issue-analyze <ISS-ID>` or `/manage-issue-plan <ISS-ID>`
-  - list → `/manage-issue-analyze <ISS-ID>` for any open issue
+  - create → `/maestro-analyze --gaps <ISS-ID>` or `/maestro-plan --gaps`
+  - list → `/maestro-analyze --gaps <ISS-ID>` for any open issue
   - close → `/manage-status`
 </success_criteria>

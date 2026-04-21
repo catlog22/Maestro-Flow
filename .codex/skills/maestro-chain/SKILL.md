@@ -1,40 +1,15 @@
 ---
 name: maestro-chain
-description: Flat chain coordinator — resolve intent, build single CSV with all steps, execute via spawn_agents_on_csv (max_workers=1). Sub-agents self-discover context from prior results. No coordinator-side artifact analysis. Simpler than maestro but requires skills to be self-discovering.
+description: Flat chain coordinator — resolve intent, build single CSV with all steps, execute via spawn_agents_on_csv (max_workers=1). Sub-agents self-discover context. No coordinator-side artifact analysis. Simpler than maestro.
 argument-hint: "\"intent text\" [-y] [-c|--continue] [--dry-run] [--chain <name>]"
 allowed-tools: spawn_agents_on_csv, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
 ---
 
-## Auto Mode
-
-When `-y` or `--yes`: Skip clarification and confirmation prompts. Pass `-y` through to each step's skill invocation.
-
-# Maestro Chain (Flat)
-
-## Usage
-
-```bash
-$maestro-chain "implement user authentication with JWT"
-$maestro-chain -y "refactor the payment module"
-$maestro-chain --continue
-$maestro-chain --dry-run "add rate limiting to API endpoints"
-$maestro-chain --chain feature "add dark mode toggle"
-```
-
-**Flags**:
-- `-y, --yes` — Auto mode: skip all prompts; propagate `-y` to each skill
-- `--continue` — Resume latest paused session (re-run from first failed/pending step)
-- `--dry-run` — Display planned chain without executing
-- `--chain <name>` — Force a specific chain (skips intent classification)
-
-**Session state**: `.workflow/.maestro-chain/{session-id}/`
-**Core Output**: `tasks.csv` + `results.csv` + `state.json`
-
----
-
-## Overview
-
-Flat sequential chain execution — one CSV, one `spawn_agents_on_csv` call, done. Each skill is self-discovering: it reads `.workflow/state.json`, globs for latest artifacts, and resolves its own inputs. The coordinator only assembles initial args and launches.
+<purpose>
+Flat sequential chain coordinator. Resolves intent, builds a single CSV with all steps,
+executes via one `spawn_agents_on_csv` call (max_workers=1). Sub-agents are self-discovering:
+each skill reads `.workflow/state.json` and globs for latest artifacts on its own.
+Coordinator only assembles initial args and launches — no mid-chain artifact analysis.
 
 ```
 Intent → Resolve Chain → Build tasks.csv → spawn_agents_on_csv(max_workers=1) → Read results → Report
@@ -43,13 +18,39 @@ Intent → Resolve Chain → Build tasks.csv → spawn_agents_on_csv(max_workers
 ```
 
 **When to use this vs `$maestro`**:
-- Use `$maestro-chain` when all skills in the chain are self-discovering (read state.json, glob artifacts)
-- Use `$maestro` when you need coordinator-side artifact analysis between steps (dynamic arg resolution)
+- `$maestro-chain` — all skills self-discover (read state.json, glob artifacts)
+- `$maestro` — need coordinator-side artifact analysis between steps (dynamic arg resolution)
+</purpose>
 
----
+<required_reading>
+@~/.maestro/workflows/maestro.codex.md — authoritative `detectTaskType`, `detectNextAction`, `chainMap` (35+ intent patterns, 40+ chain types). Read before executing any step.
+</required_reading>
 
-## Chain Map
+<context>
+$ARGUMENTS — user intent text, or special flags.
 
+**Flags:**
+- `-y, --yes` — Auto mode: skip all prompts; propagate `-y` to each skill
+- `--continue` — Resume latest paused session (re-run from first failed/pending step)
+- `--dry-run` — Display planned chain without executing
+- `--chain <name>` — Force specific chain (skips intent classification)
+
+**Session state**: `.workflow/.maestro-chain/{session-id}/`
+**Core output**: `tasks.csv` + `results.csv` + `state.json`
+</context>
+
+<invariants>
+1. **ALL skills via spawn_agents_on_csv**: The entire chain is a single `spawn_agents_on_csv` invocation. Coordinator NEVER directly executes any skill. No exceptions.
+2. **Coordinator = prompt assembler only**: Classify intent → build CSV → spawn → read results → report. It never runs skill logic itself.
+3. **One CSV, one call**: All steps go into one `tasks.csv`, one `spawn_agents_on_csv` call.
+4. **max_workers=1**: Strict sequential execution — step N finishes before step N+1 starts.
+5. **Skills self-discover**: Each skill reads `.workflow/state.json` and globs for latest artifacts. No coordinator-side artifact analysis between steps.
+6. **Args resolved once**: All `{phase}`, `{description}` placeholders resolved at CSV build time — no dynamic updates mid-chain.
+7. **Abort tolerance**: A failed step doesn't auto-skip subsequent steps — each skill decides independently whether to proceed.
+8. **Resume = rebuild CSV**: `--continue` rebuilds CSV from first pending/failed step.
+</invariants>
+
+<chain_map>
 | Intent keywords | Chain | Steps (skills, in order) |
 |----------------|-------|--------------------------|
 | fix, bug, error, broken, crash | `quality-fix` | $maestro-analyze --gaps → $maestro-plan --gaps → $maestro-execute → $maestro-verify |
@@ -58,12 +59,9 @@ Intent → Resolve Chain → Build tasks.csv → spawn_agents_on_csv(max_workers
 | feature, implement, add, build | `feature` | $maestro-plan → $maestro-execute → $maestro-verify |
 | review, check, audit | `quality-review` | $quality-review |
 | deploy, release, ship | `deploy` | $maestro-verify → $maestro-execute |
+</chain_map>
 
----
-
-## Implementation
-
-> **Full chain map reference**: `~/.maestro/workflows/maestro.codex.md` — read for 35+ intent patterns and 40+ chain definitions.
+<execution>
 
 ### Phase 1: Resolve Intent and Chain
 
@@ -73,15 +71,13 @@ Intent → Resolve Chain → Build tasks.csv → spawn_agents_on_csv(max_workers
 4. If unclear and not AUTO_YES: ask one clarifying question
 5. Resolve phase from intent or state
 
-**`--continue` mode**: Load latest `state.json` from `.workflow/.maestro-chain/`, rebuild CSV from first pending step.
+**`--continue`**: Load latest `state.json` from `.workflow/.maestro-chain/`, rebuild CSV from first pending step.
 
 **`--dry-run`**: Display chain and stop.
 
----
-
 ### Phase 2: Build CSV and Execute
 
-#### Assemble skill_call
+#### Skill Call Assembly
 
 ```javascript
 const AUTO_FLAG_MAP = {
@@ -96,7 +92,6 @@ function buildSkillCall(step) {
     .replace(/{phase}/g, resolvedPhase ?? '')
     .replace(/{description}/g, intent ?? '')
     .replace(/{issue_id}/g, resolvedIssueId ?? '');
-
   if (AUTO_YES) {
     const flag = AUTO_FLAG_MAP[step.cmd];
     if (flag && !args.includes(flag)) args = args ? `${args} ${flag}` : flag;
@@ -105,7 +100,22 @@ function buildSkillCall(step) {
 }
 ```
 
-#### Generate tasks.csv
+#### Session Init + CSV Generation
+
+```javascript
+const sessionId = `MC-${dateStr}-${timeStr}`;
+const sessionDir = `.workflow/.maestro-chain/${sessionId}`;
+Bash(`mkdir -p ${sessionDir}`);
+
+Write(`${sessionDir}/state.json`, JSON.stringify({
+  id: sessionId, intent, chain: chainName, auto_yes: AUTO_YES,
+  status: "running", started_at: new Date().toISOString(),
+  steps: chain.map((s, i) => ({
+    step_n: i + 1, cmd: s.cmd,
+    skill_call: buildSkillCall(s), status: "pending"
+  }))
+}, null, 2));
+```
 
 ```csv
 id,skill_call,topic
@@ -115,30 +125,7 @@ id,skill_call,topic
 "4","$maestro-verify -y","Chain quality-fix step 4/4"
 ```
 
-#### Write state.json
-
-```javascript
-const sessionId = `MC-${dateStr}-${timeStr}`;
-const sessionDir = `.workflow/.maestro-chain/${sessionId}`;
-Bash(`mkdir -p ${sessionDir}`);
-
-Write(`${sessionDir}/state.json`, JSON.stringify({
-  id: sessionId,
-  intent,
-  chain: chainName,
-  auto_yes: AUTO_YES,
-  status: "running",
-  started_at: new Date().toISOString(),
-  steps: chain.map((s, i) => ({
-    step_n: i + 1,
-    cmd: s.cmd,
-    skill_call: buildSkillCall(s),
-    status: "pending"
-  }))
-}, null, 2));
-```
-
-#### Execute
+#### Spawn — ALL execution via spawn_agents_on_csv, never direct
 
 ```javascript
 spawn_agents_on_csv({
@@ -148,23 +135,11 @@ spawn_agents_on_csv({
   max_workers: 1,
   max_runtime_seconds: 1800,
   output_csv_path: `${sessionDir}/results.csv`,
-  output_schema: {
-    type: "object",
-    properties: {
-      status: { type: "string", enum: ["completed", "failed"] },
-      skill_call: { type: "string" },
-      summary: { type: "string" },
-      artifacts: { type: "string" },
-      error: { type: "string" }
-    },
-    required: ["status", "skill_call", "summary", "artifacts", "error"]
-  }
-})
+  output_schema: RESULT_SCHEMA
+});
 ```
 
----
-
-### Instruction Template
+### Sub-Agent Instruction Template
 
 ```
 你是 CSV job 子 agent。
@@ -183,11 +158,23 @@ spawn_agents_on_csv({
 {"status":"completed|failed","skill_call":"{skill_call}","summary":"一句话结果","artifacts":"产物路径或空字符串","error":"失败原因或空字符串"}
 ```
 
----
+### Result Schema
+
+```javascript
+const RESULT_SCHEMA = {
+  type: "object",
+  properties: {
+    status: { type: "string", enum: ["completed", "failed"] },
+    skill_call: { type: "string" },
+    summary: { type: "string" },
+    artifacts: { type: "string" },
+    error: { type: "string" }
+  },
+  required: ["status", "skill_call", "summary", "artifacts", "error"]
+};
+```
 
 ### Phase 3: Report
-
-Read `results.csv`, update `state.json`:
 
 ```javascript
 const results = parseCSV(Read(`${sessionDir}/results.csv`));
@@ -206,8 +193,6 @@ for (const row of results) {
 Write(`${sessionDir}/state.json`, JSON.stringify(state, null, 2));
 ```
 
-Display:
-
 ```
 === CHAIN COMPLETE ===
 Session:  <sessionId>
@@ -223,26 +208,26 @@ RESULTS:
 State:  .workflow/.maestro-chain/<sessionId>/state.json
 Resume: $maestro-chain --continue
 ```
+</execution>
 
----
+<error_codes>
+| Code | Severity | Condition | Recovery |
+|------|----------|-----------|----------|
+| E001 | error | Intent unclassifiable | Default to `feature` chain |
+| E002 | error | `--chain` not in map | List valid chains, abort |
+| E003 | error | Step timeout | Mark `failed` in results (subsequent steps still attempt) |
+| E004 | error | `--continue`: no session | List sessions, prompt |
+</error_codes>
 
-## Error Handling
-
-| Code | Condition | Recovery |
-|------|-----------|----------|
-| E001 | Intent unclassifiable | Default to `feature` chain |
-| E002 | `--chain` not in map | List valid chains, abort |
-| E003 | Step timeout | Mark `failed` in results (subsequent steps still attempt) |
-| E004 | `--continue`: no session | List sessions, prompt |
-
----
-
-## Core Rules
-
-1. **One CSV, one call**: Entire chain is a single `spawn_agents_on_csv` invocation
-2. **max_workers=1**: Strict sequential — step N finishes before step N+1 starts
-3. **Skills self-discover**: Each skill reads `.workflow/state.json` and globs for latest artifacts — no coordinator-side analysis needed
-4. **Simple instruction**: Sub-agent just executes `{skill_call}` verbatim and reports
-5. **Args resolved once**: All `{phase}`, `{description}` resolved at CSV build time — no dynamic updates mid-chain
-6. **Abort tolerance**: A failed step doesn't auto-skip subsequent steps — each skill decides independently whether to proceed
-7. **Resume = rebuild CSV**: `--continue` rebuilds CSV from first pending/failed step
+<success_criteria>
+- [ ] Intent classified and chain resolved
+- [ ] Session dir initialized with `state.json` before spawn
+- [ ] All steps in one `tasks.csv`, one `spawn_agents_on_csv` call — no direct skill execution
+- [ ] max_workers=1 enforced (strict sequential)
+- [ ] Each skill self-discovers context (no coordinator-side artifact analysis)
+- [ ] Args resolved at CSV build time, no mid-chain updates
+- [ ] Results read, state.json updated with per-step status
+- [ ] Completion report displayed
+- [ ] `--dry-run` shows chain, no execution
+- [ ] `--continue` rebuilds CSV from first pending/failed step
+</success_criteria>
