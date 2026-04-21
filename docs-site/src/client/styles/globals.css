@@ -479,16 +479,21 @@ body {
   max-width: 100%;
   margin: 0 auto;
 }
-.mermaid-diagram .node rect,
-.mermaid-diagram .node polygon,
-.mermaid-diagram .node circle {
+/* Node background — only the outer container rect */
+.mermaid-diagram .node .basic.label-container {
   fill: #3A3632 !important;
   stroke: #5A554F !important;
   stroke-width: 1.5px;
 }
-.mermaid-diagram .node .label,
-.mermaid-diagram .node .label span,
-.mermaid-diagram .node text {
+/* Inner label rect must be transparent — it sits on top of foreignObject text */
+.mermaid-diagram .node .label rect {
+  fill: transparent !important;
+  stroke: none !important;
+}
+/* Node text — high contrast on dark fill */
+.mermaid-diagram .nodeLabel,
+.mermaid-diagram .nodeLabel p,
+.mermaid-diagram .nodeLabel span {
   color: #E8E5DE !important;
   fill: #E8E5DE !important;
 }
@@ -501,6 +506,10 @@ body {
   background-color: #2D2A26 !important;
   color: #C8C5BE !important;
   fill: #C8C5BE !important;
+}
+.mermaid-diagram .edgeLabel rect {
+  fill: transparent !important;
+  stroke: none !important;
 }
 .mermaid-diagram .cluster rect {
   fill: rgba(255,255,255,0.04) !important;
