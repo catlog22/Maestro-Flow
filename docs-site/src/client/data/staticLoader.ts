@@ -136,8 +136,8 @@ export async function getAllCommands(): Promise<Map<string, CommandContent>> {
   const promises = Object.entries(commandModules).map(async ([path, loader]) => {
     const markdown = await loader() as string;
     const parsed = parseCommand(markdown);
-    // Extract command name from path (e.g., /.claude/commands/maestro-init.md -> maestro-init)
-    const name = path.replace('/.claude/commands/', '').replace('.md', '');
+    // Extract command name from path (e.g., .claude/commands/maestro-init.md -> maestro-init)
+    const name = path.replace(/^\/?\.claude\/commands\//, '').replace('.md', '');
     commands.set(name, parsed);
   });
 
@@ -154,8 +154,8 @@ export async function getAllClaudeSkills(): Promise<Map<string, SkillContent>> {
   const promises = Object.entries(claudeSkillModules).map(async ([path, loader]) => {
     const markdown = await loader() as string;
     const parsed = parseSkill(markdown);
-    // Extract skill name from path (e.g., /.claude/skills/team-lifecycle-v4/SKILL.md -> team-lifecycle-v4)
-    const match = path.match(/\/\.claude\/skills\/([^/]+)\//);
+    // Extract skill name from path (e.g., .claude/skills/team-lifecycle-v4/SKILL.md -> team-lifecycle-v4)
+    const match = path.match(/\.claude\/skills\/([^/]+)\//);
     if (match) {
       skills.set(match[1], parsed);
     }
@@ -175,7 +175,7 @@ export async function getAllCodexSkills(): Promise<Map<string, SkillContent>> {
     const markdown = await loader() as string;
     const parsed = parseSkill(markdown);
     // Extract skill name from path
-    const match = path.match(/\/\.codex\/skills\/([^/]+)\//);
+    const match = path.match(/\.codex\/skills\/([^/]+)\//);
     if (match) {
       skills.set(match[1], parsed);
     }
@@ -190,7 +190,7 @@ export async function getAllCodexSkills(): Promise<Map<string, SkillContent>> {
  */
 export async function loadCommand(commandName: string): Promise<CommandContent | null> {
   const modulePath = `/.claude/commands/${commandName}.md`;
-  const loader = commandModules[modulePath];
+  const loader = commandModules[modulePath] || commandModules[modulePath.replace(/^\//, '')];
 
   if (!loader) return null;
 
@@ -214,7 +214,7 @@ export async function loadSkill(
     ? `/.claude/skills/${skillName}/SKILL.md`
     : `/.codex/skills/${skillName}/SKILL.md`;
 
-  const loader = modules[pattern];
+  const loader = modules[pattern] || modules[pattern.replace(/^\//, '')];
 
   if (!loader) return null;
 
