@@ -10,7 +10,8 @@ allowed-tools:
   - Grep
 ---
 <purpose>
-Add a knowledge entry to the project specs system. Each category maps 1:1 to a single target file — no dual-write.
+Add a knowledge entry to the project specs system using `<spec-entry>` closed-tag format.
+Each category maps 1:1 to a single target file — no dual-write.
 </purpose>
 
 <required_reading>
@@ -30,6 +31,17 @@ $ARGUMENTS -- expects `<category> <content>`
 | `test` | `test-conventions.md` |
 | `review` | `review-standards.md` |
 | `learning` | `learnings.md` |
+
+**Entry format (closed-tag):**
+```markdown
+<spec-entry category="{category}" keywords="{auto-extracted}" date="{YYYY-MM-DD}">
+
+### {title}
+
+{content}
+
+</spec-entry>
+```
 </context>
 
 <execution>
@@ -46,8 +58,10 @@ Follow '~/.maestro/workflows/specs-add.md' completely.
 
 <success_criteria>
 - [ ] Category parsed and validated
-- [ ] Entry appended to target file with timestamp
+- [ ] Keywords auto-extracted from content (3-5 relevant terms)
+- [ ] Entry written in `<spec-entry>` closed-tag format
+- [ ] Entry appended to target file
 - [ ] Confirmation report displayed
-- [ ] Next step: `/spec-load --category {category}` to verify
+- [ ] Next step: `/spec-load --keyword {keyword}` to verify
 </success_criteria>
 </output>

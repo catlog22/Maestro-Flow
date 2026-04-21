@@ -4,8 +4,8 @@ System specs initialization -- scan project structure, detect tech stack, genera
 
 ## Trigger
 
-- First `/workflow:init` (automatic)
-- Manual `/workflow:specs-setup`
+- First `/maestro-init` (automatic)
+- Manual `/spec-setup`
 
 ## Prerequisites
 
@@ -36,7 +36,7 @@ Detection targets:
   Cargo.toml          --> Rust
   pom.xml             --> Java (Maven)
   build.gradle        --> Java/Kotlin (Gradle)
-  composer.json       --> PHP
+  composer.json        --> PHP
   Gemfile             --> Ruby
   .csproj / .sln      --> .NET/C#
   Dockerfile          --> Container deployment
@@ -85,22 +85,16 @@ Formatting:   Check for .prettierrc, .editorconfig, eslint config
 File naming:  kebab-case vs camelCase vs PascalCase for source files
 ```
 
-### Step 5: Generate coding-conventions.md
+### Step 5: Generate Core Files (always created)
+
+#### 5a: coding-conventions.md
 
 Output: `.workflow/specs/coding-conventions.md`
 
 ```markdown
 ---
 title: "Coding Conventions"
-readMode: required
-priority: high
-category: execution
-keywords:
-  - style
-  - naming
-  - import
-  - pattern
-  - convention
+category: coding
 ---
 # Coding Conventions
 
@@ -126,26 +120,18 @@ Auto-generated from project analysis. Update manually as patterns evolve.
 ## Patterns
 {list detected patterns from codebase analysis}
 
-## Manual Additions
-{empty section for user entries}
+## Entries
+{empty section for spec-add entries}
 ```
 
-### Step 6: Generate architecture-constraints.md
+#### 5b: architecture-constraints.md
 
 Output: `.workflow/specs/architecture-constraints.md`
 
 ```markdown
 ---
 title: "Architecture Constraints"
-readMode: required
-priority: high
-category: planning
-keywords:
-  - architecture
-  - module
-  - layer
-  - boundary
-  - dependency
+category: arch
 ---
 # Architecture Constraints
 
@@ -166,115 +152,57 @@ Auto-generated from project structure. Update manually as architecture evolves.
 - Module system: {ESM | CommonJS | ...}
 - Strict mode: {yes | no}
 
-## Manual Additions
-{empty section for user entries}
+## Entries
+{empty section for spec-add entries}
 ```
 
-### Step 7: Generate learnings.md
+#### 5c: learnings.md
 
 Output: `.workflow/specs/learnings.md`
 
 ```markdown
 ---
 title: "Learnings"
-readMode: optional
-priority: medium
-category: general
-keywords:
-  - bug
-  - lesson
-  - gotcha
+category: learning
 ---
 # Learnings
 
 Bugs, gotchas, and lessons learned during development.
-Add entries with: `/workflow:specs-add bug <description>`
-
-## Format
-
-Each entry follows: `- [{YYYY-MM-DD HH:mm}] <description>`
-
-## Entries
-
-{empty -- entries added via specs-add}
-```
-
-### Step 8: Generate quality-rules.md
-
-Output: `.workflow/specs/quality-rules.md`
-
-```markdown
----
-title: "Quality Rules"
-readMode: required
-priority: medium
-category: execution
-keywords:
-  - quality
-  - rule
-  - enforcement
-  - standard
----
-# Quality Rules
-
-Project-specific quality rules and enforcement criteria.
-Add entries with: `/workflow:specs-add rule <description>`
-
-## Format
-
-Each entry follows: `- [{YYYY-MM-DD HH:mm}] <description>`
-
-## Entries
-
-{empty -- entries added via specs-add}
-```
-
-### Step 9: Generate debug-notes.md
-
-Output: `.workflow/specs/debug-notes.md`
-
-```markdown
----
-title: "Debug Notes"
-readMode: optional
-priority: medium
-category: debug
-keywords:
-  - debug
-  - issue
-  - workaround
-  - root-cause
-  - gotcha
----
-# Debug Notes
-
-Known issues, debugging tips, and root cause records.
-Add entries with: `/spec-add debug <description>`
+Add entries with: `/spec-add learning <description>`
 
 ## Entries
 
 {empty -- entries added via spec-add}
 ```
 
-### Step 10: Generate test-conventions.md
+### Step 6: Generate Optional Files (when signals detected)
 
-Output: `.workflow/specs/test-conventions.md`
+#### 6a: quality-rules.md (when linter config or CI detected)
+
+Output: `.workflow/specs/quality-rules.md`
+
+```markdown
+---
+title: "Quality Rules"
+category: quality
+---
+# Quality Rules
+
+## Entries
+
+{empty -- entries added via spec-add}
+```
+
+#### 6b: test-conventions.md (when test framework or test files detected)
 
 Scan existing test files for conventions (framework, naming, directory structure, patterns).
+
+Output: `.workflow/specs/test-conventions.md`
 
 ```markdown
 ---
 title: "Test Conventions"
-readMode: required
-priority: high
 category: test
-keywords:
-  - test
-  - coverage
-  - mock
-  - fixture
-  - assertion
-  - framework
 ---
 # Test Conventions
 
@@ -291,80 +219,31 @@ Auto-generated from project analysis. Update manually as patterns evolve.
 - Test files: {detected: *.test.ts | *.spec.ts | test_*.py | etc.}
 
 ## Patterns
-{detected patterns from existing test files: describe/it nesting, assertion style, mock patterns}
+{detected patterns from existing test files}
 
-## Manual Additions
-
+## Entries
+{empty section for spec-add entries}
 ```
 
-### Step 11: Generate review-standards.md
+#### 6c: debug-notes.md and review-standards.md
 
-Output: `.workflow/specs/review-standards.md`
+These are NOT created during setup. They are created on demand when `spec-add debug` or `spec-add review` is first used.
 
-```markdown
----
-title: "Review Standards"
-readMode: required
-priority: medium
-category: review
-keywords:
-  - review
-  - checklist
-  - gate
-  - approval
-  - standard
----
-# Review Standards
-
-## Review Checklist
-
-## Quality Gates
-
-## Manual Additions
-
-```
-
-### Step 12: Generate validation-rules.md
-
-Output: `.workflow/specs/validation-rules.md`
-
-```markdown
----
-title: "Validation Rules"
-readMode: required
-priority: high
-category: validation
-keywords:
-  - validation
-  - verification
-  - acceptance
-  - criteria
-  - check
----
-# Validation Rules
-
-## Verification Criteria
-
-## Acceptance Standards
-
-## Manual Additions
-
-```
-
-### Step 13: Summary
+### Step 7: Summary
 
 Display what was created:
 ```
 Specs initialized:
-  .workflow/project-tech.json        -- Tech stack analysis
-  .workflow/specs/coding-conventions.md    (category: execution)
-  .workflow/specs/architecture-constraints.md (category: planning)
-  .workflow/specs/learnings.md             (category: general)
-  .workflow/specs/quality-rules.md         (category: execution)
-  .workflow/specs/debug-notes.md           (category: debug)
-  .workflow/specs/test-conventions.md      (category: test)
-  .workflow/specs/review-standards.md      (category: review)
-  .workflow/specs/validation-rules.md      (category: validation)
+  .workflow/project-tech.json                    -- Tech stack analysis
+  .workflow/specs/coding-conventions.md          (category: coding)
+  .workflow/specs/architecture-constraints.md    (category: arch)
+  .workflow/specs/learnings.md                   (category: learning)
+  {if created:}
+  .workflow/specs/quality-rules.md               (category: quality)
+  .workflow/specs/test-conventions.md            (category: test)
+
+Categories: coding, arch, quality, debug, test, review, learning
+  debug-notes.md and review-standards.md created on demand via /spec-add
 ```
 
 ## Output

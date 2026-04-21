@@ -60,6 +60,15 @@ export const guideRegistry: Array<{
     icon: 'book-open',
   },
   {
+    slug: 'spec-system',
+    file: 'spec-system-guide.md',
+    title: 'Spec System Guide',
+    description: 'Project specs with <spec-entry> closed-tag format, keyword loading, validation hooks',
+    title_zh: 'Spec 系统指南',
+    description_zh: '<spec-entry> 闭合标签格式、keyword 加载、验证 Hook、session dedup 注入',
+    icon: 'sparkles',
+  },
+  {
     slug: 'overlay',
     file: 'overlay-guide.md',
     title: 'Overlay System Guide',

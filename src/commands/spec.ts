@@ -16,12 +16,14 @@ export function registerSpecCommand(program: Command): void {
     .command('load')
     .description('Load specs matching category')
     .option('--category <stage>', 'Filter by category: coding|arch|quality|debug|test|review|learning')
+    .option('--keyword <word>', 'Filter entries by keyword')
     .option('--stdin', 'Read input from stdin (Hook mode)')
     .option('--json', 'Output as JSON')
     .action(async (opts) => {
       const { loadSpecs } = await import('../tools/spec-loader.js');
 
       let projectPath = process.cwd();
+      let keyword = opts.keyword as string | undefined;
 
       if (opts.stdin) {
         try {
@@ -31,6 +33,9 @@ export function registerSpecCommand(program: Command): void {
             if (stdinData?.cwd && typeof stdinData.cwd === 'string') {
               projectPath = stdinData.cwd;
             }
+            if (stdinData?.keyword && typeof stdinData.keyword === 'string') {
+              keyword = stdinData.keyword;
+            }
           }
         } catch {
           process.stdout.write(JSON.stringify({ continue: true }));
@@ -38,7 +43,7 @@ export function registerSpecCommand(program: Command): void {
         }
       }
 
-      const result = loadSpecs(projectPath, opts.category);
+      const result = loadSpecs(projectPath, opts.category, undefined, keyword);
 
       if (opts.stdin) {
         if (result.content) {

@@ -12,6 +12,7 @@
 import { loadSpecs, type SpecCategory } from '../tools/spec-loader.js';
 import { evaluateContextBudget } from './context-budget.js';
 import { resolveSelf } from '../tools/team-members.js';
+import { evaluateKeywordInjection } from './keyword-spec-injector.js';
 import type { SpecInjectionConfig } from '../types/index.js';
 
 // ---------------------------------------------------------------------------
@@ -98,6 +99,15 @@ export function evaluateSpecInjection(
       allCategories.push(category);
       totalCount += result.totalLoaded;
     }
+  }
+
+  if (sections.length === 0 && !sessionId) return { inject: false };
+
+  // Keyword-based injection from agent prompt (if sessionId available)
+  if (sessionId && projectPath) {
+    // Extract prompt from the original function context — the caller should pass it
+    // For now, keyword injection from agent prompts is handled at the hook runner level
+    // via evaluateKeywordInjection(), not here. This keeps the two concerns separate.
   }
 
   if (sections.length === 0) return { inject: false };

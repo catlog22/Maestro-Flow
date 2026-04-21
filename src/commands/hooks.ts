@@ -7,6 +7,8 @@ import { loadConfig, saveConfig, loadHooksConfig } from '../config/index.js';
 import { evaluateWorkflowGuard } from '../hooks/guards/workflow-guard.js';
 import { evaluatePreflightGuard, loadPreflightConfig } from '../hooks/guards/preflight-guard.js';
 import { evaluatePromptGuard } from '../hooks/guards/prompt-guard.js';
+import { evaluateSpecValidator } from '../hooks/guards/spec-validator.js';
+import { evaluateKeywordInjection } from '../hooks/keyword-spec-injector.js';
 import { evaluateContext } from '../hooks/context-monitor.js';
 import { evaluateDelegateNotifications } from '../hooks/delegate-monitor.js';
 import { runTeamMonitor } from '../hooks/team-monitor.js';
@@ -84,6 +86,8 @@ const HOOK_DEFS: Record<string, HookDef> = {
   'skill-context': { event: 'UserPromptSubmit', level: 'standard', requiresWorkspace: true },
   'coordinator-tracker': { event: 'Stop', level: 'standard', requiresWorkspace: true },
   'preflight-guard': { event: 'PreToolUse', matcher: 'Bash|Write|Edit|Agent', level: 'standard', requiresWorkspace: true },
+  'spec-validator': { event: 'PreToolUse', matcher: 'Write|Edit', level: 'standard', requiresWorkspace: true },
+  'keyword-spec-injector': { event: 'UserPromptSubmit', level: 'standard', requiresWorkspace: true },
   'workflow-guard': { event: 'PreToolUse', matcher: 'Bash|Write|Edit', level: 'full', requiresWorkspace: true },
 };
 
@@ -302,6 +306,68 @@ const HOOK_RUNNERS: Record<string, HookRunner> = {
           additionalContext: `[PreflightGuard] ${result.warnings.join(' | ')}`,
         }));
       }
+    }
+  },
+
+  'spec-validator': async () => {
+    const config = loadHooksConfig();
+    if (config.toggles['specValidator'] === false) return;
+
+    const raw = await readStdin();
+    const data = JSON.parse(raw);
+    const toolInput = data.tool_input ?? {};
+    const filePath: string = toolInput.file_path ?? '';
+
+    // Only validate .workflow/specs/ files
+    if (!filePath.replace(/\\/g, '/').includes('.workflow/specs/')) return;
+
+    // For Write: full content. For Edit: we can only validate the file_path presence.
+    const content: string = toolInput.content ?? '';
+    if (!content) return; // Edit tool — skip (can't validate partial edits)
+
+    const result = evaluateSpecValidator(filePath, content);
+    if (!result.valid) {
+      const errorSummary = result.errors.map(e => `L${e.line}: ${e.message}`).join('\n');
+      if (result.mode === 'block') {
+        process.stdout.write(JSON.stringify({
+          decision: 'block',
+          reason: `[SpecValidator] Format errors:\n${errorSummary}`,
+        }));
+        process.exit(2);
+      } else {
+        process.stdout.write(JSON.stringify({
+          decision: 'allow',
+          additionalContext: `[SpecValidator] Format warnings:\n${errorSummary}`,
+        }));
+      }
+    }
+  },
+
+  'keyword-spec-injector': async () => {
+    const config = loadHooksConfig();
+    if (config.toggles['keywordSpecInjector'] === false) return;
+
+    const raw = await readStdin();
+    const data = JSON.parse(raw);
+    const prompt: string = data.user_prompt ?? data.prompt ?? '';
+    const sessionId: string = data.session_id ?? '';
+    const cwd: string = data.cwd ?? process.cwd();
+
+    if (!prompt || !sessionId) return;
+
+    // Resolve workspace
+    const { resolveWorkspace } = await import('../hooks/workspace.js');
+    const workspace = resolveWorkspace(cwd);
+    if (!workspace) return;
+
+    const result = evaluateKeywordInjection(prompt, workspace, sessionId);
+    if (result.inject && result.content) {
+      process.stdout.write(JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'UserPromptSubmit',
+          additionalContext: result.content,
+        },
+      }));
     }
   },
 
@@ -644,6 +710,8 @@ export function registerHooksCommand(program: Command): void {
           : name === 'session-context' ? 'sessionContext'
           : name === 'skill-context' ? 'skillContext'
           : name === 'coordinator-tracker' ? 'coordinatorTracker'
+          : name === 'spec-validator' ? 'specValidator'
+          : name === 'keyword-spec-injector' ? 'keywordSpecInjector'
           : name;
         const enabled = config.toggles[toggleKey] !== false;
         const matcher = def.matcher ? ` [${def.matcher}]` : '';

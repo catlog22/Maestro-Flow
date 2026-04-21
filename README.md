@@ -164,12 +164,14 @@ Maestro-Flow coordinates multiple AI agents in parallel:
 
 ### Hook System
 
-9 context-aware hooks across 3 installation levels:
+11 context-aware hooks across 3 installation levels:
 
 | Hook | Purpose |
 |------|---------|
 | `context-monitor` | Monitors context usage, injects warnings when running low |
-| `spec-injector` | Auto-injects project specs into subagent prompts by agent type |
+| `spec-injector` | Auto-injects project specs into subagent prompts by agent type + keyword |
+| `keyword-spec-injector` | Scans user prompts for keywords, injects matching `<spec-entry>` entries |
+| `spec-validator` | Validates `<spec-entry>` format on Write/Edit to `.workflow/specs/` |
 | `delegate-monitor` | Tracks async delegate task completion |
 | `team-monitor` | Collab heartbeat — reports activity to `.workflow/collab/activity.jsonl` for teammate awareness |
 | `telemetry` | Execution telemetry collection |
@@ -178,7 +180,7 @@ Maestro-Flow coordinates multiple AI agents in parallel:
 | `coordinator-tracker` | Tracks coordinator chain progress |
 | `workflow-guard` | Protects critical files and enforces workflow constraints |
 
-The `spec-injector` routes project specs to agents based on type — execution agents get coding conventions, planning agents get architecture constraints. A 4-tier context budget (full > reduced > minimal > skip) adapts injection volume to remaining context.
+The `spec-injector` routes project specs to agents based on category — coding agents get coding conventions, planning agents get architecture constraints. The `keyword-spec-injector` provides entry-level precision — when a user prompt mentions "auth", only auth-related spec entries are injected. Session dedup prevents re-injection within the same session. A 4-tier context budget (full > reduced > minimal > skip) adapts injection volume to remaining context.
 
 ```bash
 maestro hooks install --level minimal    # context-monitor + spec-injector
@@ -314,9 +316,10 @@ maestro/
 ## Documentation
 
 - **[Command Usage Guide](guide/command-usage-guide.md)** — All 51 commands with workflow diagrams, pipeline chaining, Issue closed-loop, and quick channels
+- **[Spec System Guide](guide/spec-system-guide.md)** — Project specs with `<spec-entry>` closed-tag format, keyword-based loading, validation hooks, session dedup injection
 - **[Delegate Async Guide](guide/delegate-async-guide.md)** — Async task delegation: CLI & MCP usage, message injection, chaining, broker lifecycle
 - **[Overlay Guide](guide/overlay-guide.md)** — Non-invasive command extensions: overlay format, section injection, bundle/import, interactive TUI management
-- **[Hooks Guide](guide/hooks-guide.md)** — Hook system architecture, 9 hooks, spec injection, context budget, configuration
+- **[Hooks Guide](guide/hooks-guide.md)** — Hook system architecture, 11 hooks, spec injection, context budget, configuration
 - **[Worktree Parallel Dev Guide](guide/worktree-guide.md)** — Milestone-level worktree parallelism: fork, sync, merge, scope enforcement, dashboard integration
 - **[Collab — User Guide](guide/team-lite-guide.md)** — Multi-person collaboration for 2-8 person teams: join, sync, activity awareness, conflict preflight, task management, namespace isolation
 - **[Collab — Design](guide/team-lite-design.md)** — Architecture, data model, namespace boundary between human-collab (`.workflow/collab/`) and agent-pipeline (`.workflow/.team/`) domains

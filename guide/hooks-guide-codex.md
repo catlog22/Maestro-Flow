@@ -159,7 +159,7 @@ SessionStart(source=startup)
     ├─ resolveWorkspace(cwd)
     │     │  null → 跳过
     │     ▼
-    ├─ loadSpecs(projectPath, category='general')
+    ├─ loadSpecs(projectPath, category='learning')
     │     │  读取 .workflow/specs/*.md
     │     ▼
     ├─ evaluateContextBudget(content, sessionId)

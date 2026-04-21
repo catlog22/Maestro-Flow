@@ -8,6 +8,7 @@
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { parseSpecEntries, formatSpecEntries, type SpecEntryParsed } from './spec-entry-parser.js';
 
 // ============================================================================
 // Types
@@ -63,7 +64,7 @@ const LAYER_LABELS: Record<string, string> = {
  * When `uid` is absent, only the baseline directory is scanned — identical
  * to the original single-directory behavior.
  */
-export function loadSpecs(projectPath: string, category?: SpecCategory, uid?: string): SpecLoadResult {
+export function loadSpecs(projectPath: string, category?: SpecCategory, uid?: string, keyword?: string): SpecLoadResult {
   // Build ordered list of (directory, label) pairs to scan
   const layers = buildLayers(projectPath, uid);
 
@@ -72,7 +73,7 @@ export function loadSpecs(projectPath: string, category?: SpecCategory, uid?: st
   let totalCount = 0;
 
   for (const { dir, label } of layers) {
-    const { sections, matched } = loadFromDir(dir, category);
+    const { sections, matched } = loadFromDir(dir, category, keyword);
     if (sections.length === 0) continue;
 
     // Only add layer headers when multi-layer mode is active (uid provided)
@@ -125,6 +126,7 @@ function buildLayers(projectPath: string, uid?: string): LayerDef[] {
 function loadFromDir(
   specsDir: string,
   category?: SpecCategory,
+  keyword?: string,
 ): { sections: string[]; matched: string[] } {
   if (!existsSync(specsDir)) return { sections: [], matched: [] };
 
@@ -152,8 +154,17 @@ function loadFromDir(
     const body = stripFrontmatter(raw).trim();
     if (!body) continue;
 
-    sections.push(body);
-    matched.push(file);
+    if (keyword) {
+      // Entry-level keyword filtering
+      const filtered = filterByKeyword(body, keyword);
+      if (filtered) {
+        sections.push(filtered);
+        matched.push(file);
+      }
+    } else {
+      sections.push(body);
+      matched.push(file);
+    }
   }
 
   return { sections, matched };
@@ -172,6 +183,32 @@ function shouldInclude(filename: string, category?: SpecCategory): boolean {
 
   // Unknown files: include only when no category filter
   return false;
+}
+
+/**
+ * Filter file content by keyword. Returns matched entry content or null.
+ * Handles both <spec-entry> tags (keyword attribute match) and legacy entries (text grep).
+ */
+function filterByKeyword(body: string, keyword: string): string | null {
+  const kw = keyword.toLowerCase();
+  const { entries, legacy } = parseSpecEntries(body);
+
+  const matchedSections: string[] = [];
+
+  // New-format: match by keywords attribute
+  const matchedEntries = entries.filter(e => e.keywords.includes(kw));
+  if (matchedEntries.length > 0) {
+    matchedSections.push(formatSpecEntries(matchedEntries));
+  }
+
+  // Legacy: grep text match
+  for (const leg of legacy) {
+    if (leg.content.toLowerCase().includes(kw)) {
+      matchedSections.push(leg.content);
+    }
+  }
+
+  return matchedSections.length > 0 ? matchedSections.join('\n\n---\n\n') : null;
 }
 
 function stripFrontmatter(raw: string): string {

@@ -6,6 +6,7 @@ import type { MaestroPlugin } from '../../types/index.js';
 import type { WorkflowHookRegistry } from '../workflow-hooks.js';
 import { loadSpecs, type SpecCategory } from '../../tools/spec-loader.js';
 import { resolveSelf } from '../../tools/team-members.js';
+import { evaluateKeywordInjection } from '../keyword-spec-injector.js';
 
 /**
  * In-process plugin for `maestro coordinate` — injects relevant specs
@@ -17,20 +18,32 @@ import { resolveSelf } from '../../tools/team-members.js';
 export class SpecInjectionPlugin implements MaestroPlugin {
   readonly name = 'specInjection';
 
-  constructor(private readonly projectPath: string = process.cwd()) {}
+  constructor(
+    private readonly projectPath: string = process.cwd(),
+    private readonly sessionId: string = '',
+  ) {}
 
   apply(registry: WorkflowHookRegistry): void {
     registry.transformPrompt.tap(this.name, (prompt: string) => {
-      // Infer category from prompt content heuristics
+      const parts: string[] = [prompt];
+
+      // Category-based injection
       const category = inferCategory(prompt);
-
-      // Best-effort uid resolution for personal spec layer
       const uid = resolveUidSafe();
-      const result = loadSpecs(this.projectPath, category, uid);
+      const catResult = loadSpecs(this.projectPath, category, uid);
+      if (catResult.content) {
+        parts.push(catResult.content);
+      }
 
-      if (!result.content) return prompt;
+      // Keyword-based injection (with session dedup)
+      if (this.sessionId) {
+        const kwResult = evaluateKeywordInjection(prompt, this.projectPath, this.sessionId);
+        if (kwResult.inject && kwResult.content) {
+          parts.push(kwResult.content);
+        }
+      }
 
-      return `${prompt}\n\n---\n\n${result.content}`;
+      return parts.length > 1 ? parts.join('\n\n---\n\n') : prompt;
     });
   }
 }

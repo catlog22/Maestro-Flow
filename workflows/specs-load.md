@@ -7,27 +7,25 @@ Load spec files from `.workflow/specs/`, filtered by category.
 ```
 $ARGUMENTS: "[--category <type>] [keyword]"
 
---category  -- filter by category:
-               general | planning | execution | debug | test | review | validation
+--category  -- filter by category (1:1 mapping to file):
+               coding | arch | quality | debug | test | review | learning | all
 keyword     -- optional, grep within loaded specs for matching sections
 ```
 
-## Category → Files Mapping
+## Category → File Mapping (1:1)
 
-Categories are resolved by **filename** (no frontmatter required):
+Each category loads exactly one file. Same mapping as spec-add.
 
-| Category | Files loaded |
-|----------|-------------|
-| `execution` | `coding-conventions.md`, `architecture-constraints.md`, `quality-rules.md`, `learnings.md` |
-| `planning` | `architecture-constraints.md`, `learnings.md` |
-| `validation` | `validation-rules.md`, `learnings.md` |
-| `test` | `test-conventions.md`, `learnings.md` |
-| `review` | `review-standards.md`, `learnings.md` |
-| `debug` | `debug-notes.md`, `learnings.md` |
-| `general` | `learnings.md` + any unknown files |
-| _(no filter)_ | All `.md` files in specs/ |
-
-`learnings.md` is always included regardless of category filter.
+| Category | File loaded |
+|----------|------------|
+| `coding` | `coding-conventions.md` |
+| `arch` | `architecture-constraints.md` |
+| `quality` | `quality-rules.md` |
+| `debug` | `debug-notes.md` |
+| `test` | `test-conventions.md` |
+| `review` | `review-standards.md` |
+| `learning` | `learnings.md` |
+| `all` (default) | All `.md` files in specs/ |
 
 ## Execution Steps
 
@@ -47,7 +45,7 @@ maestro spec load --category <category>
 
 If `maestro spec load` CLI is unavailable, read files directly:
 ```bash
-cat .workflow/specs/<matched-files>
+cat .workflow/specs/<matched-file>
 ```
 
 ### Step 3: Keyword Filter (optional)

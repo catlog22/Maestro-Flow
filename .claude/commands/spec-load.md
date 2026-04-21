@@ -1,7 +1,7 @@
 ---
 name: spec-load
 description: Load relevant specs and lessons for current context (used by agents before execution)
-argument-hint: "[--category <type>] [--with-lessons] [keyword]"
+argument-hint: "[--category <type>] [--keyword <word>] [--with-lessons]"
 allowed-tools:
   - Read
   - Bash
@@ -9,9 +9,8 @@ allowed-tools:
   - Grep
 ---
 <purpose>
-Load and display relevant spec files for the current working context, optionally filtered by category.
-Designed for agents to call before execution to internalize project conventions, constraints, and learnings.
-Returns matched sections with file references ranked by relevance.
+Load and display relevant spec files for the current working context.
+Supports filtering by category (file-level) and keyword (entry-level via `<spec-entry>` tags).
 </purpose>
 
 <required_reading>
@@ -19,7 +18,7 @@ Returns matched sections with file references ranked by relevance.
 </required_reading>
 
 <context>
-$ARGUMENTS -- optional `--category <type>` flag and/or keyword to filter specs
+$ARGUMENTS -- optional flags and keyword
 
 **Category-to-file mapping (1:1, same as spec-add):**
 | Category | File loaded |
@@ -33,11 +32,17 @@ $ARGUMENTS -- optional `--category <type>` flag and/or keyword to filter specs
 | `learning` | `learnings.md` |
 | `all` (default) | All spec files |
 
-**Keyword:** If provided, search within loaded files for matching sections.
-If no arguments, loads all specs.
-
 **Flags:**
-- `--with-lessons` — Also search `.workflow/learning/lessons.jsonl` for entries with `category: "gotcha"`, `"antipattern"`, or `"pattern"` relevant to the keyword or current context. Appends matched lessons after spec output.
+- `--category <type>` — Filter by file category (loads one file)
+- `--keyword <word>` — Filter entries by keyword attribute in `<spec-entry>` tags. Searches across all files (or within category if combined)
+- `--with-lessons` — Also search `.workflow/learning/lessons.jsonl`
+
+**Examples:**
+```
+/spec-load --keyword auth
+/spec-load --category coding --keyword naming
+/spec-load --category arch
+```
 </context>
 
 <execution>
@@ -52,11 +57,10 @@ Follow '~/.maestro/workflows/specs-load.md' completely.
 </error_codes>
 
 <success_criteria>
-- [ ] Category filter parsed correctly (or defaults to all)
-- [ ] Spec files resolved and read (1:1 category-to-file)
-- [ ] Keyword filtering applied if provided
-- [ ] If `--with-lessons`: lessons.jsonl searched and matched lessons appended
-- [ ] Results displayed with file:line references
-- [ ] Relevant specs loaded into agent context
+- [ ] Category and/or keyword parsed from arguments
+- [ ] Spec files loaded per category mapping
+- [ ] Keyword filtering applied at entry level (via `<spec-entry>` keywords attribute)
+- [ ] Legacy entries filtered by text grep fallback
+- [ ] Results displayed with file:category references
 </success_criteria>
 </output>

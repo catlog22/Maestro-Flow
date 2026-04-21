@@ -1,34 +1,31 @@
 # Workflow: specs-add
 
-Add a timestamped entry to the appropriate system specs file.
+Add a `<spec-entry>` closed-tag entry to a single target spec file by category.
 
 ## Arguments
 
 ```
-$ARGUMENTS: "<type> <content>"
+$ARGUMENTS: "<category> <content>"
 
-type    -- one of: bug, pattern, decision, rule
-content -- free-text description of the entry
+category -- one of: coding, arch, quality, debug, test, review, learning
+content  -- free-text description of the entry
 ```
 
-## Type-to-File Mapping
+## Category-to-File Mapping (1:1)
 
-All entries are first appended to `learnings.md` (primary). Types with secondary targets also update the relevant spec file:
-
-| Type | Primary file | Secondary file |
-|------|-------------|----------------|
-| `bug` | `.workflow/specs/learnings.md` | -- |
-| `pattern` | `.workflow/specs/learnings.md` | `.workflow/specs/coding-conventions.md` |
-| `decision` | `.workflow/specs/learnings.md` | `.workflow/specs/architecture-constraints.md` |
-| `rule` | `.workflow/specs/learnings.md` | `.workflow/specs/quality-rules.md` |
-| `debug` | `.workflow/specs/learnings.md` | `.workflow/specs/debug-notes.md` |
-| `test` | `.workflow/specs/learnings.md` | `.workflow/specs/test-conventions.md` |
-| `review` | `.workflow/specs/learnings.md` | `.workflow/specs/review-standards.md` |
-| `validation` | `.workflow/specs/learnings.md` | `.workflow/specs/validation-rules.md` |
+| Category | Target file |
+|----------|------------|
+| `coding` | `.workflow/specs/coding-conventions.md` |
+| `arch` | `.workflow/specs/architecture-constraints.md` |
+| `quality` | `.workflow/specs/quality-rules.md` |
+| `debug` | `.workflow/specs/debug-notes.md` |
+| `test` | `.workflow/specs/test-conventions.md` |
+| `review` | `.workflow/specs/review-standards.md` |
+| `learning` | `.workflow/specs/learnings.md` |
 
 ## Prerequisites
 
-- `.workflow/specs/` directory must exist (run `/workflow:specs-setup` first if missing)
+- `.workflow/specs/` directory must exist (run `/spec-setup` first if missing)
 
 ## Execution Steps
 
@@ -36,97 +33,65 @@ All entries are first appended to `learnings.md` (primary). Types with secondary
 
 ```
 Split $ARGUMENTS into:
-  type    = first word
-  content = remaining text
+  category = first word
+  content  = remaining text
 
 Validate:
-  - type must be one of: bug, pattern, decision, rule, debug, test, review, validation
+  - category must be one of: coding, arch, quality, debug, test, review, learning
   - content must not be empty
 
 On validation failure:
-  - Display usage: `/workflow:specs-add <type> <content>`
-  - List valid types with descriptions:
-    bug        -- Bug or gotcha learned during development
-    pattern    -- Coding pattern or convention to follow
-    decision   -- Architecture decision or constraint
-    rule       -- Quality rule or enforcement criterion
-    debug      -- Debug tip, root cause record, or known issue workaround
-    test       -- Test convention, pattern, or framework-specific note
-    review     -- Review standard, checklist item, or quality gate
-    validation -- Verification criterion or acceptance standard
+  - Display usage: `/spec-add <category> <content>`
+  - List valid categories
   - Exit
 ```
 
-### Step 2: Resolve Target Files
+### Step 2: Resolve Target File
 
-```
-Map type to file paths using the Type-to-File Mapping table above.
-Verify the primary file (learnings.md) exists.
+Map category to file path. If file does not exist, create it with a basic header.
 
-If file does not exist:
-  - Warn: "Specs not initialized. Run /workflow:specs-setup first."
-  - Exit
-```
-
-Check for near-duplicate entries (same title in last 10 entries of learnings.md):
+Check for near-duplicate entries:
 ```bash
-grep -i "<content_first_10_words>" .workflow/specs/learnings.md | tail -5
+grep -i "<content_first_10_words>" .workflow/specs/<target_file> | tail -5
 ```
 
-If near-duplicate found: warn user and ask to proceed or skip.
+### Step 3: Extract Keywords
 
-### Step 3: Format Entry
+Auto-extract 3-5 relevant keywords from the content:
+- Domain-specific terms (not generic words like "code", "file", "function")
+- Lowercase, no spaces (use hyphens for multi-word terms)
+- Terms that would help future keyword-based lookup
 
-```
-Generate timestamp: YYYY-MM-DD HH:mm (local time)
-Generate title by extracting first meaningful phrase from content.
-Auto-extract keywords from content for frontmatter update (see Step 5.5).
-
-Entry format for learnings.md:
-  ### [YYYY-MM-DD] <type>: <title>
-
-  <full_content>
-```
-
-### Step 4: Append to Learnings (Primary)
+### Step 4: Format Entry
 
 ```
-Read .workflow/specs/learnings.md.
-Find the "## Entries" section.
-Append the formatted entry after the last existing entry (or after the section header if empty).
-Write the file back.
+Generate timestamp: YYYY-MM-DD (local date)
+Generate title from first meaningful phrase of content.
+
+Entry format (closed-tag):
+<spec-entry category="{category}" keywords="{kw1},{kw2},{kw3}" date="{YYYY-MM-DD}">
+
+### {title}
+
+{content}
+
+</spec-entry>
 ```
 
-### Step 5: Update Secondary Spec File
+### Step 5: Append to Target File
 
-If the entry type has a secondary target file, update it:
-
-| Type | Target file | Update action |
-|------|------------|---------------|
-| `pattern` | `coding-conventions.md` | Add or update convention section |
-| `decision` | `architecture-constraints.md` | Add decision record |
-| `rule` | `quality-rules.md` | Add rule under `## Manual` section |
-| `debug` | `debug-notes.md` | Add entry under `## Entries` section |
-| `test` | `test-conventions.md` | Add entry under `## Manual Additions` section |
-| `review` | `review-standards.md` | Add entry under `## Manual Additions` section |
-| `validation` | `validation-rules.md` | Add entry under `## Manual Additions` section |
-| `bug` | -- | No secondary update (learnings only) |
-
-For pattern/decision/rule: read the target file, find the appropriate section, append the new entry in the file's existing format.
-
+Read target file. Append the formatted `<spec-entry>` block at the end. Write file back.
 
 ### Step 6: Confirm
 
 ```
-Display:
-  == specs-add complete ==
-  Type: <category>
-  Added to: .workflow/specs/learnings.md
-  Updated:  .workflow/specs/<secondary_file> (if applicable)
-
-  Entry: ### [date] <type>: <title>
+== spec-add complete ==
+Category: <category>
+Added to: .workflow/specs/<target_file>
+Keywords: <kw1>, <kw2>, <kw3>
+Verify: /spec-load --keyword <kw1>
 ```
 
 ## Output
 
-Entry appended to learnings.md, plus secondary spec file updated if applicable.
+One `<spec-entry>` block appended to the target file.

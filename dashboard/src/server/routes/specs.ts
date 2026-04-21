@@ -4,13 +4,15 @@
  * Each .md file has YAML frontmatter (title, readMode, priority, category, keywords)
  * and contains entries as heading-delimited sections within the markdown body.
  *
- * Unified entry format (written by dashboard POST and spec-add SKILL):
- *   ### [type] [YYYY-MM-DD] Title text
+ * Entry format (closed-tag, written by dashboard POST and spec-add SKILL):
+ *   <spec-entry category="coding" keywords="auth,token" date="2026-04-21">
+ *   ### Title text
  *   Content paragraph(s)...
+ *   </spec-entry>
  *
  * Legacy formats also parsed (backward-compatible):
+ *   ### [type] [YYYY-MM-DD] Title text
  *   ### [YYYY-MM-DD] type: Title text
- *   ### [TYPE] 2025-01-15T10:30:00Z
  *
  * Follows the Hono factory pattern used by issues.ts and mcp.ts.
  */
@@ -113,12 +115,65 @@ function extractCleanTitle(heading: string): string {
 /** Heading regex: matches ## or ### at start of line. */
 const HEADING_RE = /^(#{2,3})\s+(.+)$/;
 
+/** Regex for <spec-entry> closed-tag blocks */
+const SPEC_ENTRY_TAG_RE = /<spec-entry\s+([^>]+)>([\s\S]*?)<\/spec-entry>/g;
+const TAG_ATTR_RE = /([\w-]+)="([^"]*)"/g;
+
 /**
- * Parse markdown body into heading-delimited sections.
- * Each section becomes one SpecEntry.
+ * Parse markdown body into SpecEntry objects.
+ * First extracts <spec-entry> closed-tag blocks, then parses remaining text
+ * with legacy heading-based parser.
  */
 function parseEntries(body: string, fileName: string, frontmatter?: Record<string, unknown>): SpecEntry[] {
-  const lines = body.split('\n');
+  const stem = basename(fileName, extname(fileName));
+  const entries: SpecEntry[] = [];
+  let entryIndex = 0;
+
+  // Pass 1: Extract <spec-entry> closed-tag blocks
+  const consumedRanges: Array<{ start: number; end: number }> = [];
+  let tagMatch: RegExpExecArray | null;
+  SPEC_ENTRY_TAG_RE.lastIndex = 0;
+
+  while ((tagMatch = SPEC_ENTRY_TAG_RE.exec(body)) !== null) {
+    const attrStr = tagMatch[1];
+    const innerContent = tagMatch[2].trim();
+    consumedRanges.push({ start: tagMatch.index, end: tagMatch.index + tagMatch[0].length });
+
+    // Parse attributes
+    const attrs: Record<string, string> = {};
+    let attrMatch: RegExpExecArray | null;
+    TAG_ATTR_RE.lastIndex = 0;
+    while ((attrMatch = TAG_ATTR_RE.exec(attrStr)) !== null) {
+      attrs[attrMatch[1]] = attrMatch[2];
+    }
+
+    // Extract title from first ### heading
+    const titleMatch = innerContent.match(/^###\s+(.+)$/m);
+    const title = titleMatch ? titleMatch[1].trim() : innerContent.split('\n')[0].trim();
+    const type = attrs.category ?? detectEntryType(title, fileName);
+    const id = `${stem}-${String(++entryIndex).padStart(3, '0')}`;
+    const kws = attrs.keywords ? attrs.keywords.split(',').map(k => k.trim()) : [];
+
+    entries.push({
+      id,
+      type,
+      title,
+      content: innerContent,
+      file: fileName,
+      timestamp: attrs.date ?? '',
+      category: attrs.category ?? (typeof frontmatter?.category === 'string' ? frontmatter.category : (FILE_CATEGORY_MAP[stem] ?? 'general')),
+      keywords: kws,
+    });
+  }
+
+  // Pass 2: Parse remaining text with legacy heading-based parser
+  // Remove consumed <spec-entry> blocks from body
+  let remaining = body;
+  for (const range of consumedRanges.reverse()) {
+    remaining = remaining.substring(0, range.start) + remaining.substring(range.end);
+  }
+
+  const lines = remaining.split('\n');
   const sections: { heading: string; level: number; bodyLines: string[] }[] = [];
   let current: { heading: string; level: number; bodyLines: string[] } | null = null;
 
@@ -133,22 +188,14 @@ function parseEntries(body: string, fileName: string, frontmatter?: Record<strin
   }
   if (current) sections.push(current);
 
-  const stem = basename(fileName, extname(fileName));
-  const entries: SpecEntry[] = [];
-
-  for (let i = 0; i < sections.length; i++) {
-    const sec = sections[i];
+  for (const sec of sections) {
     const content = sec.bodyLines.join('\n').trim();
-    // Skip purely structural headings with no content (e.g. "# Learnings", "## Format")
     if (!content) continue;
 
     const type = detectEntryType(sec.heading, fileName);
-    const id = `${stem}-${String(i + 1).padStart(3, '0')}`;
-
-    // Extract date: [YYYY-MM-DD] in brackets, or bare ISO timestamp
+    const id = `${stem}-${String(++entryIndex).padStart(3, '0')}`;
     const dateMatch = sec.heading.match(/\[(\d{4}-\d{2}-\d{2})\]/) ?? sec.heading.match(/(\d{4}-\d{2}-\d{2})/);
     const timestamp = dateMatch ? dateMatch[1] : '';
-
     const title = extractCleanTitle(sec.heading) || sec.heading;
     const category = typeof frontmatter?.category === 'string'
       ? frontmatter.category
@@ -321,11 +368,16 @@ export function createSpecsRoutes(workflowRoot: string | (() => string)): Hono {
         return c.json({ error: 'Invalid file name' }, 400);
       }
 
-      const entryType = typeof type === 'string' && ENTRY_TYPES.includes(type as EntryType) ? type : 'general';
+      const entryCategory = typeof type === 'string' && ENTRY_TYPES.includes(type as EntryType) ? type : 'general';
       const date = new Date().toISOString().slice(0, 10);
       const firstLine = content.trim().split('\n')[0].substring(0, 80);
-      const heading = `### [${entryType}] [${date}] ${firstLine}`;
-      const entryBlock = `\n${heading}\n\n${content.trim()}\n`;
+      // Extract keywords: take meaningful words from first line (3-5 terms)
+      const kwCandidates = firstLine.toLowerCase()
+        .replace(/[^a-z0-9\u4e00-\u9fff_-]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length >= 3);
+      const keywords = [...new Set(kwCandidates)].slice(0, 5).join(',');
+      const entryBlock = `\n<spec-entry category="${entryCategory}" keywords="${keywords}" date="${date}">\n\n### ${firstLine}\n\n${content.trim()}\n\n</spec-entry>\n`;
 
       let newId = '';
 

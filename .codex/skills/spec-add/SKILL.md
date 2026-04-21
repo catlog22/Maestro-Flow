@@ -6,7 +6,7 @@ allowed-tools: Read, Write, Bash, Glob, Grep
 ---
 
 <purpose>
-Add a spec entry to the appropriate specs file. Each category maps 1:1 to a single target file — no dual-write.
+Add a spec entry using `<spec-entry>` closed-tag format. Each category maps 1:1 to a single target file.
 
 ```bash
 $spec-add "coding Always use named exports for utility functions"
@@ -19,7 +19,7 @@ $spec-add "quality All API endpoints must return structured error objects"
 </purpose>
 
 <context>
-$ARGUMENTS — `<category> <content>` where category selects the target file and content is the spec text.
+$ARGUMENTS — `<category> <content>` where category selects the target file.
 
 **Category-to-file mapping (1:1, same as spec-load):**
 | Category | Target file |
@@ -51,22 +51,33 @@ test -d .workflow/specs || exit 1  # E002: not initialized
 
 Resolve target file from category-to-file mapping table. If the target file does not exist, create it with a basic header.
 
-### Step 4: Append Entry
+### Step 4: Extract Keywords
 
-Append timestamped entry to the target file:
+Auto-extract 3-5 relevant keywords from the content. Keywords should be:
+- Lowercase, no spaces (use hyphens for multi-word)
+- Domain-specific terms that would help future lookup
+- Avoid generic words (code, file, function, etc.)
+
+### Step 5: Write Entry
+
+Append `<spec-entry>` closed-tag block to target file:
 
 ```markdown
-### [{category}] [{YYYY-MM-DD}] {first line of content}
+<spec-entry category="{category}" keywords="{kw1},{kw2},{kw3}" date="{YYYY-MM-DD}">
+
+### {title extracted from content}
 
 {content}
+
+</spec-entry>
 ```
 
-Example: `### [learning] [2026-03-21] Off-by-one in pagination when page=0`
-
-### Step 5: Confirm
+### Step 6: Confirm
 
 ```
 Added [{category}] to {target_file}
+Keywords: {kw1}, {kw2}, {kw3}
+Verify: /spec-load --keyword {kw1}
 ```
 </execution>
 
@@ -80,7 +91,8 @@ Added [{category}] to {target_file}
 
 <success_criteria>
 - [ ] Category and content parsed and validated
-- [ ] `.workflow/specs/` directory exists
-- [ ] Entry appended to target file with `[category] [date]` format
-- [ ] Confirmation displayed with category and affected file
+- [ ] Keywords auto-extracted from content (3-5 terms)
+- [ ] Entry written in `<spec-entry>` closed-tag format with keywords attribute
+- [ ] Entry appended to correct target file
+- [ ] Confirmation displayed with keywords and verify command
 </success_criteria>

@@ -172,18 +172,17 @@ maestro hooks list
 
 | Agent 类型 | 注入的规范分类 |
 |-----------|--------------|
-| `code-developer` | execution |
-| `tdd-developer` | execution, test |
-| `workflow-executor` | execution |
-| `universal-executor` | execution |
-| `test-fix-agent` | execution, test |
-| `cli-lite-planning-agent` | planning |
-| `action-planning-agent` | planning |
-| `workflow-planner` | planning |
+| `code-developer` | coding |
+| `tdd-developer` | coding, test |
+| `workflow-executor` | coding |
+| `universal-executor` | coding |
+| `test-fix-agent` | coding, test |
+| `cli-lite-planning-agent` | arch |
+| `action-planning-agent` | arch |
+| `workflow-planner` | arch |
 | `workflow-reviewer` | review |
 | `debug-explore-agent` | debug |
 | `workflow-debugger` | debug |
-| `Explore` | exploration |
 
 **工作流程**：
 
@@ -208,7 +207,7 @@ evaluateContextBudget(content, sessionId)
 
 **关键设计**：
 - 使用 `updatedInput`（命令式）而非 `additionalContext`（建议式）——确保规范内容出现在 agent prompt 最前面
-- `learnings.md` 通过 spec-loader 自动包含（category=general 始终加载）
+- `learnings.md` 通过 spec-loader 自动包含（category=learning）
 - 通过 context-budget 动态调整注入量，避免浪费上下文
 
 **示例输出**：
@@ -479,9 +478,8 @@ echo '{"session_id":"test-cc-123","cwd":"'$(pwd)'"}' | maestro hooks run coordin
 | review, audit, check quality | review |
 | test, spec, coverage, assert | test |
 | debug, diagnose, fix, error, bug | debug |
-| plan, design, architect, decompose | planning |
-| explore, discover, search, analyze | exploration |
-| 其他（默认） | execution |
+| plan, design, architect, decompose, explore, discover, search, analyze | arch |
+| 其他（默认） | coding |
 
 **注册方式**（`coordinate.ts`）：
 ```typescript
@@ -512,7 +510,7 @@ maestro hooks toggle spec-injector on    # 开启规范注入
   "specInjection": {
     "mapping": {
       "my-custom-agent": {
-        "categories": ["execution", "test"],
+        "categories": ["coding", "test"],
         "extras": []
       }
     },
@@ -536,7 +534,7 @@ maestro hooks toggle spec-injector on    # 开启规范注入
 ```markdown
 ---
 title: Coding Conventions
-category: execution
+category: coding
 ---
 
 # Coding Conventions
@@ -545,7 +543,7 @@ category: execution
 - Use PascalCase for classes
 ```
 
-**可用分类**: `execution`, `planning`, `review`, `test`, `debug`, `exploration`, `general`
+**可用分类**: `coding`, `arch`, `quality`, `review`, `test`, `debug`, `learning`
 
 初始化规范：`maestro spec init` → 交互式生成 `.workflow/specs/` 目录和规范文件。
 

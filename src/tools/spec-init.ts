@@ -92,6 +92,8 @@ const SEED_DOCS: SeedDoc[] = [
     },
     body: `# Learnings
 
+Add entries with: \`/spec-add learning <description>\`
+
 ## Entries
 
 `,

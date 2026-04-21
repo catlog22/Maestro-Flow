@@ -1,12 +1,12 @@
 ---
 name: spec-load
 description: Load relevant specs for current context, optionally filtered by category or keyword
-argument-hint: "[--category <type>] [keyword]"
+argument-hint: "[--category <type>] [--keyword <word>]"
 allowed-tools: Read, Bash, Glob, Grep
 ---
 
 <purpose>
-Load relevant specs for the current context, optionally filtered by category or keyword. Reads from `.workflow/specs/` and displays matching content with file references.
+Load relevant specs filtered by category (file-level) and/or keyword (entry-level via `<spec-entry>` tags).
 </purpose>
 
 <context>
@@ -15,11 +15,9 @@ $ARGUMENTS — optional category filter and keyword.
 ```bash
 $spec-load
 $spec-load "--category coding"
-$spec-load "authentication"
-$spec-load "--category debug error handling"
+$spec-load "--keyword auth"
+$spec-load "--category coding --keyword naming"
 ```
-
-**Flags**: `--category <type>` filters by spec category. Optional keyword searches within loaded files.
 
 **Category-to-file mapping (1:1, same as spec-add):**
 
@@ -33,6 +31,8 @@ $spec-load "--category debug error handling"
 | `review` | `review-standards.md` |
 | `learning` | `learnings.md` |
 | `all` (default) | All spec files |
+
+**Keyword filtering**: When `--keyword` is provided, only entries with matching keyword in their `<spec-entry keywords="...">` attribute are returned. Legacy entries (heading format) are filtered by text grep.
 </context>
 
 <execution>
@@ -45,26 +45,22 @@ test -d .workflow/specs || exit 1  # E001: not initialized
 
 ### Step 2: Parse Arguments
 
-Extract optional `--category` flag and keyword from arguments.
+Extract optional `--category` and `--keyword` flags from arguments.
 
-### Step 3: Load Files
+### Step 3: Load via CLI
 
-Read the spec file matching the category (1:1 mapping).
-If `all` or no category, read all `.md` files in specs/.
-If target file doesn't exist, show warning (W001).
+```bash
+maestro spec load [--category <cat>] [--keyword <word>]
+```
 
-### Step 4: Apply Keyword Filter
+If CLI unavailable, read files directly and apply keyword filter.
 
-If a keyword is provided, search within loaded files for matching sections using grep.
-Return only matching sections with file:line references.
-If no matches found, show all content in the category (W001).
-
-### Step 5: Display Results
+### Step 4: Display Results
 
 ```
-=== SPECS: {category} ===
---- {filename} ---
-{content or matching sections}
+=== SPECS: {category} {keyword ? "keyword=" + keyword : ""} ===
+--- {filename} ({category}) ---
+{matched entry content (tags stripped)}
 ```
 </execution>
 
@@ -78,7 +74,7 @@ If no matches found, show all content in the category (W001).
 <success_criteria>
 - [ ] `.workflow/specs/` directory validated
 - [ ] Category and keyword parsed from arguments
-- [ ] Correct file loaded per 1:1 category mapping (falls back to all if empty)
-- [ ] Keyword filter applied with file:line references when matches found
-- [ ] Results displayed with category header and per-file sections
+- [ ] Files loaded per category mapping
+- [ ] Keyword filtering applied at entry level (via `<spec-entry>` keywords)
+- [ ] Results displayed with file references and stripped tags
 </success_criteria>

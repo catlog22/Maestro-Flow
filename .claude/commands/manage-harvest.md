@@ -77,7 +77,7 @@ Follow '~/.maestro/workflows/harvest.md' Stages 1–8 in order. Key invariants:
 3. **Stable fragment IDs** — `HRV-{8 hex}` from `hash(source_id + content_hash)` so re-runs on same artifacts do not create duplicates.
 4. **Reuse existing routing infrastructure**:
    - Wiki: `maestro wiki create --type <type> --slug harvest-<source_type>-<short_id>`
-   - Spec: `Skill({ skill: "spec-add", args: "<type> <content>" })`
+   - Spec: `Skill({ skill: "spec-add", args: "<category> <content>" })`
    - Issue: append to `issues.jsonl` matching canonical schema from `workflows/issue.md`
 5. **Never modify source artifacts** — harvest is purely extractive. Source files remain untouched.
 6. **Confidence filtering** — fragments below `--min-confidence` are logged but not routed.

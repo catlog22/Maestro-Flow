@@ -145,7 +145,7 @@ git log --oneline --all --grep="decision\|chose\|decided\|architecture" -20
 ```
 
 Also read:
-- `.workflow/specs/architecture-constraints.md` — grep for `### [decision]` blocks
+- `.workflow/specs/architecture-constraints.md` — grep for `<spec-entry category="arch"` blocks
 - `.workflow/phases/*/context.md` — scan for "Locked:", "Deferred:" sections
 - `.workflow/learning/lessons.jsonl` — filter `category == "decision"`
 

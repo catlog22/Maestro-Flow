@@ -164,12 +164,14 @@ Maestro-Flow 协调多个 AI 智能体并行工作:
 
 ### Hook 系统
 
-9 个上下文感知 Hook，3 级安装:
+11 个上下文感知 Hook，3 级安装:
 
 | Hook | 用途 |
 |------|------|
 | `context-monitor` | 监控上下文用量，接近上限时注入警告 |
-| `spec-injector` | 按智能体类型自动注入项目规范到子 Agent 提示词 |
+| `spec-injector` | 按 category + keyword 自动注入项目规范到子 Agent 提示词 |
+| `keyword-spec-injector` | 扫描用户输入关键词，注入匹配的 `<spec-entry>` 条目 |
+| `spec-validator` | 写入 `.workflow/specs/` 时验证 `<spec-entry>` 格式 |
 | `delegate-monitor` | 跟踪异步 delegate 任务完成状态 |
 | `team-monitor` | Collab 心跳 -- 向 `.workflow/collab/activity.jsonl` 上报活动，供队友感知 |
 | `telemetry` | 执行遥测收集 |
@@ -178,7 +180,7 @@ Maestro-Flow 协调多个 AI 智能体并行工作:
 | `coordinator-tracker` | 跟踪协调器链进度 |
 | `workflow-guard` | 保护关键文件、约束工作流行为 |
 
-`spec-injector` 按类型路由项目规范 -- 执行 Agent 获取编码约定，规划 Agent 获取架构约束。4 级上下文预算（full > reduced > minimal > skip）自适应注入量。
+`spec-injector` 按 category 路由项目规范 -- coding Agent 获取编码约定，arch Agent 获取架构约束。`keyword-spec-injector` 提供条目级精度 -- 当用户提到 "auth" 时，只注入 auth 相关的 spec 条目。Session dedup 防止同一会话内重复注入。4 级上下文预算（full > reduced > minimal > skip）自适应注入量。
 
 ```bash
 maestro hooks install --level minimal    # context-monitor + spec-injector
@@ -313,9 +315,10 @@ maestro/
 ## 文档
 
 - **[命令使用指南](guide/command-usage-guide.md)** -- 全部 49 个命令，含工作流图表、管线衔接、Issue 闭环、快速通道
+- **[Spec 系统指南](guide/spec-system-guide.md)** -- `<spec-entry>` 闭合标签格式、keyword 加载、验证 Hook、session dedup 注入
 - **[Delegate 异步执行指南](guide/delegate-async-guide.md)** -- 异步任务委派: CLI & MCP 用法、消息注入、链式调用、Broker 生命周期
 - **[Overlay 系统指南](guide/overlay-guide.md)** -- 非侵入式命令扩展: overlay 格式、section 注入、bundle 打包/导入、交互式 TUI 管理
-- **[Hook 系统指南](guide/hooks-guide.md)** -- Hook 系统架构、9 个 Hook、Spec 注入、上下文预算、配置
+- **[Hook 系统指南](guide/hooks-guide.md)** -- Hook 系统架构、11 个 Hook、Spec 注入、上下文预算、配置
 - **[Worktree 并行开发指南](guide/worktree-guide.md)** -- 里程碑级 worktree 并行: fork、sync、merge、scope 保护、Dashboard 集成
 - **[Collab 协作 -- 使用指南](guide/team-lite-guide.md)** -- 2-8 人小团队协作: 加入、同步、活动感知、冲突预检、任务管理、命名空间隔离
 - **[Collab 协作 -- 设计文档](guide/team-lite-design.md)** -- 架构、数据模型、人类协作域 (`.workflow/collab/`) 与智能体管线 (`.workflow/.team/`) 的命名空间边界
