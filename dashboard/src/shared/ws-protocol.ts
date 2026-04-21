@@ -65,7 +65,12 @@ export type WsEventType =
   | 'wiki:invalidated'
   // Collab events
   | 'collab:members_updated'
-  | 'collab:activity';
+  | 'collab:activity'
+  // Team events
+  | 'team:message'
+  | 'team:dispatch'
+  | 'team:phase'
+  | 'team:agent_status';
 
 // ---------------------------------------------------------------------------
 // Server → Client messages
