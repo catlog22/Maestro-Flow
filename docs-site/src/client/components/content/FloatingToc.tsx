@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { extractToc } from './MarkdownRenderer.js';
 
 // ---------------------------------------------------------------------------
-// FloatingToc — absolute-positioned right-side TOC with scroll tracking
-// Sits outside the content flow so content keeps full width
+// FloatingToc — sticky right-side TOC with scroll tracking
+// Used as a flex item alongside content for symmetric centering
 // ---------------------------------------------------------------------------
 
 interface FloatingTocProps {
@@ -40,7 +40,7 @@ export function FloatingToc({ content }: FloatingTocProps) {
   if (headings.length === 0) return null;
 
   return (
-    <div className="hidden xl:block absolute top-0 right-0 w-[180px] translate-x-[calc(100%+var(--spacing-6))]">
+    <aside className="hidden xl:block shrink-0 w-[160px]">
       <nav
         className="sticky top-[calc(var(--size-topbar-height)+var(--spacing-6))] max-h-[calc(100vh-var(--size-topbar-height)-var(--spacing-12))] overflow-y-auto"
         aria-label="Table of contents"
@@ -75,6 +75,6 @@ export function FloatingToc({ content }: FloatingTocProps) {
           })}
         </ul>
       </nav>
-    </div>
+    </aside>
   );
 }
