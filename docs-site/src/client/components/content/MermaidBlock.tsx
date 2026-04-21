@@ -91,7 +91,7 @@ export function MermaidBlock({ chart }: MermaidBlockProps) {
   return (
     <div
       ref={containerRef}
-      className="mermaid-diagram rounded-[var(--radius-lg)] p-[var(--spacing-5)] my-[var(--spacing-4)] overflow-x-auto"
+      className="mermaid-diagram bg-bg-code rounded-[var(--radius-lg)] p-[var(--spacing-5)] my-[var(--spacing-4)] overflow-x-auto"
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   );
