@@ -1,6 +1,10 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
+import { lazy, Suspense } from 'react';
+
+// Lazy-load mermaid — it's ~770KB so only load when a diagram is encountered
+const MermaidBlock = lazy(() => import('./MermaidBlock.js').then(m => ({ default: m.MermaidBlock })));
 
 // ---------------------------------------------------------------------------
 // MarkdownRenderer -- warm minimal markdown rendering
@@ -8,7 +12,7 @@ import type { Components } from 'react-markdown';
 // ---------------------------------------------------------------------------
 
 const components: Components = {
-  // Code blocks — dark warm background
+  // Code blocks — dark warm background, mermaid rendering
   code({ className, children, ...props }) {
     const isInline = !className;
     if (isInline) {
@@ -22,6 +26,17 @@ const components: Components = {
       );
     }
     const lang = className?.replace('language-', '') ?? '';
+
+    // Render mermaid diagrams as SVG (lazy-loaded)
+    if (lang === 'mermaid') {
+      const chart = String(children).replace(/\n$/, '');
+      return (
+        <Suspense fallback={<div className="bg-bg-card border border-border rounded-[var(--radius-lg)] p-[var(--spacing-4)] my-[var(--spacing-4)] text-text-placeholder text-[length:var(--font-size-sm)]">Loading diagram...</div>}>
+          <MermaidBlock chart={chart} />
+        </Suspense>
+      );
+    }
+
     return (
       <div className="relative group">
         {lang && (
