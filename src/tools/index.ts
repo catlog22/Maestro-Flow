@@ -8,8 +8,10 @@ import * as writeFileTool from './write-file.js';
 import * as readFileTool from './read-file.js';
 import * as readManyFilesTool from './read-many-files.js';
 import * as teamMsgTool from './team-msg.js';
+import * as teamMailboxTool from './team-mailbox.js';
 import * as coreMemoryTool from './core-memory.js';
 import * as teamTasksMcpTool from './team-tasks-mcp.js';
+import * as teamAgentsTool from './team-agents.js';
 
 /**
  * Register a CCW-style tool (with schema + handler exports) into the maestro registry.
@@ -36,6 +38,8 @@ export function registerBuiltinTools(registry: ToolRegistry): void {
   registerCcwTool(registry, readFileTool);
   registerCcwTool(registry, readManyFilesTool);
   registerCcwTool(registry, teamMsgTool);
+  registerCcwTool(registry, teamMailboxTool);
   registerCcwTool(registry, coreMemoryTool);
   registerCcwTool(registry, teamTasksMcpTool);
+  registerCcwTool(registry, teamAgentsTool);
 }

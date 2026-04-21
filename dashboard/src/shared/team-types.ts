@@ -92,6 +92,37 @@ export function inferSkill(sessionId: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Team real-time event types — mailbox, phase, agent status
+// ---------------------------------------------------------------------------
+
+export type MailboxDispatchStatus = 'pending' | 'delivered' | 'acknowledged' | 'failed';
+
+export interface TeamMailboxMessage {
+  id: string;
+  from: string;
+  to: string;
+  content: string;
+  dispatch_status: MailboxDispatchStatus;
+  timestamp: string;
+}
+
+export type TeamPhaseName = 'initialization' | 'planning' | 'execution' | 'review' | 'completion';
+
+export interface TeamPhaseState {
+  current: TeamPhaseName;
+  history: TeamPhaseName[];
+  fixAttempts: number;
+}
+
+export type TeamAgentRoleStatus = 'idle' | 'active' | 'busy' | 'error' | 'offline';
+
+export interface TeamAgentStatus {
+  role: string;
+  status: TeamAgentRoleStatus;
+  lastActivity: string;
+}
+
+// ---------------------------------------------------------------------------
 // Status colors for team sessions
 // ---------------------------------------------------------------------------
 

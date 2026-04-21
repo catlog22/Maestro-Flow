@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { TEAM_API_ENDPOINTS } from '@/shared/constants.js';
-import type { TeamSessionSummary, TeamSessionDetail } from '@/shared/team-types.js';
+import type { TeamSessionSummary, TeamSessionDetail, TeamMailboxMessage, TeamPhaseState, TeamAgentStatus } from '@/shared/team-types.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -17,6 +17,11 @@ interface TeamStore {
   loading: boolean;
   error: string | null;
 
+  // Real-time team state
+  mailboxMessages: TeamMailboxMessage[];
+  phaseState: TeamPhaseState | null;
+  agentStatuses: TeamAgentStatus[];
+
   // Filters
   statusFilter: string;
   skillFilter: string | null;
@@ -31,6 +36,12 @@ interface TeamStore {
   setStatusFilter: (status: string) => void;
   setSkillFilter: (skill: string | null) => void;
   setSearchQuery: (query: string) => void;
+
+  // SSE team event handlers
+  handleTeamMessage: (msg: TeamMailboxMessage) => void;
+  handleDispatchUpdate: (msg: TeamMailboxMessage) => void;
+  handlePhaseTransition: (phase: TeamPhaseState) => void;
+  handleAgentStatusUpdate: (status: TeamAgentStatus) => void;
 
   // Derived
   filteredSessions: () => TeamSessionSummary[];
@@ -50,6 +61,9 @@ export const useTeamStore = create<TeamStore>((set, get) => ({
   statusFilter: 'all',
   skillFilter: null,
   searchQuery: '',
+  mailboxMessages: [],
+  phaseState: null,
+  agentStatuses: [],
 
   setActiveView: (view) => set({ activeView: view }),
   setStatusFilter: (status) => set({ statusFilter: status }),
@@ -107,5 +121,49 @@ export const useTeamStore = create<TeamStore>((set, get) => ({
       );
     }
     return result;
+  },
+
+  // SSE team event handlers
+
+  handleTeamMessage: (msg) => {
+    set((s) => {
+      const idx = s.mailboxMessages.findIndex((m) => m.id === msg.id);
+      if (idx >= 0) {
+        // Update existing message
+        const updated = [...s.mailboxMessages];
+        updated[idx] = msg;
+        return { mailboxMessages: updated };
+      }
+      return { mailboxMessages: [...s.mailboxMessages, msg] };
+    });
+  },
+
+  handleDispatchUpdate: (msg) => {
+    set((s) => {
+      const idx = s.mailboxMessages.findIndex((m) => m.id === msg.id);
+      if (idx >= 0) {
+        const updated = [...s.mailboxMessages];
+        updated[idx] = msg;
+        return { mailboxMessages: updated };
+      }
+      // Dispatch update for unknown message -- add it
+      return { mailboxMessages: [...s.mailboxMessages, msg] };
+    });
+  },
+
+  handlePhaseTransition: (phase) => {
+    set({ phaseState: phase });
+  },
+
+  handleAgentStatusUpdate: (status) => {
+    set((s) => {
+      const idx = s.agentStatuses.findIndex((a) => a.role === status.role);
+      if (idx >= 0) {
+        const updated = [...s.agentStatuses];
+        updated[idx] = status;
+        return { agentStatuses: updated };
+      }
+      return { agentStatuses: [...s.agentStatuses, status] };
+    });
   },
 }));

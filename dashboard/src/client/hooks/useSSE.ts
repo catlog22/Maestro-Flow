@@ -2,8 +2,10 @@ import { useEffect, useRef } from 'react';
 import { useBoardStore } from '@/client/store/board-store.js';
 import { useWikiStore } from '@/client/store/wiki-store.js';
 import { useCollabStore } from '@/client/store/collab-store.js';
+import { useTeamStore } from '@/client/store/team-store.js';
 import { SSE_ENDPOINT, SSE_EVENT_TYPES } from '@/shared/constants.js';
 import type { BoardState, PhaseCard } from '@/shared/types.js';
+import type { TeamMailboxMessage, TeamPhaseState, TeamAgentStatus } from '@/shared/team-types.js';
 
 // ---------------------------------------------------------------------------
 // useSSE — connect to /events, dispatch to board store, auto-reconnect
@@ -89,6 +91,35 @@ export function useSSE(): void {
       });
       es.addEventListener(SSE_EVENT_TYPES.COLLAB_ACTIVITY, () => {
         void useCollabStore.getState().fetchActivity();
+      });
+
+      // Team events
+      es.addEventListener(SSE_EVENT_TYPES.TEAM_MESSAGE, (e) => {
+        try {
+          const msg: TeamMailboxMessage = JSON.parse(e.data);
+          useTeamStore.getState().handleTeamMessage(msg);
+        } catch (err) { console.warn('[SSE] Failed to parse team:message event', err); }
+      });
+
+      es.addEventListener(SSE_EVENT_TYPES.TEAM_DISPATCH, (e) => {
+        try {
+          const msg: TeamMailboxMessage = JSON.parse(e.data);
+          useTeamStore.getState().handleDispatchUpdate(msg);
+        } catch (err) { console.warn('[SSE] Failed to parse team:dispatch event', err); }
+      });
+
+      es.addEventListener(SSE_EVENT_TYPES.TEAM_PHASE, (e) => {
+        try {
+          const phase: TeamPhaseState = JSON.parse(e.data);
+          useTeamStore.getState().handlePhaseTransition(phase);
+        } catch (err) { console.warn('[SSE] Failed to parse team:phase event', err); }
+      });
+
+      es.addEventListener(SSE_EVENT_TYPES.TEAM_AGENT_STATUS, (e) => {
+        try {
+          const status: TeamAgentStatus = JSON.parse(e.data);
+          useTeamStore.getState().handleAgentStatusUpdate(status);
+        } catch (err) { console.warn('[SSE] Failed to parse team:agent_status event', err); }
       });
 
       es.onerror = () => {

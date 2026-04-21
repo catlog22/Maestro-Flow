@@ -39,6 +39,7 @@ import type {
   ExecutionFailedPayload,
 } from '../../shared/ws-protocol.js';
 import type { CollabMember, CollabActivityEntry } from '../../shared/collab-types.js';
+import type { TeamMailboxMessage, TeamPhaseState, TeamAgentStatus } from '../../shared/team-types.js';
 
 // ---------------------------------------------------------------------------
 // All event types — single source of truth for onAny / offAny
@@ -89,6 +90,11 @@ const ALL_EVENT_TYPES: SSEEventType[] = [
   'wiki:invalidated',
   'collab:members_updated',
   'collab:activity',
+  // Team events
+  'team:message',
+  'team:dispatch',
+  'team:phase',
+  'team:agent_status',
 ];
 
 // ---------------------------------------------------------------------------
@@ -148,6 +154,11 @@ export interface DashboardEventMap {
   // Collab events
   'collab:members_updated': CollabMember[];
   'collab:activity': CollabActivityEntry;
+  // Team events
+  'team:message': TeamMailboxMessage;
+  'team:dispatch': TeamMailboxMessage;
+  'team:phase': TeamPhaseState;
+  'team:agent_status': TeamAgentStatus;
 }
 
 // ---------------------------------------------------------------------------

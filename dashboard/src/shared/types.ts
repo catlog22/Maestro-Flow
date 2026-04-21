@@ -33,6 +33,8 @@ export type ProjectStatus = 'planning' | 'executing' | 'verifying' | 'idle';
 import type { LinearIssue } from './linear-types.js';
 import type { Issue } from './issue-types.js';
 
+import type { TeamMailboxMessage, TeamPhaseState, TeamAgentStatus } from './team-types.js';
+
 export type SelectedKanbanItem =
   | { type: 'phase'; phaseId: number }
   | { type: 'linearIssue'; issue: LinearIssue }
@@ -101,7 +103,11 @@ export type SSEEventType =
   | 'workspace:switched'
   | 'wiki:invalidated'
   | 'collab:members_updated'
-  | 'collab:activity';
+  | 'collab:activity'
+  | 'team:message'
+  | 'team:dispatch'
+  | 'team:phase'
+  | 'team:agent_status';
 
 // ---------------------------------------------------------------------------
 // Core interfaces — derived from fusion-design.md JSON schemas
@@ -262,6 +268,6 @@ export interface BoardState {
 /** SSE event envelope */
 export interface SSEEvent {
   type: SSEEventType;
-  data: BoardState | PhaseCard | TaskCard | ScratchCard | ProjectState | AgentProcess | NormalizedEntry | ApprovalRequest | AgentStatusPayload | AgentStoppedPayload | AgentTurnCompletedPayload | ExecutionStartedPayload | ExecutionCompletedPayload | ExecutionFailedPayload | SupervisorStatus | CommanderState | Decision | CommanderConfig | AssessMetrics | CoordinateStatusPayload | CoordinateStepPayload | CoordinateAnalysisPayload | CoordinateClarificationPayload | RequirementProgressPayload | RequirementExpandedPayload | RequirementCommittedPayload | RequirementErrorPayload | LearningStats | { taskId: string; taskName: string; taskType: string } | { tasks: ScheduledTask[] } | { extensions: ExtensionInfo[] } | { name: string; error: string } | { workspace: string } | { at: number; path?: string } | CollabMember[] | CollabActivityEntry | string | null;
+  data: BoardState | PhaseCard | TaskCard | ScratchCard | ProjectState | AgentProcess | NormalizedEntry | ApprovalRequest | AgentStatusPayload | AgentStoppedPayload | AgentTurnCompletedPayload | ExecutionStartedPayload | ExecutionCompletedPayload | ExecutionFailedPayload | SupervisorStatus | CommanderState | Decision | CommanderConfig | AssessMetrics | CoordinateStatusPayload | CoordinateStepPayload | CoordinateAnalysisPayload | CoordinateClarificationPayload | RequirementProgressPayload | RequirementExpandedPayload | RequirementCommittedPayload | RequirementErrorPayload | LearningStats | { taskId: string; taskName: string; taskType: string } | { tasks: ScheduledTask[] } | { extensions: ExtensionInfo[] } | { name: string; error: string } | { workspace: string } | { at: number; path?: string } | CollabMember[] | CollabActivityEntry | TeamMailboxMessage | TeamPhaseState | TeamAgentStatus | string | null;
   timestamp: string;
 }

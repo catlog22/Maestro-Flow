@@ -63,6 +63,11 @@ export const SSE_EVENT_TYPES: Record<string, SSEEventType> = {
   WIKI_INVALIDATED: 'wiki:invalidated',
   COLLAB_MEMBERS_UPDATED: 'collab:members_updated',
   COLLAB_ACTIVITY: 'collab:activity',
+  // Team events
+  TEAM_MESSAGE: 'team:message',
+  TEAM_DISPATCH: 'team:dispatch',
+  TEAM_PHASE: 'team:phase',
+  TEAM_AGENT_STATUS: 'team:agent_status',
 } as const;
 
 // ---------------------------------------------------------------------------

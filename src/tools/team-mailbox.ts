@@ -142,7 +142,7 @@ const SendMessageSchema = z.object({
   from: z.string().describe('Sender role name'),
   to: z.string().describe('Recipient role name'),
   message: z.string().describe('Message content to send'),
-  type: z.string().optional().default('message').describe('Message type (default: "message")'),
+  type: z.string().optional().describe('Message type (default: "message")'),
   delivery_method: z.enum(['inject', 'poll', 'broadcast']).optional().default('inject').describe('Delivery method (default: "inject")'),
   data: z.record(z.string(), z.unknown()).optional().describe('Structured data payload'),
 });
@@ -433,7 +433,7 @@ export async function handler(params: Record<string, unknown>): Promise<CcwToolR
         from: p.from,
         to: p.to,
         message: p.message,
-        type: p.type,
+        type: p.type || 'message',
         delivery_method: p.delivery_method || 'inject',
         data: p.data,
       });
