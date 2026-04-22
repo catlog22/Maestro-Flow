@@ -55,6 +55,7 @@ When `-y` is active, maestro propagates auto flags to downstream commands. Only 
 |---------|-----------|--------|
 | maestro-analyze | `-y` | Skip interactive scoping, auto-deepen |
 | maestro-brainstorm | `-y` | Skip interactive questions, use defaults |
+| maestro-roadmap | `-y` | Skip interactive questions, use defaults (create/revise/review) |
 | maestro-ui-design | `-y` | Skip interactive selection, pick top variant |
 | maestro-plan | `--auto` | Skip interactive clarification |
 | maestro-spec-generate | `-y` | Skip interactive questions, use defaults |

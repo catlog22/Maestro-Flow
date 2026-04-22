@@ -32,6 +32,7 @@ $ARGUMENTS -- topic text for auto mode, or role name for single role mode.
 **Single role mode**: valid role name (e.g., "system-architect") runs one role analysis.
 **All output** goes to `.workflow/scratch/brainstorm-{slug}-{date}/`.
 **Artifact registration**: On completion, registers artifact (type=brainstorm) in state.json.
+**Output boundary**: ALL file writes MUST target `{output_dir}/` or `.workflow/state.json` only. NEVER modify source code or files outside these paths.
 
 **Valid roles**: data-architect, product-manager, product-owner, scrum-master, subject-matter-expert, system-architect, test-strategist, ui-designer, ux-expert
 

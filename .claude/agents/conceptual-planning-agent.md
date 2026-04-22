@@ -237,6 +237,7 @@ If complexity_score >= 4: report `[REVIEW_RECOMMENDED]` in output for orchestrat
 - Track conflict resolution quality: actionable + justified + scoped
 
 ### NEVER
+- Write files outside the output directory specified in the prompt (source code, project config, etc. are read-only context)
 - Overlap with other roles' focus areas in role analysis mode
 - Write files in cross-role analysis mode (return text only)
 - Exceed word count limits (hard cap)

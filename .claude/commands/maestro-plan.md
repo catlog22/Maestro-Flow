@@ -1,7 +1,7 @@
 ---
 name: maestro-plan
 description: Explore, clarify, plan, check, and confirm a phase execution plan
-argument-hint: "[phase] [--collab] [--spec SPEC-xxx] [--auto] [--gaps] [--dir <path>]"
+argument-hint: "[phase] [--collab] [--spec SPEC-xxx] [--auto] [--gaps] [--dir <path>] [--revise [instructions]] [--check <plan-dir>]"
 allowed-tools:
   - Read
   - Write
@@ -13,7 +13,12 @@ allowed-tools:
   - AskUserQuestion
 ---
 <purpose>
-Create a verified execution plan (plan.json + .task/TASK-*.json) through a 5-stage pipeline: Exploration, Clarification, Planning, Plan Checking, and Confirmation. Produces plan.json with waves, task definitions, and user-confirmed execution strategy.
+Create, revise, or verify an execution plan through a 5-stage pipeline: Exploration, Clarification, Planning, Plan Checking, and Confirmation. Produces plan.json with waves, task definitions, and user-confirmed execution strategy.
+
+Supports three modes:
+- **Create** (default): Build plan from analysis context or phase requirements
+- **Revise** (`--revise`): Incrementally modify existing plan — edit tasks, adjust waves, add/remove tasks
+- **Check** (`--check`): Standalone plan verification — run plan-checker against existing plan
 
 All plan output goes to `.workflow/scratch/plan-{slug}-{date}/`. Registers PLN artifact in state.json. Performs collision detection against other plans in same milestone.
 </purpose>
@@ -37,6 +42,8 @@ $ARGUMENTS — phase number, or no args for milestone-wide planning, with option
 - `--auto` -- Skip interactive clarification (P2), use defaults
 - `--gaps` -- Gap closure mode: load verification/issue gaps, skip exploration, plan only gap fixes
 - `--dir <path>` -- Use arbitrary scratch directory as context source (e.g., from analyze session)
+- `--revise [instructions]` -- Revise existing plan. Auto-discovers latest plan for current phase from state.json, or use with `--dir` to target specific plan. If instructions provided, apply directly (e.g. `--revise "add TASK-005 for error handling"`). If omitted, ask user via AskUserQuestion. Skips P1-P3 (exploration/clarification/planning), loads existing plan.json + tasks, applies targeted modifications, re-runs P4 (plan-checker).
+- `--check <plan-dir>` -- Standalone plan verification. Run plan-checker (P4 only) against existing plan without modification. Also checks roadmap consistency and collision detection. Read-only.
 
 **Scope routing:**
 
@@ -45,6 +52,9 @@ $ARGUMENTS — phase number, or no args for milestone-wide planning, with option
 | `plan` (no args) | init + roadmap | milestone | Plan all phases in current milestone |
 | `plan 1` | init + roadmap | phase | Plan phase 1 only |
 | `plan --dir scratch/analyze-xxx` | none | inherited | Plan against specified analyze session |
+| `plan --revise "instructions"` | existing plan | revise | Modify existing plan with instructions |
+| `plan --revise` | existing plan | revise | Modify existing plan, ask user for instructions |
+| `plan --check scratch/plan-xxx` | existing plan | check | Verify existing plan (read-only) |
 
 **Upstream context:**
 - Reads `context.md` from prior analyze artifact (auto-discovered from state.json or via --dir)
@@ -141,6 +151,80 @@ Next steps:
   /maestro-execute --dir {dir}  -- Execute specific plan
   /maestro-plan {phase}         -- Re-plan with modifications
 ```
+
+### Mode: Revise (`--revise [instructions]`)
+
+Incrementally modify an existing plan without rebuilding from scratch.
+
+**Plan discovery:**
+- With `--dir`: use specified plan directory
+- Without `--dir`: auto-discover latest completed plan for current phase from `state.json.artifacts[]` (type=plan, status=completed, matching phase)
+
+**Execution flow:**
+
+1. **Load existing plan**
+   - Read `plan.json` + all `.task/TASK-*.json` from discovered directory
+   - Show current plan summary: task count, waves, status per task
+
+2. **Obtain revision instructions**
+   - If `--revise "instructions"` provided → parse as change directive
+   - If `--revise` without instructions → AskUserQuestion for what to change:
+     - Add/remove tasks
+     - Modify task scope, action, implementation
+     - Reorder waves or adjust dependencies
+     - Update convergence criteria
+   - Parse instructions into concrete changes
+
+3. **Apply targeted changes**
+   - Modify affected TASK files in-place
+   - If tasks added/removed: re-sequence task IDs, regenerate wave assignments
+   - Update plan.json summary (task count, wave structure)
+   - Preserve unmodified tasks completely
+
+4. **Re-run plan-checker (P4)**
+   - Validate modified plan with same checker as create mode
+   - Re-run collision detection against same-milestone plans
+   - Present check results for confirmation
+
+5. **Update artifact**
+   - Overwrite plan files in existing scratch directory
+   - Update artifact timestamp in state.json (no new artifact created)
+
+### Mode: Check (`--check <plan-dir>`)
+
+Read-only plan verification without modification.
+
+**Execution flow:**
+
+1. **Load plan**
+   - Read `plan.json` + `.task/TASK-*.json` from specified directory
+   - Read `.workflow/roadmap.md` for consistency comparison
+
+2. **Run checks**
+   - Plan-checker (P4 pipeline stage) — task quality, convergence criteria
+   - Roadmap consistency — plan tasks align with phase scope and requirements
+   - Collision detection — file overlaps with other plans in same milestone
+   - Dependency integrity — no broken cross-task dependencies
+
+3. **Produce check report**
+   ```
+   === PLAN CHECK ===
+   Plan: {plan_dir}/plan.json
+   Tasks: {total} ({completed} done, {pending} pending)
+
+   Checker: {PASS|WARN|FAIL} ({issues} issues)
+   Roadmap: {aligned|drift detected}
+   Collision: {clear|{N} overlaps}
+
+   Issues:
+     1. [{severity}] {description}
+
+   Suggested actions:
+     /maestro-plan --revise "fix instructions"  -- Apply fixes
+     /maestro-execute --dir {plan_dir}          -- Execute as-is
+   ```
+
+**No file modifications.** Pure verification + report.
 </execution>
 
 <error_codes>
@@ -148,6 +232,8 @@ Next steps:
 |------|----------|-----------|----------|
 | E001 | error | No args and no roadmap (cannot determine scope) | Provide phase number or topic, or create roadmap |
 | E003 | error | --gaps requires prior verification/issues to exist | Run maestro-verify first |
+| E004 | error | No plan found to revise (--revise without target) | Use --dir to specify plan, or create plan first |
+| E005 | error | Plan directory not found (--check) | Check path, use --dir |
 | W001 | warning | Exploration agent returned incomplete results | Retry exploration or proceed with available context |
 | W002 | warning | Plan-checker found minor issues, continuing | Review plan-checker feedback, adjust plan if needed |
 | W003 | warning | Wiki search unavailable or returned no results | Continue without prior knowledge context |

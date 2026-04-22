@@ -789,6 +789,7 @@ const context = {
 const AUTO_FLAG_MAP = {
   'maestro-analyze':       '-y',
   'maestro-brainstorm':    '-y',
+  'maestro-roadmap':       '-y',
   'maestro-ui-design':     '-y',
   'maestro-plan':          '--auto',
   'maestro-spec-generate': '-y',
