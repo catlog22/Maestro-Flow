@@ -87,7 +87,7 @@ Read the following templates:
 ### Step 5: Create .workflow/ Structure
 
 ```bash
-mkdir -p .workflow/specs .workflow/phases .workflow/scratch .workflow/codebase
+mkdir -p .workflow/specs .workflow/scratch .workflow/codebase
 ```
 
 ### Step 6: Write project.md
@@ -103,9 +103,10 @@ Write to `.workflow/project.md`.
 ### Step 7: Write state.json
 
 Initialize state from template:
-- `current_phase`: null
 - `current_milestone`: null
+- `current_task_id`: null
 - `status`: "initialized"
+- `artifacts`: []
 
 Write to `.workflow/state.json`.
 
@@ -122,7 +123,7 @@ Write to `.workflow/config.json`.
 
 Create convention files in `.workflow/specs/`:
 - `conventions.md` — detected or specified coding conventions
-- `learnings.md` — empty, populated during phase transitions
+- `learnings.md` — empty, populated during execute summaries extraction
 
 ### Step 10: Completion Report
 

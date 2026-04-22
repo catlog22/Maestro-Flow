@@ -76,6 +76,7 @@ export interface Issue {
   task_refs?: string[];
   /** Relative path to .task/ directory containing the TASK JSON files */
   task_plan_dir?: string;
+  supplements?: IssueSupplement[];
   path?: IssuePath;
   phase_id?: number;
   source_entry_id?: string;
@@ -121,3 +122,38 @@ export const VALID_ISSUE_PRIORITIES: ReadonlySet<string> = new Set<string>([
 export const VALID_ISSUE_STATUSES: ReadonlySet<string> = new Set<string>([
   'open', 'registered', 'in_progress', 'resolved', 'closed', 'deferred',
 ]);
+
+// ---------------------------------------------------------------------------
+// Supplement — user-added context at various lifecycle stages
+// ---------------------------------------------------------------------------
+
+/** Lifecycle stage for a supplement entry */
+export type SupplementStage =
+  | 'post_creation'
+  | 'analysis'
+  | 'planning'
+  | 'pre_execution'
+  | 'execution'
+  | 'resolution'
+  | 'general';
+
+/** A user-added context supplement attached to an issue */
+export interface IssueSupplement {
+  content: string;
+  stage: SupplementStage;
+  author: string;
+  created_at: string;
+}
+
+/** Derive the current supplement stage from an issue's status */
+export function deriveSupplementStage(issue: Issue): SupplementStage {
+  switch (issue.status) {
+    case 'open': return 'post_creation';
+    case 'registered': return 'analysis';
+    case 'in_progress': return 'execution';
+    case 'resolved': return 'resolution';
+    case 'closed': return 'general';
+    case 'deferred': return 'general';
+    default: return 'general';
+  }
+}

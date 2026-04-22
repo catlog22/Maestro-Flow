@@ -181,6 +181,10 @@ export const useSpecsStore = create<SpecsStore>((set, get) => ({
       review: [],
       validation: [],
       general: [],
+      learning: [],
+      coding: [],
+      arch: [],
+      quality: [],
     };
     for (const e of entries) {
       (grouped[e.type] ?? grouped.general).push(e);

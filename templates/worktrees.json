@@ -10,7 +10,6 @@
       "base_commit": "{{BASE_COMMIT}}",
       "status": "active",
       "created_at": "{{TIMESTAMP}}",
-      "owned_phases": [],
       "fork_session": "{{FORK_SESSION_ID}}"
     }
   ],

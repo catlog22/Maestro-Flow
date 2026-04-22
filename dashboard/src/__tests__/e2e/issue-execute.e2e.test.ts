@@ -452,7 +452,7 @@ describe('E2E: Issue Execute — dispatch, batch, cancel, status', () => {
 
       // Step 5: Verify running
       let statusRes = await app.request('/api/execution/status');
-      let status = (await statusRes.json()) as { running: { issueId: string; executor: string }[] };
+      let status = (await statusRes.json()) as { running: { issueId: string; executor?: string }[] };
       expect(status.running).toHaveLength(1);
       expect(status.running[0].issueId).toBe(issue.id);
       expect(status.running[0].executor).toBe('codex');
@@ -463,7 +463,7 @@ describe('E2E: Issue Execute — dispatch, batch, cancel, status', () => {
 
       // Step 7: Verify stopped
       statusRes = await app.request('/api/execution/status');
-      status = (await statusRes.json()) as { running: { issueId: string }[] };
+      status = (await statusRes.json()) as { running: { issueId: string; executor?: string }[] };
       expect(status.running).toHaveLength(0);
     });
 

@@ -13,9 +13,9 @@ allowed-tools:
   - AskUserQuestion
 ---
 <purpose>
-Create a git worktree for an entire milestone, enabling inter-milestone parallel development. All phases within the milestone are owned by the worktree and executed sequentially inside it.
+Create a git worktree for an entire milestone, enabling inter-milestone parallel development. The worktree scope is milestone-level — all scratch artifacts for that milestone are owned by the worktree.
 
-Since `.workflow/` is gitignored, this command explicitly copies project context and all milestone phase directories into the worktree. Per-phase parallelism within a milestone is NOT supported.
+Since `.workflow/` is gitignored, this command explicitly copies project context and existing milestone scratch artifacts into the worktree. Per-phase parallelism within a milestone is NOT supported.
 
 Also supports `--sync` mode to pull latest main branch changes and shared artifacts into an active worktree (prevents source and artifact drift for long-lived worktrees).
 
@@ -38,7 +38,7 @@ $ARGUMENTS -- milestone name and optional flags.
 
 | Mode | Trigger | Behavior |
 |------|---------|----------|
-| Fork | `-m 2` or `2` | Create worktree for all phases in milestone 2 |
+| Fork | `-m 2` or `2` | Create worktree for milestone 2 |
 | Sync | `-m 2 --sync` | Sync existing milestone 2 worktree with main branch |
 
 **Flags:**
@@ -46,32 +46,53 @@ $ARGUMENTS -- milestone name and optional flags.
 - `--base <branch>`: Override base branch for worktree creation (default: HEAD)
 - `--sync`: Sync mode — pull main into existing worktree, re-copy shared artifacts
 
-**Milestone resolution:** `state.json.milestones[N-1]` → `{name, title, phases: [...]}`
+**Milestone resolution:** `state.json.milestones[N-1]` → `{id, name, status}`
 
 **Worktree layout:**
 ```
 .worktrees/m{N}-{slug}/
 ├── .workflow/
-│   ├── worktree-scope.json     (scope marker — lists all owned phases)
-│   ├── state.json              (scoped to this milestone)
+│   ├── worktree-scope.json     (milestone scope marker)
+│   ├── state.json              (scoped — only this milestone's artifacts)
 │   ├── project.md              (read-only copy)
 │   ├── roadmap.md              (read-only copy)
 │   ├── config.json             (read-only copy)
 │   ├── specs/                  (read-only copy)
-│   └── phases/
-│       ├── {NN}-{slug}/        (owned — all phases in milestone)
-│       └── {dep}-{dep-slug}/   (read-only dependency reference from prior milestones)
+│   └── scratch/                (milestone's existing + new artifacts)
+│       ├── analyze-auth-2026-04-20/
+│       ├── plan-auth-2026-04-20/
+│       └── ...
 └── <source code>               (git worktree checkout)
 ```
+
+**Artifact scoping:**
+Fork copies scratch artifacts that belong to the target milestone (filtered from `state.json.artifacts[]` where `milestone == target`). New work in the worktree creates scratch artifacts normally; they are registered in the worktree's local `state.json`.
 </context>
 
 <execution>
 Follow '~/.maestro/workflows/fork.md' completely.
 
+**Fork flow:**
+1. Validate: project initialized, roadmap exists, not inside worktree, milestone not already forked
+2. Resolve milestone: `state.json.milestones[N-1]`
+3. Create git worktree: `git worktree add -b milestone/{slug} .worktrees/m{N}-{slug} HEAD`
+4. Copy `.workflow/` into worktree:
+   - Shared files (read-only): `project.md`, `roadmap.md`, `config.json`, `specs/`
+   - Milestone scratch artifacts: filter `state.json.artifacts[]` by `milestone == target`, copy each `scratch/{path}`
+5. Write scope marker: `worktree-scope.json` with milestone number and main path
+6. Write scoped `state.json`: only this milestone's artifacts, `current_milestone` set
+7. Update main: `worktrees.json` registry, mark milestone as `"forked"` in `state.json.milestones[]`
+
+**Sync flow:**
+1. Find worktree from `worktrees.json`
+2. `cd worktree && git merge main`
+3. Re-copy shared files: `project.md`, `roadmap.md`, `config.json`, `specs/`
+4. Report conflicts if any
+
 **Next-step routing on completion:**
 
 Fork mode:
-- Enter worktree → `cd {wt.path} && /maestro-analyze {first_phase}`
+- Enter worktree → `cd {wt.path} && /maestro-analyze`
 - Automated → `maestro delegate "run full lifecycle for milestone" --cd {wt.path} --mode write`
 - Status → Skill({ skill: "manage-status" })
 
@@ -95,13 +116,14 @@ Sync mode:
 
 <success_criteria>
 Fork mode:
-- [ ] Milestone phases identified from roadmap
+- [ ] Milestone resolved from state.json.milestones[]
 - [ ] Git worktree created with branch (`milestone/{slug}`)
-- [ ] `.workflow/` context copied into worktree (all milestone phases + dependency phases)
-- [ ] `worktree-scope.json` written with all owned phase numbers
-- [ ] Scoped `state.json` written (current_phase = first pending phase)
+- [ ] Shared `.workflow/` files copied (project.md, roadmap.md, config.json, specs/)
+- [ ] Milestone scratch artifacts copied (filtered from artifact registry)
+- [ ] `worktree-scope.json` written with milestone scope
+- [ ] Scoped `state.json` written (only this milestone's artifacts)
 - [ ] `worktrees.json` registry updated in main worktree
-- [ ] Milestone phase indexes marked as "forked" in main worktree
+- [ ] Milestone marked as `"forked"` in main `state.json.milestones[]`
 - [ ] Summary displayed with next-step commands
 
 Sync mode:

@@ -9,6 +9,8 @@ export interface FileNode {
   name: string;
   path: string;
   type: 'file' | 'directory';
+  extension?: string;
+  isLoaded?: boolean;
   children?: FileNode[];
 }
 

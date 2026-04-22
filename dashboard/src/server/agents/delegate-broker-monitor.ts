@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import type { AgentManager } from './agent-manager.js';
 import { EntryNormalizer } from './entry-normalizer.js';
 import type { DashboardEventBus } from '../state/event-bus.js';
@@ -174,7 +173,7 @@ export class DelegateBrokerMonitor {
     this.agentManager = options.agentManager;
     this.eventBus = options.eventBus;
     this.broker = options.broker ?? new DelegateBrokerClient();
-    this.sessionId = options.sessionId ?? `dashboard-delegate-monitor-${randomUUID()}`;
+    this.sessionId = options.sessionId ?? 'dashboard-delegate-monitor';
     this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
     this.pollLimit = options.pollLimit ?? DEFAULT_POLL_LIMIT;
   }

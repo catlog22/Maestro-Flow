@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Issue, CreateIssueRequest, UpdateIssueRequest } from '@/shared/issue-types.js';
+import type { Issue, CreateIssueRequest, UpdateIssueRequest, SupplementStage } from '@/shared/issue-types.js';
 import { ISSUE_API_ENDPOINTS } from '@/shared/constants.js';
 
 // ---------------------------------------------------------------------------
@@ -16,6 +16,7 @@ export interface IssueStore {
   createIssue: (req: CreateIssueRequest) => Promise<Issue | null>;
   updateIssue: (id: string, req: UpdateIssueRequest) => Promise<void>;
   deleteIssue: (id: string) => Promise<void>;
+  addSupplement: (issueId: string, content: string, stage: SupplementStage, author: string) => Promise<void>;
 }
 
 export const useIssueStore = create<IssueStore>((set, get) => ({
@@ -119,6 +120,33 @@ export const useIssueStore = create<IssueStore>((set, get) => ({
     } catch (err) {
       // Rollback on failure
       set({ issues: prev, error: String(err) });
+    }
+  },
+
+  addSupplement: async (issueId, content, stage, author) => {
+    const issue = get().issues.find((i) => i.id === issueId);
+    if (!issue) return;
+
+    const supplements = issue.supplements ?? [];
+    const newSupplement = { content, stage, author, created_at: new Date().toISOString() };
+    const updatedSupplements = [...supplements, newSupplement];
+
+    // Optimistic update
+    set((state) => ({
+      issues: state.issues.map((i) =>
+        i.id === issueId ? { ...i, supplements: updatedSupplements, updated_at: new Date().toISOString() } : i,
+      ),
+    }));
+
+    try {
+      const url = ISSUE_API_ENDPOINTS.ISSUES + `/${issueId}`;
+      await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ supplements: updatedSupplements }),
+      });
+    } catch (err) {
+      set({ error: String(err) });
     }
   },
 }));

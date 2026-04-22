@@ -9,22 +9,24 @@ Main worktree (master)              Worktree (.worktrees/m2-production/)
 ├── .workflow/                      ├── .workflow/
 │   ├── state.json                  │   ├── state.json (scoped)
 │   ├── worktrees.json (registry)   │   ├── worktree-scope.json (marker)
-│   └── phases/                     │   ├── roadmap.md (read-only copy)
-│       ├── 01-auth/ ✅             │   └── phases/
-│       ├── 02-kanban/ ✅           │       ├── 03-realtime/ (owned)
-│       ├── 03-realtime/ [forked]   │       └── 04-billing/ (owned)
-│       └── 04-billing/ [forked]    │
-│                                   │   在这里正常执行:
-│   main 上修 M1 bug                │   /maestro-analyze 3
-│                                   │   /maestro-plan 3
-│                                   │   /maestro-execute 3
-│                                   │   ...逐 phase 推进
+│   ├── roadmap.md                  │   ├── roadmap.md (read-only copy)
+│   └── scratch/                    │   └── scratch/
+│       ├── analyze-auth-... ✅     │       ├── analyze-billing-...  (owned)
+│       ├── plan-auth-... ✅        │       ├── plan-billing-...     (owned)
+│       └── plan-billing-.. [forked]│       └── ...
+│                                   │
+│   main 上修 M1 bug                │   在这里正常执行:
+│                                   │   /maestro-analyze
+│                                   │   /maestro-plan
+│                                   │   /maestro-execute
+│                                   │   ...逐步推进
 ```
 
 **关键约束：**
-- 一个里程碑 = 一个 worktree（不支持里程碑内 phase 级并行）
-- worktree 内 phase 仍然顺序执行（analyze → plan → execute → verify → transition）
+- 一个里程碑 = 一个 worktree（不支持里程碑内并行 worktree）
+- worktree 内工作流正常运行（analyze → plan → execute → verify），产物写入 `scratch/`
 - `.workflow/` 是 gitignored 的，fork 时会显式复制进 worktree
+- Scope 保护基于 milestone 级别（不是 phase 级别）
 
 ## 命令速查
 
@@ -46,8 +48,8 @@ Main worktree (master)              Worktree (.worktrees/m2-production/)
 # Fork M2 worktree（不用等 M1 bug 修完）
 /maestro-fork -m 2
 # → 创建 .worktrees/m2-production/
-# → 复制 .workflow/ 上下文
-# → M2 phases 在 main 中标记为 "forked"
+# → 复制 .workflow/ 上下文 + M2 已有 scratch artifacts
+# → M2 在 main state.json 中标记为 "forked"
 
 # 终端 A：main 上修 M1 bug
 cd /project
@@ -55,12 +57,11 @@ cd /project
 
 # 终端 B：worktree 中推进 M2
 cd .worktrees/m2-production/
-/maestro-analyze 3
-/maestro-plan 3
-/maestro-execute 3
-/maestro-verify 3
-/maestro-phase-transition 3
-# ... 重复直到 M2 所有 phase 完成 ...
+/maestro-analyze
+/maestro-plan
+/maestro-execute
+/maestro-verify
+# ... 重复直到 M2 工作完成 ...
 
 # M2 完成，回 main 合并
 cd /project
@@ -83,7 +84,7 @@ cd /project
 /maestro-fork -m 2
 
 # 委派一个 agent 在 worktree 中跑完整生命周期
-maestro delegate "run full lifecycle for all phases" \
+maestro delegate "run full lifecycle for milestone" \
   --cd .worktrees/m2-production/ --mode write
 ```
 
@@ -98,18 +99,17 @@ maestro delegate "run full lifecycle for all phases" \
 **执行步骤：**
 
 1. **校验**：项目已初始化、roadmap 存在、不在 worktree 内、M2 未被 fork
-2. **解析里程碑**：`state.json.milestones[1]` → `{name: "Production", phases: [3, 4]}`
+2. **解析里程碑**：`state.json.milestones[1]` → `{id: "M2", name: "Production", status: "active"}`
 3. **创建 worktree**：`git worktree add -b milestone/production .worktrees/m2-production HEAD`
 4. **复制 .workflow/**：
    - 共享文件（只读）：`project.md`, `roadmap.md`, `config.json`, `specs/`
-   - 里程碑 phase 目录：`phases/03-*/`, `phases/04-*/`
-   - 依赖 phase 目录（只读）：已完成的前置 phase
+   - Milestone scratch artifacts：从 `state.json.artifacts[]` 筛选 `milestone == "M2"`，复制对应 `scratch/` 目录
 5. **写入标记**：
-   - `worktree-scope.json`：`{ milestone_num: 2, owned_phases: [3, 4], ... }`
-   - scoped `state.json`：`current_phase` 设为第一个未完成的 phase
+   - `worktree-scope.json`：`{ milestone_num: 2, milestone: "M2", ... }`
+   - scoped `state.json`：仅包含 M2 的 artifacts，`current_milestone` 设为 "M2"
 6. **更新 main**：
    - `worktrees.json` 注册表添加条目
-   - M2 phase 在 main 中标记为 `"forked"`
+   - `state.json.milestones[]` 中 M2 标记为 `"forked"`
 
 **输出示例：**
 
@@ -120,7 +120,7 @@ Base:       HEAD (abc1234)
 Milestone:  M2 — Production (生产就绪)
 Branch:     milestone/production
 Path:       .worktrees/m2-production
-Phases:     3, 4
+Artifacts:  3 scratch dirs copied
 ```
 
 ### Sync：同步 worktree
@@ -151,16 +151,16 @@ Phases:     3, 4
 
 **Phase 1 — Git Merge（源码）：**
 1. 注册表健康检查（清理失效条目）
-2. 校验 worktree 中 phase 完成状态
+2. 校验 worktree 中 milestone artifact 完成状态
 3. Pre-merge：`cd worktree && git merge main`（减少冲突）
 4. `git merge milestone/production --no-ff`
 
 **Phase 2 — Artifact Sync（仅 Phase 1 成功后）：**
-5. 复制 `phases/03-*/`, `phases/04-*/` 回 main `.workflow/`
-6. 补丁式更新 `state.json`：
-   - `phases_summary.completed += N`
-   - `accumulated_context` 合并
-   - `transition_history` 追加
+5. 复制 worktree 的 `scratch/*` 目录回 main `.workflow/scratch/`
+6. 合并 artifact registry：
+   - worktree `state.json.artifacts[]` → main `state.json.artifacts[]`
+   - 同 id 条目 worktree 版本优先
+   - 移除 milestone 的 `"forked"` 标记
 7. 更新 `roadmap.md`（completed phases 标记 ✅）
 8. 清理：`git worktree remove` + `git branch -D`
 
@@ -180,22 +180,24 @@ git merge --continue
 
 | Flag | 作用 |
 |------|------|
-| `--force` | 即使 phase 未全部完成也合并 |
+| `--force` | 即使 milestone 有未完成 artifact 也合并 |
 | `--dry-run` | 只显示会做什么，不执行 |
 | `--no-cleanup` | 合并后保留 worktree（用于检查） |
 | `--continue` | 解决 git 冲突后继续 artifact sync |
 
 ## Scope 保护机制
 
-worktree 内有两类保护：
+worktree 内基于 milestone 级别的保护：
 
-### Phase scope 检查
+### Milestone scope 检查
 
-在 worktree 内执行 `analyze`, `plan`, `execute`, `verify`, `phase-transition` 时，会检查 `worktree-scope.json.owned_phases`：
+在 worktree 内执行 `analyze`, `plan`, `execute`, `verify` 时，新创建的 artifact 自动归属 `worktree-scope.json` 中的 milestone。如果操作试图修改其他 milestone 的 artifact，会被拒绝：
 
 ```
-/maestro-plan 5    # → ERROR: Phase 5 not owned. Owned: [3, 4]
-/maestro-plan 3    # → OK
+# worktree scope: M2
+/maestro-analyze            # → OK, artifact 归属 M2
+/maestro-plan               # → OK
+/maestro-execute             # → OK
 ```
 
 ### 全局命令阻止
@@ -205,7 +207,7 @@ worktree 内有两类保护：
 | 命令 | 原因 |
 |------|------|
 | `maestro-init` | 会重置项目状态 |
-| `maestro-roadmap` | 会重新分解 phases |
+| `maestro-roadmap` | 会重新分解 milestones |
 | `maestro-spec-generate` | 会修改全局 specs |
 | `maestro-fork` | 不能在 worktree 内再 fork |
 | `maestro-merge` | 必须在 main 中执行 |
@@ -222,6 +224,7 @@ worktree 内有两类保护：
 ├─────────────────────────────────────────┤
 │ M2 (Production) | milestone/production  │
 │   Path: .worktrees/m2-production        │
+│   Artifacts: 5 (3 completed, 2 pending) │
 │                                         │
 │ Sync:  /maestro-fork -m 2 --sync        │
 │ Merge: /maestro-merge -m 2              │
@@ -236,7 +239,7 @@ worktree 内有两类保护：
 ├─────────────────────────────────────────┤
 │ Milestone: M2 (Production)             │
 │ Branch:    milestone/production          │
-│ Phases:    3, 4                          │
+│ Artifacts: 5 scratch dirs               │
 │ Main:      /path/to/project              │
 └─────────────────────────────────────────┘
 ```
@@ -246,8 +249,8 @@ worktree 内有两类保护：
 | 文件 | 位置 | 说明 |
 |------|------|------|
 | `worktrees.json` | main `.workflow/` | 注册表：所有活跃 worktree |
-| `worktree-scope.json` | worktree `.workflow/` | 标记文件：owned phases、main 路径 |
-| `state.json` | worktree `.workflow/` | scoped 副本，独立于 main |
+| `worktree-scope.json` | worktree `.workflow/` | 标记文件：milestone scope、main 路径 |
+| `state.json` | worktree `.workflow/` | scoped 副本，仅包含此 milestone 的 artifacts |
 | `project.md` | worktree `.workflow/` | 只读副本 |
 | `roadmap.md` | worktree `.workflow/` | 只读副本 |
 
