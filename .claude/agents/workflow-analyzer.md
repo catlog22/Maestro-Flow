@@ -93,11 +93,11 @@ You perform structured multi-dimensional analysis of technical topics, proposals
 N/A -- produces markdown analysis document
 
 ## Output Location
-Two modes depending on invocation context:
-- **Phase-scoped**: `.workflow/phases/{NN}-{slug}/.process/analysis.md`
-- **Scratch**: `.workflow/scratch/{topic-slug}/analysis.md`
 
-The caller specifies which mode via the output path. If no path is specified, default to scratch mode using the subject as the slug.
+- **Scratch**: `.workflow/scratch/{topic-slug}/analysis.md`
+- **Legacy fallback**: `.workflow/phases/{NN}-{slug}/` paths are still recognized for backward compatibility
+
+The caller specifies the output path. If no path is specified, default to scratch mode using the subject as the slug.
 
 ## Error Behavior
 - If evidence is insufficient for a dimension, score as N/A with explanation rather than guessing

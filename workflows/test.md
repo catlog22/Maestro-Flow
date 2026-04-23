@@ -22,7 +22,16 @@ Determine test target from $ARGUMENTS:
 
 **If phase number provided** (e.g., "3"):
 - Set `$TARGET_TYPE = "phase"`
-- Set `$PHASE_DIR = ".workflow/phases/{NN}-{slug}/"`
+- Resolve phase dir:
+  ```
+  Read .workflow/state.json → state
+  artifacts = state.artifacts ?? []
+  IF artifacts.length > 0:
+    art = artifacts.find(a => a.type === 'execute' && a.phase === phaseNum)
+    PHASE_DIR = ".workflow/" + art.path
+  ELSE:
+    PHASE_DIR = ".workflow/phases/{NN}-{slug}/"
+  ```
 - Load `$PHASE_DIR/index.json` for context
 
 **If scratch task ID provided:**
@@ -45,8 +54,9 @@ Validate target exists and has been verified (verification.json present). (E002)
 ### Step 2: Check Active Sessions
 
 ```bash
-find .workflow/phases -name "uat.md" -type f 2>/dev/null | head -5
+# Check both scratch (artifact registry) and legacy phases for active UAT sessions
 find .workflow/scratch -name "uat.md" -type f 2>/dev/null | head -5
+find .workflow/phases -name "uat.md" -type f 2>/dev/null | head -5
 ```
 
 Read each file's frontmatter (status, target) and Current Test section.

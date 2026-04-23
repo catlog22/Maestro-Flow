@@ -9,7 +9,7 @@ This is a **post-execution analysis** workflow. It reads only — until the rout
 ## Prerequisites
 
 - `.workflow/` initialized (`.workflow/state.json` exists)
-- At least one phase directory under `.workflow/phases/{NN}-{slug}/`
+- At least one completed phase (via artifact registry in state.json, or legacy `.workflow/phases/{NN}-{slug}/`)
 - Target phase has been executed (has `.task/` and `.summaries/`)
 - `maestro delegate` available (used for the four lens analyses via Agent calls)
 
@@ -61,19 +61,46 @@ This is a **post-execution analysis** workflow. It reads only — until the rout
 
 ```
 candidates = []
-FOR each .workflow/phases/{NN}-{slug}/index.json:
-  Read index.json
-  IF index.json.status == "completed":
-    has_retro = file exists at "{phase_dir}/retrospective.json"
-    candidates.push({
-      number: NN,
-      slug: slug,
-      title: index.json.title or slug,
-      completed_at: index.json.completed_at,
-      has_retro: has_retro,
-      gaps: index.json.verification?.gaps?.length or 0,
-      review_verdict: index.json.review?.verdict or "—"
-    })
+
+Read .workflow/state.json → state
+artifacts = state.artifacts ?? []
+useArtifactRegistry = artifacts.length > 0
+
+IF useArtifactRegistry:
+  // Resolve completed phases from artifact registry
+  phaseNums = [...new Set(artifacts.map(a => a.phase).filter(Boolean))]
+  FOR each phaseNum in phaseNums:
+    execArt = artifacts.find(a => a.type === 'execute' && a.phase === phaseNum && a.status === 'completed')
+    IF execArt:
+      scratchDir = ".workflow/" + execArt.path
+      has_retro = file exists at "{scratchDir}/retrospective.json"
+      candidates.push({
+        number: phaseNum,
+        slug: execArt.slug ?? "phase-" + phaseNum,
+        title: execArt.title ?? execArt.slug ?? "Phase " + phaseNum,
+        completed_at: execArt.completed_at,
+        has_retro: has_retro,
+        phase_dir: scratchDir,
+        gaps: 0,
+        review_verdict: "—"
+      })
+ELSE:
+  // Legacy: scan phases/ directory
+  FOR each .workflow/phases/{NN}-{slug}/index.json:
+    Read index.json
+    IF index.json.status == "completed":
+      phase_dir = ".workflow/phases/{NN}-{slug}"
+      has_retro = file exists at "{phase_dir}/retrospective.json"
+      candidates.push({
+        number: NN,
+        slug: slug,
+        title: index.json.title or slug,
+        completed_at: index.json.completed_at,
+        has_retro: has_retro,
+        phase_dir: phase_dir,
+        gaps: index.json.verification?.gaps?.length or 0,
+        review_verdict: index.json.review?.verdict or "—"
+      })
 ```
 
 ### Display backlog
@@ -103,24 +130,26 @@ FOR each .workflow/phases/{NN}-{slug}/index.json:
 
 If overwriting existing retrospective.json:
 ```
-mkdir -p "{phase_dir}/.history"
+mkdir -p "{candidate.phase_dir}/.history"
 TIMESTAMP = format(now(), "YYYY-MM-DDTHH-mm-ss")
-mv "{phase_dir}/retrospective.json" "{phase_dir}/.history/retrospective-{TIMESTAMP}.json"
-mv "{phase_dir}/retrospective.md"   "{phase_dir}/.history/retrospective-{TIMESTAMP}.md"
+mv "{candidate.phase_dir}/retrospective.json" "{candidate.phase_dir}/.history/retrospective-{TIMESTAMP}.json"
+mv "{candidate.phase_dir}/retrospective.md"   "{candidate.phase_dir}/.history/retrospective-{TIMESTAMP}.md"
 ```
 
 ---
 
 ## Stage 3: load_artifacts (per phase)
 
-For each selected phase, build the in-memory artifacts bundle:
+For each selected phase (using `candidate.phase_dir` resolved in Stage 2), build the in-memory artifacts bundle:
 
 ```
+phase_dir = candidate.phase_dir  // already resolved: scratch path (artifact registry) or legacy phases/ path
+
 artifacts = {
   phase_num: NN,
   phase_slug: slug,
-  phase_dir: ".workflow/phases/{NN}-{slug}",
-  index: read JSON,
+  phase_dir: phase_dir,
+  index: read "{phase_dir}/index.json" or null,
   state: read .workflow/state.json,
   plan: read "{phase_dir}/plan.json" or null,
   verification: read "{phase_dir}/verification.json" or null,
@@ -130,7 +159,17 @@ artifacts = {
   task_jsons: read all "{phase_dir}/.task/TASK-*.json",
   phase_issues: filter ".workflow/issues/issues.jsonl" + ".workflow/issues/issue-history.jsonl"
                 where issue.phase_ref == phase_slug or issue.phase_ref == NN,
-  prior_retro: (if --compare M) read .workflow/phases/{MM}-*/retrospective.json
+  prior_retro: null
+}
+
+// Resolve --compare target
+IF --compare M:
+  IF useArtifactRegistry:
+    compareArt = state.artifacts.find(a => a.type === 'execute' && a.phase === M)
+    IF compareArt:
+      artifacts.prior_retro = read ".workflow/" + compareArt.path + "/retrospective.json"
+  ELSE:
+    artifacts.prior_retro = read .workflow/phases/{MM}-*/retrospective.json
 }
 ```
 
@@ -422,7 +461,7 @@ retrospective = {
 | {INS-id} | note | ... |
 ```
 
-Write both files:
+Write both files (phase_dir already resolved in Stage 2):
 ```
 Write "{phase_dir}/retrospective.json"
 Write "{phase_dir}/retrospective.md"

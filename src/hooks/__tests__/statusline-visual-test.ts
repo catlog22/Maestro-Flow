@@ -172,6 +172,22 @@ function renderText(segs: Seg[]): string {
   return `<div class="txt-line">${parts.join(pipe)}</div>`;
 }
 
+/** Terminal preview — simulates actual ❯ character rendering in terminal */
+function renderTerminal(segs: Seg[]): string {
+  const merged = mergeAdjacentDir(segs);
+  let html = '<div class="term-line">';
+  for (let i = 0; i < merged.length; i++) {
+    const s = merged[i];
+    // Segment content with bg color
+    html += `<span class="term-seg" style="background:${rgb(s.bg)};color:${rgb(s.fg)}">${s.iconHtml} <span class="seg-text">${esc(s.text)}</span> </span>`;
+    // Bold V-arrow separator: fg = current bg, bg = next bg (or transparent for last)
+    const nextBg = i < merged.length - 1 ? rgb(merged[i + 1].bg) : '#1e1e2e';
+    html += `<span class="term-arrow" style="color:${rgb(s.bg)};background:${nextBg};font-weight:bold">\u276F</span>`;
+  }
+  html += '</div>';
+  return html;
+}
+
 interface MergedSeg extends Seg { iconHtml: string; }
 
 /** Merge dir+git into one segment to avoid redundant separators */
@@ -203,7 +219,9 @@ function mergeAdjacentDir(segs: Seg[]): MergedSeg[] {
 const rows = scenarios.map(s => `
   <div class="scenario">
     <div class="label">${s.label}</div>
-    <div class="mode-tag">POWERLINE</div>
+    <div class="mode-tag">TERMINAL (❯ char)</div>
+    ${renderTerminal(s.segments)}
+    <div class="mode-tag">POWERLINE (SVG ideal)</div>
     ${renderPowerline(s.segments)}
     <div class="mode-tag">COLORED TEXT</div>
     ${renderText(s.segments)}
@@ -241,6 +259,11 @@ const html = `<!DOCTYPE html>
   .txt-line { display: inline-flex; align-items: center; background: #181825; padding: 4px 14px; border-radius: 6px; height: 28px; gap: 0; }
   .txt-line > span { display: inline-flex; align-items: center; gap: 4px; }
   .pipe { color: rgb(${TEXT_COLORS.separator.join(',')}); margin: 0 8px; }
+
+  /* Terminal preview */
+  .term-line { display: inline-flex; align-items: stretch; height: 28px; font-weight: bold; }
+  .term-seg { padding: 0 0 0 8px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+  .term-arrow { display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; font-size: 15px; font-weight: bold; }
 
   .seg-text { white-space: nowrap; }
 

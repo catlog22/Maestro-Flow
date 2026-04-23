@@ -49,15 +49,15 @@ No auto mode -- UAT is inherently interactive. `--auto-fix` only automates gap c
 ### Step 1: Resolve Target
 
 1. Parse `$ARGUMENTS` for phase number, scratch task ID, or flags
-2. **Phase mode**: set `PHASE_DIR = .workflow/phases/{NN}-{slug}/`
+2. **Phase mode**: resolve `PHASE_DIR` via artifact registry in `state.json` to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-{slug}/`
 3. **Scratch mode**: set `SCRATCH_DIR = .workflow/scratch/{id}/`
 4. Validate target exists and has `verification.json` -- if missing: **E002**
 
 ### Step 2: Check Active Sessions
 
 ```bash
-find .workflow/phases -name "uat.md" -type f 2>/dev/null | head -5
 find .workflow/scratch -name "uat.md" -type f 2>/dev/null | head -5
+find .workflow/phases -name "uat.md" -type f 2>/dev/null | head -5
 ```
 
 - If active sessions exist and no target specified: display session table, ask user to resume or start new

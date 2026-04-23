@@ -7,10 +7,13 @@
  *
  * Uses `additionalContext` (not `updatedInput`) to avoid interfering
  * with skill expansion.
+ *
+ * Supports artifact registry (state.json.artifacts → scratch dirs) with
+ * fallback to legacy phases/ directory structure.
  */
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join } from 'node:path';
 import { resolveWorkspace } from './workspace.js';
 import { readCoordBridge, buildNextStepHint, type CoordBridgeData } from './coordinator-tracker.js';
 
@@ -41,6 +44,7 @@ interface WorkflowState {
     deferred?: Array<{ id?: string; severity?: string; description?: string; fix_direction?: string } | string>;
   };
   transition_history?: Array<{ type: string; from_phase: number | null; to_phase: number | null; milestone: string; transitioned_at: string }>;
+  artifacts?: ArtifactEntry[];
   [key: string]: unknown;
 }
 
@@ -53,6 +57,16 @@ interface PhaseIndex {
   learnings?: { patterns?: Array<{ content?: string }>; pitfalls?: Array<{ content?: string }> };
   execution?: { tasks_total?: number; tasks_completed?: number };
   [key: string]: unknown;
+}
+
+interface ArtifactEntry {
+  id: string;
+  type: string;
+  milestone?: string | null;
+  phase?: number | null;
+  scope?: string;
+  path?: string;
+  status: string;
 }
 
 export interface SkillContextInput {
@@ -139,7 +153,7 @@ export function evaluateSkillContext(data: SkillContextInput): HookOutput | null
   // Section 2: Phase artifact tree
   const phaseNum = skill.phaseNum ?? state.current_phase;
   if (phaseNum) {
-    const treeSection = buildArtifactTree(cwd, phaseNum);
+    const treeSection = buildArtifactTree(cwd, phaseNum, state);
     if (treeSection) sections.push(treeSection);
   }
 
@@ -191,7 +205,45 @@ function buildStateSection(state: WorkflowState, skill: SkillMatch): string | nu
   return parts.length > 1 ? parts.join(' | ') : null;
 }
 
-function buildArtifactTree(cwd: string, phaseNum: number): string | null {
+function buildArtifactTree(cwd: string, phaseNum: number, state?: WorkflowState): string | null {
+  // Try artifact registry first (scratch-based)
+  const registryResult = buildArtifactTreeFromRegistry(cwd, phaseNum, state);
+  if (registryResult) return registryResult;
+
+  // Fallback: legacy phases/ directory
+  return buildArtifactTreeLegacy(cwd, phaseNum);
+}
+
+function buildArtifactTreeFromRegistry(cwd: string, phaseNum: number, state?: WorkflowState): string | null {
+  const artifacts = state?.artifacts;
+  if (!artifacts || artifacts.length === 0) {
+    // Try loading from state.json if not passed
+    try {
+      const statePath = join(cwd, '.workflow', 'state.json');
+      if (!existsSync(statePath)) return null;
+      const loaded = JSON.parse(readFileSync(statePath, 'utf8'));
+      if (!Array.isArray(loaded?.artifacts) || loaded.artifacts.length === 0) return null;
+      return buildArtifactTreeFromRegistry(cwd, phaseNum, loaded);
+    } catch {
+      return null;
+    }
+  }
+
+  // Find plan artifacts for this phase (they contain .task/ and .summaries/)
+  const planArtifacts = artifacts.filter(
+    a => a.type === 'plan' && a.phase === phaseNum && a.path,
+  );
+  if (planArtifacts.length === 0) return null;
+
+  // Use the latest plan artifact
+  const latest = planArtifacts[planArtifacts.length - 1];
+  const scratchDir = join(cwd, '.workflow', latest.path!);
+  if (!existsSync(scratchDir)) return null;
+
+  return buildDirTree(scratchDir, `## Phase ${phaseNum} Artifacts (.workflow/${latest.path}/)`);
+}
+
+function buildArtifactTreeLegacy(cwd: string, phaseNum: number): string | null {
   const phasesDir = join(cwd, '.workflow', 'phases');
   if (!existsSync(phasesDir)) return null;
 
@@ -214,25 +266,32 @@ function buildArtifactTree(cwd: string, phaseNum: number): string | null {
 
   if (!phaseDir || !existsSync(phaseDir)) return null;
 
-  const lines: string[] = [`## Phase ${phaseNum} Artifacts (.workflow/phases/${phaseDirName}/)`];
+  return buildDirTree(phaseDir, `## Phase ${phaseNum} Artifacts (.workflow/phases/${phaseDirName}/)`);
+}
 
-  // List top-level files
+/**
+ * Build a tree listing of a directory's contents (shared by registry and legacy paths).
+ * Lists top-level files, .task/ entries with status, and .summaries/ count.
+ */
+function buildDirTree(dir: string, header: string): string | null {
+  const lines: string[] = [header];
+
   try {
-    const entries = readdirSync(phaseDir);
+    const entries = readdirSync(dir);
     const files = entries.filter(e => !e.startsWith('.') && e !== '.task' && e !== '.summaries' && e !== '.process');
     if (files.length > 0) {
       lines.push(files.join(' | '));
     }
 
     // List .task/ directory with status annotations
-    const taskDir = join(phaseDir, '.task');
+    const taskDir = join(dir, '.task');
     if (existsSync(taskDir)) {
       const taskSection = buildTaskListing(taskDir);
       if (taskSection) lines.push(taskSection);
     }
 
     // List .summaries/ if it exists
-    const summariesDir = join(phaseDir, '.summaries');
+    const summariesDir = join(dir, '.summaries');
     if (existsSync(summariesDir)) {
       const summaryFiles = readdirSync(summariesDir).filter(f => f.endsWith('.md'));
       if (summaryFiles.length > 0) {
@@ -306,7 +365,7 @@ function buildOutcomesSection(cwd: string, state: WorkflowState, targetPhase?: n
 
   // Prior completed phase learnings + verification gaps
   if (targetPhase && targetPhase > 1) {
-    const priorIndex = loadPhaseIndex(cwd, targetPhase - 1);
+    const priorIndex = loadPhaseIndex(cwd, targetPhase - 1, state);
     if (priorIndex) {
       // Verification gaps
       const gaps = priorIndex.verification?.gaps;
@@ -339,7 +398,53 @@ function buildOutcomesSection(cwd: string, state: WorkflowState, targetPhase?: n
 // Helpers
 // ---------------------------------------------------------------------------
 
-function loadPhaseIndex(cwd: string, phaseNum: number): PhaseIndex | null {
+/**
+ * Load phase index — tries artifact registry (verification.json in scratch dir)
+ * first, falls back to legacy phases/ directory.
+ */
+function loadPhaseIndex(cwd: string, phaseNum: number, state?: WorkflowState): PhaseIndex | null {
+  // Try artifact registry: find verification data from plan scratch dir
+  const registryResult = loadPhaseIndexFromRegistry(cwd, phaseNum, state);
+  if (registryResult) return registryResult;
+
+  // Fallback: legacy phases/ directory
+  return loadPhaseIndexLegacy(cwd, phaseNum);
+}
+
+function loadPhaseIndexFromRegistry(cwd: string, phaseNum: number, state?: WorkflowState): PhaseIndex | null {
+  const artifacts = state?.artifacts;
+  if (!artifacts || artifacts.length === 0) return null;
+
+  // Find completed plan artifact for this phase (verification.json is appended there by verify)
+  const planArtifacts = artifacts.filter(
+    a => a.type === 'plan' && a.phase === phaseNum && a.path,
+  );
+  if (planArtifacts.length === 0) return null;
+
+  const latest = planArtifacts[planArtifacts.length - 1];
+  const scratchDir = join(cwd, '.workflow', latest.path!);
+
+  // Try to load verification.json (written by verify step)
+  try {
+    const verifyPath = join(scratchDir, 'verification.json');
+    if (existsSync(verifyPath)) {
+      const verification = JSON.parse(readFileSync(verifyPath, 'utf8'));
+      return { phase: phaseNum, status: 'completed', verification };
+    }
+  } catch { /* ignore */ }
+
+  // Try to load index.json if it exists in scratch dir
+  try {
+    const indexPath = join(scratchDir, 'index.json');
+    if (existsSync(indexPath)) {
+      return JSON.parse(readFileSync(indexPath, 'utf8'));
+    }
+  } catch { /* ignore */ }
+
+  return null;
+}
+
+function loadPhaseIndexLegacy(cwd: string, phaseNum: number): PhaseIndex | null {
   const phasesDir = join(cwd, '.workflow', 'phases');
   if (!existsSync(phasesDir)) return null;
 

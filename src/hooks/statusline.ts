@@ -21,6 +21,7 @@ import {
   AUTO_COMPACT_BUFFER_PCT,
   BRIDGE_PREFIX,
   ANSI_RESET,
+  ANSI_BOLD,
   PL_SEP,
   ICONS,
   GIT_ICONS,
@@ -72,6 +73,7 @@ interface Segment {
 
 /**
  * Powerline mode: colored background segments with arrow separators.
+ * Separator uses bold ANSI to make the V-chevron more prominent.
  */
 function renderPowerline(segments: Segment[]): string {
   if (segments.length === 0) return '';
@@ -82,9 +84,11 @@ function renderPowerline(segments: Segment[]): string {
     out += ansiBg(seg.bg) + ansiFg(seg.fg) + ` ${seg.text} `;
 
     if (i < segments.length - 1) {
-      out += ansiFg(seg.bg) + ansiBg(segments[i + 1].bg) + PL_SEP;
+      // Bold separator: fg = current bg, bg = next bg → Powerline dovetail
+      out += ANSI_BOLD + ansiFg(seg.bg) + ansiBg(segments[i + 1].bg) + PL_SEP + ANSI_RESET;
     } else {
-      out += ANSI_RESET + ansiFg(seg.bg) + PL_SEP + ANSI_RESET;
+      // Last segment: arrow fades into terminal background
+      out += ANSI_RESET + ANSI_BOLD + ansiFg(seg.bg) + PL_SEP + ANSI_RESET;
     }
   }
   return out;

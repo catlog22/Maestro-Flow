@@ -178,8 +178,13 @@ Cross-milestone conflict check (for supplement issues):
 6. IF source == "supplement" AND milestone_ref is not null:
    a. Read .workflow/roadmap.md
    b. Identify phases belonging to OTHER milestones (not milestone_ref)
-   c. For each other-milestone phase, check if plan.json exists:
-      Read .workflow/phases/{NN}-{slug}/plan.json (if exists)
+   c. For each other-milestone phase, resolve phase dir and check if plan.json exists:
+      Read .workflow/state.json → state; artifacts = state.artifacts ?? []
+      IF artifacts.length > 0:
+        art = artifacts.find(a => a.type === 'plan' && a.phase === phaseNum)
+        IF art: Read .workflow/{art.path}/plan.json (if exists)
+      ELSE:
+        Read .workflow/phases/{NN}-{slug}/plan.json (if exists)
       Collect files_to_create[] as planned_files
    d. IF affected_components in the new issue overlap with planned_files:
       WARNING: "Conflict detected: this supplement issue affects components planned in milestone {other_milestone}"
@@ -449,8 +454,13 @@ Process bidirectional link:
    If not found → error: "Issue {ID} not found"
 
 2. Locate task file:
-   - Search .workflow/phases/*/.task/{TASK_ID}.json
-   - If not found → search .workflow/scratch/*/.task/{TASK_ID}.json
+   - Read .workflow/state.json → state
+   - artifacts = state.artifacts ?? []
+   - IF artifacts.length > 0:
+       Search .workflow/scratch/*/.task/{TASK_ID}.json (artifact registry scratch paths)
+     ELSE:
+       Search .workflow/phases/*/.task/{TASK_ID}.json (legacy)
+   - Also search .workflow/scratch/*/.task/{TASK_ID}.json (standalone scratch tasks)
    - If still not found → error: "Task {TASK_ID} not found"
 
 3. Update issue record:

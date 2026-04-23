@@ -103,15 +103,31 @@ IF NOT target:
 completedPhases = []
 incompletePhases = []
 
-for (phaseNum of target.owned_phases):
-  NN = String(phaseNum).padStart(2, '0')
-  Glob: {target.path}/.workflow/phases/{NN}-*/index.json
-  Read → wtIndex
+// Read worktree state for artifact registry check
+Read {target.path}/.workflow/state.json → wtState (if exists)
+wtArtifacts = wtState?.artifacts ?? []
+useArtifactRegistry = wtArtifacts.length > 0
 
-  IF wtIndex.status === "completed":
-    completedPhases.push({ phase: phaseNum, index: wtIndex })
-  ELSE:
-    incompletePhases.push({ phase: phaseNum, status: wtIndex.status })
+IF useArtifactRegistry:
+  // Check phase completeness via artifact registry
+  for (phaseNum of target.owned_phases):
+    execArtifacts = wtArtifacts.filter(a => a.type === 'execute' && a.phase === phaseNum)
+    IF execArtifacts.some(a => a.status === 'completed'):
+      completedPhases.push({ phase: phaseNum })
+    ELSE:
+      status = execArtifacts.length > 0 ? execArtifacts[0].status : 'no_execute_artifact'
+      incompletePhases.push({ phase: phaseNum, status })
+ELSE:
+  // Legacy: check phases/ directory
+  for (phaseNum of target.owned_phases):
+    NN = String(phaseNum).padStart(2, '0')
+    Glob: {target.path}/.workflow/phases/{NN}-*/index.json
+    Read → wtIndex
+
+    IF wtIndex.status === "completed":
+      completedPhases.push({ phase: phaseNum, index: wtIndex })
+    ELSE:
+      incompletePhases.push({ phase: phaseNum, status: wtIndex.status })
 
 IF incompletePhases.length > 0 AND NOT force:
   WARN W002: "M{target.milestone_num} ({target.milestone}) has incomplete phases:"
@@ -181,51 +197,90 @@ Step_7:
 
 Display "Syncing workflow artifacts for M{target.milestone_num} ({target.milestone})..."
 
-// 7a: Copy all owned phase directories from worktree to main
-for (phaseNum of target.owned_phases):
-  NN = String(phaseNum).padStart(2, '0')
-  Glob: {target.path}/.workflow/phases/{NN}-*/
-  phaseDir = matched directory name
-
-  srcDir = target.path + "/.workflow/phases/" + phaseDir + "/"
-  dstDir = ".workflow/phases/" + phaseDir + "/"
-
-  Bash("cp -r {srcDir}* {dstDir}")
-
-// 7b: Atomic state reconciliation
 Read .workflow/state.json → mainState
 
-for (phaseNum of target.owned_phases):
-  NN = String(phaseNum).padStart(2, '0')
-  Glob: .workflow/phases/{NN}-*/index.json
-  Read → phaseIndex
+IF useArtifactRegistry:
+  // 7a: Copy scratch dirs from worktree to main
+  Read {target.path}/.workflow/state.json → wtState
+  wtArtifacts = wtState?.artifacts ?? []
+  milestoneArtifacts = wtArtifacts.filter(a =>
+    a.path && (a.milestone === target.milestone || target.owned_phases.includes(a.phase))
+  )
+  for (art of milestoneArtifacts):
+    srcDir = target.path + "/.workflow/" + art.path
+    dstDir = ".workflow/" + art.path
+    IF directory_exists(srcDir):
+      Bash("mkdir -p {dstDir} && cp -r {srcDir}/* {dstDir}/")
 
-  IF phaseIndex.status === "completed":
-    mainState.phases_summary.completed += 1
-    mainState.phases_summary.pending -= 1
-    IF mainState.phases_summary.pending < 0:
-      mainState.phases_summary.pending = 0
+  // 7b: Merge artifact registries
+  mainArtifacts = mainState.artifacts ?? []
+  existingIds = new Set(mainArtifacts.map(a => a.id))
+  for (art of wtArtifacts):
+    IF existingIds.has(art.id):
+      // Update existing artifact status
+      idx = mainArtifacts.findIndex(a => a.id === art.id)
+      mainArtifacts[idx] = art
+    ELSE:
+      mainArtifacts.push(art)
+  mainState.artifacts = mainArtifacts
 
-    mainState.transition_history = mainState.transition_history ?? []
-    mainState.transition_history.push({
-      milestone_num: target.milestone_num,
-      milestone: target.milestone,
-      phase: phaseNum,
-      action: "worktree_merge",
-      completed_at: phaseIndex.completed_at ?? getUtc8ISOString(),
-      branch: target.branch
-    })
-  ELSE IF phaseIndex.status !== "forked":
-    mainState.phases_summary.in_progress += 1
-    mainState.phases_summary.pending -= 1
-    IF mainState.phases_summary.pending < 0:
-      mainState.phases_summary.pending = 0
+  // Record merge in transition history
+  mainState.transition_history = mainState.transition_history ?? []
+  mainState.transition_history.push({
+    milestone_num: target.milestone_num,
+    milestone: target.milestone,
+    action: "worktree_merge",
+    completed_at: getUtc8ISOString(),
+    branch: target.branch,
+    phases: target.owned_phases
+  })
 
-  phaseIndex.updated_at = getUtc8ISOString()
-  Write .workflow/phases/{NN}-{slug}/index.json: phaseIndex
+ELSE:
+  // Legacy: copy phase directories from worktree to main
+  // 7a: Copy all owned phase directories
+  for (phaseNum of target.owned_phases):
+    NN = String(phaseNum).padStart(2, '0')
+    Glob: {target.path}/.workflow/phases/{NN}-*/
+    phaseDir = matched directory name
 
-// Merge accumulated context from worktree
-Read target.path + "/.workflow/state.json" → wtState (if exists)
+    srcDir = target.path + "/.workflow/phases/" + phaseDir + "/"
+    dstDir = ".workflow/phases/" + phaseDir + "/"
+
+    Bash("cp -r {srcDir}* {dstDir}")
+
+  // 7b: Update phase summaries
+  for (phaseNum of target.owned_phases):
+    NN = String(phaseNum).padStart(2, '0')
+    Glob: .workflow/phases/{NN}-*/index.json
+    Read → phaseIndex
+
+    IF phaseIndex.status === "completed":
+      mainState.phases_summary.completed += 1
+      mainState.phases_summary.pending -= 1
+      IF mainState.phases_summary.pending < 0:
+        mainState.phases_summary.pending = 0
+
+      mainState.transition_history = mainState.transition_history ?? []
+      mainState.transition_history.push({
+        milestone_num: target.milestone_num,
+        milestone: target.milestone,
+        phase: phaseNum,
+        action: "worktree_merge",
+        completed_at: phaseIndex.completed_at ?? getUtc8ISOString(),
+        branch: target.branch
+      })
+    ELSE IF phaseIndex.status !== "forked":
+      mainState.phases_summary.in_progress += 1
+      mainState.phases_summary.pending -= 1
+      IF mainState.phases_summary.pending < 0:
+        mainState.phases_summary.pending = 0
+
+    phaseIndex.updated_at = getUtc8ISOString()
+    Write .workflow/phases/{NN}-{slug}/index.json: phaseIndex
+
+// Merge accumulated context from worktree (both paths)
+IF NOT useArtifactRegistry:
+  Read target.path + "/.workflow/state.json" → wtState (if exists)
 IF wtState?.accumulated_context:
   for (decision of (wtState.accumulated_context.key_decisions ?? [])):
     IF NOT mainState.accumulated_context.key_decisions.includes(decision):
@@ -236,12 +291,15 @@ IF wtState?.accumulated_context:
 mainState.last_updated = getUtc8ISOString()
 Write .workflow/state.json: mainState
 
-// 7c: Update roadmap.md
+// 7c: Update roadmap.md (mark completed phases)
 Read .workflow/roadmap.md → roadmap
 for (phaseNum of target.owned_phases):
-  Read phase index → check if completed
-  IF completed:
-    Append " ✅ COMPLETED" to phase title line
+  IF useArtifactRegistry:
+    isCompleted = completedPhases.some(p => p.phase === phaseNum)
+  ELSE:
+    Read phase index → isCompleted = (status === "completed")
+  IF isCompleted:
+    Append " ✅ COMPLETED" to phase title line in roadmap
 Write .workflow/roadmap.md: roadmap
 ```
 

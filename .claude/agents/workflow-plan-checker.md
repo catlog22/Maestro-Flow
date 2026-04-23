@@ -44,7 +44,7 @@ You validate the quality of execution plans before they proceed to implementatio
 - **Project specs** — `maestro spec load --category arch`: verify tasks comply with architecture constraints and module boundaries
 
 ## Output Location
-`.workflow/phases/{NN}-{slug}/plan-check.md`
+`.workflow/scratch/{slug}/plan-check.md` (legacy fallback: `.workflow/phases/{NN}-{slug}/`)
 
 ## Output
 Check report written to the output location above:

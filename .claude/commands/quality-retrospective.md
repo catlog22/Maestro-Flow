@@ -43,8 +43,9 @@ Arguments: $ARGUMENTS
 - `--auto-yes` — accept all routing recommendations without prompting
 
 **Storage written:**
-- `.workflow/phases/{NN}-{slug}/retrospective.md` — human-readable record
-- `.workflow/phases/{NN}-{slug}/retrospective.json` — structured record
+- Retrospective output (resolve via `state.json.artifacts[]` → `.workflow/scratch/` path; fallback to `.workflow/phases/{NN}-{slug}/`):
+  - retrospective.md — human-readable record
+  - retrospective.json — structured record
 - `.workflow/specs/SPEC-retro-*.md` — spec stubs (one per spec-routed insight)
 - `.workflow/issues/issues.jsonl` — appended issue rows (`source: "retrospective"`)
 - `.workflow/learning/lessons.jsonl` — tips routed via `manage-learn tip` (formerly manage-memory-capture)
@@ -52,8 +53,9 @@ Arguments: $ARGUMENTS
 - `.workflow/learning/learning-index.json` — searchable index
 
 **Storage read (never modified):**
-- `.workflow/phases/{NN}-{slug}/index.json`, `plan.json`, `verification.json`, `review.json`, `uat.md`
-- `.workflow/phases/{NN}-{slug}/.task/TASK-*.json`, `.summaries/TASK-*-summary.md`
+- Phase artifacts (resolve via `state.json.artifacts[]` → scratch paths; fallback to `.workflow/phases/{NN}-{slug}/`):
+  - index.json, plan.json, verification.json, review.json, uat.md
+  - .task/TASK-*.json, .summaries/TASK-*-summary.md
 - `.workflow/issues/issues.jsonl`, `.workflow/issues/issue-history.jsonl`
 - `.workflow/state.json`
 </context>

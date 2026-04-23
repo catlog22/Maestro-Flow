@@ -2,13 +2,16 @@
 // Merge Validator — Pre-merge integrity checks for worktree → main merges.
 //
 // Pure functions — no side effects, no git operations. Takes paths and returns
-// validation results. Called by the maestro-merge workflow before Phase 1.
+// validation results. Called by the maestro-merge workflow before merging.
 //
 // Checks:
 //   1. Phase completeness: all owned phases must be "completed"
 //   2. State consistency: worktree state.json fields don't conflict with main
-//   3. Artifact integrity: every owned phase has a valid index.json
+//   3. Artifact integrity: every owned phase has valid artifacts
 //   4. Dependency check: dependency phases still exist in main
+//
+// Supports artifact registry (state.json.artifacts) with fallback to legacy
+// phases/ directory structure for backward compatibility.
 // ---------------------------------------------------------------------------
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -37,6 +40,7 @@ interface WorktreeScope {
   milestone_num: number;
   milestone: string;
   owned_phases: number[];
+  phase_dependencies?: Record<string, number[]>;
   main_worktree: string;
   branch: string;
   base_commit: string;
@@ -50,6 +54,17 @@ interface PhaseIndex {
   status: string;
   depends_on?: number[];
   updated_at?: string;
+}
+
+interface Artifact {
+  id: string;
+  type: string;
+  milestone?: string | null;
+  phase?: number | null;
+  scope?: string;
+  path?: string;
+  status: string;
+  depends_on?: string | string[] | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,7 +106,7 @@ export function validateMergeReadiness(
   }
 
   // Check 1: Phase completeness
-  const completeness = checkPhaseCompleteness(worktreePath, scope.owned_phases, opts?.force);
+  const completeness = checkPhaseCompleteness(worktreePath, scope.owned_phases);
   if (!completeness.passed) {
     if (opts?.force) {
       warnings.push(...completeness.messages.map(m => `[force] ${m}`));
@@ -113,7 +128,7 @@ export function validateMergeReadiness(
   }
 
   // Check 4: Dependency check
-  const deps = checkDependencies(worktreePath, mainPath, scope.owned_phases);
+  const deps = checkDependencies(worktreePath, mainPath, scope.owned_phases, scope);
   if (!deps.passed) {
     warnings.push(...deps.messages);
   }
@@ -145,15 +160,40 @@ interface CheckResult {
 function checkPhaseCompleteness(
   worktreePath: string,
   ownedPhases: number[],
-  force?: boolean,
 ): CheckResult {
-  const messages: string[] = [];
-  const phasesDir = join(worktreePath, '.workflow', 'phases');
+  const wfDir = join(worktreePath, '.workflow');
+  const artifacts = loadArtifacts(wfDir);
 
-  if (!existsSync(phasesDir)) {
-    return { passed: false, messages: ['No .workflow/phases/ directory in worktree'] };
+  if (artifacts) {
+    return checkPhaseCompletenessFromRegistry(artifacts, ownedPhases);
   }
+  return checkPhaseCompletenessLegacy(wfDir, ownedPhases);
+}
 
+function checkPhaseCompletenessFromRegistry(artifacts: Artifact[], ownedPhases: number[]): CheckResult {
+  const messages: string[] = [];
+  for (const phaseNum of ownedPhases) {
+    const execArtifacts = artifacts.filter(a => a.type === 'execute' && a.phase === phaseNum);
+    if (execArtifacts.length === 0) {
+      messages.push(`Phase ${phaseNum}: no execute artifact found`);
+      continue;
+    }
+    const incomplete = execArtifacts.filter(a => a.status !== 'completed');
+    if (incomplete.length > 0) {
+      messages.push(
+        `Phase ${phaseNum}: ${incomplete[0].id} status is "${incomplete[0].status}", expected "completed"`,
+      );
+    }
+  }
+  return { passed: messages.length === 0, messages };
+}
+
+function checkPhaseCompletenessLegacy(wfDir: string, ownedPhases: number[]): CheckResult {
+  const phasesDir = join(wfDir, 'phases');
+  if (!existsSync(phasesDir)) {
+    return { passed: false, messages: ['No artifact registry and no .workflow/phases/ directory in worktree'] };
+  }
+  const messages: string[] = [];
   for (const phaseNum of ownedPhases) {
     const index = findPhaseIndex(phasesDir, phaseNum);
     if (!index) {
@@ -166,12 +206,11 @@ function checkPhaseCompleteness(
       );
     }
   }
-
   return { passed: messages.length === 0, messages };
 }
 
 // ---------------------------------------------------------------------------
-// Check 2: State Consistency
+// Check 2: State Consistency (reads state.json directly — no phases dependency)
 // ---------------------------------------------------------------------------
 
 function checkStateConsistency(worktreePath: string, mainPath: string): CheckResult {
@@ -217,17 +256,50 @@ function checkStateConsistency(worktreePath: string, mainPath: string): CheckRes
 // ---------------------------------------------------------------------------
 
 function checkArtifactIntegrity(worktreePath: string, ownedPhases: number[]): CheckResult {
-  const messages: string[] = [];
-  const phasesDir = join(worktreePath, '.workflow', 'phases');
+  const wfDir = join(worktreePath, '.workflow');
+  const artifacts = loadArtifacts(wfDir);
 
+  if (artifacts) {
+    return checkArtifactIntegrityFromRegistry(artifacts, ownedPhases, wfDir);
+  }
+  return checkArtifactIntegrityLegacy(wfDir, ownedPhases);
+}
+
+function checkArtifactIntegrityFromRegistry(artifacts: Artifact[], ownedPhases: number[], wfDir: string): CheckResult {
+  const messages: string[] = [];
+  for (const phaseNum of ownedPhases) {
+    const phaseArtifacts = artifacts.filter(a => a.phase === phaseNum);
+    if (phaseArtifacts.length === 0) {
+      messages.push(`Phase ${phaseNum}: no artifacts in registry`);
+      continue;
+    }
+    for (const art of phaseArtifacts) {
+      if (!art.id || typeof art.id !== 'string') {
+        messages.push(`Phase ${phaseNum}: artifact missing "id" field`);
+      }
+      if (!art.status || typeof art.status !== 'string') {
+        messages.push(`Phase ${phaseNum}: artifact ${art.id ?? '?'} missing "status" field`);
+      }
+      if (art.path) {
+        const artDir = join(wfDir, art.path);
+        if (!existsSync(artDir)) {
+          messages.push(`Phase ${phaseNum}: artifact ${art.id} path "${art.path}" does not exist`);
+        }
+      }
+    }
+  }
+  return { passed: messages.length === 0, messages };
+}
+
+function checkArtifactIntegrityLegacy(wfDir: string, ownedPhases: number[]): CheckResult {
+  const phasesDir = join(wfDir, 'phases');
+  const messages: string[] = [];
   for (const phaseNum of ownedPhases) {
     const index = findPhaseIndex(phasesDir, phaseNum);
     if (!index) {
       messages.push(`Phase ${phaseNum}: missing index.json`);
       continue;
     }
-
-    // Validate required fields
     if (typeof index.phase !== 'number') {
       messages.push(`Phase ${phaseNum}: index.json missing "phase" field`);
     }
@@ -235,7 +307,6 @@ function checkArtifactIntegrity(worktreePath: string, ownedPhases: number[]): Ch
       messages.push(`Phase ${phaseNum}: index.json missing "status" field`);
     }
   }
-
   return { passed: messages.length === 0, messages };
 }
 
@@ -247,12 +318,59 @@ function checkDependencies(
   worktreePath: string,
   mainPath: string,
   ownedPhases: number[],
+  scope: WorktreeScope,
+): CheckResult {
+  const wtWfDir = join(worktreePath, '.workflow');
+  const mainWfDir = join(mainPath, '.workflow');
+  const mainArtifacts = loadArtifacts(mainWfDir);
+
+  // New: use artifact registry + worktree-scope.phase_dependencies
+  if (mainArtifacts && scope.phase_dependencies) {
+    return checkDepsFromRegistry(mainArtifacts, ownedPhases, scope);
+  }
+
+  // Fallback: legacy phases/ directory
+  return checkDepsLegacy(wtWfDir, mainPath, ownedPhases);
+}
+
+function checkDepsFromRegistry(
+  mainArtifacts: Artifact[],
+  ownedPhases: number[],
+  scope: WorktreeScope,
 ): CheckResult {
   const messages: string[] = [];
-  const wtPhasesDir = join(worktreePath, '.workflow', 'phases');
+  const allDeps = new Set<number>();
+
+  for (const phaseNum of ownedPhases) {
+    const deps = scope.phase_dependencies?.[String(phaseNum)] ?? [];
+    for (const dep of deps) {
+      if (!ownedPhases.includes(dep)) {
+        allDeps.add(dep);
+      }
+    }
+  }
+
+  for (const dep of allDeps) {
+    const depExec = mainArtifacts.filter(
+      a => a.type === 'execute' && a.phase === dep && a.status === 'completed',
+    );
+    if (depExec.length === 0) {
+      messages.push(`Dependency phase ${dep} has no completed execute artifact in main`);
+    }
+  }
+
+  return { passed: messages.length === 0, messages };
+}
+
+function checkDepsLegacy(
+  wtWfDir: string,
+  mainPath: string,
+  ownedPhases: number[],
+): CheckResult {
+  const messages: string[] = [];
+  const wtPhasesDir = join(wtWfDir, 'phases');
   const mainPhasesDir = join(mainPath, '.workflow', 'phases');
 
-  // Collect all dependencies from owned phases
   const allDeps = new Set<number>();
   for (const phaseNum of ownedPhases) {
     const index = findPhaseIndex(wtPhasesDir, phaseNum);
@@ -265,7 +383,6 @@ function checkDependencies(
     }
   }
 
-  // Verify each dependency still exists in main
   for (const dep of allDeps) {
     const mainIndex = findPhaseIndex(mainPhasesDir, dep);
     if (!mainIndex) {
@@ -299,8 +416,21 @@ function loadJson(filePath: string): Record<string, unknown> | null {
 }
 
 /**
- * Find a phase's index.json by phase number. Phases are stored as
- * `{NN}-{slug}/index.json` where NN is zero-padded.
+ * Load artifacts array from state.json. Returns null if no artifacts
+ * or the array is empty (triggers fallback to legacy phases/).
+ */
+function loadArtifacts(wfDir: string): Artifact[] | null {
+  const state = loadJson(join(wfDir, 'state.json'));
+  const artifacts = state?.artifacts;
+  if (Array.isArray(artifacts) && artifacts.length > 0) {
+    return artifacts as Artifact[];
+  }
+  return null;
+}
+
+/**
+ * Find a phase's index.json by phase number (legacy phases/ directory).
+ * Phases are stored as `{NN}-{slug}/index.json` where NN is zero-padded.
  */
 function findPhaseIndex(phasesDir: string, phaseNum: number): PhaseIndex | null {
   if (!existsSync(phasesDir)) return null;

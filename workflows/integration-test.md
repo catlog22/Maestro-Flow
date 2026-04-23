@@ -15,13 +15,25 @@ L0-L3 progressive layers: Static Analysis -> Unit -> Integration -> E2E
 | Input | Result |
 |-------|--------|
 | No arguments | Error E001 |
-| Phase number | Resolve `.workflow/phases/{NN}-{slug}/` |
+| Phase number | Resolve phase dir (artifact registry or legacy `.workflow/phases/{NN}-{slug}/`) |
 | `--max-iter N` | Set MAX_ITER = N (default 5) |
 | `--layer L2` | Start from L2 layer |
 
+**Resolve phase dir:**
+```
+Read .workflow/state.json → state
+artifacts = state.artifacts ?? []
+IF artifacts.length > 0:
+  art = artifacts.find(a => a.type === 'execute' && a.phase === phaseNum)
+  PHASE_DIR = ".workflow/" + art.path
+ELSE:
+  Glob: .workflow/phases/{NN}-*/
+  PHASE_DIR = resolved path
+```
+
 Check for existing integration test session:
 ```bash
-ls .workflow/phases/{NN}-*/.tests/integration/state.json 2>/dev/null
+ls ${PHASE_DIR}/.tests/integration/state.json 2>/dev/null
 ```
 
 If session exists: offer resume or restart.

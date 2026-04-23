@@ -203,3 +203,182 @@ describe('merge-validator', () => {
     expect(result.errors.some(e => e.includes('Phase 4') && e.includes('missing'))).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Artifact registry tests (new scratch-based model)
+// ---------------------------------------------------------------------------
+
+describe('merge-validator (artifact registry)', () => {
+  beforeEach(setup);
+  afterEach(teardown);
+
+  function setupWorktreeWithArtifacts(opts: {
+    milestoneNum?: number;
+    ownedPhases?: number[];
+    artifacts: Array<{ id: string; type: string; phase: number; status: string; path?: string }>;
+    phaseDeps?: Record<string, number[]>;
+  }): void {
+    const wfDir = join(wtDir, '.workflow');
+    mkdirSync(wfDir, { recursive: true });
+
+    // worktree-scope.json
+    writeFileSync(join(wfDir, 'worktree-scope.json'), JSON.stringify({
+      worktree: true,
+      milestone_num: opts.milestoneNum ?? 2,
+      milestone: 'Production',
+      owned_phases: opts.ownedPhases ?? [3, 4],
+      phase_dependencies: opts.phaseDeps,
+      main_worktree: mainDir,
+      branch: 'milestone/production',
+      base_commit: 'abc1234',
+      created_at: '2026-04-10T00:00:00Z',
+    }), 'utf-8');
+
+    // state.json with artifacts
+    writeFileSync(join(wfDir, 'state.json'), JSON.stringify({
+      project_name: 'test-project',
+      current_phase: 3,
+      milestones: [{ name: 'MVP' }, { name: 'Production' }],
+      artifacts: opts.artifacts,
+    }), 'utf-8');
+
+    // Create scratch dirs for artifacts that have paths
+    for (const art of opts.artifacts) {
+      if (art.path) {
+        mkdirSync(join(wfDir, art.path), { recursive: true });
+      }
+    }
+  }
+
+  function setupMainWithArtifacts(opts: {
+    artifacts: Array<{ id: string; type: string; phase: number; status: string; path?: string }>;
+  }): void {
+    const wfDir = join(mainDir, '.workflow');
+    mkdirSync(wfDir, { recursive: true });
+
+    writeFileSync(join(wfDir, 'state.json'), JSON.stringify({
+      project_name: 'test-project',
+      milestones: [{ name: 'MVP' }, { name: 'Production' }],
+      artifacts: opts.artifacts,
+    }), 'utf-8');
+
+    for (const art of opts.artifacts) {
+      if (art.path) {
+        mkdirSync(join(wfDir, art.path), { recursive: true });
+      }
+    }
+  }
+
+  it('passes when all phases have completed execute artifacts', () => {
+    setupWorktreeWithArtifacts({
+      artifacts: [
+        { id: 'EXC-001', type: 'execute', phase: 3, status: 'completed', path: 'scratch/plan-auth-2026' },
+        { id: 'EXC-002', type: 'execute', phase: 4, status: 'completed', path: 'scratch/plan-storage-2026' },
+      ],
+    });
+    setupMainWithArtifacts({
+      artifacts: [
+        { id: 'EXC-001', type: 'execute', phase: 1, status: 'completed', path: 'scratch/plan-setup-2026' },
+      ],
+    });
+
+    const result = validateMergeReadiness(wtDir, mainDir, 2);
+    expect(result.valid).toBe(true);
+    expect(result.checks.phase_completeness).toBe(true);
+    expect(result.checks.artifact_integrity).toBe(true);
+  });
+
+  it('fails when execute artifact is not completed', () => {
+    setupWorktreeWithArtifacts({
+      artifacts: [
+        { id: 'EXC-001', type: 'execute', phase: 3, status: 'completed', path: 'scratch/plan-auth-2026' },
+        { id: 'EXC-002', type: 'execute', phase: 4, status: 'in_progress', path: 'scratch/plan-storage-2026' },
+      ],
+    });
+    setupMainWithArtifacts({ artifacts: [] });
+
+    const result = validateMergeReadiness(wtDir, mainDir, 2);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('EXC-002') && e.includes('in_progress'))).toBe(true);
+  });
+
+  it('fails when phase has no execute artifact', () => {
+    setupWorktreeWithArtifacts({
+      artifacts: [
+        { id: 'EXC-001', type: 'execute', phase: 3, status: 'completed', path: 'scratch/plan-auth-2026' },
+        { id: 'PLN-002', type: 'plan', phase: 4, status: 'completed', path: 'scratch/plan-storage-2026' },
+      ],
+    });
+    setupMainWithArtifacts({ artifacts: [] });
+
+    const result = validateMergeReadiness(wtDir, mainDir, 2);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('Phase 4') && e.includes('no execute artifact'))).toBe(true);
+  });
+
+  it('force mode passes with incomplete artifacts', () => {
+    setupWorktreeWithArtifacts({
+      artifacts: [
+        { id: 'EXC-001', type: 'execute', phase: 3, status: 'completed', path: 'scratch/plan-auth-2026' },
+        { id: 'EXC-002', type: 'execute', phase: 4, status: 'in_progress', path: 'scratch/plan-storage-2026' },
+      ],
+    });
+    setupMainWithArtifacts({ artifacts: [] });
+
+    const result = validateMergeReadiness(wtDir, mainDir, 2, { force: true });
+    expect(result.valid).toBe(true);
+    expect(result.checks.phase_completeness).toBe(true);
+    expect(result.warnings.some(w => w.includes('[force]'))).toBe(true);
+  });
+
+  it('detects artifact path that does not exist', () => {
+    const wfDir = join(wtDir, '.workflow');
+    mkdirSync(wfDir, { recursive: true });
+
+    writeFileSync(join(wfDir, 'worktree-scope.json'), JSON.stringify({
+      worktree: true,
+      milestone_num: 2,
+      milestone: 'Production',
+      owned_phases: [3],
+      main_worktree: mainDir,
+      branch: 'milestone/production',
+      base_commit: 'abc1234',
+      created_at: '2026-04-10T00:00:00Z',
+    }), 'utf-8');
+
+    writeFileSync(join(wfDir, 'state.json'), JSON.stringify({
+      project_name: 'test-project',
+      milestones: [{ name: 'MVP' }, { name: 'Production' }],
+      artifacts: [
+        { id: 'EXC-001', type: 'execute', phase: 3, status: 'completed', path: 'scratch/nonexistent' },
+      ],
+    }), 'utf-8');
+    // Do NOT create the scratch directory
+
+    setupMainWithArtifacts({ artifacts: [] });
+
+    const result = validateMergeReadiness(wtDir, mainDir, 2);
+    expect(result.checks.artifact_integrity).toBe(false);
+    expect(result.errors.some(e => e.includes('does not exist'))).toBe(true);
+  });
+
+  it('checks dependency phases via phase_dependencies', () => {
+    setupWorktreeWithArtifacts({
+      ownedPhases: [3, 4],
+      artifacts: [
+        { id: 'EXC-001', type: 'execute', phase: 3, status: 'completed', path: 'scratch/plan-auth-2026' },
+        { id: 'EXC-002', type: 'execute', phase: 4, status: 'completed', path: 'scratch/plan-storage-2026' },
+      ],
+      phaseDeps: { '3': [1, 2], '4': [3] },
+    });
+    // Main has phase 1 completed but NOT phase 2
+    setupMainWithArtifacts({
+      artifacts: [
+        { id: 'EXC-001', type: 'execute', phase: 1, status: 'completed', path: 'scratch/plan-setup-2026' },
+      ],
+    });
+
+    const result = validateMergeReadiness(wtDir, mainDir, 2);
+    expect(result.warnings.some(w => w.includes('Dependency phase 2'))).toBe(true);
+  });
+});

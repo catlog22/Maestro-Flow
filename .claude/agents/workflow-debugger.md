@@ -85,9 +85,8 @@ Each line in evidence.ndjson:
 - Reference: `templates/verification.json` for understanding gap format
 
 ## Output Location
-- **Phase-scoped debugging**: `.workflow/phases/{NN}-{slug}/.debug/{gap-slug}/understanding.md` and `.workflow/phases/{NN}-{slug}/.debug/{gap-slug}/evidence.ndjson`
 - **Scratch debugging**: `.workflow/scratch/debug-{slug}/understanding.md` and `.workflow/scratch/debug-{slug}/evidence.ndjson`
-- **Naming convention**: `{gap-slug}` is derived from the gap description (lowercase, hyphens, max 40 chars)
+- **Legacy fallback**: `.workflow/phases/{NN}-{slug}/` paths are still recognized for backward compatibility
 - **Code fixes**: Applied directly to project source files (not in .debug directory)
 
 ## Error Behavior

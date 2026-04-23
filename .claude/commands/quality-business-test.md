@@ -60,10 +60,10 @@ Context files:
 - `.workflow/.spec/SPEC-xxx/requirements/NFR-*.md` -- Non-functional requirements
 - `.workflow/.spec/SPEC-xxx/architecture/_index.md` -- API endpoints, data model, state machines
 - `.workflow/.spec/SPEC-xxx/epics/EPIC-*.md` -- User stories for E2E scenarios
-- `.workflow/phases/{NN}-{slug}/index.json` -- Phase metadata, success_criteria
-- `.workflow/phases/{NN}-{slug}/plan.json` -- Task overview (degraded mode)
-- `.workflow/phases/{NN}-{slug}/verification.json` -- Cross-reference for must_haves
-- `.workflow/phases/{NN}-{slug}/.tests/business/` -- Previous business test artifacts
+- Phase artifacts (resolve via `state.json.artifacts[]` → `.workflow/scratch/` paths; fallback to `.workflow/phases/{NN}-{slug}/`):
+  - plan.json -- Task overview (degraded mode)
+  - verification.json -- Cross-reference for must_haves
+  - .tests/business/ -- Previous business test artifacts
 </context>
 
 <execution>
@@ -81,7 +81,7 @@ Follow '~/.maestro/workflows/business-test.md' completely.
 | Code | Severity | Condition | Recovery |
 |------|----------|-----------|----------|
 | E001 | error | Phase number required | Prompt user for phase number |
-| E002 | error | Phase directory not found | Verify phase exists in .workflow/phases/ |
+| E002 | error | Phase artifacts not found | Verify phase has artifacts in state.json or .workflow/phases/ |
 | E003 | error | No spec package AND no success_criteria (can't extract scenarios) | Run maestro-spec-generate or maestro-plan first |
 | E004 | error | L1 critical failures block L2/L3 progression | Fix blockers first via quality-debug |
 | W001 | warning | Degraded mode (no spec package, using success_criteria) | Consider running maestro-spec-generate for full coverage |

@@ -213,7 +213,7 @@ Write(`${sessionFolder}/reflection-log.md`,
 
 **Decomposition Rules**:
 
-1. **Phase resolution**: Resolve `{phaseArg}` to `.workflow/phases/{NN}-{slug}/`
+1. **Phase resolution**: Resolve `{phaseArg}` via artifact registry in `state.json` to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-{slug}/`
 
 2. **Codebase exploration**:
    - Cross-module imports and dependencies

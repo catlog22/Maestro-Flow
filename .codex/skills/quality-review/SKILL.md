@@ -175,7 +175,7 @@ Bash(`mkdir -p ${sessionFolder}`)
 
 **Decomposition Rules**:
 
-1. **Phase resolution**: Resolve `{phaseArg}` to `.workflow/phases/{NN}-{slug}/`
+1. **Phase resolution**: Resolve `{phaseArg}` via artifact registry in `state.json` to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-{slug}/`
 2. **File collection**: Read `.task/TASK-*.json` -> collect all `files[].path` where action != "read"
 3. **Level detection**:
 
@@ -332,7 +332,7 @@ spawn_agents_on_csv({
 | standard | critical + high |
 | deep | critical + high + medium |
 
-7. **Phase index update**: Update `.workflow/phases/{phase}/index.json` with review status.
+7. **Phase index update**: Update `{phase_dir}/index.json` with review status.
 
 8. Display summary.
 

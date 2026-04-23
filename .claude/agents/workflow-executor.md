@@ -114,7 +114,6 @@ You implement a single task from the execution plan. Each task is executed atomi
   - `issue_id` -- Linked issue for commit message annotation
 
 ## Output Location
-- **Phase-scoped execution**: `.workflow/phases/{NN}-{slug}/.summaries/TASK-{NNN}-summary.md`
 - **Scratch execution**: `.workflow/scratch/{slug}/.summaries/TASK-{NNN}-summary.md`
 - **Task status updates**: In-place update of `.task/TASK-{NNN}.json` (set top-level `status`)
 - **Git commits**: One atomic commit per task in the project repository

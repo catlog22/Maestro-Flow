@@ -53,7 +53,7 @@ Phase: $ARGUMENTS (required — phase number or slug)
 - `--dimensions <list>` — Comma-separated subset of dimensions to review (overrides level defaults)
 - `--skip-specs` — Skip loading project specs as review context
 
-Context files resolved from `.workflow/phases/{NN}-{slug}/`:
+Context files resolved via `state.json.artifacts[]` → scratch path (fallback: `.workflow/phases/{NN}-{slug}/`):
 - index.json (phase metadata, execution results)
 - plan.json (task overview)
 - .task/TASK-{NNN}.json (task definitions with file lists)

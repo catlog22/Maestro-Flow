@@ -35,8 +35,8 @@ When invoked with `quick` flag:
 - Focus on getting to execution fast
 
 ## Input
-- `.workflow/phases/{NN}-{slug}/context.md` -- Phase context and decisions
-- `.workflow/phases/{NN}-{slug}/research.md` -- Phase research (if available)
+- `.workflow/scratch/{slug}/context.md` -- Context and decisions (resolved via state.json artifact registry; legacy fallback: `.workflow/phases/{NN}-{slug}/`)
+- `.workflow/scratch/{slug}/research.md` -- Research (if available, resolved via artifact registry)
 - Spec references and doc-index
 - **Project specs** (MANDATORY) -- Loaded via `maestro spec load --category arch`:
   - Architecture constraints (module structure, layer boundaries, dependency rules)
@@ -164,10 +164,10 @@ When invoked with `quick` flag:
 - Field `related_success_criteria` is deprecated and removed from task template; SC-to-Task traceability is handled via `convergence.criteria` referencing roadmap success criteria
 
 ## Output Location
-- **Phase-scoped planning**: `.workflow/phases/{NN}-{slug}/plan.json` and `.workflow/phases/{NN}-{slug}/.task/TASK-{NNN}.json`
 - **Scratch planning**: `.workflow/scratch/{slug}/plan.json` and `.workflow/scratch/{slug}/.task/TASK-{NNN}.json`
-- **Plan notes** (collab mode): `.workflow/phases/{NN}-{slug}/plan-note.md`
+- **Plan notes** (collab mode): `.workflow/scratch/{slug}/plan-note.md`
 - **Quick mode**: Same paths, fewer task files
+- **Legacy fallback**: `.workflow/phases/{NN}-{slug}/` paths are still recognized for backward compatibility
 
 ## Error Behavior
 - **Missing context.md**: Stop and report -- planning requires context; do not guess

@@ -14,11 +14,10 @@ When root causes found, auto-updates originating uat.md with diagnosis.
 ### Step 1: Check Active Sessions
 
 ```bash
-# Phase-scoped debug sessions
-find .workflow/phases -path "*/.debug/*" -name "understanding.md" 2>/dev/null | head -5
-
-# Standalone scratch debug sessions
+# Check both scratch (artifact registry) and legacy phases for debug sessions
+find .workflow/scratch -path "*/.debug/*" -name "understanding.md" 2>/dev/null | head -5
 find .workflow/scratch -type d -name "debug-*" 2>/dev/null | head -5
+find .workflow/phases -path "*/.debug/*" -name "understanding.md" 2>/dev/null | head -5
 ```
 
 **If active sessions exist AND no $ARGUMENTS:**
@@ -137,10 +136,21 @@ Create debug session directory and proceed to Step 6.
 
 | Mode | Directory |
 |------|-----------|
-| Phase-scoped (from UAT) | `.workflow/phases/{NN}-{slug}/.debug/{gap-slug}/` |
+| Phase-scoped (from UAT) | `{PHASE_DIR}/.debug/{gap-slug}/` (PHASE_DIR resolved via artifact registry or legacy phases/) |
 | Standalone | `.workflow/scratch/debug-{slug}-{date}/` |
 
-```bash
+```
+IF TARGET_TYPE == "phase":
+  Read .workflow/state.json → state
+  artifacts = state.artifacts ?? []
+  IF artifacts.length > 0:
+    art = artifacts.find(a => a.type === 'execute' && a.phase === phaseNum)
+    DEBUG_DIR = ".workflow/" + art.path + "/.debug/{gap-slug}/"
+  ELSE:
+    DEBUG_DIR = ".workflow/phases/{NN}-{slug}/.debug/{gap-slug}/"
+ELSE:
+  DEBUG_DIR = ".workflow/scratch/debug-{slug}-{date}/"
+
 mkdir -p "$DEBUG_DIR"
 ```
 

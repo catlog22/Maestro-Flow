@@ -126,7 +126,16 @@ Parse $ARGUMENTS to determine execution mode:
 - None + single role mode → error E002
 
 **Output Directory Resolution**:
-- Phase mode (number): `.workflow/phases/{NN}-{slug}/.brainstorming/`
+- Phase mode (number):
+  ```
+  Read .workflow/state.json → state
+  artifacts = state.artifacts ?? []
+  IF artifacts.length > 0:
+    art = artifacts.find(a => a.phase === phaseNum)
+    output_dir = ".workflow/" + art.path + "/.brainstorming/"
+  ELSE:
+    output_dir = ".workflow/phases/{NN}-{slug}/.brainstorming/"
+  ```
 - All output: `.workflow/scratch/brainstorm-{slug}-{date}/`
 - Existing session: use existing session directory
 

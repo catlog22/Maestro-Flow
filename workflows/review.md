@@ -15,10 +15,23 @@ Tiered multi-dimensional code review with parallel agents, severity classificati
 
 ```
 Input: <phase> argument (number or slug)
-  1. If number: find .workflow/phases/{NN}-*/index.json
-  2. If slug: find .workflow/phases/*-{slug}/index.json
-  3. Validate execution has occurred (index.json.execution.tasks_completed > 0)
-  4. Set PHASE_DIR = resolved path
+
+Read .workflow/state.json → state
+artifacts = state.artifacts ?? []
+useArtifactRegistry = artifacts.length > 0
+
+IF useArtifactRegistry:
+  IF number: art = artifacts.find(a => a.type === 'execute' && a.phase === number)
+  IF slug:   art = artifacts.find(a => a.type === 'execute' && a.slug?.includes(slug))
+  IF art:    PHASE_DIR = ".workflow/" + art.path
+  ELSE:      ERROR "Phase not found in artifact registry"
+ELSE:
+  // Legacy: resolve from phases/ directory
+  IF number: find .workflow/phases/{NN}-*/index.json
+  IF slug:   find .workflow/phases/*-{slug}/index.json
+  PHASE_DIR = resolved path
+
+Validate execution has occurred (tasks_completed > 0 or .task/ exists)
 ```
 
 ---

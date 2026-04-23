@@ -196,7 +196,7 @@ Bash(`mkdir -p ${sessionFolder}/.brainstorming`)
 
 **Decomposition Rules**:
 
-1. **Mode detection**: Number = phase mode (resolve `.workflow/phases/{NN}-{slug}/`), text = scratch mode
+1. **Mode detection**: Number = phase mode (resolve via state.json artifact registry to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-{slug}/`), text = scratch mode
 2. **Project specs loading**: Read `.workflow/specs/` for architecture-aware analysis context
 3. **Role selection**:
 

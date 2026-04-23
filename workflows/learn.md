@@ -86,9 +86,14 @@ IF .workflow/state.json exists:
   IF state.current_phase is not null:
     phase = state.current_phase
 
-    # Resolve slug
-    Glob ".workflow/phases/{NN}-*/" where NN == phase
-    phase_slug = matched directory basename (e.g. "01-auth")
+    # Resolve slug — artifact registry first, fallback to legacy phases/
+    artifacts = state.artifacts ?? []
+    IF artifacts.length > 0:
+      art = artifacts.find(a => a.phase === phase)
+      phase_slug = art?.slug ?? "phase-" + phase
+    ELSE:
+      Glob ".workflow/phases/{NN}-*/" where NN == phase
+      phase_slug = matched directory basename (e.g. "01-auth")
 ```
 
 If `--phase 0` is passed, force `phase = null, phase_slug = null` regardless.
@@ -299,8 +304,17 @@ IF row is null → error E004: "Insight {target_id} not found"
 ```
 phase_context = null
 IF row.phase_slug is not null:
-  phase_dir = ".workflow/phases/" + row.phase_slug
-  IF directory exists:
+  // Resolve phase dir — artifact registry first, fallback to legacy phases/
+  Read .workflow/state.json → state
+  artifacts = state.artifacts ?? []
+  phase_dir = null
+  IF artifacts.length > 0:
+    art = artifacts.find(a => a.phase === row.phase && a.path)
+    IF art: phase_dir = ".workflow/" + art.path
+  ELSE:
+    phase_dir = ".workflow/phases/" + row.phase_slug
+
+  IF phase_dir AND directory exists:
     phase_context = {
       title: read index.json.title from phase_dir,
       status: read index.json.status,

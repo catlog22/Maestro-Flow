@@ -40,8 +40,9 @@ User's issue: $ARGUMENTS
 - `--parallel` -- Spawn parallel debug agents (one per gap cluster)
 
 **State files:**
-- `.workflow/phases/{NN}-{slug}/uat.md` -- UAT gaps (if --from-uat)
-- `.workflow/phases/{NN}-{slug}/.debug/` -- Phase-scoped debug sessions
+- Phase UAT/debug artifacts (resolve via `state.json.artifacts[]` → scratch paths; fallback to `.workflow/phases/{NN}-{slug}/`):
+  - uat.md -- UAT gaps (if --from-uat)
+  - .debug/ -- Phase-scoped debug sessions
 - `.workflow/scratch/debug-*/` -- Standalone debug sessions
 </context>
 

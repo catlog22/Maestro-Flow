@@ -83,15 +83,15 @@ When `--yes` or `-y`: Auto-confirm check decomposition, skip interactive validat
 
 ```csv
 id,title,description,layer,phase_dir,check_type,deps,context_from,wave,status,findings,gaps_found,fix_plan,error
-"1","Truth: User can see existing messages","Verify observable behavior: user can see existing messages by checking supporting artifacts, API calls, and render logic.","truth",".workflow/phases/03-chat/","observable_behavior","","","1","","","","",""
-"2","Truth: User can send new messages","Verify observable behavior: user can send new messages by checking form submission, API POST, and state update.","truth",".workflow/phases/03-chat/","observable_behavior","","","1","","","","",""
-"3","Artifact Exists: src/components/Chat.tsx","Check L1 existence: verify file src/components/Chat.tsx exists on disk.","artifact",".workflow/phases/03-chat/","exists","","","1","","","","",""
-"4","Artifact Exists: src/api/chat.ts","Check L1 existence: verify file src/api/chat.ts exists on disk.","artifact",".workflow/phases/03-chat/","exists","","","1","","","","",""
-"5","Artifact Substance: src/components/Chat.tsx","Check L2 substance: verify src/components/Chat.tsx has real implementation (not stub/placeholder). Minimum logic threshold, no placeholder markers.","artifact",".workflow/phases/03-chat/","substance","3","3","2","","","","",""
-"6","Artifact Substance: src/api/chat.ts","Check L2 substance: verify src/api/chat.ts has real implementation (not stub/placeholder).","artifact",".workflow/phases/03-chat/","substance","4","4","2","","","","",""
-"7","Wiring: Chat.tsx -> /api/chat","Check L3 wiring: verify Chat.tsx imports and calls /api/chat endpoints. Check import statements and actual usage beyond imports.","wiring",".workflow/phases/03-chat/","import_usage","3;4","3;4","2","","","","",""
-"8","Anti-Pattern Scan","Scan all modified files for TODO/FIXME/XXX/HACK, placeholder content, empty returns, log-only functions, hardcoded test data, disabled tests. Categorize as Blocker/Warning/Info.","antipattern",".workflow/phases/03-chat/","pattern_scan","1;2;5;6;7","1;2;5;6;7","3","","","","",""
-"9","Nyquist Test Coverage Audit","Map requirements to test files. Classify each as COVERED/PARTIAL/MISSING. Detect test framework, run coverage if available.","nyquist",".workflow/phases/03-chat/","test_coverage","1;2;5;6;7","1;2;5;6;7","3","","","","",""
+"1","Truth: User can see existing messages","Verify observable behavior: user can see existing messages by checking supporting artifacts, API calls, and render logic.","truth",".workflow/scratch/plan-chat-2026/","observable_behavior","","","1","","","","",""
+"2","Truth: User can send new messages","Verify observable behavior: user can send new messages by checking form submission, API POST, and state update.","truth",".workflow/scratch/plan-chat-2026/","observable_behavior","","","1","","","","",""
+"3","Artifact Exists: src/components/Chat.tsx","Check L1 existence: verify file src/components/Chat.tsx exists on disk.","artifact",".workflow/scratch/plan-chat-2026/","exists","","","1","","","","",""
+"4","Artifact Exists: src/api/chat.ts","Check L1 existence: verify file src/api/chat.ts exists on disk.","artifact",".workflow/scratch/plan-chat-2026/","exists","","","1","","","","",""
+"5","Artifact Substance: src/components/Chat.tsx","Check L2 substance: verify src/components/Chat.tsx has real implementation (not stub/placeholder). Minimum logic threshold, no placeholder markers.","artifact",".workflow/scratch/plan-chat-2026/","substance","3","3","2","","","","",""
+"6","Artifact Substance: src/api/chat.ts","Check L2 substance: verify src/api/chat.ts has real implementation (not stub/placeholder).","artifact",".workflow/scratch/plan-chat-2026/","substance","4","4","2","","","","",""
+"7","Wiring: Chat.tsx -> /api/chat","Check L3 wiring: verify Chat.tsx imports and calls /api/chat endpoints. Check import statements and actual usage beyond imports.","wiring",".workflow/scratch/plan-chat-2026/","import_usage","3;4","3;4","2","","","","",""
+"8","Anti-Pattern Scan","Scan all modified files for TODO/FIXME/XXX/HACK, placeholder content, empty returns, log-only functions, hardcoded test data, disabled tests. Categorize as Blocker/Warning/Info.","antipattern",".workflow/scratch/plan-chat-2026/","pattern_scan","1;2;5;6;7","1;2;5;6;7","3","","","","",""
+"9","Nyquist Test Coverage Audit","Map requirements to test files. Classify each as COVERED/PARTIAL/MISSING. Detect test framework, run coverage if available.","nyquist",".workflow/scratch/plan-chat-2026/","test_coverage","1;2;5;6;7","1;2;5;6;7","3","","","","",""
 ```
 
 **Columns**:
@@ -102,7 +102,7 @@ id,title,description,layer,phase_dir,check_type,deps,context_from,wave,status,fi
 | `title` | Input | Short check title |
 | `description` | Input | Detailed verification instructions for this check |
 | `layer` | Input | Verification layer: truth/artifact/wiring/antipattern/nyquist |
-| `phase_dir` | Input | Phase directory path (e.g., `.workflow/phases/03-chat/`) |
+| `phase_dir` | Input | Target directory path (e.g., `.workflow/scratch/plan-chat-2026/`; legacy: `.workflow/phases/03-chat/`) |
 | `check_type` | Input | Specific check type: observable_behavior/exists/substance/import_usage/pattern_scan/test_coverage |
 | `deps` | Input | Semicolon-separated dependency task IDs |
 | `context_from` | Input | Semicolon-separated task IDs whose findings this task needs |
@@ -191,7 +191,7 @@ Bash(`mkdir -p ${sessionFolder}`)
 
 **Decomposition Rules**:
 
-1. **Phase resolution**: Resolve `{phaseArg}` to `.workflow/phases/{NN}-{slug}/`
+1. **Phase resolution**: Resolve `{phaseArg}` via artifact registry in `state.json` to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-{slug}/`
 2. **Artifact loading**: Read from phase directory:
    - `index.json` -- success_criteria (ground truth for verification)
    - `plan.json` -- original plan with task_ids
@@ -528,7 +528,7 @@ echo '{"ts":"<ISO>","worker":"{id}","type":"verification_gap","data":{"gap_id":"
 
 | Error | Resolution |
 |-------|------------|
-| Phase directory not found | Abort with error: "Phase {N} not found" |
+| Phase directory not found | Resolve via state.json artifact registry; legacy fallback to `.workflow/phases/`; abort if neither found |
 | No execution results found | Abort with error: "No completed tasks found -- run execute first" |
 | No summaries found | Warn, proceed with task file analysis only |
 | No success_criteria in index.json | Derive must-haves from phase goal (fallback) |

@@ -69,8 +69,8 @@ export const STDIN_TIMEOUT_MS = 3000;
 // Powerline statusline — Notion-inspired muted palette
 // ---------------------------------------------------------------------------
 
-/** Powerline right-arrow separator (E0B0 needs Powerline font, fallback to triangle) */
-export const PL_SEP = _slConfig.nerdFont ? '\uE0B0' : '\u25B6';
+/** Powerline right-arrow separator (E0B0 needs Powerline font, fallback to V-chevron) */
+export const PL_SEP = _slConfig.nerdFont ? '\uE0B0' : '\u276F';
 
 /** Icon sets — Nerd Font (rich) vs Unicode (safe fallback) */
 const ICONS_NERD = {

@@ -71,7 +71,7 @@ $quality-business-test "3 --auto"                   # skip plan confirmation
 ### Step 1: Resolve Target & Load Spec Package
 
 1. Parse `$ARGUMENTS` for phase number and flags
-2. Set `PHASE_DIR = .workflow/phases/{NN}-{slug}/`
+2. Resolve `PHASE_DIR` via artifact registry in `state.json` to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-{slug}/`
 3. Load `index.json` -> find `spec_ref` -> locate `.workflow/.spec/SPEC-xxx/`
 4. **Full mode**: Read `requirements/_index.md` + all `REQ-*.md` + `NFR-*.md` + `architecture/_index.md` + `epics/EPIC-*.md`
 5. **Degraded mode** (no spec package): Read `index.json.success_criteria` + `plan.json` convergence criteria + `.summaries/TASK-*.md`
@@ -206,7 +206,7 @@ FOR each REQ:
 | Code | Severity | Condition | Recovery |
 |------|----------|-----------|----------|
 | E001 | error | Phase number required | Prompt user for phase number |
-| E002 | error | Phase directory not found | Verify phase exists in .workflow/phases/ |
+| E002 | error | Phase directory not found | Resolve via state.json artifact registry; legacy fallback to `.workflow/phases/` |
 | E003 | error | No spec package AND no success_criteria | Run maestro-spec-generate or maestro-plan first |
 | E004 | error | L1 critical failures block L2/L3 | Fix blockers via quality-debug |
 | W001 | warning | Degraded mode (no spec package) | Consider running maestro-spec-generate |

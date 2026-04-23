@@ -54,7 +54,7 @@ When `--yes` or `-y`: Skip interactive selection, auto-pick top-scored variant, 
 ### Step 1: Parse Input and Resolve Target
 
 1. Parse flags from `$ARGUMENTS`: `--styles N`, `--stack`, `--targets`, `--persist`, `--full`, `-y`
-2. **Phase mode** (number): resolve `.workflow/phases/{NN}-*/` directory
+2. **Phase mode** (number): resolve via state.json artifact registry to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-*/`
 3. **Scratch mode** (text): create `.workflow/scratch/ui-design-{slug}-{date}/` with minimal index.json
 4. Create output directories:
    ```bash

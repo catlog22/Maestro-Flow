@@ -36,10 +36,11 @@ Phase: $ARGUMENTS (required -- phase number)
 - `--layer <unit|e2e|all>` -- Generate only specific test layer (default: all)
 
 Context files:
-- `.workflow/phases/{NN}-{slug}/verification.json` -- Nyquist gaps (MISSING/PARTIAL)
-- `.workflow/phases/{NN}-{slug}/validation.json` -- requirement-to-test mapping
-- `.workflow/phases/{NN}-{slug}/.tests/coverage-report.json` -- UAT coverage gaps
-- `.workflow/phases/{NN}-{slug}/.summaries/TASK-*.md` -- what was built
+- Phase artifacts (resolve via `state.json.artifacts[]` → scratch paths; fallback to `.workflow/phases/{NN}-{slug}/`):
+  - verification.json -- Nyquist gaps (MISSING/PARTIAL)
+  - validation.json -- requirement-to-test mapping
+  - .tests/coverage-report.json -- UAT coverage gaps
+  - .summaries/TASK-*.md -- what was built
 </context>
 
 <execution>

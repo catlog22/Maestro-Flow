@@ -66,8 +66,8 @@ $quality-retrospective "3 --compare 2 --auto-yes"
 When `--auto-yes`: Accept all routing recommendations without prompting. Route all insights automatically.
 
 **Storage written**:
-- `.workflow/phases/{NN}-{slug}/retrospective.md` -- human-readable record
-- `.workflow/phases/{NN}-{slug}/retrospective.json` -- structured record
+- `{target_dir}/retrospective.md` -- human-readable record (target_dir resolved via state.json artifact registry to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-{slug}/`)
+- `{target_dir}/retrospective.json` -- structured record
 - `.workflow/specs/SPEC-retro-*.md` -- spec stubs (one per spec-routed insight)
 - `.workflow/issues/issues.jsonl` -- appended issue rows (`source: "retrospective"`)
 - `.workflow/memory/TIP-*.md` -- memory tips (via `manage-memory-capture` skill)
@@ -75,8 +75,8 @@ When `--auto-yes`: Accept all routing recommendations without prompting. Route a
 - `.workflow/learning/learning-index.json` -- updated searchable index
 
 **Storage read (never modified)**:
-- `.workflow/phases/{NN}-{slug}/index.json`, `plan.json`, `verification.json`, `review.json`, `uat.md`
-- `.workflow/phases/{NN}-{slug}/.task/TASK-*.json`, `.summaries/TASK-*-summary.md`
+- `{target_dir}/index.json`, `plan.json`, `verification.json`, `review.json`, `uat.md`
+- `{target_dir}/.task/TASK-*.json`, `.summaries/TASK-*-summary.md`
 - `.workflow/issues/issues.jsonl`, `.workflow/state.json`
 
 ### Agent Registry
@@ -151,7 +151,7 @@ functions.update_plan({
 Validate `--lens` values. If `--compare <M>` present, require single mode.
 
 **Stage 2: Validate phase artifacts**. For each target phase:
-- Phase directory `.workflow/phases/{NN}-{slug}/` must exist
+- Phase directory must exist (resolved via state.json artifact registry to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-{slug}/`)
 - `index.json` must show `status: "completed"`
 - `.task/` directory must exist with at least one `TASK-*.json`
 - If existing `retrospective.json` found and not `--all`: emit W002, prompt overwrite
@@ -404,7 +404,7 @@ If `!AUTO_YES`: present routing table and ask confirmation before routing each g
 ```javascript
 functions.apply_patch:
 *** Begin Patch
-*** Add File: .workflow/phases/<NN>-<slug>/retrospective.json
+*** Add File: <target_dir>/retrospective.json
 +{
 +  "phase": <N>,
 +  "phase_slug": "<slug>",
@@ -415,7 +415,7 @@ functions.apply_patch:
 +  "distilled_insights": <insights_array>,
 +  "routing_summary": <routing_summary>
 +}
-*** Add File: .workflow/phases/<NN>-<slug>/retrospective.md
+*** Add File: <target_dir>/retrospective.md
 +# Retrospective: Phase <N> -- <slug>
 +
 +> Generated: <ISO> | Lenses: technical, process, quality, decision

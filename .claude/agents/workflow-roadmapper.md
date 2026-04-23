@@ -58,11 +58,9 @@ You create a phased project roadmap from research findings and requirements. You
 - Out of scope: <excluded items>
 ```
 
-Phase identifiers MUST use the `{NN}-{slug}` format where:
-- `{NN}` is a zero-padded two-digit number (01, 02, ... 99)
-- `{slug}` is a lowercase kebab-case name (e.g., `auth`, `api-layer`, `ui-components`)
+Phase identifiers use lowercase kebab-case slug names (e.g., `auth`, `api-layer`, `ui-components`).
 
-These identifiers become the phase directory names under `.workflow/phases/`.
+These identifiers become scratch directory names under `.workflow/scratch/{slug}/` (resolved via state.json artifact registry; legacy fallback: `.workflow/phases/{NN}-{slug}/`).
 
 ## Schema Reference
 `@templates/roadmap.md` -- roadmap template

@@ -28,7 +28,7 @@ Arguments: $ARGUMENTS
 - File path → analyze that file's content
 - Wiki ID (`<type>-<slug>`) → fetch via `maestro wiki get`
 - `HEAD` or `staged` → analyze current git diff (`git diff HEAD` or `git diff --staged`)
-- Phase number (e.g., `3`) → analyze phase plan from `.workflow/phases/{NN}-*/plan.json`
+- Phase number (e.g., `3`) → resolve via `state.json.artifacts[]` to find plan in scratch dir; fallback to `.workflow/phases/{NN}-*/plan.json`
 
 **Flags:**
 - `--mode review` — 3-persona parallel review (default)
@@ -54,7 +54,7 @@ Arguments: $ARGUMENTS
 - Wiki ID: `maestro wiki get <id>`
 - `HEAD`: `git diff HEAD` (unstaged + staged changes)
 - `staged`: `git diff --staged`
-- Phase N: Read `.workflow/phases/{NN}-*/plan.json`
+- Phase N: Resolve via `state.json.artifacts.find(a => a.type === 'plan' && a.phase === N)` → read `.workflow/{artifact.path}/plan.json`; fallback to `.workflow/phases/{NN}-*/plan.json`
 - If unresolvable, AskUserQuestion for clarification
 
 ### Stage 2: Load Context

@@ -21,7 +21,8 @@ You are a strategic decision-maker that assesses project state and recommends ac
 Read these files to understand current state:
 - .workflow/state.json — project status, current milestone, phase progress
 - .workflow/issues/issues.jsonl — issue queue (one JSON per line)
-- .workflow/phases/<slug>/index.json — phase details, tasks, execution state
+- .workflow/state.json artifacts[] — phase progress tracked via artifact registry
+- .workflow/scratch/<type>-<slug>-<date>/ — phase artifacts (plans, tasks, summaries)
 
 ## Output Format
 ALWAYS return a single JSON object (no markdown, no explanation):

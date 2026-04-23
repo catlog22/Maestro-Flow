@@ -229,3 +229,106 @@ describe('evaluateSkillContext', () => {
     assert.ok(ctx.includes('.summaries/'));
   });
 });
+
+// ---------------------------------------------------------------------------
+// evaluateSkillContext — artifact registry (scratch-based)
+// ---------------------------------------------------------------------------
+
+describe('evaluateSkillContext (artifact registry)', () => {
+  beforeEach(() => cleanup());
+  afterEach(() => cleanup());
+
+  function setupScratchWorkflow(opts: {
+    phase?: number;
+    tasks?: Array<{ id: string; status: string }>;
+    deferred?: Array<{ id: string; severity: string; description: string }>;
+  } = {}): void {
+    const workflowDir = join(TEST_DIR, '.workflow');
+    mkdirSync(workflowDir, { recursive: true });
+
+    const phaseNum = opts.phase ?? 2;
+    const scratchPath = `scratch/plan-test-2026`;
+    const scratchDir = join(workflowDir, scratchPath);
+    const taskDir = join(scratchDir, '.task');
+    const summariesDir = join(scratchDir, '.summaries');
+    mkdirSync(taskDir, { recursive: true });
+    mkdirSync(summariesDir, { recursive: true });
+
+    // state.json with artifacts array
+    writeFileSync(join(workflowDir, 'state.json'), JSON.stringify({
+      version: '1.0',
+      project_name: 'TestProject',
+      current_milestone: 'MVP',
+      current_phase: phaseNum,
+      status: 'active',
+      phases_summary: { total: 4, completed: 1, in_progress: 0, pending: 3 },
+      accumulated_context: {
+        key_decisions: ['Decision A', 'Decision B'],
+        deferred: opts.deferred ?? [
+          { id: 'GAP-001', severity: 'high', description: 'Missing auth flow', fix_direction: 'Add OAuth' },
+        ],
+      },
+      transition_history: [
+        { type: 'phase', from_phase: 1, to_phase: 2, milestone: 'MVP', transitioned_at: '2026-04-10T00:00:00Z' },
+      ],
+      artifacts: [
+        { id: 'PLN-001', type: 'plan', phase: phaseNum, scope: 'phase', path: scratchPath, status: 'completed' },
+        { id: 'EXC-001', type: 'execute', phase: phaseNum, scope: 'phase', path: scratchPath, status: 'in_progress' },
+      ],
+    }));
+
+    // plan.json in scratch
+    writeFileSync(join(scratchDir, 'plan.json'), '{}');
+
+    // Tasks
+    const tasks = opts.tasks ?? [
+      { id: 'TASK-001', status: 'completed' },
+      { id: 'TASK-002', status: 'in_progress' },
+      { id: 'TASK-003', status: 'pending' },
+    ];
+    for (const t of tasks) {
+      writeFileSync(join(taskDir, `${t.id}.json`), JSON.stringify({ task_id: t.id, status: t.status }));
+    }
+
+    // Summary file
+    writeFileSync(join(summariesDir, 'TASK-001-summary.md'), '# Summary');
+  }
+
+  it('returns artifact tree from scratch dir', () => {
+    setupScratchWorkflow();
+    const result = evaluateSkillContext({ user_prompt: '/maestro-execute 2', cwd: TEST_DIR });
+    assert.ok(result);
+    const ctx = result.hookSpecificOutput.additionalContext;
+    assert.ok(ctx.includes('Phase 2 Artifacts'));
+    assert.ok(ctx.includes('scratch/plan-test-2026'));
+    assert.ok(ctx.includes('.task/'));
+    assert.ok(ctx.includes('TASK-001 ✓'));
+    assert.ok(ctx.includes('TASK-002 →'));
+  });
+
+  it('returns workflow state section with artifact registry', () => {
+    setupScratchWorkflow();
+    const result = evaluateSkillContext({ user_prompt: '/maestro-execute 2', cwd: TEST_DIR });
+    assert.ok(result);
+    const ctx = result.hookSpecificOutput.additionalContext;
+    assert.ok(ctx.includes('Workflow Context'));
+    assert.ok(ctx.includes('MVP'));
+  });
+
+  it('returns deferred items from artifact registry state', () => {
+    setupScratchWorkflow();
+    const result = evaluateSkillContext({ user_prompt: '/maestro-execute 2', cwd: TEST_DIR });
+    assert.ok(result);
+    const ctx = result.hookSpecificOutput.additionalContext;
+    assert.ok(ctx.includes('Deferred Items'));
+    assert.ok(ctx.includes('Missing auth flow'));
+  });
+
+  it('returns summaries from scratch dir', () => {
+    setupScratchWorkflow();
+    const result = evaluateSkillContext({ user_prompt: '/maestro-execute 2', cwd: TEST_DIR });
+    assert.ok(result);
+    const ctx = result.hookSpecificOutput.additionalContext;
+    assert.ok(ctx.includes('.summaries/'));
+  });
+});
