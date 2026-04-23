@@ -5,6 +5,7 @@ import { useExecutionStore } from '@/client/store/execution-store.js';
 import { useCoordinateStore } from '@/client/store/coordinate-store.js';
 import { useIssueStore } from '@/client/store/issue-store.js';
 import { useRequirementStore } from '@/client/store/requirement-store.js';
+import { useTeamStore } from '@/client/store/team-store.js';
 import { WS_EVENT_TYPES } from '@/shared/constants.js';
 import type { BoardState, PhaseCard } from '@/shared/types.js';
 import type { WsServerMessage, WsClientMessage, ExecutionStartedPayload, ExecutionCompletedPayload, ExecutionFailedPayload } from '@/shared/ws-protocol.js';
@@ -13,6 +14,7 @@ import type { SupervisorStatus } from '@/shared/execution-types.js';
 import type { CommanderState, Decision } from '@/shared/commander-types.js';
 import type { CoordinateStatusPayload, CoordinateStepPayload, CoordinateAnalysisPayload, CoordinateClarificationPayload } from '@/shared/coordinate-types.js';
 import type { RequirementProgressPayload, RequirementExpandedPayload, RequirementCommittedPayload, RequirementErrorPayload } from '@/shared/requirement-types.js';
+import type { TeamMailboxMessage, TeamPhaseState, TeamAgentStatus } from '@/shared/team-types.js';
 
 // ---------------------------------------------------------------------------
 // useWebSocket — connect to /ws, dispatch to stores, auto-reconnect
@@ -84,6 +86,9 @@ export function sendWsMessage(msg: WsClientMessage): void {
   }
 }
 
+/** Message types that bypass the buffer and are processed immediately */
+const IMMEDIATE_MSG_TYPES = new Set([WS_EVENT_TYPES.AGENT_APPROVAL]);
+
 export function useWebSocket(): void {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,6 +96,14 @@ export function useWebSocket(): void {
 
   useEffect(() => {
     let disposed = false;
+
+    // --- Hydration gate: queue messages until initial API fetches complete ---
+    let isHydrated = false;
+    const hydrationQueue: WsServerMessage[] = [];
+
+    // --- Message buffer: batch high-frequency messages at 100ms intervals ---
+    let msgBuffer: WsServerMessage[] = [];
+    let flushInterval: ReturnType<typeof setInterval> | null = null;
 
     // Access actions via getState() to avoid selector re-renders
     const { setBoard, updatePhase, updateTask, setConnected } = useBoardStore.getState();
@@ -124,6 +137,13 @@ export function useWebSocket(): void {
       onCommitted: requirementOnCommitted,
       onError: requirementOnError,
     } = useRequirementStore.getState();
+    const {
+      handleTeamMessage,
+      handleDispatchUpdate,
+      handlePhaseTransition,
+      handleAgentStatusUpdate,
+      registerAgentProcess,
+    } = useTeamStore.getState();
 
     function connect() {
       if (disposed) return;
@@ -143,11 +163,14 @@ export function useWebSocket(): void {
         setConnected(true);
         reconnectDelay.current = RECONNECT_BASE_MS; // reset on success
 
-        // Resync state after reconnect
-        fetch('/api/board').then(r => r.ok ? r.json() : null).then(data => {
+        // Reset hydration state for this connection
+        isHydrated = false;
+
+        // Resync state after reconnect — hydrate before processing queued WS messages
+        const boardFetch = fetch('/api/board').then(r => r.ok ? r.json() : null).then(data => {
           if (data) setBoard(data as BoardState);
         }).catch(() => {});
-        fetch('/api/agents').then(r => r.ok ? r.json() : null).then(async (agents: unknown) => {
+        const agentsFetch = fetch('/api/agents').then(r => r.ok ? r.json() : null).then(async (agents: unknown) => {
           if (!Array.isArray(agents)) return;
 
           // Pre-fetch CLI history list for status reconciliation
@@ -202,17 +225,18 @@ export function useWebSocket(): void {
                 .catch(() => {});
           }
         }).catch(() => {});
+
+        // Mark hydrated after initial fetches complete, then flush queued messages
+        Promise.all([boardFetch, agentsFetch]).finally(() => {
+          isHydrated = true;
+          // Flush any messages that arrived during hydration
+          const queued = hydrationQueue.splice(0);
+          for (const m of queued) dispatchMessage(m);
+        });
       };
 
-      ws.onmessage = (event) => {
-        let msg: WsServerMessage;
-        try {
-          msg = JSON.parse(event.data as string);
-        } catch {
-          console.warn('[WS] Failed to parse message', event.data);
-          return;
-        }
-
+      /** Dispatch a single parsed WS message to the appropriate store */
+      function dispatchMessage(msg: WsServerMessage): void {
         switch (msg.type) {
           // --- Board events (same logic as useSSE) ---
           case WS_EVENT_TYPES.BOARD_FULL:
@@ -248,9 +272,17 @@ export function useWebSocket(): void {
             break;
 
           // --- Agent events ---
-          case WS_EVENT_TYPES.AGENT_SPAWNED:
-            addProcess(msg.data as AgentProcess);
+          case WS_EVENT_TYPES.AGENT_SPAWNED: {
+            const spawned = msg.data as AgentProcess;
+            addProcess(spawned);
+            // Bridge: register in team-store if agent carries team metadata
+            const teamSessionId = spawned.metadata?.teamSessionId as string | undefined;
+            const teamRole = spawned.metadata?.teamRole as string | undefined;
+            if (teamSessionId && teamRole) {
+              registerAgentProcess(teamSessionId, teamRole, spawned.id);
+            }
             break;
+          }
 
           case WS_EVENT_TYPES.AGENT_ENTRY: {
             const entry = msg.data as NormalizedEntry;
@@ -396,10 +428,67 @@ export function useWebSocket(): void {
             requirementOnCommitted(msg.data as RequirementCommittedPayload);
             break;
 
+          // --- Team events ---
+          case WS_EVENT_TYPES.TEAM_MESSAGE:
+            handleTeamMessage(msg.data as TeamMailboxMessage);
+            break;
+
+          case WS_EVENT_TYPES.TEAM_DISPATCH:
+            handleDispatchUpdate(msg.data as TeamMailboxMessage);
+            break;
+
+          case WS_EVENT_TYPES.TEAM_PHASE:
+            handlePhaseTransition(msg.data as TeamPhaseState);
+            break;
+
+          case WS_EVENT_TYPES.TEAM_AGENT_STATUS:
+            handleAgentStatusUpdate(msg.data as TeamAgentStatus);
+            break;
+
           default:
             // Ignore unknown event types
             break;
         }
+      }
+
+      /** Flush buffered messages — called on 100ms interval */
+      function flushBuffer(): void {
+        if (msgBuffer.length === 0) return;
+        const batch = msgBuffer;
+        msgBuffer = [];
+        for (const m of batch) dispatchMessage(m);
+      }
+
+      // Start buffer flush interval
+      flushInterval = setInterval(flushBuffer, 100);
+
+      ws.onmessage = (event) => {
+        let msg: WsServerMessage;
+        try {
+          msg = JSON.parse(event.data as string);
+        } catch {
+          console.warn('[WS] Failed to parse message', event.data);
+          return;
+        }
+
+        // Before hydration, queue all messages except immediate types
+        if (!isHydrated) {
+          if (IMMEDIATE_MSG_TYPES.has(msg.type)) {
+            dispatchMessage(msg);
+          } else {
+            hydrationQueue.push(msg);
+          }
+          return;
+        }
+
+        // Immediate messages bypass the buffer entirely
+        if (IMMEDIATE_MSG_TYPES.has(msg.type)) {
+          dispatchMessage(msg);
+          return;
+        }
+
+        // Buffer for batch processing
+        msgBuffer.push(msg);
       };
 
       ws.onclose = () => {
@@ -409,6 +498,15 @@ export function useWebSocket(): void {
         setConnected(false);
         wsRef.current = null;
         wsSendFn = null;
+
+        // Stop buffer flush and clear queues on disconnect
+        if (flushInterval) {
+          clearInterval(flushInterval);
+          flushInterval = null;
+        }
+        msgBuffer = [];
+        hydrationQueue.length = 0;
+        isHydrated = false;
 
         const delay = reconnectDelay.current;
         reconnectDelay.current = Math.min(delay * 2, RECONNECT_MAX_MS);
@@ -425,6 +523,11 @@ export function useWebSocket(): void {
     return () => {
       disposed = true;
       wsSendFn = null;
+      // Clean up buffer flush interval
+      if (flushInterval) {
+        clearInterval(flushInterval);
+        flushInterval = null;
+      }
       if (reconnectTimer.current) {
         clearTimeout(reconnectTimer.current);
       }

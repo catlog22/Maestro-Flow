@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { sendWsMessage } from '@/client/hooks/useWebSocket.js';
-import type { CoordinateSession, CoordinateStep, CoordinateStepPayload, CoordinateAnalysisPayload, CoordinateClarificationPayload } from '@/shared/coordinate-types.js';
+import type { CoordinateSession, CoordinateStep, CoordinateStepPayload, CoordinateAnalysisPayload, CoordinateClarificationPayload, DashboardChainGraph } from '@/shared/coordinate-types.js';
 
 // ---------------------------------------------------------------------------
 // Coordinate store -- session state for coordinate runner UI
@@ -10,6 +10,8 @@ export interface CoordinateStore {
   session: CoordinateSession | null;
   selectedStepIndex: number | null;
   clarificationQuestion: string | null;
+  currentGraph: DashboardChainGraph | null;
+  selectedNodeId: string | null;
 
   // WS event handlers (called from useWebSocket)
   onStatus: (session: CoordinateSession) => void;
@@ -25,12 +27,16 @@ export interface CoordinateStore {
 
   // UI actions
   selectStep: (index: number | null) => void;
+  setCurrentGraph: (graph: DashboardChainGraph | null) => void;
+  selectNode: (nodeId: string | null) => void;
 }
 
 export const useCoordinateStore = create<CoordinateStore>((set) => ({
   session: null,
   selectedStepIndex: null,
   clarificationQuestion: null,
+  currentGraph: null,
+  selectedNodeId: null,
 
   onStatus: (session) =>
     set({ session }),
@@ -103,4 +109,10 @@ export const useCoordinateStore = create<CoordinateStore>((set) => ({
 
   selectStep: (index) =>
     set({ selectedStepIndex: index }),
+
+  setCurrentGraph: (graph) =>
+    set({ currentGraph: graph }),
+
+  selectNode: (nodeId) =>
+    set({ selectedNodeId: nodeId }),
 }));

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import X from 'lucide-react/dist/esm/icons/x.js';
 import type { TeamSessionDetail, PipelineNode, TeamRole, TeamMessage } from '@/shared/team-types.js';
 import { PIPELINE_STATUS_COLORS, ROLE_STATUS_COLORS } from '@/shared/team-types.js';
@@ -64,7 +64,7 @@ export function TeamStatusOverlay({
 
           {/* 3-column body */}
           <div className="grid grid-cols-3 flex-1 overflow-auto">
-            {/* Pipeline column */}
+            {/* Pipeline column — mini DAG view */}
             <div className="p-3.5">
               <div className="text-[9px] font-semibold uppercase tracking-widest text-text-placeholder mb-2.5 flex items-center gap-1.5">
                 Pipeline
@@ -80,24 +80,15 @@ export function TeamStatusOverlay({
                 <StatBox label="Pending" value={session.pipelineStages.filter(s => s.status === 'pending').length} />
               </div>
 
-              {/* Pipeline nodes grouped by wave */}
+              {/* Mini DAG: grouped by wave with SVG flow arrows */}
               {session.pipeline.waves.length > 0 ? (
-                session.pipeline.waves.map((wave) => (
-                  <div key={wave.number} className="mb-2">
-                    <div className="text-[9px] font-semibold text-text-placeholder mb-1">
-                      Wave {wave.number}
-                    </div>
-                    <div className="flex gap-1.5 flex-wrap">
-                      {wave.nodes.map((node) => (
-                        <PipelineNodeBadge key={node.id} node={node} />
-                      ))}
-                    </div>
-                  </div>
-                ))
+                <PipelineMiniDAG waves={session.pipeline.waves} />
               ) : (
-                session.pipelineStages.map((node) => (
-                  <PipelineNodeBadge key={node.id} node={node} />
-                ))
+                <div className="flex gap-1.5 flex-wrap">
+                  {session.pipelineStages.map((node) => (
+                    <PipelineNodeBadge key={node.id} node={node} />
+                  ))}
+                </div>
               )}
             </div>
 
@@ -146,6 +137,184 @@ export function TeamStatusOverlay({
       </div>
     </>
   );
+}
+
+// ---------------------------------------------------------------------------
+// PipelineMiniDAG — SVG mini-graph with wave-based columns and flow arrows
+// ---------------------------------------------------------------------------
+
+interface WaveData {
+  number: number;
+  nodes: PipelineNode[];
+}
+
+/** Layout constants for the mini DAG */
+const DAG = {
+  nodeW: 100,
+  nodeH: 26,
+  colGap: 36,
+  rowGap: 6,
+  padX: 12,
+  padY: 8,
+  arrowLen: 36,
+} as const;
+
+function PipelineMiniDAG({ waves }: { waves: WaveData[] }) {
+  const layout = useMemo(() => {
+    // Sort waves by number
+    const sorted = [...waves].sort((a, b) => a.number - b.number);
+
+    // Compute node positions: each wave is a column, nodes stack vertically
+    const positions = new Map<string, { x: number; y: number; wave: number }>();
+    const waveXPositions: number[] = [];
+
+    let x = DAG.padX;
+    for (const wave of sorted) {
+      waveXPositions.push(x);
+      let y = DAG.padY;
+      for (const node of wave.nodes) {
+        positions.set(node.id, { x, y, wave: wave.number });
+        y += DAG.nodeH + DAG.rowGap;
+      }
+      x += DAG.nodeW + DAG.arrowLen;
+    }
+
+    // Calculate SVG dimensions
+    const maxNodesInWave = Math.max(...sorted.map((w) => w.nodes.length), 1);
+    const svgW = sorted.length * (DAG.nodeW + DAG.arrowLen) - DAG.arrowLen + DAG.padX * 2;
+    const svgH = maxNodesInWave * (DAG.nodeH + DAG.rowGap) - DAG.rowGap + DAG.padY * 2;
+
+    return { sorted, positions, waveXPositions, svgW, svgH };
+  }, [waves]);
+
+  const { sorted, positions, waveXPositions, svgW, svgH } = layout;
+
+  return (
+    <div className="overflow-x-auto">
+      <svg
+        width={svgW}
+        height={svgH}
+        viewBox={`0 0 ${svgW} ${svgH}`}
+        className="block"
+      >
+        <defs>
+          <marker
+            id="dag-arrow"
+            markerWidth="6"
+            markerHeight="4"
+            refX="5"
+            refY="2"
+            orient="auto"
+          >
+            <path d="M0,0 L6,2 L0,4" fill="var(--color-text-placeholder)" />
+          </marker>
+        </defs>
+
+        {/* Flow arrows between consecutive waves */}
+        {sorted.map((wave, waveIdx) => {
+          if (waveIdx === 0) return null;
+          const prevWave = sorted[waveIdx - 1];
+          const prevX = waveXPositions[waveIdx - 1];
+          const currX = waveXPositions[waveIdx];
+
+          // Draw arrows from each node in prev wave to each node in current wave
+          const arrows: React.ReactNode[] = [];
+          for (const fromNode of prevWave.nodes) {
+            const fromPos = positions.get(fromNode.id)!;
+            const fromEndX = prevX + DAG.nodeW;
+            const fromMidY = fromPos.y + DAG.nodeH / 2;
+
+            for (const toNode of wave.nodes) {
+              const toPos = positions.get(toNode.id)!;
+              const toStartX = currX;
+              const toMidY = toPos.y + DAG.nodeH / 2;
+
+              arrows.push(
+                <line
+                  key={`${fromNode.id}-${toNode.id}`}
+                  x1={fromEndX + 2}
+                  y1={fromMidY}
+                  x2={toStartX - 2}
+                  y2={toMidY}
+                  stroke="var(--color-text-placeholder)"
+                  strokeWidth="1"
+                  strokeOpacity="0.4"
+                  markerEnd="url(#dag-arrow)"
+                />,
+              );
+            }
+          }
+          return <g key={`arrows-${wave.number}`}>{arrows}</g>;
+        })}
+
+        {/* Wave column nodes */}
+        {sorted.map((wave) =>
+          wave.nodes.map((node) => {
+            const pos = positions.get(node.id)!;
+            const color = PIPELINE_STATUS_COLORS[node.status];
+            return (
+              <g key={node.id}>
+                {/* Node background */}
+                <rect
+                  x={pos.x}
+                  y={pos.y}
+                  width={DAG.nodeW}
+                  height={DAG.nodeH}
+                  rx={6}
+                  fill="var(--color-bg-hover)"
+                  stroke={color}
+                  strokeWidth={node.status === 'in_progress' ? 1.5 : 0.5}
+                  strokeOpacity={node.status === 'in_progress' ? 1 : 0.4}
+                />
+
+                {/* Status dot */}
+                <circle
+                  cx={pos.x + 10}
+                  cy={pos.y + DAG.nodeH / 2}
+                  r={3}
+                  fill={color}
+                />
+
+                {/* Node label */}
+                <text
+                  x={pos.x + 18}
+                  y={pos.y + DAG.nodeH / 2}
+                  dominantBaseline="central"
+                  fill="var(--color-text-primary)"
+                  fontSize="9"
+                  fontWeight="600"
+                  fontFamily="inherit"
+                >
+                  {truncateLabel(node.name, 10)}
+                </text>
+              </g>
+            );
+          }),
+        )}
+
+        {/* Wave labels */}
+        {sorted.map((wave, waveIdx) => (
+          <text
+            key={`wave-label-${wave.number}`}
+            x={waveXPositions[waveIdx] + DAG.nodeW / 2}
+            y={svgH - 1}
+            textAnchor="middle"
+            fill="var(--color-text-placeholder)"
+            fontSize="8"
+            fontWeight="600"
+          >
+            W{wave.number}
+          </text>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+/** Truncate label to fit in node box */
+function truncateLabel(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen - 1) + '\u2026';
 }
 
 // ---------------------------------------------------------------------------

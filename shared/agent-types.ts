@@ -36,6 +36,8 @@ export interface AgentConfig {
   envFile?: string;
   /** When true, spawn in interactive mode (stdin kept open for follow-up messages) */
   interactive?: boolean;
+  /** Opaque metadata bag — used to pass team session context through the spawn pipeline */
+  metadata?: Record<string, unknown>;
 }
 
 /** Runtime state of a spawned agent process */
@@ -48,6 +50,8 @@ export interface AgentProcess {
   pid?: number;
   /** Whether the agent supports interactive follow-up messages */
   interactive?: boolean;
+  /** Opaque metadata from config — carries team session context etc. */
+  metadata?: Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------

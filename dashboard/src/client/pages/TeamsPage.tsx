@@ -6,6 +6,7 @@ import { ViewSwitcherContext } from '@/client/hooks/useViewSwitcher.js';
 import { useTeamStore } from '@/client/store/team-store.js';
 import { TeamSessionsList } from '@/client/components/teams/TeamSessionsList.js';
 import { TeamSessionDetail } from '@/client/components/teams/TeamSessionDetail.js';
+import { TeamInteractionView } from '@/client/components/teams/TeamInteractionView.js';
 
 // ---------------------------------------------------------------------------
 // TeamsPage — Team Sessions with Cards/Table views + detail drill-down
@@ -30,6 +31,7 @@ export function TeamsPage() {
   const activeView = useTeamStore((s) => s.activeView);
   const setActiveView = useTeamStore((s) => s.setActiveView);
   const activeSessionId = useTeamStore((s) => s.activeSessionId);
+  const activeSession = useTeamStore((s) => s.activeSession);
   const fetchSessions = useTeamStore((s) => s.fetchSessions);
   const loading = useTeamStore((s) => s.loading);
   const error = useTeamStore((s) => s.error);
@@ -104,8 +106,11 @@ export function TeamsPage() {
     );
   }
 
-  // Detail mode
+  // Detail mode — interactive view for active sessions, read-only for completed/archived
   if (activeSessionId) {
+    if (activeSession?.status === 'active') {
+      return <TeamInteractionView />;
+    }
     return <TeamSessionDetail />;
   }
 

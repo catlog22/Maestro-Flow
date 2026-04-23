@@ -146,3 +146,11 @@ export const ROLE_STATUS_COLORS: Record<TeamRole['status'], string> = {
   pending: '#A09D97',
   injected: '#8B6BBF',
 } as const;
+
+export const AGENT_STATUS_COLORS: Record<TeamAgentRoleStatus, string> = {
+  idle: '#A09D97',
+  active: '#4A90D9',
+  busy: '#B89540',
+  error: '#C46555',
+  offline: '#6B6860',
+} as const;

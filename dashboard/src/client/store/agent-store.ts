@@ -3,6 +3,12 @@ import type { AgentProcess, AgentProcessStatus, NormalizedEntry, ApprovalRequest
 
 const MAX_ENTRIES_PER_PROCESS = 500;
 
+/** Auto-dismiss stale stopped/error processes after 30 minutes */
+const STALE_PROCESS_TTL_MS = 30 * 60 * 1000;
+
+/** Track pending TTL timers so they can be cancelled on manual dismiss or unmount */
+const ttlTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
 // ---------------------------------------------------------------------------
 // Token usage accumulator (per-process)
 // ---------------------------------------------------------------------------
@@ -33,6 +39,8 @@ export interface AgentStore {
   addEntry: (processId: string, entry: NormalizedEntry) => void;
   /** Bulk-set all entries for a process in a single state update (avoids O(n) re-renders) */
   setEntries: (processId: string, entries: NormalizedEntry[]) => void;
+  /** Bulk-add entries for multiple processes in a single state update (buffer flush) */
+  batchAddEntries: (batch: Record<string, NormalizedEntry[]>) => void;
   setApproval: (approval: ApprovalRequest) => void;
   clearApproval: (approvalId: string) => void;
   setActiveProcessId: (processId: string | null) => void;
@@ -41,6 +49,8 @@ export interface AgentStore {
   updateProcessTokenUsage: (processId: string, input: number, output: number, cacheRead: number, cacheWrite: number) => void;
   /** Remove a process and all associated state (entries, thoughts, streaming, tokens) */
   dismissProcess: (processId: string) => void;
+  /** Remove processes that have been stopped/error for longer than TTL */
+  cleanupStaleProcesses: () => void;
   clearAll: () => void;
 }
 
@@ -82,14 +92,37 @@ export const useAgentStore = create<AgentStore>((set) => ({
       return { processes: remaining };
     }),
 
-  updateProcessStatus: (processId, status) =>
+  updateProcessStatus: (processId, status) => {
+    // Schedule TTL cleanup when process enters a terminal state
+    if (status === 'stopped' || status === 'error') {
+      if (!ttlTimers.has(processId)) {
+        const timer = setTimeout(() => {
+          ttlTimers.delete(processId);
+          const { processes, activeProcessId, dismissProcess } = useAgentStore.getState();
+          const proc = processes[processId];
+          // Only cleanup if still terminal and not actively viewed
+          if (proc && (proc.status === 'stopped' || proc.status === 'error') && activeProcessId !== processId) {
+            dismissProcess(processId);
+          }
+        }, STALE_PROCESS_TTL_MS);
+        ttlTimers.set(processId, timer);
+      }
+    } else {
+      // Process revived — cancel pending TTL timer
+      const existing = ttlTimers.get(processId);
+      if (existing) {
+        clearTimeout(existing);
+        ttlTimers.delete(processId);
+      }
+    }
     set((state) => {
-      const existing = state.processes[processId];
-      if (!existing) return state;
+      const proc = state.processes[processId];
+      if (!proc) return state;
       return {
-        processes: { ...state.processes, [processId]: { ...existing, status } },
+        processes: { ...state.processes, [processId]: { ...proc, status } },
       };
-    }),
+    });
+  },
 
   addEntry: (processId, entry) =>
     set((state) => {
@@ -141,6 +174,23 @@ export const useAgentStore = create<AgentStore>((set) => ({
       },
     })),
 
+  batchAddEntries: (batch) =>
+    set((state) => {
+      const updated = { ...state.entries };
+      for (const [processId, newEntries] of Object.entries(batch)) {
+        const existing = updated[processId] ?? [];
+        // Filter duplicates by id
+        const existingIds = new Set(existing.map(e => e.id).filter(Boolean));
+        const deduped = newEntries.filter(e => !e.id || !existingIds.has(e.id));
+        if (deduped.length === 0) continue;
+        const combined = [...existing, ...deduped];
+        updated[processId] = combined.length > MAX_ENTRIES_PER_PROCESS
+          ? combined.slice(-MAX_ENTRIES_PER_PROCESS)
+          : combined;
+      }
+      return { entries: updated };
+    }),
+
   setApproval: (approval) =>
     set((state) => ({
       pendingApprovals: { ...state.pendingApprovals, [approval.id]: approval },
@@ -180,7 +230,13 @@ export const useAgentStore = create<AgentStore>((set) => ({
       };
     }),
 
-  dismissProcess: (processId) =>
+  dismissProcess: (processId) => {
+    // Cancel any pending TTL timer for this process
+    const pendingTimer = ttlTimers.get(processId);
+    if (pendingTimer) {
+      clearTimeout(pendingTimer);
+      ttlTimers.delete(processId);
+    }
     set((state) => {
       const { [processId]: _p, ...remainingProcesses } = state.processes;
       const { [processId]: _e, ...remainingEntries } = state.entries;
@@ -201,15 +257,32 @@ export const useAgentStore = create<AgentStore>((set) => ({
         pendingApprovals: remainingApprovals,
         activeProcessId: state.activeProcessId === processId ? null : state.activeProcessId,
       };
-    }),
+    });
+  },
 
-  clearAll: () => set({
-    processes: {},
-    entries: {},
-    pendingApprovals: {},
-    activeProcessId: null,
-    processThoughts: {},
-    processStreaming: {},
-    processTokenUsage: {},
-  }),
+  cleanupStaleProcesses: () => {
+    const { processes, activeProcessId, dismissProcess } = useAgentStore.getState();
+    for (const [processId, proc] of Object.entries(processes)) {
+      if ((proc.status === 'stopped' || proc.status === 'error') && activeProcessId !== processId) {
+        dismissProcess(processId);
+      }
+    }
+  },
+
+  clearAll: () => {
+    // Cancel all pending TTL timers
+    for (const timer of ttlTimers.values()) {
+      clearTimeout(timer);
+    }
+    ttlTimers.clear();
+    set({
+      processes: {},
+      entries: {},
+      pendingApprovals: {},
+      activeProcessId: null,
+      processThoughts: {},
+      processStreaming: {},
+      processTokenUsage: {},
+    });
+  },
 }));

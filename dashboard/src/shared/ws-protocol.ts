@@ -121,7 +121,11 @@ export type WsClientMessage =
   | WsClientIssuePipelineMessage
   | WsClientRequirementExpandMessage
   | WsClientRequirementRefineMessage
-  | WsClientRequirementCommitMessage;
+  | WsClientRequirementCommitMessage
+  | WsClientTeamMessageAction
+  | WsClientTeamBroadcastAction
+  | WsClientTeamSetModeAction
+  | WsClientTeamApproveAction;
 
 export interface WsClientSpawnMessage {
   action: 'spawn';
@@ -292,6 +296,40 @@ export interface WsClientRequirementCommitMessage {
   action: 'requirement:commit';
   requirementId: string;
   mode: 'issues' | 'coordinate';
+}
+
+// ---------------------------------------------------------------------------
+// Team client messages
+// ---------------------------------------------------------------------------
+
+/** Send a message to a specific agent role in a team session */
+export interface WsClientTeamMessageAction {
+  action: 'team:message';
+  sessionId: string;
+  to: string;
+  content: string;
+}
+
+/** Broadcast a message to all agents in a team session */
+export interface WsClientTeamBroadcastAction {
+  action: 'team:broadcast';
+  sessionId: string;
+  content: string;
+}
+
+/** Toggle auto/manual mode for a team session */
+export interface WsClientTeamSetModeAction {
+  action: 'team:set_mode';
+  sessionId: string;
+  mode: 'auto' | 'manual';
+}
+
+/** Approve a pending action in a team session */
+export interface WsClientTeamApproveAction {
+  action: 'team:approve';
+  sessionId: string;
+  requestId: string;
+  allow: boolean;
 }
 
 // ---------------------------------------------------------------------------

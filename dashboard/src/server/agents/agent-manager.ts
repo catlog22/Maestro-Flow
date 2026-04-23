@@ -94,6 +94,16 @@ export class AgentManager {
     }
 
     const process = await adapter.spawn(config);
+
+    // Pass through team metadata from config so it's visible on the emitted AgentProcess
+    if (config.metadata?.teamSessionId || config.metadata?.teamRole) {
+      process.metadata = {
+        ...process.metadata,
+        ...(config.metadata.teamSessionId != null && { teamSessionId: config.metadata.teamSessionId }),
+        ...(config.metadata.teamRole != null && { teamRole: config.metadata.teamRole }),
+      };
+    }
+
     this.processToAdapter.set(process.id, adapter);
     this.entryHistory.set(process.id, []);
 

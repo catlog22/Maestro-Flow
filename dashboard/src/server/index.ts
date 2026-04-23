@@ -36,6 +36,7 @@ import { SelfLearningService } from './supervisor/self-learning-service.js';
 import { TaskSchedulerService } from './supervisor/task-scheduler-service.js';
 import { ExtensionManager } from './supervisor/extension-manager.js';
 import { SupervisorWsHandler } from './ws/handlers/supervisor-handler.js';
+import { TeamWsHandler } from './ws/handlers/team-handler.js';
 import { ObservabilityService } from './observability/observability-service.js';
 import { createRoutes } from './routes/index.js';
 
@@ -155,6 +156,7 @@ async function main(): Promise<void> {
   const requirementHandler = new RequirementWsHandler(requirementExpander);
 
   const supervisorHandler = new SupervisorWsHandler(learningService, taskSchedulerService);
+  const teamHandler = new TeamWsHandler(eventBus);
 
   const wsManager = new WebSocketManager(eventBus, [
     agentHandler,
@@ -163,6 +165,7 @@ async function main(): Promise<void> {
     coordinateHandler,
     requirementHandler,
     supervisorHandler,
+    teamHandler,
   ]);
 
   // ---------------------------------------------------------------------------

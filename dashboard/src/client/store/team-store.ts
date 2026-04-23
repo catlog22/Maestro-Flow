@@ -22,6 +22,9 @@ interface TeamStore {
   phaseState: TeamPhaseState | null;
   agentStatuses: TeamAgentStatus[];
 
+  // TeamAgentBridge: maps sessionId -> role -> processId
+  roleToProcessMap: Record<string, Record<string, string>>;
+
   // Filters
   statusFilter: string;
   skillFilter: string | null;
@@ -42,6 +45,10 @@ interface TeamStore {
   handleDispatchUpdate: (msg: TeamMailboxMessage) => void;
   handlePhaseTransition: (phase: TeamPhaseState) => void;
   handleAgentStatusUpdate: (status: TeamAgentStatus) => void;
+
+  // TeamAgentBridge actions
+  registerAgentProcess: (sessionId: string, role: string, processId: string) => void;
+  getProcessIdForRole: (sessionId: string, role: string) => string | undefined;
 
   // Derived
   filteredSessions: () => TeamSessionSummary[];
@@ -64,6 +71,7 @@ export const useTeamStore = create<TeamStore>((set, get) => ({
   mailboxMessages: [],
   phaseState: null,
   agentStatuses: [],
+  roleToProcessMap: {},
 
   setActiveView: (view) => set({ activeView: view }),
   setStatusFilter: (status) => set({ statusFilter: status }),
@@ -121,6 +129,24 @@ export const useTeamStore = create<TeamStore>((set, get) => ({
       );
     }
     return result;
+  },
+
+  // TeamAgentBridge actions
+
+  registerAgentProcess: (sessionId, role, processId) => {
+    set((s) => {
+      const sessionRoles = s.roleToProcessMap[sessionId] ?? {};
+      return {
+        roleToProcessMap: {
+          ...s.roleToProcessMap,
+          [sessionId]: { ...sessionRoles, [role]: processId },
+        },
+      };
+    });
+  },
+
+  getProcessIdForRole: (sessionId, role) => {
+    return get().roleToProcessMap[sessionId]?.[role];
   },
 
   // SSE team event handlers

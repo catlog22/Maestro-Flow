@@ -11,11 +11,14 @@ import type { TeamMailboxMessage, TeamPhaseState, TeamAgentStatus } from '@/shar
 // useSSE — connect to /events, dispatch to board store, auto-reconnect
 // ---------------------------------------------------------------------------
 
-const RECONNECT_DELAY_MS = 3000;
+const RECONNECT_BASE_MS = 1000;
+const RECONNECT_MAX_MS = 30_000;
+const RECONNECT_JITTER_MS = 500;
 
 export function useSSE(): void {
   const esRef = useRef<EventSource | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectDelay = useRef(RECONNECT_BASE_MS);
 
   useEffect(() => {
     let disposed = false;
@@ -30,6 +33,7 @@ export function useSSE(): void {
 
       es.onopen = () => {
         setConnected(true);
+        reconnectDelay.current = RECONNECT_BASE_MS; // reset on success
       };
 
       // Named event listeners matching SSE_EVENT_TYPES
@@ -127,9 +131,11 @@ export function useSSE(): void {
         es.close();
         esRef.current = null;
 
-        // Schedule reconnect
+        // Schedule reconnect with exponential backoff + jitter
         if (!disposed) {
-          reconnectTimer.current = setTimeout(connect, RECONNECT_DELAY_MS);
+          const delay = reconnectDelay.current + Math.random() * RECONNECT_JITTER_MS;
+          reconnectDelay.current = Math.min(reconnectDelay.current * 2, RECONNECT_MAX_MS);
+          reconnectTimer.current = setTimeout(connect, delay);
         }
       };
     }

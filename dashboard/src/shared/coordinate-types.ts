@@ -84,3 +84,42 @@ export interface CoordinateClarificationPayload {
   sessionId: string;
   question: string;
 }
+
+// ---------------------------------------------------------------------------
+// Graph types — dashboard-local subset of src/coordinator/graph-types.ts
+// ---------------------------------------------------------------------------
+
+export type GraphNodeType = 'command' | 'decision' | 'gate' | 'fork' | 'join' | 'eval' | 'terminal';
+
+export interface DashboardGraphNode {
+  type: GraphNodeType;
+  description?: string;
+  /** outgoing edge target node ids */
+  next?: string | string[];
+}
+
+export interface DashboardChainGraph {
+  id: string;
+  name: string;
+  entry: string;
+  nodes: Record<string, DashboardGraphNode>;
+}
+
+export type DashboardWalkerStatus =
+  | 'running'
+  | 'waiting_command'
+  | 'waiting_gate'
+  | 'waiting_fork'
+  | 'step_paused'
+  | 'paused'
+  | 'completed'
+  | 'failed';
+
+export interface DashboardWalkerState {
+  current_node: string;
+  status: DashboardWalkerStatus;
+  history: Array<{
+    node_id: string;
+    outcome?: 'success' | 'failure' | 'skipped';
+  }>;
+}

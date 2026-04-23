@@ -718,13 +718,20 @@ body {
   100% { transform: scale(2.2); opacity: 0; }
 }
 
+/* Agent status pulse dot animation (GPU-accelerated) */
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.6; }
+}
+
 /* DockRail floating panel open state is now driven by React state (isPanelOpen).
    Conditional Tailwind classes: translate-x-0 opacity-100 pointer-events-auto */
 
 /* Reduced motion: disable all animations */
 @media (prefers-reduced-motion: reduce) {
   .animate-ping,
-  .animate-pulse {
+  .animate-pulse,
+  .pulse-dot {
     animation: none;
   }
 }

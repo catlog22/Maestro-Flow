@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useCoordinateStore } from '@/client/store/coordinate-store.js';
+import { CoordinateGraphView } from './CoordinateGraphView.js';
 import type { CoordinateStep, CoordinateStepStatus } from '@/shared/coordinate-types.js';
 import PlayIcon from 'lucide-react/dist/esm/icons/play.js';
 import SquareIcon from 'lucide-react/dist/esm/icons/square.js';
@@ -11,6 +12,8 @@ import CircleIcon from 'lucide-react/dist/esm/icons/circle.js';
 import LoaderIcon from 'lucide-react/dist/esm/icons/loader.js';
 import SendIcon from 'lucide-react/dist/esm/icons/send.js';
 import MessageCircleIcon from 'lucide-react/dist/esm/icons/message-circle.js';
+import GitBranchIcon from 'lucide-react/dist/esm/icons/git-branch.js';
+import ListIcon from 'lucide-react/dist/esm/icons/list.js';
 
 // ---------------------------------------------------------------------------
 // CoordinatePanel -- control bar + chain progress + step detail
@@ -109,6 +112,11 @@ export function CoordinatePanel() {
   const selectStep = useCoordinateStore((s) => s.selectStep);
   const sendClarification = useCoordinateStore((s) => s.sendClarification);
 
+  const currentGraph = useCoordinateStore((s) => s.currentGraph);
+  const selectedNodeId = useCoordinateStore((s) => s.selectedNodeId);
+  const selectNodeAction = useCoordinateStore((s) => s.selectNode);
+
+  const [viewMode, setViewMode] = useState<'graph' | 'steps'>('steps');
   const [intent, setIntent] = useState('');
   const [tool, setTool] = useState<string>('claude');
   const [autoMode, setAutoMode] = useState(true);
@@ -234,6 +242,53 @@ export function CoordinatePanel() {
           </button>
         )}
       </div>
+
+      {/* View mode toggle */}
+      {session && currentGraph && (
+        <div
+          className="shrink-0 flex items-center gap-0 px-[var(--spacing-4)] py-[var(--spacing-1)]"
+          style={{ borderBottom: '1px solid var(--color-border)' }}
+        >
+          <button
+            type="button"
+            onClick={() => setViewMode('graph')}
+            className="flex items-center gap-[var(--spacing-1)] px-[var(--spacing-3)] py-[var(--spacing-1-5)] text-[length:var(--font-size-xs)] font-medium rounded-t-[var(--radius-sm)] transition-colors"
+            style={{
+              color: viewMode === 'graph' ? 'var(--color-accent-blue)' : 'var(--color-text-tertiary)',
+              borderBottom: viewMode === 'graph' ? '2px solid var(--color-accent-blue)' : '2px solid transparent',
+            }}
+          >
+            <GitBranchIcon size={13} />
+            Graph
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('steps')}
+            className="flex items-center gap-[var(--spacing-1)] px-[var(--spacing-3)] py-[var(--spacing-1-5)] text-[length:var(--font-size-xs)] font-medium rounded-t-[var(--radius-sm)] transition-colors"
+            style={{
+              color: viewMode === 'steps' ? 'var(--color-accent-blue)' : 'var(--color-text-tertiary)',
+              borderBottom: viewMode === 'steps' ? '2px solid var(--color-accent-blue)' : '2px solid transparent',
+            }}
+          >
+            <ListIcon size={13} />
+            Steps
+          </button>
+        </div>
+      )}
+
+      {/* Graph view (primary when active) */}
+      {viewMode === 'graph' && currentGraph && (
+        <div
+          className="shrink-0 overflow-hidden"
+          style={{ height: 300, borderBottom: '1px solid var(--color-border)' }}
+        >
+          <CoordinateGraphView
+            graph={currentGraph}
+            selectedNodeId={selectedNodeId}
+            onSelectNode={selectNodeAction}
+          />
+        </div>
+      )}
 
       {/* Main content area */}
       <div className="flex-1 flex overflow-hidden">
