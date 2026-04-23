@@ -183,9 +183,11 @@ export function useWebSocket(): void {
 
           for (const proc of agents) {
               const agentProc = proc as AgentProcess;
+              const isCliHistory = agentProc.id.startsWith('cli-history-');
+              const isTerminal = agentProc.status === 'stopped' || agentProc.status === 'error';
 
               // Reconcile: if server says running but CLI history says completed, fix status
-              if (agentProc.id.startsWith('cli-history-') && agentProc.status === 'running') {
+              if (isCliHistory && agentProc.status === 'running') {
                 const execId = agentProc.id.slice('cli-history-'.length);
                 const histMeta = historyByExecId.get(execId);
                 if (histMeta?.completedAt) {
@@ -194,35 +196,36 @@ export function useWebSocket(): void {
               }
 
               addProcess(agentProc);
-              const isCliHistory = agentProc.id.startsWith('cli-history-');
+
+              // Skip entry fetch for terminal cli-history processes — they can be
+              // loaded on demand from ChatSidebar when the user clicks them.
+              // This avoids flooding the server with 404s for stale test sessions.
+              if (isCliHistory && (agentProc.status === 'stopped' || agentProc.status === 'error')) {
+                continue;
+              }
 
               // Load buffered entries so chat history is visible after reconnect
-              fetch(`/api/agents/${encodeURIComponent(agentProc.id)}/entries`)
-                .then(r => r.ok ? r.json() : null)
-                .then(async (entries: unknown) => {
-                  let raw = Array.isArray(entries) ? entries as NormalizedEntry[] : [];
-
-                  // cli-history processes: prefer disk entries (complete, partial=false)
-                  // over broker-monitor entries (fragments, partial=true)
-                  if (isCliHistory) {
-                    const execId = agentProc.id.slice('cli-history-'.length);
-                    try {
-                      const histRes = await fetch(`/api/cli-history/${encodeURIComponent(execId)}/entries`);
-                      if (histRes.ok) {
-                        const histEntries = (await histRes.json()) as NormalizedEntry[];
-                        if (Array.isArray(histEntries) && histEntries.length > 0) {
-                          raw = histEntries;
-                        }
-                      }
-                    } catch { /* silent */ }
-                    // Consolidate: clear partial flags, merge fragments
+              // Only for live agents or actively running/spawning cli-history processes
+              if (isCliHistory) {
+                // For running cli-history: fetch from disk directly (single request)
+                const execId = agentProc.id.slice('cli-history-'.length);
+                fetch(`/api/cli-history/${encodeURIComponent(execId)}/entries`)
+                  .then(r => r.ok ? r.json() : null)
+                  .then((entries: unknown) => {
+                    const raw = Array.isArray(entries) ? entries as NormalizedEntry[] : [];
                     const merged = consolidateHistoryEntries(raw, agentProc.id);
                     for (const entry of merged) addEntry(agentProc.id, entry);
-                  } else {
+                  })
+                  .catch(() => {});
+              } else {
+                fetch(`/api/agents/${encodeURIComponent(agentProc.id)}/entries`)
+                  .then(r => r.ok ? r.json() : null)
+                  .then((entries: unknown) => {
+                    const raw = Array.isArray(entries) ? entries as NormalizedEntry[] : [];
                     for (const entry of raw) addEntry(agentProc.id, entry as NormalizedEntry);
-                  }
-                })
-                .catch(() => {});
+                  })
+                  .catch(() => {});
+              }
           }
         }).catch(() => {});
 

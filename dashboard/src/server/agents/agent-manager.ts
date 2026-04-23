@@ -291,7 +291,14 @@ export class AgentManager {
     for (const adapter of this.adapters.values()) {
       all.push(...adapter.listProcesses());
     }
-    all.push(...this.cliProcesses.values());
+    // Only include CLI bridge processes that are still active.
+    // Stopped/error CLI processes are already available via /api/cli-history
+    // and should not be listed here to avoid flooding the frontend.
+    for (const proc of this.cliProcesses.values()) {
+      if (proc.status !== 'stopped' && proc.status !== 'error') {
+        all.push(proc);
+      }
+    }
     return all;
   }
 

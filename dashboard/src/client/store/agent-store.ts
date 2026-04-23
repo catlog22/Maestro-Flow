@@ -6,6 +6,28 @@ const MAX_ENTRIES_PER_PROCESS = 500;
 /** Auto-dismiss stale stopped/error processes after 30 minutes */
 const STALE_PROCESS_TTL_MS = 30 * 60 * 1000;
 
+/** localStorage key for custom session titles */
+const TITLES_STORAGE_KEY = 'maestro-session-titles';
+
+/** Load persisted session titles from localStorage */
+function loadPersistedTitles(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(TITLES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) as Record<string, string> : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Persist session titles to localStorage */
+function persistTitles(titles: Record<string, string>): void {
+  try {
+    localStorage.setItem(TITLES_STORAGE_KEY, JSON.stringify(titles));
+  } catch {
+    // Storage full or unavailable — best effort
+  }
+}
+
 /** Track pending TTL timers so they can be cancelled on manual dismiss or unmount */
 const ttlTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -32,6 +54,8 @@ export interface AgentStore {
   processThoughts: Record<string, ThoughtData>;
   processStreaming: Record<string, boolean>;
   processTokenUsage: Record<string, TokenUsageAccumulator>;
+  selectedProcessIds: Set<string>;
+  processTitles: Record<string, string>;
 
   addProcess: (process: AgentProcess) => void;
   removeProcess: (processId: string) => void;
@@ -52,6 +76,11 @@ export interface AgentStore {
   /** Remove processes that have been stopped/error for longer than TTL */
   cleanupStaleProcesses: () => void;
   clearAll: () => void;
+  toggleProcessSelection: (id: string) => void;
+  clearProcessSelection: () => void;
+  renameProcess: (id: string, title: string) => void;
+  batchDismissProcesses: (ids: Iterable<string>) => void;
+  getProcessTitle: (id: string) => string | undefined;
 }
 
 export const useAgentStore = create<AgentStore>((set) => ({
@@ -62,6 +91,8 @@ export const useAgentStore = create<AgentStore>((set) => ({
   processThoughts: {},
   processStreaming: {},
   processTokenUsage: {},
+  selectedProcessIds: new Set<string>(),
+  processTitles: loadPersistedTitles(),
 
   addProcess: (process) =>
     set((state) => {
@@ -269,6 +300,39 @@ export const useAgentStore = create<AgentStore>((set) => ({
     }
   },
 
+  toggleProcessSelection: (id) =>
+    set((state) => {
+      const next = new Set(state.selectedProcessIds);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return { selectedProcessIds: next };
+    }),
+
+  clearProcessSelection: () => set({ selectedProcessIds: new Set<string>() }),
+
+  renameProcess: (id, title) =>
+    set((state) => {
+      const titles = { ...state.processTitles, [id]: title };
+      persistTitles(titles);
+      return { processTitles: titles };
+    }),
+
+  batchDismissProcesses: (ids) => {
+    const { dismissProcess } = useAgentStore.getState();
+    for (const id of ids) {
+      dismissProcess(id);
+    }
+    set({ selectedProcessIds: new Set<string>() });
+  },
+
+  getProcessTitle: (id: string): string | undefined => {
+    const state = useAgentStore.getState();
+    return state.processTitles[id] || undefined;
+  },
+
   clearAll: () => {
     // Cancel all pending TTL timers
     for (const timer of ttlTimers.values()) {
@@ -283,6 +347,7 @@ export const useAgentStore = create<AgentStore>((set) => ({
       processThoughts: {},
       processStreaming: {},
       processTokenUsage: {},
+      selectedProcessIds: new Set<string>(),
     });
   },
 }));

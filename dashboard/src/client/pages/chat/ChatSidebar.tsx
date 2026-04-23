@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import * as ContextMenu from '@radix-ui/react-context-menu';
+import { Pencil, Trash2, Copy } from 'lucide-react';
 import { useAgentStore } from '@/client/store/agent-store.js';
 import { useWorkspaceTree } from '@/client/hooks/useWorkspaceTree.js';
 import { useGitStatus } from '@/client/hooks/useGitStatus.js';
@@ -75,18 +77,60 @@ function collectLeaves(node: import('@/client/types/layout-types.js').EditorGrou
   return [...collectLeaves(node.first), ...collectLeaves(node.second)];
 }
 
+/** Copy text to clipboard */
+async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+  }
+}
+
 function ConversationList() {
   const processes = useAgentStore((s) => s.processes);
   const setActiveProcessId = useAgentStore((s) => s.setActiveProcessId);
   const activeProcessId = useAgentStore((s) => s.activeProcessId);
+  const selectedProcessIds = useAgentStore((s) => s.selectedProcessIds);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const lastClickedId = useRef<string | null>(null);
   const { state: layoutState, dispatch: layoutDispatch } = useLayoutContext();
 
   // Select a process: set active + lazy-load entries if empty
-  const handleSelect = useCallback(async (processId: string) => {
-    setActiveProcessId(processId);
+  const handleSelect = useCallback(async (processId: string, e?: React.MouseEvent) => {
+    // Multi-select: Ctrl/Cmd+Click toggles selection
+    if (e && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      useAgentStore.getState().toggleProcessSelection(processId);
+      lastClickedId.current = processId;
+      return;
+    }
 
-    // Directly activate the tab in LayoutContext (don't rely solely on ChatWorkspace sync)
+    // If in multi-select mode, clicking normally adds/removes from selection
+    const { selectedProcessIds: currentSel, clearProcessSelection } = useAgentStore.getState();
+    if (currentSel.size > 0 && !currentSel.has(processId)) {
+      useAgentStore.getState().toggleProcessSelection(processId);
+      lastClickedId.current = processId;
+      return;
+    }
+    if (currentSel.has(processId) && currentSel.size === 1) {
+      clearProcessSelection();
+      lastClickedId.current = null;
+      return;
+    }
+
+    // Normal select
+    clearProcessSelection();
+    setActiveProcessId(processId);
+    lastClickedId.current = processId;
+
+    // Directly activate the tab in LayoutContext
     const tabId = `chat-${processId}`;
     const leaves = collectLeaves(layoutState.editorArea);
     for (const leaf of leaves) {
@@ -102,7 +146,7 @@ function ConversationList() {
     const { entries, setEntries } = useAgentStore.getState();
     const existing = entries[processId];
     // Skip fetch only if we already have content entries (user/assistant messages)
-    if (existing && existing.some((e) => e.type === 'user_message' || e.type === 'assistant_message')) return;
+    if (existing && existing.some((en) => en.type === 'user_message' || en.type === 'assistant_message')) return;
 
     setLoadingId(processId);
     try {
@@ -131,7 +175,7 @@ function ConversationList() {
           // Merge tool_use running→completed pairs
           if (fixed.type === 'tool_use' && (fixed.status === 'completed' || fixed.status === 'failed')) {
             const runIdx = merged.findLastIndex(
-              (e) => e.type === 'tool_use' && (e as typeof fixed).status === 'running',
+              (en) => en.type === 'tool_use' && (en as typeof fixed).status === 'running',
             );
             if (runIdx !== -1) {
               const running = merged[runIdx] as typeof fixed;
@@ -159,7 +203,7 @@ function ConversationList() {
         }
 
         // Synthesize user_message from process config if none exists
-        const hasUserMessage = merged.some((e) => e.type === 'user_message');
+        const hasUserMessage = merged.some((en) => en.type === 'user_message');
         if (!hasUserMessage) {
           const proc = useAgentStore.getState().processes[processId];
           const prompt = proc?.config?.prompt;
@@ -180,6 +224,21 @@ function ConversationList() {
     setLoadingId(null);
   }, [setActiveProcessId, layoutState.editorArea, layoutDispatch]);
 
+  // Keyboard shortcut: Escape clears selection, Delete dismisses selected
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const { selectedProcessIds: sel, clearProcessSelection, batchDismissProcesses } = useAgentStore.getState();
+      if (e.key === 'Escape' && sel.size > 0) {
+        clearProcessSelection();
+      }
+      if (e.key === 'Delete' && sel.size > 0) {
+        batchDismissProcesses(sel);
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const { active, completed } = useMemo(() => {
     const all = Object.values(processes);
     const activeList: AgentProcess[] = [];
@@ -196,6 +255,8 @@ function ConversationList() {
     completedList.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
     return { active: activeList, completed: completedList };
   }, [processes]);
+
+  const hasSelection = selectedProcessIds.size > 0;
 
   if (active.length === 0 && completed.length === 0) {
     return (
@@ -216,7 +277,15 @@ function ConversationList() {
             Active ({active.length})
           </div>
           {active.map((p) => (
-            <ConversationItem key={p.id} process={p} isActive={p.id === activeProcessId} loading={loadingId === p.id} onSelect={handleSelect} />
+            <ConversationItem
+              key={p.id}
+              process={p}
+              isActive={p.id === activeProcessId}
+              isSelected={selectedProcessIds.has(p.id)}
+              hasSelection={hasSelection}
+              loading={loadingId === p.id}
+              onSelect={handleSelect}
+            />
           ))}
         </>
       )}
@@ -229,25 +298,92 @@ function ConversationList() {
             Completed ({completed.length})
           </div>
           {completed.map((p) => (
-            <ConversationItem key={p.id} process={p} isActive={p.id === activeProcessId} loading={loadingId === p.id} onSelect={handleSelect} />
+            <ConversationItem
+              key={p.id}
+              process={p}
+              isActive={p.id === activeProcessId}
+              isSelected={selectedProcessIds.has(p.id)}
+              hasSelection={hasSelection}
+              loading={loadingId === p.id}
+              onSelect={handleSelect}
+            />
           ))}
         </>
       )}
+      {/* Batch action bar */}
+      {hasSelection && <BatchActionBar count={selectedProcessIds.size} />}
     </>
   );
 }
 
+// ---------------------------------------------------------------------------
+// BatchActionBar — floating bar at bottom of sidebar when items selected
+// ---------------------------------------------------------------------------
+
+function BatchActionBar({ count }: { count: number }) {
+  const clearSelection = useAgentStore((s) => s.clearProcessSelection);
+  const selectedIds = useAgentStore((s) => s.selectedProcessIds);
+
+  const handleDelete = useCallback(() => {
+    useAgentStore.getState().batchDismissProcesses(selectedIds);
+  }, [selectedIds]);
+
+  return (
+    <div
+      className="flex items-center gap-2 mx-1 mt-2 px-3 py-2 rounded-lg"
+      style={{
+        backgroundColor: 'var(--color-tint-exploring)',
+        border: '1px solid var(--color-accent-blue)',
+      }}
+    >
+      <span className="text-[11px] font-medium flex-1" style={{ color: 'var(--color-text-primary)' }}>
+        {count} selected
+      </span>
+      <button
+        type="button"
+        onClick={handleDelete}
+        className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium border-none cursor-pointer"
+        style={{ backgroundColor: 'var(--color-tint-blocked)', color: 'var(--color-accent-red)' }}
+      >
+        <Trash2 size={11} />
+        Delete
+      </button>
+      <button
+        type="button"
+        onClick={clearSelection}
+        className="px-2 py-1 rounded text-[10px] border-none cursor-pointer"
+        style={{ backgroundColor: 'var(--color-bg-hover)', color: 'var(--color-text-secondary)' }}
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ConversationItem — with context menu, multi-select, inline rename
+// ---------------------------------------------------------------------------
+
 function ConversationItem({
   process,
   isActive,
+  isSelected,
+  hasSelection,
   loading,
   onSelect,
 }: {
   process: AgentProcess;
   isActive: boolean;
+  isSelected: boolean;
+  hasSelection: boolean;
   loading?: boolean;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, e?: React.MouseEvent) => void;
 }) {
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const renameRef = useRef<HTMLInputElement>(null);
+  const processTitles = useAgentStore((s) => s.processTitles);
+
   const isRunning = process.status === 'running' || process.status === 'spawning';
   const dotColor = isRunning
     ? 'var(--color-accent-green)'
@@ -255,35 +391,163 @@ function ConversationItem({
       ? 'var(--color-accent-red, #D05454)'
       : 'var(--color-text-placeholder)';
   const agentLabel = AGENT_LABELS[process.type] ?? process.type;
-  const title = process.config?.prompt?.slice(0, 40) || agentLabel;
+  const title = processTitles[process.id] ?? process.config?.prompt?.slice(0, 40) ?? agentLabel;
+
+  const startRename = useCallback(() => {
+    setRenameValue(title);
+    setRenaming(true);
+    // Focus input after render
+    requestAnimationFrame(() => renameRef.current?.focus());
+  }, [title]);
+
+  const confirmRename = useCallback(() => {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== title) {
+      useAgentStore.getState().renameProcess(process.id, trimmed);
+    }
+    setRenaming(false);
+  }, [renameValue, title, process.id]);
+
+  const handleRenameKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      confirmRename();
+    } else if (e.key === 'Escape') {
+      setRenaming(false);
+    }
+  }, [confirmRename]);
+
+  const handleCopyTitle = useCallback(() => {
+    copyToClipboard(title);
+  }, [title]);
+
+  const handleDelete = useCallback(() => {
+    useAgentStore.getState().dismissProcess(process.id);
+  }, [process.id]);
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(process.id)}
-      className="flex items-center gap-[7px] w-full rounded-[5px] border-none cursor-pointer transition-all duration-100 text-left"
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>
+        <div
+          className="relative flex items-center gap-[7px] w-full rounded-[5px] cursor-pointer transition-all duration-100"
+          style={{
+            padding: '5px 7px',
+            backgroundColor: isSelected
+              ? 'var(--color-tint-exploring)'
+              : isActive
+                ? 'var(--color-bg-active)'
+                : 'transparent',
+            borderLeft: isSelected ? '2px solid var(--color-accent-blue)' : '2px solid transparent',
+          }}
+          onClick={(e) => onSelect(process.id, e)}
+          onMouseEnter={(e) => {
+            if (!isActive && !isSelected) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-hover)';
+          }}
+          onMouseLeave={(e) => {
+            if (!isActive && !isSelected) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+          }}
+        >
+          {/* Checkbox when in multi-select mode */}
+          {hasSelection && (
+            <span
+              className="shrink-0 w-[13px] h-[13px] rounded-[3px] border flex items-center justify-center"
+              style={{
+                borderColor: isSelected ? 'var(--color-accent-blue)' : 'var(--color-border)',
+                backgroundColor: isSelected ? 'var(--color-accent-blue)' : 'transparent',
+              }}
+            >
+              {isSelected && (
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </span>
+          )}
+          <span className="w-[6px] h-[6px] rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
+          <div className="flex-1 min-w-0">
+            {renaming ? (
+              <input
+                ref={renameRef}
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onBlur={confirmRename}
+                onKeyDown={handleRenameKeyDown}
+                className="w-full text-[11px] font-medium bg-transparent border-b outline-none py-0"
+                style={{
+                  color: 'var(--color-text-primary)',
+                  borderColor: 'var(--color-accent-blue)',
+                  fontFamily: 'inherit',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <div className="text-[11px] font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
+                {loading ? 'Loading...' : title}
+              </div>
+            )}
+            <div className="text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>
+              {formatTimeAgo(process.startedAt)} &middot; {agentLabel.toLowerCase()}
+            </div>
+          </div>
+        </div>
+      </ContextMenu.Trigger>
+
+      <ContextMenu.Portal>
+        <ContextMenu.Content
+          className="min-w-[150px] z-[100] rounded-md py-1"
+          style={{
+            backgroundColor: 'var(--color-bg-elevated, var(--color-bg-primary))',
+            border: '1px solid var(--color-border)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+          }}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
+          <ContextMenuItem icon={<Pencil size={13} />} label="Rename" shortcut="F2" onSelect={startRename} />
+          <ContextMenuItem icon={<Copy size={13} />} label="Copy Title" onSelect={handleCopyTitle} />
+          <ContextMenu.Separator className="h-px my-1" style={{ backgroundColor: 'var(--color-border-divider)' }} />
+          <ContextMenuItem icon={<Trash2 size={13} />} label="Delete" shortcut="Del" destructive onSelect={handleDelete} />
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
+  );
+}
+
+function ContextMenuItem({
+  icon,
+  label,
+  shortcut,
+  destructive,
+  onSelect,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  shortcut?: string;
+  destructive?: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <ContextMenu.Item
+      className="flex items-center gap-2 w-full px-3 py-1.5 text-[12px] rounded-sm cursor-pointer outline-none transition-colors"
       style={{
-        padding: '5px 7px',
-        backgroundColor: isActive ? 'var(--color-bg-active)' : 'transparent',
-        fontFamily: 'inherit',
+        color: destructive ? 'var(--color-accent-red)' : 'var(--color-text-secondary)',
       }}
+      onSelect={onSelect}
       onMouseEnter={(e) => {
-        if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-hover)';
+        (e.currentTarget as HTMLElement).style.backgroundColor = destructive ? 'var(--color-tint-blocked)' : 'var(--color-bg-hover)';
       }}
       onMouseLeave={(e) => {
-        if (!isActive) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+        (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
       }}
     >
-      <span className="w-[6px] h-[6px] rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
-      <div className="flex-1 min-w-0">
-        <div className="text-[11px] font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-          {title}
-        </div>
-        <div className="text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>
-          {formatTimeAgo(process.startedAt)} &middot; {agentLabel.toLowerCase()}
-        </div>
-      </div>
-    </button>
+      <span className="shrink-0" style={{ opacity: 0.7 }}>{icon}</span>
+      <span className="flex-1">{label}</span>
+      {shortcut && (
+        <span className="text-[10px] font-mono" style={{ color: 'var(--color-text-tertiary)' }}>
+          {shortcut}
+        </span>
+      )}
+    </ContextMenu.Item>
   );
 }
 
