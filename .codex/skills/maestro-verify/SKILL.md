@@ -63,7 +63,7 @@ Wave-based 3-layer Goal-Backward verification using `spawn_agents_on_csv`. Decom
 $maestro-verify "3"
 $maestro-verify -c 4 "3 --skip-tests"
 $maestro-verify -y "3 --skip-antipattern"
-$maestro-verify --continue "verify-phase3-20260318"
+$maestro-verify --continue "20260318-verify-P3-auth"
 ```
 
 **Flags**:
@@ -132,7 +132,7 @@ Each wave generates `wave-{N}.csv` with extra `prev_context` column.
 ### Session Structure
 
 ```
-.workflow/.csv-wave/verify-{phase}-{date}/
+.workflow/.csv-wave/{YYYYMMDD}-verify-P{N}-{slug}/
 +-- tasks.csv
 +-- results.csv
 +-- discoveries.ndjson
@@ -179,7 +179,7 @@ const phaseArg = $ARGUMENTS
   .trim()
 
 const dateStr = getUtc8ISOString().substring(0, 10).replace(/-/g, '')
-const sessionId = `verify-phase${phaseArg}-${dateStr}`
+const sessionId = `${dateStr}-verify-P${phaseArg}-${phaseSlug}`
 const sessionFolder = `.workflow/.csv-wave/${sessionId}`
 
 Bash(`mkdir -p ${sessionFolder}`)
@@ -191,7 +191,7 @@ Bash(`mkdir -p ${sessionFolder}`)
 
 **Decomposition Rules**:
 
-1. **Phase resolution**: Resolve `{phaseArg}` via artifact registry in `state.json` to `.workflow/scratch/{type}-{slug}-{date}/`
+1. **Phase resolution**: Resolve `{phaseArg}` via artifact registry in `state.json` to `.workflow/scratch/{YYYYMMDD}-{type}-{slug}/`
 2. **Artifact loading**: Read from phase directory:
    - `index.json` -- success_criteria (ground truth for verification)
    - `plan.json` -- original plan with task_ids

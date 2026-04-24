@@ -53,12 +53,7 @@ Create `.workflow/specs/` directory and write:
 | `debug-notes.md` | Skipped — created on demand via `spec-add debug` |
 | `review-standards.md` | Skipped — created on demand via `spec-add review` |
 
-### Step 5: Generate Tech Profile
-
-Read template from `~/.maestro/templates/project-tech.json` if available.
-Write `.workflow/project-tech.json` with detected tech stack.
-
-### Step 6: Display Report
+### Step 5: Display Report
 
 ```
 === SPEC SETUP COMPLETE ===
@@ -67,7 +62,6 @@ Created:
   - .workflow/specs/architecture-constraints.md (category: arch)
   - .workflow/specs/learnings.md             (category: learning)
   {optional files if created}
-  - .workflow/project-tech.json
 
 Next: Run Skill({ skill: "spec-add", args: "<category> <content>" }) to add entries
 Categories: coding, arch, quality, debug, test, review, learning
@@ -89,6 +83,5 @@ Categories: coding, arch, quality, debug, test, review, learning
 - [ ] `.workflow/specs/` directory created
 - [ ] 3 core spec files always created (coding, arch, learning)
 - [ ] Optional files created only when relevant signals detected
-- [ ] `.workflow/project-tech.json` written with detected tech stack
 - [ ] Completion report displayed with category labels
 </success_criteria>

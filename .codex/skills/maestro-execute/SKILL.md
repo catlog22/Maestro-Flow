@@ -60,7 +60,7 @@ $maestro-execute "3"
 $maestro-execute -c 4 "3 --auto-commit"
 $maestro-execute -y "3 --method cli"
 $maestro-execute "3 --dir .workflow/scratch/quick-fix"
-$maestro-execute --continue "execute-phase3-20260318"
+$maestro-execute --continue "20260318-execute-P3-phase3"
 ```
 
 **Flags**:
@@ -130,7 +130,7 @@ Each wave generates `wave-{N}.csv` with extra `prev_context` column populated fr
 ### Session Structure
 
 ```
-.workflow/.csv-wave/execute-{phase}-{date}/
+.workflow/.csv-wave/{YYYYMMDD}-execute-P{N}-{slug}/
 +-- tasks.csv
 +-- results.csv
 +-- discoveries.ndjson
@@ -181,8 +181,8 @@ const phaseArg = $ARGUMENTS
 
 const dateStr = getUtc8ISOString().substring(0, 10).replace(/-/g, '')
 const sessionId = scratchDir
-  ? `execute-scratch-${dateStr}`
-  : `execute-phase${phaseArg}-${dateStr}`
+  ? `${dateStr}-execute-scratch`
+  : `${dateStr}-execute-P${phaseArg}-${phaseSlug}`
 const sessionFolder = `.workflow/.csv-wave/${sessionId}`
 
 Bash(`mkdir -p ${sessionFolder}`)

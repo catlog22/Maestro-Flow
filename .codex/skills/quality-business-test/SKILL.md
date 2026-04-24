@@ -130,7 +130,7 @@ Three tiers:
 
 ### Step 5: Generate Test Code (if --gen-code)
 
-Detect project tech stack from `.workflow/specs/project-tech.json` or codebase scan.
+Detect project tech stack from `.workflow/project.md` Tech Stack section or codebase scan.
 
 | Stack | L1 | L2 | L3 |
 |-------|----|----|-----|

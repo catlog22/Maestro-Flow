@@ -119,7 +119,6 @@ If `.workflow/specs/` does not exist:
 1. Create `.workflow/specs/` directory
 2. Auto-trigger `/workflow:specs-setup` — **MUST follow `specs-setup.md` templates exactly**:
    - Scan codebase for conventions
-   - Generate `project-tech.json`
    - Generate `specs/coding-conventions.md`
    - Generate `specs/architecture-constraints.md`
    - Generate `specs/quality-rules.md`

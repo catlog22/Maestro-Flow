@@ -60,7 +60,7 @@ Wave-based multi-perspective issue discovery using `spawn_agents_on_csv`. In def
 $manage-issue-discover
 $manage-issue-discover -c 8 ""
 $manage-issue-discover -y "by-prompt 'error handling gaps in auth module'"
-$manage-issue-discover --continue "discover-multi-20260318"
+$manage-issue-discover --continue "20260318-discover-multi"
 ```
 
 **Flags**:
@@ -127,7 +127,7 @@ Each wave generates `wave-{N}.csv` with extra `prev_context` column.
 ### Session Structure
 
 ```
-.workflow/.csv-wave/discover-{mode}-{date}/
+.workflow/.csv-wave/{YYYYMMDD}-discover-{mode}/
 +-- tasks.csv
 +-- results.csv
 +-- discoveries.ndjson
@@ -185,7 +185,7 @@ const mode = isByPrompt ? 'by-prompt' : 'multi'
 const dateStr = getUtc8ISOString().substring(0, 10).replace(/-/g, '')
 const timeStr = getUtc8ISOString().substring(11, 19).replace(/:/g, '')
 const sessionId = `DBP-${dateStr}-${timeStr}`
-const csvSessionId = `discover-${mode}-${dateStr}`
+const csvSessionId = `${dateStr}-discover-${mode}`
 const sessionFolder = `.workflow/.csv-wave/${csvSessionId}`
 const discoveryDir = `.workflow/issues/discoveries/${sessionId}`
 

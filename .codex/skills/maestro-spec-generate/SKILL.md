@@ -139,7 +139,7 @@ Each wave generates `wave-{N}.csv` with extra `prev_context` column.
 ### Session Structure
 
 ```
-.workflow/.csv-wave/spec-generate-{slug}-{date}/
+.workflow/.csv-wave/{YYYYMMDD}-spec-generate-{slug}/
 +-- tasks.csv
 +-- results.csv
 +-- discoveries.ndjson
@@ -189,7 +189,7 @@ const slug = topicArg.toLowerCase()
   .replace(/[^a-z0-9]+/g, '-')
   .substring(0, 40)
 const dateStr = getUtc8ISOString().substring(0, 10).replace(/-/g, '')
-const sessionId = `spec-generate-${slug}-${dateStr}`
+const sessionId = `${dateStr}-spec-generate-${slug}`
 const sessionFolder = `.workflow/.csv-wave/${sessionId}`
 
 Bash(`mkdir -p ${sessionFolder}`)

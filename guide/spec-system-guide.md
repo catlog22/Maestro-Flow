@@ -83,7 +83,7 @@ Refresh token generation must carry email from stored user data.
 - **可选文件**（检测到时创建）：`quality-rules.md`（有 linter 配置时）、`test-conventions.md`（有测试框架时）
 - **按需文件**（首次 `spec-add` 时创建）：`debug-notes.md`、`review-standards.md`
 
-同时生成 `.workflow/project-tech.json`（技术栈概要）。
+技术栈信息维护在 `.workflow/project.md` 的 `## Tech Stack` 节中。
 
 ### spec-add — 添加条目
 
@@ -230,7 +230,6 @@ L5: Invalid date format "04-21-2026". Expected YYYY-MM-DD
 │   ├── test-conventions.md        # category: test
 │   ├── review-standards.md        # category: review
 │   └── learnings.md               # category: learning
-└── project-tech.json              # 技术栈概要
 ```
 
 每个文件有 YAML frontmatter：

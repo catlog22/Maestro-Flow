@@ -61,7 +61,7 @@ Wave-based multi-dimensional analysis using `spawn_agents_on_csv`. Diamond topol
 $maestro-analyze "3"
 $maestro-analyze -y "microservices vs monolith"
 $maestro-analyze -c 6 "3 -q"
-$maestro-analyze --continue "analyze-microservices-20260318"
+$maestro-analyze --continue "20260318-analyze-microservices"
 ```
 
 **Flags**:
@@ -132,7 +132,7 @@ Each wave generates `wave-{N}.csv` with extra `prev_context` column.
 ### Session Structure
 
 ```
-.workflow/.csv-wave/analyze-{slug}-{date}/
+.workflow/.csv-wave/{YYYYMMDD}-analyze-{slug}/
 +-- tasks.csv
 +-- results.csv
 +-- discoveries.ndjson
@@ -219,9 +219,9 @@ if (GAPS_MODE) {
 }
 
 const dateStr = getUtc8ISOString().substring(0, 10)
-const sessionId = `analyze-${slug}-${dateStr}`
+const sessionId = `${dateStr}-analyze-${slug}`
 const sessionFolder = `.workflow/.csv-wave/${sessionId}`
-const scratchDir = `.workflow/scratch/analyze-${slug}-${dateStr}`
+const scratchDir = `.workflow/scratch/${dateStr}-analyze-${slug}`
 
 Bash(`mkdir -p ${sessionFolder}`)
 Bash(`mkdir -p ${scratchDir}`)

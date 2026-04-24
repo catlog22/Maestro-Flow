@@ -159,14 +159,14 @@ Check if changes warrant spec updates:
   - If new architectural patterns emerged: note in appropriate spec
   - Skip if no spec-relevant changes detected
 
-Check if dependency manifests changed (project-tech.json refresh):
+Check if dependency manifests changed (project.md Tech Stack refresh):
   dependency_files = ["package.json", "go.mod", "pyproject.toml", "Cargo.toml",
                       "requirements.txt", "pom.xml", "build.gradle", "Gemfile"]
   changed_deps = changed_files.filter(f => dependency_files.includes(basename(f)))
-  If changed_deps.length > 0 AND .workflow/project-tech.json exists:
+  If changed_deps.length > 0 AND .workflow/project.md exists:
     Re-scan dependency manifests for current tech stack
-    Update .workflow/project-tech.json with detected changes
-    Display: "project-tech.json: refreshed from {changed_deps.join(', ')}"
+    Update .workflow/project.md Tech Stack section with detected changes
+    Display: "project.md: Tech Stack refreshed from {changed_deps.join(', ')}"
 ```
 
 ### Step 8: Create Action Log
@@ -241,4 +241,4 @@ Sync complete:
 | `.workflow/codebase/tech-registry/{slug}.md` | Regenerated for affected components |
 | `.workflow/codebase/feature-maps/{slug}.md` | Regenerated for affected features |
 | `.workflow/codebase/action-logs/{hash}.md` | Created |
-| `.workflow/project-tech.json` | Updated if dependency manifests changed |
+| `.workflow/project.md` | Tech Stack section updated if dependency manifests changed |

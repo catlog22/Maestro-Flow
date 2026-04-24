@@ -66,7 +66,7 @@ $quality-retrospective "3 --compare 2 --auto-yes"
 When `--auto-yes`: Accept all routing recommendations without prompting. Route all insights automatically.
 
 **Storage written**:
-- `{target_dir}/retrospective.md` -- human-readable record (target_dir resolved via state.json artifact registry to `.workflow/scratch/{type}-{slug}-{date}/`)
+- `{target_dir}/retrospective.md` -- human-readable record (target_dir resolved via state.json artifact registry to `.workflow/scratch/{YYYYMMDD}-{type}-{slug}/`)
 - `{target_dir}/retrospective.json` -- structured record
 - `.workflow/specs/SPEC-retro-*.md` -- spec stubs (one per spec-routed insight)
 - `.workflow/issues/issues.jsonl` -- appended issue rows (`source: "retrospective"`)
@@ -160,7 +160,7 @@ functions.update_plan({
 Validate `--lens` values. If `--compare <M>` present, require single mode.
 
 **Stage 2: Validate phase artifacts**. For each target phase:
-- Phase directory must exist (resolved via state.json artifact registry to `.workflow/scratch/{type}-{slug}-{date}/`)
+- Phase directory must exist (resolved via state.json artifact registry to `.workflow/scratch/{YYYYMMDD}-{type}-{slug}/`)
 - `index.json` must show `status: "completed"`
 - `.task/` directory must exist with at least one `TASK-*.json`
 - If existing `retrospective.json` found and not `--all`: emit W002, prompt overwrite

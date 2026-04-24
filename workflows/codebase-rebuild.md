@@ -49,7 +49,7 @@ Scan src/ (and other source directories) for components:
 
 a. Identify source directories:
    - Check for: src/, lib/, app/, packages/
-   - Use project-tech.json source_dirs if available
+   - Read project.md Tech Stack section if available for context
 
 b. For each source directory, scan for component-forming files:
    - Directories that represent modules (contain index.ts/index.js or multiple files)
@@ -267,16 +267,7 @@ a. Update state.json:
    Set last_updated: "{ISO timestamp}"
    Write updated state.json
 
-b. Update project-tech.json (if exists):
-   Read .workflow/project-tech.json
-   Compare detected tech stack (from Step 2 scan) against existing entries:
-     - New languages, frameworks, databases, tools discovered
-     - Version changes detected (from package.json, go.mod, pyproject.toml, etc.)
-   If differences found:
-     Update project-tech.json with current detected stack
-     Display: "project-tech.json: updated with {count} changes"
-
-c. Update project.md Tech Stack (if exists):
+b. Update project.md Tech Stack (if exists):
    Read .workflow/project.md
    Compare "## Tech Stack" section against detected stack from Step 2
    If new entries or changes detected:
@@ -328,5 +319,4 @@ Suggest next:
 | `.workflow/codebase/feature-maps/_index.md` | Feature index |
 | `.workflow/codebase/feature-maps/{slug}.md` | Per-feature documentation |
 | `.workflow/state.json` | Updated: last_codebase_rebuild timestamp |
-| `.workflow/project-tech.json` | Updated: detected tech stack changes |
 | `.workflow/project.md` | Updated: Tech Stack section refreshed |

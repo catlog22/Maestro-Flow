@@ -52,28 +52,7 @@ Framework detection (from dependency files):
   spring              --> Java Spring
 ```
 
-### Step 3: Write project-tech.json
-
-Output: `.workflow/project-tech.json`
-
-```json
-{
-  "detected_at": "{ISO timestamp}",
-  "languages": ["TypeScript", "..."],
-  "frameworks": ["Next.js", "..."],
-  "package_manager": "npm | yarn | pnpm | ...",
-  "build_system": "tsc | webpack | vite | ...",
-  "test_framework": "jest | vitest | pytest | ...",
-  "linter": "eslint | prettier | ...",
-  "architecture": {
-    "type": "monorepo | single-package | ...",
-    "entry_points": ["src/index.ts", "..."],
-    "key_directories": ["src/", "lib/", "..."]
-  }
-}
-```
-
-### Step 4: Detect Code Patterns
+### Step 3: Detect Code Patterns
 
 Scan source files for coding conventions:
 
@@ -85,9 +64,9 @@ Formatting:   Check for .prettierrc, .editorconfig, eslint config
 File naming:  kebab-case vs camelCase vs PascalCase for source files
 ```
 
-### Step 5: Generate Core Files (always created)
+### Step 4: Generate Core Files (always created)
 
-#### 5a: coding-conventions.md
+#### 4a: coding-conventions.md
 
 Output: `.workflow/specs/coding-conventions.md`
 
@@ -124,7 +103,7 @@ Auto-generated from project analysis. Update manually as patterns evolve.
 {empty section for spec-add entries}
 ```
 
-#### 5b: architecture-constraints.md
+#### 4b: architecture-constraints.md
 
 Output: `.workflow/specs/architecture-constraints.md`
 
@@ -156,7 +135,7 @@ Auto-generated from project structure. Update manually as architecture evolves.
 {empty section for spec-add entries}
 ```
 
-#### 5c: learnings.md
+#### 4c: learnings.md
 
 Output: `.workflow/specs/learnings.md`
 
@@ -175,9 +154,9 @@ Add entries with: `/spec-add learning <description>`
 {empty -- entries added via spec-add}
 ```
 
-### Step 6: Generate Optional Files (when signals detected)
+### Step 5: Generate Optional Files (when signals detected)
 
-#### 6a: quality-rules.md (when linter config or CI detected)
+#### 5a: quality-rules.md (when linter config or CI detected)
 
 Output: `.workflow/specs/quality-rules.md`
 
@@ -193,7 +172,7 @@ category: quality
 {empty -- entries added via spec-add}
 ```
 
-#### 6b: test-conventions.md (when test framework or test files detected)
+#### 5b: test-conventions.md (when test framework or test files detected)
 
 Scan existing test files for conventions (framework, naming, directory structure, patterns).
 
@@ -225,16 +204,15 @@ Auto-generated from project analysis. Update manually as patterns evolve.
 {empty section for spec-add entries}
 ```
 
-#### 6c: debug-notes.md and review-standards.md
+#### 5c: debug-notes.md and review-standards.md
 
 These are NOT created during setup. They are created on demand when `spec-add debug` or `spec-add review` is first used.
 
-### Step 7: Summary
+### Step 6: Summary
 
 Display what was created:
 ```
 Specs initialized:
-  .workflow/project-tech.json                    -- Tech stack analysis
   .workflow/specs/coding-conventions.md          (category: coding)
   .workflow/specs/architecture-constraints.md    (category: arch)
   .workflow/specs/learnings.md                   (category: learning)

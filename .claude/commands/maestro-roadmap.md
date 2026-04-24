@@ -152,7 +152,7 @@ Read-only health assessment of the current roadmap.
    - **Risk assessment**: Identify phases at risk (blocked, scope creep, dependency failures)
 
 3. **Produce review report**
-   - Write to `.workflow/scratch/roadmap-review-{date}.md`
+   - Write to `.workflow/scratch/{YYYYMMDD}-roadmap-review.md`
    - Format:
      ```
      === ROADMAP REVIEW ===

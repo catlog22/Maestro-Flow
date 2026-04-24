@@ -9,7 +9,7 @@ import { readFileSync, writeFileSync, renameSync, existsSync, readdirSync } from
 import { join } from 'node:path';
 
 /** Local-time ISO 8601 string with timezone offset, e.g. "2026-04-24T14:30:00+08:00" */
-function localISO(): string {
+export function localISO(): string {
   const d = new Date();
   const off = -d.getTimezoneOffset();
   const sign = off >= 0 ? '+' : '-';

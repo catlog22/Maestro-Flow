@@ -135,7 +135,7 @@ Each wave generates `wave-{N}.csv` with extra `prev_context` column.
 ### Session Structure
 
 ```
-.workflow/.csv-wave/roadmap-{slug}-{date}/
+.workflow/.csv-wave/{YYYYMMDD}-roadmap-{slug}/
 +-- tasks.csv
 +-- results.csv
 +-- discoveries.ndjson
@@ -164,7 +164,7 @@ const slug = requirementArg.toLowerCase()
   .replace(/[^a-z0-9]+/g, '-')
   .substring(0, 40)
 const dateStr = getUtc8ISOString().substring(0, 10).replace(/-/g, '')
-const sessionId = `roadmap-${slug}-${dateStr}`
+const sessionId = `${dateStr}-roadmap-${slug}`
 const sessionFolder = `.workflow/.csv-wave/${sessionId}`
 
 Bash(`mkdir -p ${sessionFolder}`)

@@ -16,7 +16,7 @@ When `--auto`: After config questions, run research without further interaction.
 ```bash
 $maestro-init ""
 $maestro-init "--auto"
-$maestro-init "--from-brainstorm brainstorm-auth-20260318"
+$maestro-init "--from-brainstorm 20260318-brainstorm-auth"
 ```
 
 **Flags**:

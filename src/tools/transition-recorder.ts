@@ -8,6 +8,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { evaluatePhaseGate } from './phase-gate-evaluator.js';
+import { localISO } from '../utils/state-schema.js';
 import type { PhaseGateInput } from './phase-gate-evaluator.js';
 
 // ---------------------------------------------------------------------------
@@ -61,7 +62,7 @@ export function buildTransitionEntry(opts: BuildTransitionOpts): TransitionEntry
     from_phase: opts.fromPhase,
     to_phase: opts.toPhase,
     milestone: opts.milestone,
-    transitioned_at: new Date().toISOString(),
+    transitioned_at: localISO(),
     trigger: opts.trigger,
     force: opts.force,
     snapshot: {
@@ -110,7 +111,7 @@ export function appendTransition(statePath: string, entry: TransitionEntry): voi
     state.transition_history = [];
   }
   state.transition_history.push(entry);
-  state.last_updated = new Date().toISOString();
+  state.last_updated = localISO();
   writeFileSync(statePath, JSON.stringify(state, null, 2));
 }
 

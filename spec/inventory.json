@@ -276,7 +276,7 @@
       "description": "Initialize project specs from codebase scan",
       "roles": [],
       "session_prefix": null,
-      "specs": ["project-tech", "coding-conventions", "architecture-constraints", "learnings", "quality-rules"]
+      "specs": ["coding-conventions", "architecture-constraints", "learnings", "quality-rules"]
     },
     {
       "name": "spec-add",

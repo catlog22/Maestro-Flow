@@ -98,7 +98,7 @@ Verify `.workflow/` exists (E001 if not).
 | gotcha, surprising, unexpected, watch out | gotcha |
 | technique, approach, method, pattern for | technique |
 
-2. **Auto-link phase**: Read `.workflow/state.json` for current phase (derived from artifact registry). Resolve matching directory slug via artifact registry in `state.json` to `.workflow/scratch/{type}-{slug}-{date}/`. `--phase 0` forces null.
+2. **Auto-link phase**: Read `.workflow/state.json` for current phase (derived from artifact registry). Resolve matching directory slug via artifact registry in `state.json` to `.workflow/scratch/{YYYYMMDD}-{type}-{slug}/`. `--phase 0` forces null.
 
 3. **Generate stable INS-id**: `INS-{8 lowercase hex}` from `hash(insightText + timestamp)`.
 

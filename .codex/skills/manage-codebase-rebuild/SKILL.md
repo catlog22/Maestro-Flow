@@ -55,7 +55,7 @@ $ARGUMENTS -- optional flags for rebuild control.
 $manage-codebase-rebuild ""
 $manage-codebase-rebuild -y "--force"
 $manage-codebase-rebuild -c 5 "--force --skip-commit"
-$manage-codebase-rebuild --continue "rebuild-full-20260318"
+$manage-codebase-rebuild --continue "20260318-rebuild-full"
 ```
 
 **Flags**:
@@ -145,7 +145,7 @@ Single wave generates `wave-1.csv`. No `prev_context` needed (all tasks independ
 ### Session Structure
 
 ```
-.workflow/.csv-wave/rebuild-{scope}-{date}/
+.workflow/.csv-wave/{YYYYMMDD}-rebuild-{scope}/
 +-- tasks.csv
 +-- results.csv
 +-- discoveries.ndjson
@@ -171,7 +171,7 @@ const forceMode = $ARGUMENTS.includes('--force') || AUTO_YES
 const skipCommit = $ARGUMENTS.includes('--skip-commit')
 
 const dateStr = getUtc8ISOString().substring(0, 10).replace(/-/g, '')
-const sessionId = `rebuild-full-${dateStr}`
+const sessionId = `${dateStr}-rebuild-full`
 const sessionFolder = `.workflow/.csv-wave/${sessionId}`
 
 Bash(`mkdir -p ${sessionFolder}`)
@@ -204,7 +204,7 @@ Bash(`mkdir -p ${sessionFolder}`)
 
 4. **Detect source directories**:
    - Check for: `src/`, `lib/`, `app/`, `packages/`
-   - Read `project-tech.json` if available for `source_dirs`
+   - Read `project.md` Tech Stack section if available for context
    - If no source directories found: abort with "No source files in project"
 
 5. **Load project specs** (if available):

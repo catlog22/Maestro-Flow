@@ -55,7 +55,7 @@ $maestro-plan -y "3 --auto"
 $maestro-plan -c 4 "3 --spec SPEC-001"
 $maestro-plan "3 --gaps"
 $maestro-plan "3 --dir .workflow/scratch/quick-nav-fix"
-$maestro-plan --continue "plan-phase3-20260318"
+$maestro-plan --continue "20260318-plan-P3-auth"
 ```
 
 **Flags**:
@@ -116,7 +116,7 @@ Each wave generates `wave-{N}.csv` with extra `prev_context` column.
 ### Session Structure
 
 ```
-.workflow/.csv-wave/plan-{phase}-{date}/
+.workflow/.csv-wave/{YYYYMMDD}-plan-P{N}-{slug}/
 +-- tasks.csv
 +-- results.csv
 +-- discoveries.ndjson
@@ -197,9 +197,9 @@ if (dirMatch) {
 }
 
 const dateStr = getUtc8ISOString().substring(0, 10).replace(/-/g, '')
-const sessionId = `plan-${phaseSlug}-${dateStr}`
+const sessionId = `${dateStr}-plan-P${phaseArg}-${phaseSlug}`
 const sessionFolder = `.workflow/.csv-wave/${sessionId}`
-const scratchDir = `.workflow/scratch/plan-${phaseSlug}-${dateStr}`
+const scratchDir = `.workflow/scratch/${dateStr}-plan-P${phaseArg}-${phaseSlug}`
 
 Bash(`mkdir -p ${sessionFolder}`)
 Bash(`mkdir -p ${scratchDir}/.task/`)

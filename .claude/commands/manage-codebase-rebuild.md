@@ -70,7 +70,6 @@ Follow '~/.maestro/workflows/codebase-rebuild.md' completely.
 - [ ] doc-index.json generated and valid
 - [ ] All documentation files regenerated
 - [ ] state.json updated with rebuild timestamp
-- [ ] project-tech.json refreshed with detected tech stack
 - [ ] project.md Tech Stack section updated if changes detected
 - [ ] Next step routing: `/manage-status` or `/manage-codebase-refresh` for incremental updates later
 </success_criteria>

@@ -60,7 +60,7 @@ Wave-based multi-role brainstorming using `spawn_agents_on_csv`. Diamond topolog
 $maestro-brainstorm "Build real-time collaboration platform"
 $maestro-brainstorm -y "Build real-time collaboration platform"
 $maestro-brainstorm -c 6 "Build real-time collaboration platform --count 5"
-$maestro-brainstorm --continue "brainstorm-collab-20260318"
+$maestro-brainstorm --continue "20260318-brainstorm-collab"
 ```
 
 **Flags**:
@@ -125,7 +125,7 @@ Each wave generates `wave-{N}.csv` with extra `prev_context` column.
 ### Session Structure
 
 ```
-.workflow/.csv-wave/brainstorm-{slug}-{date}/
+.workflow/.csv-wave/{YYYYMMDD}-brainstorm-{slug}/
 +-- tasks.csv
 +-- results.csv
 +-- discoveries.ndjson
@@ -184,7 +184,7 @@ const topicArg = $ARGUMENTS
 
 const slug = topicArg.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40)
 const dateStr = getUtc8ISOString().substring(0, 10).replace(/-/g, '')
-const sessionId = `brainstorm-${slug}-${dateStr}`
+const sessionId = `${dateStr}-brainstorm-${slug}`
 const sessionFolder = `.workflow/.csv-wave/${sessionId}`
 
 Bash(`mkdir -p ${sessionFolder}/.brainstorming`)
@@ -196,7 +196,7 @@ Bash(`mkdir -p ${sessionFolder}/.brainstorming`)
 
 **Decomposition Rules**:
 
-1. **Mode detection**: Number = phase mode (resolve via state.json artifact registry to `.workflow/scratch/{type}-{slug}-{date}/`), text = scratch mode
+1. **Mode detection**: Number = phase mode (resolve via state.json artifact registry to `.workflow/scratch/{YYYYMMDD}-{type}-{slug}/`), text = scratch mode
 2. **Project specs loading**: Read `.workflow/specs/` for architecture-aware analysis context
 3. **Role selection**:
 

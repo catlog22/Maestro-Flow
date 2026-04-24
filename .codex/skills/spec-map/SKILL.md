@@ -43,7 +43,7 @@ Single-wave parallel execution — 4 independent mapper agents each analyze a di
 $spec-map ""
 $spec-map "auth"
 $spec-map -c 4 "api layer"
-$spec-map --continue "map-auth-20260318"
+$spec-map --continue "20260318-map-auth"
 ```
 
 **Flags**:
@@ -102,7 +102,7 @@ id,title,description,focus_area,output_file,deps,context_from,wave,status,findin
 const AUTO_YES = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
 const focusArea = $ARGUMENTS.replace(/--yes|-y|--continue|--concurrency\s+\d+|-c\s+\d+/g, '').trim() || 'full'
 const dateStr = new Date(Date.now() + 8*60*60*1000).toISOString().substring(0,10).replace(/-/g,'')
-const sessionId = `map-${focusArea.substring(0,20)}-${dateStr}`
+const sessionId = `${dateStr}-map-${focusArea.substring(0,20)}`
 const sessionFolder = `.workflow/.csv-wave/${sessionId}`
 
 Bash(`mkdir -p ${sessionFolder}`)

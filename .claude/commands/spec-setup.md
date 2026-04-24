@@ -12,7 +12,7 @@ allowed-tools:
 <purpose>
 Initialize the project-level specs directory by scanning the codebase for conventions, patterns, and tech stack.
 Core files (coding, arch, learning) are always created. Optional files (quality, debug, test, review) are created only when relevant signals are detected.
-All output lands in `.workflow/specs/` and `.workflow/project-tech.json`.
+All output lands in `.workflow/specs/`.
 </purpose>
 
 <required_reading>
@@ -20,7 +20,6 @@ All output lands in `.workflow/specs/` and `.workflow/project-tech.json`.
 </required_reading>
 
 <deferred_reading>
-- [project-tech.json](~/.maestro/templates/project-tech.json) — read when generating project-tech configuration
 </deferred_reading>
 
 <context>
@@ -47,7 +46,6 @@ Follow '~/.maestro/workflows/specs-setup.md' completely.
 - [ ] `.workflow/specs/` directory created
 - [ ] Core files always created: `coding-conventions.md`, `architecture-constraints.md`, `learnings.md`
 - [ ] Optional files created when detected: `quality-rules.md` (linter/CI), `test-conventions.md` (test framework), `debug-notes.md` (on demand), `review-standards.md` (on demand)
-- [ ] `project-tech.json` written with detected tech stack
 - [ ] Report displayed with summary and next steps
 </success_criteria>
 </output>
