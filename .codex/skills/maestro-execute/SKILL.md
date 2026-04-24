@@ -325,8 +325,18 @@ If a task is blocked/failed and other tasks in later waves depend on it:
 5. **Extract incremental learnings**:
    - Read all `.summaries/` from PLAN_DIR
    - Extract strategy adjustments, patterns, pitfalls
-   - Append to `.workflow/specs/learnings.md`
+   - Check existing entries via `maestro spec load --category learning` (dedup)
+   - Append to `.workflow/specs/learnings.md` using `<spec-entry>` closed-tag format (category=`learning`, auto-extract keywords, date=today, source=`execute`)
    - Mark artifact `harvested: true` in state.json
+
+5b. **Post-task Knowledge Inquiry** (after each task completes):
+   - **Execution deviation**: If task summary mentions approach change, dependency swap, or plan deviation:
+     → Ask: "TASK-{NNN} deviated from the plan. Should this decision be recorded as an architecture constraint? (`/spec-add arch`)"
+   - **Retry success**: If task required ≥2 retries before completion:
+     → Ask: "TASK-{NNN} succeeded after {N} retries. Should this fix pattern be documented? (`/spec-add debug`)"
+   - **Implicit knowledge**: If task summary contains design rationale ("chose X because", "rejected Y due to"):
+     → Ask: "Design decision detected. Should it be recorded as a learning? (`/spec-add learning`)"
+   - If user confirms, append `<spec-entry>` to matching category file via `spec-add` mechanism
 
 6. **Generate context.md**:
 

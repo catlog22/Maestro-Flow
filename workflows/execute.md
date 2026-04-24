@@ -562,7 +562,24 @@ Write state.json (atomic)
 // Incremental learning extraction
 Read all ${PLAN_DIR}/.summaries/TASK-*-summary.md
 Extract: strategy adjustments, patterns discovered, pitfalls encountered
-Append to .workflow/specs/learnings.md under "## Entries"
+
+// Check existing entries to avoid duplicates
+existing_learnings = maestro spec load --category learning
+
+// Append using <spec-entry> closed-tag format:
+FOR each extracted learning:
+  keywords = extract_keywords(learning.content)  // 3-5 domain-specific terms
+  IF not duplicate of existing_learnings:
+    Append to .workflow/specs/learnings.md:
+      <spec-entry category="learning" keywords="{keywords}" date="{YYYY-MM-DD}" source="execute">
+
+      ### {learning.summary}
+
+      {learning.content}
+      Phase: {phase} | Plan: {PLAN_DIR}
+
+      </spec-entry>
+
 Mark artifact.harvested = true
 Write state.json (atomic)
 ```

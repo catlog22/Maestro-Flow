@@ -479,7 +479,16 @@ Files:
   {artifact_dir}/validation.json (if generated)
 ```
 
-15. **Next step routing**:
+15. **Post-verify Knowledge Inquiry** (before next step routing):
+   - **Anti-pattern detection**: If anti-pattern scan found blockers:
+     → Ask: "Verification found {N} anti-patterns. Should `quality-rules.md` be updated to enforce these checks? (`/spec-add quality`)"
+   - **Constraint violation**: If Goal-Backward check found constraint violations or missing wiring:
+     → Ask: "Verification found architecture constraint violations. Should `architecture-constraints.md` be updated? (`/spec-add arch`)"
+   - **Test coverage gaps**: If Nyquist gaps found with recurring pattern:
+     → Ask: "Persistent test coverage gap detected in {module}. Should it be added to `test-conventions.md` as a required test area? (`/spec-add test`)"
+   - If user confirms, append `<spec-entry>` to matching category file via `spec-add` mechanism
+
+16. **Next step routing**:
 
 | Result | Suggestion |
 |--------|------------|

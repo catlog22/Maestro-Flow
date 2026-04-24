@@ -74,6 +74,21 @@ $ARGUMENTS — phase number or no args for milestone-wide, with optional flags.
 <execution>
 Follow '~/.maestro/workflows/verify.md' completely.
 
+### Post-verify Knowledge Inquiry
+
+After verification completes, evaluate inquiry triggers:
+
+1. **Anti-pattern detection**: If anti-pattern scan found blockers (TODO/FIXME, stubs, empty returns):
+   → Ask: "Verification found {N} anti-patterns. Should `quality-rules.md` be updated to enforce these checks? (`/spec-add quality`)"
+
+2. **Constraint violation**: If Goal-Backward check found constraint_violations or missing wiring:
+   → Ask: "Verification found architecture constraint violations. Should `architecture-constraints.md` be updated? (`/spec-add arch`)"
+
+3. **Test coverage gaps**: If Nyquist gaps found with recurring pattern (same module/type across tasks):
+   → Ask: "Persistent test coverage gap detected in {module}. Should it be added to `test-conventions.md` as a required test area? (`/spec-add test`)"
+
+If user confirms, invoke `Skill({ skill: "spec-add", args: "<category> <content>" })`.
+
 **Next-step routing on completion:**
 - All checks pass, no gaps → /quality-review
 - Gaps found (must-have failures or anti-pattern blockers) → /maestro-plan --gaps

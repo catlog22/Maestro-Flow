@@ -82,6 +82,21 @@ Append to state.json.artifacts[]:
 }
 ```
 
+### Post-debug Knowledge Inquiry
+
+After root cause is confirmed, evaluate inquiry triggers:
+
+1. **Recurring pattern**: If root cause matches a recurring pattern (similar to prior debug sessions):
+   → Ask: "This root cause pattern has appeared before. Should it be documented in `debug-notes.md` to prevent recurrence? (`/spec-add debug`)"
+
+2. **Non-obvious fix**: If fix involved a non-obvious approach or workaround:
+   → Ask: "This fix used a non-obvious strategy. Should it be recorded as a learning? (`/spec-add learning`)"
+
+3. **Architectural gap**: If root cause traces to architectural boundary violation or missing constraint:
+   → Ask: "Root cause points to an architectural gap. Should `architecture-constraints.md` be updated? (`/spec-add arch`)"
+
+If user confirms, invoke `Skill({ skill: "spec-add", args: "<category> <content>" })`.
+
 **Next-step routing on completion:**
 - Root cause found, fix needed → `/maestro-plan {phase} --gaps`
 - Root cause found (from UAT), auto-fix → `/quality-test {phase} --auto-fix`

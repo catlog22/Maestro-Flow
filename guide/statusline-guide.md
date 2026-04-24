@@ -181,6 +181,48 @@ Nerd Font 图标需要终端安装并配置 Nerd Font 字体（如 JetBrainsMono
 
 ---
 
+## 配色主题
+
+Statusline 内置 5 套配色主题，通过配置切换：
+
+| 主题 | 风格 | 特点 |
+|------|------|------|
+| `notion` | 默认 | 柔和暖色，Catppuccin 风格，低视觉疲劳 |
+| `cyberpunk` | 科技 | 霓虹高对比，赛博朋克风格 |
+| `pastel` | 小清新 | 柔和粉蓝绿，低饱和度，轻量感 |
+| `nord` | 北欧冷调 | 冰蓝灰绿，沉稳内敛 |
+| `monokai` | 经典编辑器 | 粉绿蓝紫，高辨识度 |
+
+### 各主题色彩对比
+
+```
+Notion:    Model(青)  Milestone(金)  Phase(绿)  Dir(黄)  Context(绿→黄→橙→红)
+Cyberpunk: Model(霓虹青) Milestone(霓虹红) Phase(霓虹黄) Dir(电蓝) Context(荧光绿→黄→橙→红)
+Pastel:    Model(天蓝)  Milestone(桃粉)  Phase(薄荷绿)  Dir(沙色) Context(鼠尾草→奶黄→粉橙→玫瑰)
+Nord:      Model(冰蓝)  Milestone(极光橙) Phase(极光绿)  Dir(极光黄) Context(绿→黄→橙→红)
+Monokai:   Model(蓝)   Milestone(粉红)   Phase(荧光绿)  Dir(黄)   Context(绿→黄→橙→粉红)
+```
+
+### 安装时选择
+
+通过 `maestro install` 安装时，在 Statusline 配置步骤中按 `1-5` 数字键选择主题。
+
+### 运行时切换
+
+修改 `~/.maestro/config.json`：
+
+```json
+{
+  "statusline": {
+    "theme": "cyberpunk"
+  }
+}
+```
+
+下次状态栏刷新即生效。
+
+---
+
 ## 配置
 
 ### Maestro 配置（`~/.maestro/config.json`）
@@ -188,6 +230,7 @@ Nerd Font 图标需要终端安装并配置 Nerd Font 字体（如 JetBrainsMono
 ```json
 {
   "statusline": {
+    "theme": "notion",
     "nerdFont": true
   }
 }
@@ -195,12 +238,14 @@ Nerd Font 图标需要终端安装并配置 Nerd Font 字体（如 JetBrainsMono
 
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
+| `theme` | string | `"notion"` | 配色主题（notion / cyberpunk / pastel / nord / monokai） |
 | `nerdFont` | boolean | `false` | 启用 Nerd Font 图标 |
 
 ### 环境变量
 
 | 变量 | 说明 |
 |------|------|
+| `MAESTRO_STATUSLINE_THEME=nord` | 强制指定主题 |
 | `MAESTRO_NERD_FONT=1` | 强制启用 Nerd Font |
 | `MAESTRO_NERD_FONT=0` | 强制禁用 Nerd Font |
 

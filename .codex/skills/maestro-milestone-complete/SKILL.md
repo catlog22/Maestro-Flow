@@ -65,8 +65,23 @@ cp .workflow/roadmap.md .workflow/milestones/{milestone}/roadmap-snapshot.md
 - Read `.summaries/` from each execute artifact's plan dir
 - Read `reflection-log.md` if exists
 - Extract patterns, pitfalls, strategy adjustments
-- Append to `.workflow/specs/learnings.md`
+- Check existing entries via `maestro spec load --category learning` (dedup)
+- Append to `.workflow/specs/learnings.md` using `<spec-entry>` closed-tag format (category=`learning`, auto-extract keywords, date=today, source=`milestone-complete`)
 - Avoid duplicates (check existing entries)
+
+### Step 3b: Knowledge Promotion Inquiry
+
+After learning extraction, scan `learnings.md` for promotion candidates:
+
+1. **High-frequency pattern detection**: Scan all `<spec-entry category="learning">` entries for keyword overlap (≥2 entries sharing keywords):
+   → Ask: "Keyword '{keyword}' appears in {N} learning entries. Should this be promoted to a formal coding convention? (`/spec-add coding`)"
+
+2. **Convention drift detection**: Compare executed task summaries against `coding-conventions.md` and `architecture-constraints.md`:
+   → Ask: "Were any established conventions bypassed during this milestone? Should conventions be updated?"
+
+3. **Wiki island check**: Auto-trigger `wiki-connect --fix` to link newly extracted knowledge.
+
+If user confirms, append promoted `<spec-entry>` to target category file, preserving original date and source traceability.
 
 ### Step 4: Archive Artifact Entries
 

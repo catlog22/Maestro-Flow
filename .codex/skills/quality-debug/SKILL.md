@@ -331,7 +331,16 @@ spawn_agents_on_csv({
 
 6. **Register artifact** (phase-scoped only): Append to `state.json.artifacts[]` with `type: "debug"`, `id: DBG-NNN`, `path: "scratch/{YYYYMMDD}-debug-P{N}-{slug}"`, `depends_on: triggering_review_id || exec_art.id`. Output directory is independent scratch.
 
-7. **Next step routing**:
+7. **Post-debug Knowledge Inquiry** (after root causes confirmed):
+   - **Recurring pattern**: If root cause matches a recurring pattern (similar to prior debug sessions):
+     → Ask: "This root cause pattern has appeared before. Should it be documented in `debug-notes.md` to prevent recurrence? (`/spec-add debug`)"
+   - **Non-obvious fix**: If fix involved a non-obvious approach or workaround:
+     → Ask: "This fix used a non-obvious strategy. Should it be recorded as a learning? (`/spec-add learning`)"
+   - **Architectural gap**: If root cause traces to architectural boundary violation or missing constraint:
+     → Ask: "Root cause points to an architectural gap. Should `architecture-constraints.md` be updated? (`/spec-add arch`)"
+   - If user confirms, append `<spec-entry>` to matching category file via `spec-add` mechanism
+
+8. **Next step routing**:
 
 | Result | Suggestion |
 |--------|------------|
@@ -341,7 +350,7 @@ spawn_agents_on_csv({
 | All inconclusive | Resume with more context or manual investigation |
 | From UAT, all diagnosed | `Skill({ skill: "quality-test", args: "{phase} --auto-fix" })` |
 
-7. Display summary.
+9. Display summary.
 
 ### Shared Discovery Board Protocol
 

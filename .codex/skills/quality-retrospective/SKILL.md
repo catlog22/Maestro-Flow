@@ -458,7 +458,7 @@ functions.apply_patch:
 
 Append each insight to `.workflow/learning/lessons.jsonl` and update `learning-index.json`.
 
-If `.workflow/specs/learnings.md` already exists, append a one-line summary per insight (never create it).
+If `.workflow/specs/learnings.md` already exists, append each insight using `<spec-entry>` closed-tag format (category=`learning`, auto-extract keywords, date=today, source=`retrospective`). Never create the file — only append if it exists.
 
 ```javascript
 functions.update_plan({

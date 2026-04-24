@@ -98,6 +98,21 @@ If exit code is 1, present warnings and ask whether to proceed.
 
 Follow '~/.maestro/workflows/execute.md' completely.
 
+### Post-task Knowledge Inquiry
+
+After each task completes, evaluate inquiry triggers:
+
+1. **Execution deviation**: If task summary mentions approach change, dependency swap, or plan deviation:
+   → Ask: "TASK-{NNN} deviated from the plan. Should this decision be recorded as an architecture constraint? (`/spec-add arch`)"
+
+2. **Retry success**: If task required ≥2 retries before completion:
+   → Ask: "TASK-{NNN} succeeded after {N} retries. Should this fix pattern be documented? (`/spec-add debug`)"
+
+3. **Implicit knowledge**: If task summary contains design rationale ("chose X because", "rejected Y due to"):
+   → Ask: "Design decision detected. Should it be recorded as a learning? (`/spec-add learning`)"
+
+If user confirms, invoke `Skill({ skill: "spec-add", args: "<category> <content>" })` with extracted content.
+
 ### Issue Status Sync
 
 On each task completion, if `task.issue_id` exists, sync status back to the issue in `.workflow/issues/issues.jsonl`:

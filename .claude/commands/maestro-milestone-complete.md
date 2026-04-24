@@ -42,6 +42,20 @@ Follow '~/.maestro/workflows/milestone-complete.md' completely.
 5. Update state.json: advance to next milestone, clear artifacts[]
 6. Clean scratch dirs
 
+### Knowledge Promotion Inquiry
+
+After learning extraction (step 4), scan `learnings.md` for promotion candidates:
+
+1. **High-frequency pattern detection**: Scan all `<spec-entry category="learning">` entries for keyword overlap (≥2 entries sharing keywords):
+   → Ask: "Keyword '{keyword}' appears in {N} learning entries. Should this be promoted to a formal coding convention? (`/spec-add coding`)"
+
+2. **Convention drift detection**: Compare executed task summaries against `coding-conventions.md` and `architecture-constraints.md`:
+   → Ask: "Were any established conventions bypassed during this milestone? Should conventions be updated?"
+
+3. **Wiki island check**: Auto-trigger `wiki-connect --fix` to link newly extracted knowledge.
+
+If user confirms promotion, invoke `Skill({ skill: "spec-add", args: "<category> <content>" })` with promoted content, preserving original date and source traceability.
+
 **Next-step routing on completion:**
 - Cut a release → `/maestro-milestone-release`
 - Next milestone → `/maestro-analyze` or `/maestro-plan 1`
