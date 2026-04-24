@@ -21,7 +21,8 @@ export function isMaestroWorkspace(dir: string): boolean {
   if (!existsSync(statePath)) return false;
   try {
     const state = JSON.parse(readFileSync(statePath, 'utf8'));
-    return state.version !== undefined && state.phases_summary !== undefined;
+    return state.version !== undefined
+      && (Array.isArray(state.artifacts) || state.phases_summary !== undefined);
   } catch {
     return false;
   }

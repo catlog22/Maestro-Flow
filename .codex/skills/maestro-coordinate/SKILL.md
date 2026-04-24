@@ -106,7 +106,7 @@ const AUTO_FLAG_MAP = {
 
 function assembleArgs(step) {
   let a = (step.args || '')
-    .replace(/\{phase\}/g, context.current_phase || '')
+    .replace(/\{phase\}/g, context.phase || '')
     .replace(/\{description\}/g, context.user_intent || '')
     .replace(/\{issue_id\}/g, context.issue_id || '')
     .replace(/\{spec_session_id\}/g, context.spec_session_id || '')
@@ -145,7 +145,7 @@ Bash({
 ```javascript
 // Context propagation from output
 const phaseMatch = output.match(/PHASE:\s*(\d+)/m);
-if (phaseMatch) context.current_phase = phaseMatch[1];
+if (phaseMatch) context.phase = phaseMatch[1];  // derived from output, not stored in state
 const specMatch = output.match(/SPEC-[\w-]+/);
 if (specMatch) context.spec_session_id = specMatch[0];
 const scratchMatch = output.match(/scratch_dir:\s*(.+)/m);

@@ -37,7 +37,7 @@ $maestro-ui-design "3 --style-skill PKG --stack react"
 
 When `--yes` or `-y`: Skip interactive selection, auto-pick top-scored variant, skip brief review.
 
-**Output**: `{phase_dir}/design-ref/` with MASTER.md, design-tokens.json, animation-tokens.json, selection.json, prototypes/
+**Output**: `{scratch_dir}/design-ref/` with MASTER.md, design-tokens.json, animation-tokens.json, selection.json, prototypes/
 </context>
 
 <invariants>
@@ -54,7 +54,7 @@ When `--yes` or `-y`: Skip interactive selection, auto-pick top-scored variant, 
 ### Step 1: Parse Input and Resolve Target
 
 1. Parse flags from `$ARGUMENTS`: `--styles N`, `--stack`, `--targets`, `--persist`, `--full`, `-y`
-2. **Phase mode** (number): resolve via state.json artifact registry to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-*/`
+2. **Phase mode** (number): resolve via state.json artifact registry to `.workflow/scratch/{type}-{slug}-{date}/`
 3. **Scratch mode** (text): create `.workflow/scratch/ui-design-{slug}-{date}/` with minimal index.json
 4. Create output directories:
    ```bash
@@ -148,10 +148,10 @@ Agent({
    Targets: {target_list}
 
    Design System:
-     MASTER.md:  {phase_dir}/design-ref/MASTER.md
-     Tokens:     {phase_dir}/design-ref/design-tokens.json
-     Animation:  {phase_dir}/design-ref/animation-tokens.json
-     Prototypes: {phase_dir}/design-ref/prototypes/
+     MASTER.md:  {scratch_dir}/design-ref/MASTER.md
+     Tokens:     {scratch_dir}/design-ref/design-tokens.json
+     Animation:  {scratch_dir}/design-ref/animation-tokens.json
+     Prototypes: {scratch_dir}/design-ref/prototypes/
 
    Next steps:
      Skill({ skill: "maestro-plan", args: "{phase}" })

@@ -123,7 +123,7 @@ function makeState(graphId: string, entry: string, overrides?: Partial<WalkerSta
       inputs: { workflowRoot: '.' },
       project: {
         initialized: false, current_phase: null, phase_status: 'pending',
-        artifacts: {}, execution: { tasks_completed: 0, tasks_total: 0 },
+        phase_artifacts: {}, execution: { tasks_completed: 0, tasks_total: 0 },
         verification_status: 'pending', review_verdict: null, uat_status: 'pending',
         phases_total: 0, phases_completed: 0, accumulated_context: null,
       },

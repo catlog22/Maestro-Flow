@@ -86,7 +86,6 @@ Each line in evidence.ndjson:
 
 ## Output Location
 - **Scratch debugging**: `.workflow/scratch/debug-{slug}/understanding.md` and `.workflow/scratch/debug-{slug}/evidence.ndjson`
-- **Legacy fallback**: `.workflow/phases/{NN}-{slug}/` paths are still recognized for backward compatibility
 - **Code fixes**: Applied directly to project source files (not in .debug directory)
 
 ## Error Behavior

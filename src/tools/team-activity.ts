@@ -161,6 +161,25 @@ export function readWorkflowContext(): { phase_id?: number; task_id?: string } {
   const out: { phase_id?: number; task_id?: string } = {};
   if (typeof obj.current_phase === 'number') {
     out.phase_id = obj.current_phase;
+  } else if (Array.isArray(obj.artifacts) && Array.isArray(obj.milestones)) {
+    // v2: derive current phase from artifact registry
+    const milestone = (obj.milestones as Array<{ name?: string; phases?: number[] }>)
+      .find(m => m.name === obj.current_milestone);
+    if (milestone?.phases?.length) {
+      const arts = obj.artifacts as Array<{ type?: string; phase?: number; milestone?: string; status?: string }>;
+      for (const p of milestone.phases) {
+        if (arts.some(a => a.phase === p && a.milestone === obj.current_milestone && a.status === 'in_progress')) {
+          out.phase_id = p; break;
+        }
+      }
+      if (out.phase_id == null) {
+        for (const p of milestone.phases) {
+          if (!arts.some(a => a.type === 'execute' && a.phase === p && a.milestone === obj.current_milestone && a.status === 'completed')) {
+            out.phase_id = p; break;
+          }
+        }
+      }
+    }
   }
   if (typeof obj.current_task_id === 'string' && obj.current_task_id) {
     out.task_id = obj.current_task_id;

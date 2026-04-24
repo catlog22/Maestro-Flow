@@ -102,7 +102,7 @@ id,title,description,layer,phase_dir,check_type,deps,context_from,wave,status,fi
 | `title` | Input | Short check title |
 | `description` | Input | Detailed verification instructions for this check |
 | `layer` | Input | Verification layer: truth/artifact/wiring/antipattern/nyquist |
-| `phase_dir` | Input | Target directory path (e.g., `.workflow/scratch/plan-chat-2026/`; legacy: `.workflow/phases/03-chat/`) |
+| `phase_dir` | Input | Target directory path (e.g., `.workflow/scratch/plan-chat-2026/`) |
 | `check_type` | Input | Specific check type: observable_behavior/exists/substance/import_usage/pattern_scan/test_coverage |
 | `deps` | Input | Semicolon-separated dependency task IDs |
 | `context_from` | Input | Semicolon-separated task IDs whose findings this task needs |
@@ -191,7 +191,7 @@ Bash(`mkdir -p ${sessionFolder}`)
 
 **Decomposition Rules**:
 
-1. **Phase resolution**: Resolve `{phaseArg}` via artifact registry in `state.json` to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-{slug}/`
+1. **Phase resolution**: Resolve `{phaseArg}` via artifact registry in `state.json` to `.workflow/scratch/{type}-{slug}-{date}/`
 2. **Artifact loading**: Read from phase directory:
    - `index.json` -- success_criteria (ground truth for verification)
    - `plan.json` -- original plan with task_ids
@@ -445,8 +445,8 @@ Issue Refs: {issue_ids}
     - If `verification.json` or `validation.json` exists in phase dir, move to `.history/`
 
 12. **Copy output files** to phase directory:
-    - `verification.json` -> `{phase_dir}/verification.json`
-    - `validation.json` -> `{phase_dir}/validation.json` (if generated)
+    - `verification.json` -> `{artifact_dir}/verification.json`
+    - `validation.json` -> `{artifact_dir}/validation.json` (if generated)
 
 13. **Update phase index.json** with verification status and timestamps.
 
@@ -475,8 +475,8 @@ Human Verification: {human_items} items
 Files:
   {session_folder}/verification.json
   {session_folder}/validation.json (if generated)
-  {phase_dir}/verification.json
-  {phase_dir}/validation.json (if generated)
+  {artifact_dir}/verification.json
+  {artifact_dir}/validation.json (if generated)
 ```
 
 15. **Next step routing**:
@@ -528,7 +528,7 @@ echo '{"ts":"<ISO>","worker":"{id}","type":"verification_gap","data":{"gap_id":"
 
 | Error | Resolution |
 |-------|------------|
-| Phase directory not found | Resolve via state.json artifact registry; legacy fallback to `.workflow/phases/`; abort if neither found |
+| Phase directory not found | Resolve via state.json artifact registry; abort if not found |
 | No execution results found | Abort with error: "No completed tasks found -- run execute first" |
 | No summaries found | Warn, proceed with task file analysis only |
 | No success_criteria in index.json | Derive must-haves from phase goal (fallback) |

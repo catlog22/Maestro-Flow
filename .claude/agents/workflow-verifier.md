@@ -107,7 +107,6 @@ You perform goal-backward verification of completed work using a three-layer che
 
 ## Output Location
 - **Scratch verification**: `.workflow/scratch/{slug}/verification.json`
-- **Legacy fallback**: `.workflow/phases/{NN}-{slug}/` paths are still recognized for backward compatibility
 - **Per-task verification**: Embedded in the `convergence_check` block within verification.json (not separate files)
 
 ## Error Behavior

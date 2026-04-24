@@ -633,8 +633,8 @@ Fix Plans: {fix_plan_count} generated
 Human Verification: {human_items} items
 
 Files:
-  {phase_dir}/verification.json
-  {phase_dir}/validation.json (if generated)
+  {artifact_dir}/verification.json
+  {artifact_dir}/validation.json (if generated)
 
 Next steps:
   {suggested_next_command}

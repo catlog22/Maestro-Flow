@@ -10,7 +10,8 @@ Status dashboard with intelligent routing.
    - If missing → display "No project initialized. Run `/workflow:init` to start." → exit
 
 2. Read `.workflow/state.json`:
-   - Extract: project_name, current_milestone, current_phase, status, phases_summary
+   - Extract: project_name, current_milestone, status, milestones, artifacts
+   - Derive current_phase and phases_summary from artifacts[] (see src/utils/state-schema.ts)
    - Extract: accumulated_context (key_decisions, blockers, deferred)
 
 3. Read `.workflow/roadmap.md`:
@@ -96,9 +97,9 @@ IF .workflow/roadmap.md exists:
   IF orphan_artifacts.length > 0:
     Display WARNING: "Artifacts reference phases not in roadmap"
 
-ELSE IF NOT .workflow/roadmap.md exists AND state.json.phases_summary.total > 0:
+ELSE IF NOT .workflow/roadmap.md exists AND milestone_artifacts.length > 0:
   Display WARNING:
-    ⚠️  Roadmap missing but state.json references {total} phases.
+    ⚠️  Roadmap missing but artifact registry has {milestone_artifacts.length} entries.
     This may indicate a completed milestone. Run /maestro continue to plan next milestone.
 ```
 

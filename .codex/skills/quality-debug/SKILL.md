@@ -184,8 +184,8 @@ Bash(`mkdir -p ${sessionFolder}`)
 | Mode | Source | Action |
 |------|--------|--------|
 | standalone | User input | Ask 5 questions: expected, actual, errors, timeline, reproduction |
-| from-uat | `{phase_dir}/uat.md` | Parse Gaps section, cluster by component |
-| parallel | `{phase_dir}/uat.md` | Same as from-uat, one investigation per cluster |
+| from-uat | `{artifact_dir}/uat.md` | Parse Gaps section, cluster by component |
+| parallel | `{artifact_dir}/uat.md` | Same as from-uat, one investigation per cluster |
 
 3. **Hypothesis generation**: For each symptom cluster or bug description:
    - Analyze code patterns around affected area
@@ -322,7 +322,7 @@ spawn_agents_on_csv({
 ```
 
 4. **UAT update** (if --from-uat): For each confirmed hypothesis with fix:
-   - Update `{phase_dir}/uat.md` gaps with `root_cause`, `fix_direction`, `affected_files`
+   - Update `{artifact_dir}/uat.md` gaps with `root_cause`, `fix_direction`, `affected_files`
 
 5. **Issue update**: If `.workflow/issues/issues.jsonl` exists:
    - Update matching issues with status `diagnosed`, add `context.suggested_fix` and `context.notes`

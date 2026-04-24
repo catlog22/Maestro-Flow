@@ -66,7 +66,7 @@ $quality-retrospective "3 --compare 2 --auto-yes"
 When `--auto-yes`: Accept all routing recommendations without prompting. Route all insights automatically.
 
 **Storage written**:
-- `{target_dir}/retrospective.md` -- human-readable record (target_dir resolved via state.json artifact registry to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-{slug}/`)
+- `{target_dir}/retrospective.md` -- human-readable record (target_dir resolved via state.json artifact registry to `.workflow/scratch/{type}-{slug}-{date}/`)
 - `{target_dir}/retrospective.json` -- structured record
 - `.workflow/specs/SPEC-retro-*.md` -- spec stubs (one per spec-routed insight)
 - `.workflow/issues/issues.jsonl` -- appended issue rows (`source: "retrospective"`)
@@ -151,7 +151,7 @@ functions.update_plan({
 Validate `--lens` values. If `--compare <M>` present, require single mode.
 
 **Stage 2: Validate phase artifacts**. For each target phase:
-- Phase directory must exist (resolved via state.json artifact registry to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-{slug}/`)
+- Phase directory must exist (resolved via state.json artifact registry to `.workflow/scratch/{type}-{slug}-{date}/`)
 - `index.json` must show `status: "completed"`
 - `.task/` directory must exist with at least one `TASK-*.json`
 - If existing `retrospective.json` found and not `--all`: emit W002, prompt overwrite
@@ -175,7 +175,7 @@ functions.update_plan({
 ### Stage 4: Context-Agent Fork + Parallel Lens Analysis
 
 **Archive if overwriting**:
-If existing `retrospective.{md,json}` present, move to `{phase_dir}/.history/` with timestamp suffix before spawning.
+If existing `retrospective.{md,json}` present, move to `{artifact_dir}/.history/` with timestamp suffix before spawning.
 
 **Step 4a: Spawn context agent**
 ```javascript

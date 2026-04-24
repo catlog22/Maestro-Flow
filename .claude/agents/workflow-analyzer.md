@@ -95,7 +95,6 @@ N/A -- produces markdown analysis document
 ## Output Location
 
 - **Scratch**: `.workflow/scratch/{topic-slug}/analysis.md`
-- **Legacy fallback**: `.workflow/phases/{NN}-{slug}/` paths are still recognized for backward compatibility
 
 The caller specifies the output path. If no path is specified, default to scratch mode using the subject as the slug.
 

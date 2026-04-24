@@ -35,10 +35,13 @@ interface HookOutput {
 }
 
 interface WorkflowState {
+  version?: string;
   current_milestone?: string;
-  current_phase?: number;
+  current_phase?: number;                // v1 compat — v2 derives from artifacts
+  current_task_id?: string | null;
   status?: string;
-  phases_summary?: { total: number; completed: number; in_progress: number; pending: number };
+  phases_summary?: { total: number; completed: number; in_progress: number; pending: number }; // v1 compat
+  milestones?: Array<{ id?: string; name: string; phases?: number[]; status?: string }>;
   accumulated_context?: {
     key_decisions?: string[];
     deferred?: Array<{ id?: string; severity?: string; description?: string; fix_direction?: string } | string>;
@@ -67,6 +70,10 @@ interface ArtifactEntry {
   scope?: string;
   path?: string;
   status: string;
+  depends_on?: string | string[] | null;
+  harvested?: boolean;
+  created_at?: string;
+  completed_at?: string | null;
 }
 
 export interface SkillContextInput {
@@ -151,14 +158,14 @@ export function evaluateSkillContext(data: SkillContextInput): HookOutput | null
   if (stateSection) sections.push(stateSection);
 
   // Section 2: Phase artifact tree
-  const phaseNum = skill.phaseNum ?? state.current_phase;
+  const phaseNum = skill.phaseNum ?? deriveCurrentPhaseLocal(state);
   if (phaseNum) {
     const treeSection = buildArtifactTree(cwd, phaseNum, state);
     if (treeSection) sections.push(treeSection);
   }
 
   // Section 3: Prior phase outcomes
-  const outcomesSection = buildOutcomesSection(cwd, state, phaseNum);
+  const outcomesSection = buildOutcomesSection(cwd, state, phaseNum ?? undefined);
   if (outcomesSection) sections.push(outcomesSection);
 
   if (sections.length === 0) return null;
@@ -172,6 +179,44 @@ export function evaluateSkillContext(data: SkillContextInput): HookOutput | null
 }
 
 // ---------------------------------------------------------------------------
+// Derive helpers (inline to avoid import — hooks must be self-contained .js)
+// ---------------------------------------------------------------------------
+
+function deriveCurrentPhaseLocal(state: WorkflowState): number | null {
+  // v1 fallback
+  if (state.current_phase !== undefined) return state.current_phase;
+  // v2: derive from artifacts
+  const arts = state.artifacts;
+  if (!arts?.length) return null;
+  const milestone = state.milestones?.find(m => m.name === state.current_milestone);
+  if (!milestone?.phases?.length) return null;
+  for (const p of milestone.phases) {
+    if (arts.some(a => a.phase === p && a.milestone === state.current_milestone && a.status === 'in_progress')) return p;
+  }
+  for (const p of milestone.phases) {
+    if (!arts.some(a => a.type === 'execute' && a.phase === p && a.milestone === state.current_milestone && a.status === 'completed')) return p;
+  }
+  return null;
+}
+
+function derivePhasesSummaryLocal(state: WorkflowState): { total: number; completed: number; in_progress: number; pending: number } {
+  // v1 fallback
+  if (state.phases_summary) return state.phases_summary;
+  // v2: derive from artifacts
+  const milestone = state.milestones?.find(m => m.name === state.current_milestone);
+  if (!milestone?.phases?.length) return { total: 0, completed: 0, in_progress: 0, pending: 0 };
+  const total = milestone.phases.length;
+  let completed = 0, in_progress = 0;
+  const arts = state.artifacts ?? [];
+  for (const p of milestone.phases) {
+    const phaseArts = arts.filter(a => a.phase === p && a.milestone === state.current_milestone);
+    if (phaseArts.some(a => a.type === 'execute' && a.status === 'completed')) { completed++; continue; }
+    if (phaseArts.length > 0) { in_progress++; }
+  }
+  return { total, completed, in_progress, pending: total - completed - in_progress };
+}
+
+// ---------------------------------------------------------------------------
 // Section builders
 // ---------------------------------------------------------------------------
 
@@ -179,10 +224,11 @@ function buildStateSection(state: WorkflowState, skill: SkillMatch): string | nu
   const parts: string[] = [`## Workflow Context for ${skill.skill}`];
 
   if (state.current_milestone) parts.push(`Milestone: ${state.current_milestone}`);
-  if (state.current_phase !== undefined) {
-    const summary = state.phases_summary;
-    const progress = summary ? `${summary.completed}/${summary.total} completed` : '';
-    parts.push(`Phase: ${state.current_phase} ${progress ? `(${progress})` : ''}`);
+  const curPhase = deriveCurrentPhaseLocal(state);
+  if (curPhase !== null) {
+    const summary = derivePhasesSummaryLocal(state);
+    const progress = summary.total > 0 ? `${summary.completed}/${summary.total} completed` : '';
+    parts.push(`Phase: ${curPhase} ${progress ? `(${progress})` : ''}`);
   }
   if (state.status) parts.push(`Status: ${state.status}`);
 

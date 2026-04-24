@@ -43,7 +43,7 @@ Arguments: $ARGUMENTS
 - `--auto-yes` — accept all routing recommendations without prompting
 
 **Storage written:**
-- Retrospective output (resolve via `state.json.artifacts[]` → `.workflow/scratch/` path; fallback to `.workflow/phases/{NN}-{slug}/`):
+- Retrospective output (resolve via `state.json.artifacts[]` → `.workflow/scratch/` path):
   - retrospective.md — human-readable record
   - retrospective.json — structured record
 - `.workflow/specs/SPEC-retro-*.md` — spec stubs (one per spec-routed insight)
@@ -53,7 +53,7 @@ Arguments: $ARGUMENTS
 - `.workflow/learning/learning-index.json` — searchable index
 
 **Storage read (never modified):**
-- Phase artifacts (resolve via `state.json.artifacts[]` → scratch paths; fallback to `.workflow/phases/{NN}-{slug}/`):
+- Phase artifacts (resolve via `state.json.artifacts[]` → scratch paths):
   - index.json, plan.json, verification.json, review.json, uat.md
   - .task/TASK-*.json, .summaries/TASK-*-summary.md
 - `.workflow/issues/issues.jsonl`, `.workflow/issues/issue-history.jsonl`
@@ -69,7 +69,7 @@ Follow `~/.maestro/workflows/retrospective.md` Stages 1–8 in order. Key invari
 4. **Reuse `manage-learn tip` for note routing** — do not duplicate the learning pipeline; invoke via `Skill({ skill: "manage-learn", args: "tip ..." })`.
 5. **Backward-compat with phase-transition** — append a one-line summary per insight to `.workflow/specs/learnings.md` if and only if that file already exists. Never create it.
 6. **Stable insight IDs** — `INS-{8 hex}` from `hash(phase_num + lens + title)` so re-runs do not duplicate.
-7. **Archive before overwrite** — if existing `retrospective.{md,json}` are being replaced, move them to `{phase_dir}/.history/` with a timestamp suffix first.
+7. **Archive before overwrite** — if existing `retrospective.{md,json}` are being replaced, move them to `{artifact_dir}/.history/` with a timestamp suffix first.
 </execution>
 
 <error_codes>

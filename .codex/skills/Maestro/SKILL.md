@@ -63,7 +63,7 @@ After a barrier skill completes **in its spawned sub-agent**, coordinator reads 
 | Skill | Artifacts to Read | Context Updates |
 |-------|------------------|-----------------|
 | `maestro-analyze` | `.workflow/.csv-wave/*/context.md`, `state.json` | `gaps`, `phase`, `analysis_dir` |
-| `maestro-plan` | `{phase_dir}/plan.json`, `{phase_dir}/.task/TASK-*.json` | `plan_dir`, `task_count`, `wave_count` |
+| `maestro-plan` | `{artifact_dir}/plan.json`, `{artifact_dir}/.task/TASK-*.json` | `plan_dir`, `task_count`, `wave_count` |
 | `maestro-brainstorm` | `.workflow/.csv-wave/*/.brainstorming/` | `brainstorm_dir`, `features` |
 | `maestro-spec-generate` | `.workflow/.csv-wave/*/specs/` | `spec_session_id` |
 | `maestro-execute` | `.workflow/.csv-wave/*/results.csv` | `exec_status`, `completed_tasks`, `failed_tasks` |
@@ -111,7 +111,7 @@ function analyzeBarrierArtifacts(step, result, ctx) {
 **`--continue`**: Glob `.workflow/.maestro-coordinate/MCC-*/state.json` sorted desc; load most recent; resume from first pending wave.
 
 **Fresh mode**:
-1. Read `.workflow/state.json` for project context (`current_phase`, `workflow_name`)
+1. Read `.workflow/state.json` for project context (derive current phase from artifact registry, `workflow_name`)
 2. If `--chain` given, use directly
 3. Otherwise classify intent via keyword heuristics (see chain_map)
 4. No match + not AUTO_YES → one clarifying question via `AskUserQuestion`

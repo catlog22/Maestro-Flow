@@ -857,7 +857,7 @@ export class GraphWalker {
             initialized: false,
             current_phase: null,
             phase_status: 'pending',
-            artifacts: {},
+            phase_artifacts: {},
             execution: { tasks_completed: 0, tasks_total: 0 },
             verification_status: 'pending',
             review_verdict: null,
@@ -870,7 +870,29 @@ export class GraphWalker {
             const stateFile = join(options.workflowRoot, '.workflow', 'state.json');
             const raw = JSON.parse(readFileSync(stateFile, 'utf-8'));
             if (raw && typeof raw === 'object') {
-                project = { ...project, ...raw, initialized: true };
+                const { artifacts: rawArtifacts, ...rest } = raw;
+                project = { ...project, ...rest, initialized: true };
+                if (Array.isArray(rawArtifacts)) {
+                    project.artifact_registry = rawArtifacts;
+                }
+                if (project.current_phase == null && project.artifact_registry?.length) {
+                    const milestone = Array.isArray(raw.milestones)
+                        ? raw.milestones.find(m => m.name === raw.current_milestone)
+                        : null;
+                    const phases = milestone?.phases ?? [];
+                    for (const p of phases) {
+                        if (project.artifact_registry.some(a => a.phase === p && a.status === 'in_progress')) {
+                            project.current_phase = p; break;
+                        }
+                    }
+                    if (project.current_phase == null) {
+                        for (const p of phases) {
+                            if (!project.artifact_registry.some(a => a.type === 'execute' && a.phase === p && a.status === 'completed')) {
+                                project.current_phase = p; break;
+                            }
+                        }
+                    }
+                }
             }
         }
         catch { /* no state file */ }

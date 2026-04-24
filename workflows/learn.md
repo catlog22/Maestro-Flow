@@ -83,17 +83,21 @@ phase_slug = null
 
 IF .workflow/state.json exists:
   state = read JSON
-  IF state.current_phase is not null:
-    phase = state.current_phase
+  artifacts = state.artifacts ?? []
 
-    # Resolve slug — artifact registry first, fallback to legacy phases/
-    artifacts = state.artifacts ?? []
-    IF artifacts.length > 0:
-      art = artifacts.find(a => a.phase === phase)
-      phase_slug = art?.slug ?? "phase-" + phase
-    ELSE:
-      Glob ".workflow/phases/{NN}-*/" where NN == phase
-      phase_slug = matched directory basename (e.g. "01-auth")
+  # Derive current phase from artifacts (first phase with in_progress, or first without completed execute)
+  phase = null
+  inProgressArt = artifacts.find(a => a.type === 'execute' && a.status === 'in_progress')
+  IF inProgressArt:
+    phase = inProgressArt.phase
+  ELSE:
+    phaseNums = [...new Set(artifacts.map(a => a.phase).filter(Boolean))].sort()
+    phase = phaseNums.find(p => !artifacts.some(a => a.phase === p && a.type === 'execute' && a.status === 'completed'))
+
+  IF phase is not null:
+    # Resolve slug from artifact registry
+    art = artifacts.find(a => a.phase === phase)
+    phase_slug = art?.slug ?? "phase-" + phase
 ```
 
 If `--phase 0` is passed, force `phase = null, phase_slug = null` regardless.
@@ -304,15 +308,12 @@ IF row is null → error E004: "Insight {target_id} not found"
 ```
 phase_context = null
 IF row.phase_slug is not null:
-  // Resolve phase dir — artifact registry first, fallback to legacy phases/
+  // Resolve phase dir from artifact registry
   Read .workflow/state.json → state
   artifacts = state.artifacts ?? []
   phase_dir = null
-  IF artifacts.length > 0:
-    art = artifacts.find(a => a.phase === row.phase && a.path)
-    IF art: phase_dir = ".workflow/" + art.path
-  ELSE:
-    phase_dir = ".workflow/phases/" + row.phase_slug
+  art = artifacts.find(a => a.phase === row.phase && a.path)
+  IF art: phase_dir = ".workflow/" + art.path
 
   IF phase_dir AND directory exists:
     phase_context = {
@@ -382,7 +383,7 @@ PHASE CONTEXT:
 | E002 | error | Unknown `--category` (allowed: pattern, antipattern, decision, tool, gotcha, technique) |
 | E003 | error | `show` mode requires an INS-id argument |
 | E004 | error | Insight id not found in lessons.jsonl |
-| W001 | warning | Auto-phase detection found a current_phase but no matching directory; phase set to null |
+| W001 | warning | Auto-phase detection found no matching artifact in registry; phase set to null |
 | W002 | warning | learning-index.json out of sync with lessons.jsonl (different row count); offer to rebuild |
 
 ---
@@ -392,7 +393,7 @@ PHASE CONTEXT:
 - [ ] Mode correctly routed (capture / list / search / show)
 - [ ] Capture mode: `lessons.jsonl` row appended, valid JSON, all required fields present
 - [ ] Capture mode: `learning-index.json` updated with matching entry
-- [ ] Capture mode: phase auto-link resolves correctly when state.json has current_phase
+- [ ] Capture mode: phase auto-link resolves correctly from artifact registry
 - [ ] Capture mode: category inference produces a sensible default when --category absent
 - [ ] List mode: filters apply; output sorted newest-first
 - [ ] Search mode: results ranked by title > tags > summary match

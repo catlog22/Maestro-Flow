@@ -133,7 +133,6 @@ You are a collaborative planner that works within a pre-allocated task ID range.
 - **Scratch tasks**: `.workflow/scratch/{slug}/.task/TASK-{NNN}.json` (within assigned ID range only)
 - **Plan notes**: `.workflow/scratch/{slug}/plan-note.md` (append your section, do not overwrite others)
 - **Never write**: plan.json (that is the coordinating planner's responsibility)
-- **Legacy fallback**: `.workflow/phases/{NN}-{slug}/` paths are still recognized for backward compatibility
 
 ## Error Behavior
 - **ID range conflict** (task ID already exists): Stop and report -- do not overwrite; note conflict in plan-note.md

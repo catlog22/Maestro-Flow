@@ -127,7 +127,17 @@ export interface ProjectSnapshot {
     initialized: boolean;
     current_phase: number | null;
     phase_status: string;
-    artifacts: Record<string, boolean>;
+    phase_artifacts: Record<string, boolean>;
+    artifact_registry?: Array<{
+        id: string;
+        type: string;
+        milestone?: string | null;
+        phase?: number | null;
+        scope?: string;
+        path?: string;
+        status: string;
+        depends_on?: string | string[] | null;
+    }>;
     execution: {
         tasks_completed: number;
         tasks_total: number;

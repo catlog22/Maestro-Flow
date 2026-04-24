@@ -130,11 +130,11 @@ Parse $ARGUMENTS to determine execution mode:
   ```
   Read .workflow/state.json → state
   artifacts = state.artifacts ?? []
-  IF artifacts.length > 0:
-    art = artifacts.find(a => a.phase === phaseNum)
+  art = artifacts.find(a => a.phase === phaseNum)
+  IF art:
     output_dir = ".workflow/" + art.path + "/.brainstorming/"
   ELSE:
-    output_dir = ".workflow/phases/{NN}-{slug}/.brainstorming/"
+    ERROR "Phase {phaseNum} not found in artifact registry"
   ```
 - All output: `.workflow/scratch/brainstorm-{slug}-{date}/`
 - Existing session: use existing session directory

@@ -60,7 +60,7 @@ You create a phased project roadmap from research findings and requirements. You
 
 Phase identifiers use lowercase kebab-case slug names (e.g., `auth`, `api-layer`, `ui-components`).
 
-These identifiers become scratch directory names under `.workflow/scratch/{slug}/` (resolved via state.json artifact registry; legacy fallback: `.workflow/phases/{NN}-{slug}/`).
+These identifiers become scratch directory names under `.workflow/scratch/{slug}/` (resolved via state.json artifact registry).
 
 ## Schema Reference
 `@templates/roadmap.md` -- roadmap template

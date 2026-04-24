@@ -413,8 +413,8 @@ spawn_agents_on_csv({
    Tasks: {task_count} tasks in {wave_count} waves
    Check: {checker_status}
 
-   Plan: {phase_dir}/plan.json
-   Tasks: {phase_dir}/.task/TASK-*.json
+   Plan: {scratch_dir}/plan.json
+   Tasks: {scratch_dir}/.task/TASK-*.json
 
    Next steps:
      Skill({ skill: "maestro-execute", args: "{phase}" })  -- Execute the plan

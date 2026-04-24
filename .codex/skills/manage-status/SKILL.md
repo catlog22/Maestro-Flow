@@ -19,8 +19,8 @@ $manage-status
 Reads from:
 - `.workflow/state.json` — project-level state machine
 - `.workflow/roadmap.md` — milestone and phase structure
-- `.workflow/scratch/*/index.json` — per-phase metadata and progress (resolved via state.json artifact registry; legacy fallback: `.workflow/phases/*/index.json`)
-- `.workflow/scratch/*/.task/TASK-*.json` — individual task statuses (legacy fallback: `.workflow/phases/*/.task/TASK-*.json`)
+- `.workflow/scratch/*/index.json` — per-phase metadata and progress (resolved via state.json artifact registry)
+- `.workflow/scratch/*/.task/TASK-*.json` — individual task statuses (resolved via state.json artifact registry)
 </context>
 
 <execution>
@@ -38,8 +38,8 @@ test -f .workflow/state.json || exit 1  # E002: state missing
 Read all state sources:
 - `.workflow/state.json` -- project-level state machine
 - `.workflow/roadmap.md` -- milestone and phase structure
-- `.workflow/scratch/*/index.json` -- per-phase metadata and progress (resolved via state.json artifact registry; legacy fallback: `.workflow/phases/*/index.json`)
-- `.workflow/scratch/*/.task/TASK-*.json` -- individual task statuses (legacy fallback: `.workflow/phases/*/.task/TASK-*.json`)
+- `.workflow/scratch/*/index.json` -- per-phase metadata and progress (resolved via state.json artifact registry)
+- `.workflow/scratch/*/.task/TASK-*.json` -- individual task statuses (resolved via state.json artifact registry)
 
 ### Step 3: Calculate Progress
 

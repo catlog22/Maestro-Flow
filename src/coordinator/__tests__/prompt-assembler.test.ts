@@ -17,7 +17,7 @@ function makeProject(overrides?: Partial<ProjectSnapshot>): ProjectSnapshot {
     initialized: true,
     current_phase: 1,
     phase_status: 'in_progress',
-    artifacts: {},
+    phase_artifacts: {},
     execution: { tasks_completed: 0, tasks_total: 0 },
     verification_status: 'pending',
     review_verdict: null,
@@ -251,7 +251,7 @@ describe('Phase 4: buildStateSnapshot', () => {
 
   it('shows truthy artifacts', () => {
     const result = assembler.buildStateSnapshot(makeProject({
-      artifacts: { 'plan.json': true, 'state.json': true, 'context.md': false },
+      phase_artifacts: { 'plan.json': true, 'state.json': true, 'context.md': false },
     }));
     assert.ok(result.includes('Artifacts: plan.json, state.json'));
     assert.ok(!result.includes('context.md'));
@@ -347,7 +347,7 @@ describe('Full assemble (end-to-end)', () => {
           phases_completed: 1,
           phases_total: 3,
           execution: { tasks_completed: 2, tasks_total: 5 },
-          artifacts: { 'plan.json': true },
+          phase_artifacts: { 'plan.json': true },
         }),
         result: { status: 'SUCCESS', summary: 'Plan created' },
         analysis: {

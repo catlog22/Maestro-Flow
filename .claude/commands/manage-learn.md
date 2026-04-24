@@ -58,7 +58,7 @@ Arguments: $ARGUMENTS
 Follow `~/.maestro/workflows/learn.md` Stages 1–5 in order. Key invariants:
 
 1. **No agent or CLI calls** — this is a pure file operation: parse → infer → append → confirm. Category inference is keyword-based, not LLM-based.
-2. **Auto-link phase** — read `.workflow/state.json` for `current_phase` and resolve the matching directory slug. `--phase 0` forces no link.
+2. **Auto-link phase** — read `.workflow/state.json` for `current_phase` and derive phase context from artifact registry (`state.json.artifacts[]`). `--phase 0` forces no link.
 3. **Match memory-index pattern** — `learning-index.json` schema mirrors `memory-index.json` from `workflows/memory.md` (entries[] with id, type, timestamp, file, summary, tags, plus learn-specific fields: lens, category, phase, phase_slug, confidence, routed_to, routed_id).
 4. **Stable INS ids** — `INS-{8 lowercase hex}` from `hash(insight_text + category + phase)`. Deterministic: same content in same context always produces the same ID.
 5. **Append-only lessons.jsonl** — never rewrite existing rows; duplicate detection is the user's job at search time.
@@ -73,7 +73,7 @@ Follow `~/.maestro/workflows/learn.md` Stages 1–5 in order. Key invariants:
 | E002 | error | Unknown `--category` value (allowed: pattern, antipattern, decision, tool, gotcha, technique, tip) | parse_input |
 | E003 | error | `show` mode requires an INS-id argument | show |
 | E004 | error | Insight id not found in lessons.jsonl | show |
-| W001 | warning | Auto-phase detection found a current_phase but no matching directory; phase set to null | capture |
+| W001 | warning | Auto-phase detection found a current_phase but no matching artifact in registry; phase set to null | capture |
 | W002 | warning | learning-index.json out of sync with lessons.jsonl (different row count); offer to rebuild | list/search |
 </error_codes>
 
@@ -81,7 +81,7 @@ Follow `~/.maestro/workflows/learn.md` Stages 1–5 in order. Key invariants:
 - [ ] Mode correctly routed (capture / list / search / show)
 - [ ] Capture: `lessons.jsonl` row appended with valid JSON and all required fields
 - [ ] Capture: `learning-index.json` updated with matching entry
-- [ ] Capture: phase auto-link resolves correctly when `state.json` has `current_phase`
+- [ ] Capture: phase auto-link resolves correctly via artifact registry when `state.json` has `current_phase`
 - [ ] Capture: category inference produces a sensible default when `--category` absent
 - [ ] List: filters apply, output sorted newest-first, default limit 20
 - [ ] Search: results ranked by title (3) > tags (2) > summary (1) match

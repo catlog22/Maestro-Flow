@@ -33,7 +33,7 @@ You research the implementation approach for a specific phase of the roadmap. Yo
 - Research summary from `.workflow/research/SUMMARY.md` (if available)
 
 ## Output
-`.workflow/scratch/{slug}/research.md` (resolved via state.json artifact registry; legacy fallback: `.workflow/phases/{NN}-{slug}/research.md`).
+`.workflow/scratch/{slug}/research.md` (resolved via state.json artifact registry).
 
 Structure:
 ```
@@ -69,7 +69,7 @@ Structure:
 N/A -- produces markdown research document
 
 ## Output Location
-`.workflow/scratch/{slug}/research.md` (legacy fallback: `.workflow/phases/{NN}-{slug}/`)
+`.workflow/scratch/{slug}/research.md`
 
 ## Error Behavior
 - If codebase analysis (`.workflow/codebase/`) is unavailable, note as limitation and proceed with external research only

@@ -9,7 +9,7 @@ This is a **post-execution analysis** workflow. It reads only — until the rout
 ## Prerequisites
 
 - `.workflow/` initialized (`.workflow/state.json` exists)
-- At least one completed phase (via artifact registry in state.json, or legacy `.workflow/phases/{NN}-{slug}/`)
+- At least one completed phase (via artifact registry in state.json)
 - Target phase has been executed (has `.task/` and `.summaries/`)
 - `maestro delegate` available (used for the four lens analyses via Agent calls)
 
@@ -64,43 +64,24 @@ candidates = []
 
 Read .workflow/state.json → state
 artifacts = state.artifacts ?? []
-useArtifactRegistry = artifacts.length > 0
 
-IF useArtifactRegistry:
-  // Resolve completed phases from artifact registry
-  phaseNums = [...new Set(artifacts.map(a => a.phase).filter(Boolean))]
-  FOR each phaseNum in phaseNums:
-    execArt = artifacts.find(a => a.type === 'execute' && a.phase === phaseNum && a.status === 'completed')
-    IF execArt:
-      scratchDir = ".workflow/" + execArt.path
-      has_retro = file exists at "{scratchDir}/retrospective.json"
-      candidates.push({
-        number: phaseNum,
-        slug: execArt.slug ?? "phase-" + phaseNum,
-        title: execArt.title ?? execArt.slug ?? "Phase " + phaseNum,
-        completed_at: execArt.completed_at,
-        has_retro: has_retro,
-        phase_dir: scratchDir,
-        gaps: 0,
-        review_verdict: "—"
-      })
-ELSE:
-  // Legacy: scan phases/ directory
-  FOR each .workflow/phases/{NN}-{slug}/index.json:
-    Read index.json
-    IF index.json.status == "completed":
-      phase_dir = ".workflow/phases/{NN}-{slug}"
-      has_retro = file exists at "{phase_dir}/retrospective.json"
-      candidates.push({
-        number: NN,
-        slug: slug,
-        title: index.json.title or slug,
-        completed_at: index.json.completed_at,
-        has_retro: has_retro,
-        phase_dir: phase_dir,
-        gaps: index.json.verification?.gaps?.length or 0,
-        review_verdict: index.json.review?.verdict or "—"
-      })
+// Resolve completed phases from artifact registry
+phaseNums = [...new Set(artifacts.map(a => a.phase).filter(Boolean))]
+FOR each phaseNum in phaseNums:
+  execArt = artifacts.find(a => a.type === 'execute' && a.phase === phaseNum && a.status === 'completed')
+  IF execArt:
+    artifact_dir = ".workflow/" + execArt.path
+    has_retro = file exists at "{artifact_dir}/retrospective.json"
+    candidates.push({
+      number: phaseNum,
+      slug: execArt.slug ?? "phase-" + phaseNum,
+      title: execArt.title ?? execArt.slug ?? "Phase " + phaseNum,
+      completed_at: execArt.completed_at,
+      has_retro: has_retro,
+      phase_dir: artifact_dir,
+      gaps: 0,
+      review_verdict: "—"
+    })
 ```
 
 ### Display backlog
@@ -130,7 +111,7 @@ ELSE:
 
 If overwriting existing retrospective.json:
 ```
-mkdir -p "{candidate.phase_dir}/.history"
+mkdir -p "{candidate.phase_dir}/.history"   // phase_dir is artifact_dir from registry
 TIMESTAMP = format(now(), "YYYY-MM-DDTHH-mm-ss")
 mv "{candidate.phase_dir}/retrospective.json" "{candidate.phase_dir}/.history/retrospective-{TIMESTAMP}.json"
 mv "{candidate.phase_dir}/retrospective.md"   "{candidate.phase_dir}/.history/retrospective-{TIMESTAMP}.md"
@@ -143,20 +124,20 @@ mv "{candidate.phase_dir}/retrospective.md"   "{candidate.phase_dir}/.history/re
 For each selected phase (using `candidate.phase_dir` resolved in Stage 2), build the in-memory artifacts bundle:
 
 ```
-phase_dir = candidate.phase_dir  // already resolved: scratch path (artifact registry) or legacy phases/ path
+phase_dir = candidate.phase_dir  // already resolved from artifact registry (e.g. .workflow/scratch/plan-auth-2026-04-20)
 
 artifacts = {
   phase_num: NN,
   phase_slug: slug,
-  phase_dir: phase_dir,
-  index: read "{phase_dir}/index.json" or null,
+  artifact_dir: artifact_dir,
+  index: read "{artifact_dir}/index.json" or null,
   state: read .workflow/state.json,
-  plan: read "{phase_dir}/plan.json" or null,
-  verification: read "{phase_dir}/verification.json" or null,
-  review: read "{phase_dir}/review.json" or null,
-  uat: read "{phase_dir}/uat.md" or null,
-  task_summaries: read all "{phase_dir}/.summaries/TASK-*-summary.md",
-  task_jsons: read all "{phase_dir}/.task/TASK-*.json",
+  plan: read "{artifact_dir}/plan.json" or null,
+  verification: read "{artifact_dir}/verification.json" or null,
+  review: read "{artifact_dir}/review.json" or null,
+  uat: read "{artifact_dir}/uat.md" or null,
+  task_summaries: read all "{artifact_dir}/.summaries/TASK-*-summary.md",
+  task_jsons: read all "{artifact_dir}/.task/TASK-*.json",
   phase_issues: filter ".workflow/issues/issues.jsonl" + ".workflow/issues/issue-history.jsonl"
                 where issue.phase_ref == phase_slug or issue.phase_ref == NN,
   prior_retro: null
@@ -164,12 +145,9 @@ artifacts = {
 
 // Resolve --compare target
 IF --compare M:
-  IF useArtifactRegistry:
-    compareArt = state.artifacts.find(a => a.type === 'execute' && a.phase === M)
-    IF compareArt:
-      artifacts.prior_retro = read ".workflow/" + compareArt.path + "/retrospective.json"
-  ELSE:
-    artifacts.prior_retro = read .workflow/phases/{MM}-*/retrospective.json
+  compareArt = state.artifacts.find(a => a.type === 'execute' && a.phase === M)
+  IF compareArt:
+    artifacts.prior_retro = read ".workflow/" + compareArt.path + "/retrospective.json"
 }
 ```
 
@@ -245,12 +223,12 @@ the project's spec / note / issue stores.
 - Completed at: {index.completed_at}
 
 ## Artifacts (read these from disk)
-- Plan:           {phase_dir}/plan.json
-- Verification:   {phase_dir}/verification.json
-- Review:         {phase_dir}/review.json
-- UAT notes:      {phase_dir}/uat.md
-- Task summaries: {phase_dir}/.summaries/
-- Task JSONs:     {phase_dir}/.task/
+- Plan:           {artifact_dir}/plan.json
+- Verification:   {artifact_dir}/verification.json
+- Review:         {artifact_dir}/review.json
+- UAT notes:      {artifact_dir}/uat.md
+- Task summaries: {artifact_dir}/.summaries/
+- Task JSONs:     {artifact_dir}/.task/
 - Phase issues:   .workflow/issues/issues.jsonl (filter phase_ref == "{phase_slug}")
 - Project state:  .workflow/state.json (decisions, deferred)
 
@@ -287,7 +265,7 @@ Return ONLY a single JSON object, no prose, matching this schema:
       "title": "Short imperative title",
       "summary": "1–3 sentences a future planner can act on",
       "confidence": "high|medium|low",
-      "evidence_refs": ["{phase_dir}/verification.json#gaps[2]", "..."],
+      "evidence_refs": ["{artifact_dir}/verification.json#gaps[2]", "..."],
       "routed_to": "spec|note|issue|none",
       "tags": ["..."]
     }
@@ -463,8 +441,8 @@ retrospective = {
 
 Write both files (phase_dir already resolved in Stage 2):
 ```
-Write "{phase_dir}/retrospective.json"
-Write "{phase_dir}/retrospective.md"
+Write "{artifact_dir}/retrospective.json"
+Write "{artifact_dir}/retrospective.md"
 ```
 
 ---
@@ -739,8 +717,8 @@ Routing summary:
   Lessons logged:  {N}  → .workflow/learning/lessons.jsonl
 
 Files:
-  {phase_dir}/retrospective.md
-  {phase_dir}/retrospective.json
+  {artifact_dir}/retrospective.md
+  {artifact_dir}/retrospective.json
 
 Next steps (suggested):
   Skill({ skill: "manage-status" })                                    — Review project state
@@ -809,8 +787,8 @@ Total issues:        {sum}
       "summary": "Refresh-on-use prevents replay attacks. Implemented in src/auth/refresh.ts; should become a project-wide convention.",
       "confidence": "high",
       "evidence_refs": [
-        ".workflow/phases/01-auth/verification.json#gaps[2]",
-        ".workflow/phases/01-auth/.summaries/TASK-005-summary.md:42"
+        ".workflow/scratch/plan-auth-2026-04-15/verification.json#gaps[2]",
+        ".workflow/scratch/plan-auth-2026-04-15/.summaries/TASK-005-summary.md:42"
       ],
       "tags": ["auth", "jwt", "security"],
       "routed_to": "spec",

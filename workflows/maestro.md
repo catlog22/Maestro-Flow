@@ -661,8 +661,17 @@ function resolvePhase(intent_analysis, project_state) {
   const phaseMatch = intent.match(/phase\s*(\d+)|^(\d+)$/);
   if (phaseMatch) return phaseMatch[1] || phaseMatch[2];
 
-  // 3. From project state
-  if (project_state.initialized) return project_state.current_phase;
+  // 3. From project state — derive from artifacts
+  if (project_state.initialized) {
+    // Derive current phase: first phase with in_progress execute, or first without completed execute
+    const arts = project_state.artifacts ?? [];
+    const inProgress = arts.find(a => a.type === 'execute' && a.status === 'in_progress');
+    if (inProgress) return inProgress.phase;
+    const phases = [...new Set(arts.map(a => a.phase).filter(Boolean))].sort((a,b) => a - b);
+    const current = phases.find(p => !arts.some(a => a.phase === p && a.type === 'execute' && a.status === 'completed'));
+    if (current) return current;
+    return project_state.latest_artifact?.phase ?? null;
+  }
 
   // 4. Scratch mode chains use {scratch_dir} instead of {phase}
   if (chainName === 'analyze-plan-execute') return null;
@@ -775,7 +784,7 @@ mkdir -p "${SESSION_DIR}"
 **Initialize execution context:**
 ```javascript
 const context = {
-  current_phase: resolvedPhase,
+  current_phase: resolvedPhase,  // derived from artifacts
   user_intent: intent,
   issue_id: resolvedIssueId,
   spec_session_id: null,

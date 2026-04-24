@@ -170,7 +170,7 @@ Bash(`mkdir -p ${sessionFolder}`)
 
 **Decomposition Rules**:
 
-1. **Phase resolution**: Resolve `{phaseArg}` via artifact registry in `state.json` to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-{slug}/`
+1. **Phase resolution**: Resolve `{phaseArg}` via artifact registry in `state.json` to `.workflow/scratch/{type}-{slug}-{date}/`
 
 2. **Test infrastructure discovery**:
    - Find config files: `jest.config.*`, `vitest.config.*`, `pytest.ini`, `.mocharc.*`
@@ -277,9 +277,9 @@ Each agent receives:
 
 4. **Archive previous artifacts** before writing:
    ```
-   IF file exists "{phase_dir}/.tests/test-gen-report.json":
-     mkdir -p "{phase_dir}/.history"
-     mv to "{phase_dir}/.history/test-gen-report-{TIMESTAMP}.json"
+   IF file exists "{artifact_dir}/.tests/test-gen-report.json":
+     mkdir -p "{artifact_dir}/.history"
+     mv to "{artifact_dir}/.history/test-gen-report-{TIMESTAMP}.json"
    ```
 
 5. Build `test-gen-report.json`:

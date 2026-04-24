@@ -10,7 +10,7 @@ function makeCtx(overrides: Partial<WalkerContext> = {}): WalkerContext {
       initialized: true,
       current_phase: 2,
       phase_status: 'active',
-      artifacts: { plan: true, spec: false },
+      phase_artifacts: { plan: true, spec: false },
       execution: { tasks_completed: 5, tasks_total: 10 },
       verification_status: 'pending',
       review_verdict: 'PASS',
@@ -60,8 +60,8 @@ describe('resolve — path access', () => {
     assert.strictEqual(evaluator.resolve('ctx.project.phase_status', ctx), 'active');
   });
 
-  it('resolves ctx.project.artifacts.plan', () => {
-    assert.strictEqual(evaluator.resolve('ctx.project.artifacts.plan', ctx), true);
+  it('resolves ctx.project.phase_artifacts.plan', () => {
+    assert.strictEqual(evaluator.resolve('ctx.project.phase_artifacts.plan', ctx), true);
   });
 
   it('resolves ctx.project.execution.tasks_completed', () => {
@@ -192,7 +192,7 @@ describe('evaluate — logical operators', () => {
   });
 
   it('! on path expression', () => {
-    assert.strictEqual(evaluator.evaluate('!ctx.project.artifacts.spec', ctx), true);
+    assert.strictEqual(evaluator.evaluate('!ctx.project.phase_artifacts.spec', ctx), true);
   });
 
   it('parenthesized grouping', () => {

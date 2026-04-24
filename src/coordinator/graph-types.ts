@@ -176,7 +176,11 @@ export interface ProjectSnapshot {
   initialized: boolean;
   current_phase: number | null;
   phase_status: string;
-  artifacts: Record<string, boolean>;
+  phase_artifacts: Record<string, boolean>;   // per-phase presence flags (renamed from artifacts)
+  artifact_registry?: Array<{                 // v2 artifact entries from state.json
+    id: string; type: string; milestone?: string | null; phase?: number | null;
+    scope?: string; path?: string; status: string; depends_on?: string | string[] | null;
+  }>;
   execution: { tasks_completed: number; tasks_total: number };
   verification_status: string;
   review_verdict: string | null;

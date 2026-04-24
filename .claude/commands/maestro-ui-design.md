@@ -101,12 +101,12 @@ Stack:   {stack}
 Matrix:  {S x L x T} = {total} prototypes
 
 Design System:
-  MASTER.md:        {phase_dir}/design-ref/MASTER.md
-  Tokens:           {phase_dir}/design-ref/design-tokens.json
-  Animation:        {phase_dir}/design-ref/animation-tokens.json
-  Layout Templates: {phase_dir}/design-ref/layout-templates/
-  Prototypes:       {phase_dir}/design-ref/prototypes/
-  Compare:          {phase_dir}/design-ref/prototypes/compare.html
+  MASTER.md:        {scratch_dir}/design-ref/MASTER.md
+  Tokens:           {scratch_dir}/design-ref/design-tokens.json
+  Animation:        {scratch_dir}/design-ref/animation-tokens.json
+  Layout Templates: {scratch_dir}/design-ref/layout-templates/
+  Prototypes:       {scratch_dir}/design-ref/prototypes/
+  Compare:          {scratch_dir}/design-ref/prototypes/compare.html
 
 Next steps:
   /maestro-plan {phase}              -- Plan with design reference

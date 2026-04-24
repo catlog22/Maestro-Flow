@@ -52,7 +52,7 @@ Arguments: $ARGUMENTS
 - `.workflow/learning/lessons.jsonl` — Existing insights for dedup
 - `maestro wiki list --type spec --json` — Spec entries (decision lens)
 - `.workflow/specs/architecture-constraints.md` — Documented architectural decisions (decision lens)
-- Phase context with Locked/Free/Deferred decisions (decision lens) — resolve via `state.json.artifacts[]` scratch paths, fallback to `.workflow/phases/*/context.md`
+- Phase context with Locked/Free/Deferred decisions (decision lens) — resolve via `state.json.artifacts[]` scratch paths
 </context>
 
 <execution>
@@ -146,7 +146,7 @@ git log --oneline --all --grep="decision\|chose\|decided\|architecture" -20
 
 Also read:
 - `.workflow/specs/architecture-constraints.md` — grep for `<spec-entry category="arch"` blocks
-- Phase context files — resolve via `state.json.artifacts[]` scratch paths (fallback: `.workflow/phases/*/context.md`) — scan for "Locked:", "Deferred:" sections
+- Phase context files — resolve via `state.json.artifacts[]` scratch paths — scan for "Locked:", "Deferred:" sections
 - `.workflow/learning/lessons.jsonl` — filter `category == "decision"`
 
 Apply scope filter (--phase, --tag, --id).

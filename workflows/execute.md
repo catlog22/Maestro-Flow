@@ -221,9 +221,6 @@ For each wave in execution_queue (sequential):
     Read .workflow/state.json
     If state.json.status != "executing":
       state.json.status = "executing"
-      # Worktree mode: skip phases_summary (reconciled on merge)
-      IF NOT file_exists(".workflow/worktree-scope.json"):
-        state.json.phases_summary.in_progress += 1
       state.json.last_updated = now()
       Write .workflow/state.json
 

@@ -23,12 +23,11 @@ Input: <phase> argument (number or slug) OR topic text
 IF argument is a number or matches phase pattern:
   Read .workflow/state.json → state
   artifacts = state.artifacts ?? []
-  IF artifacts.length > 0:
-    art = artifacts.find(a => a.phase === phaseNum)
+  art = artifacts.find(a => a.phase === phaseNum)
+  IF art:
     PHASE_DIR = ".workflow/" + art.path
   ELSE:
-    Find .workflow/phases/{NN}-*/index.json
-    PHASE_DIR = resolved path
+    ERROR "Phase {phaseNum} not found in artifact registry"
   Set SCRATCH_MODE = false
 
 ELSE (topic text — scratch mode):

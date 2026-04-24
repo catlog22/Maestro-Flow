@@ -88,7 +88,7 @@ CHECK .workflow/state.json exists?
 
 5. **Create project files:**
    - `.workflow/project.md` from @templates/project.md + user answers (include Core Value, Requirements, Key Decisions)
-   - `.workflow/state.json` from template (status: "idle", current_phase: null)
+   - `.workflow/state.json` from template (status: "idle")
    - `.workflow/config.json` already created in step 2
 
 ### Path B: Brownfield (has code, no .workflow/)
@@ -143,7 +143,6 @@ Verify all required directories and files exist:
   config.json        ✓
   specs/             ✓
   research/          ✓ (if research enabled)
-  phases/            ✓ (create empty)
   scratch/           ✓ (create empty)
   milestones/        ✓ (create empty)
   codebase/          ✓ (create empty)

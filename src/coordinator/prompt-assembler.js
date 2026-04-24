@@ -190,7 +190,8 @@ export class DefaultPromptAssembler {
         if (!project.initialized)
             return 'Project not initialized.';
         const lines = [];
-        lines.push(`Phase ${project.current_phase} | Status: ${project.phase_status}`);
+        const phaseLabel = project.current_phase != null ? `Phase ${project.current_phase}` : 'Phase -';
+        lines.push(`${phaseLabel} | Status: ${project.phase_status}`);
         lines.push(`Progress: ${project.phases_completed}/${project.phases_total} phases`);
         if (project.execution.tasks_total > 0) {
             lines.push(`Tasks: ${project.execution.tasks_completed}/${project.execution.tasks_total}`);
@@ -204,7 +205,7 @@ export class DefaultPromptAssembler {
         if (project.uat_status !== 'pending') {
             lines.push(`UAT: ${project.uat_status}`);
         }
-        const artifactList = Object.entries(project.artifacts)
+        const artifactList = Object.entries(project.phase_artifacts)
             .filter(([, v]) => v)
             .map(([k]) => k);
         if (artifactList.length > 0) {

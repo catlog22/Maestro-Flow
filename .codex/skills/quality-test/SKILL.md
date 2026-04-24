@@ -49,7 +49,7 @@ No auto mode -- UAT is inherently interactive. `--auto-fix` only automates gap c
 ### Step 1: Resolve Target
 
 1. Parse `$ARGUMENTS` for phase number, scratch task ID, or flags
-2. **Phase mode**: resolve `PHASE_DIR` via artifact registry in `state.json` to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-{slug}/`
+2. **Phase mode**: resolve `PHASE_DIR` via artifact registry in `state.json` to `.workflow/scratch/{type}-{slug}-{date}/`
 3. **Scratch mode**: set `SCRATCH_DIR = .workflow/scratch/{id}/`
 4. Validate target exists and has `verification.json` -- if missing: **E002**
 

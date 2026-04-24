@@ -213,7 +213,7 @@ Write(`${sessionFolder}/reflection-log.md`,
 
 **Decomposition Rules**:
 
-1. **Phase resolution**: Resolve `{phaseArg}` via artifact registry in `state.json` to `.workflow/scratch/{type}-{slug}-{date}/`; legacy fallback to `.workflow/phases/{NN}-{slug}/`
+1. **Phase resolution**: Resolve `{phaseArg}` via artifact registry in `state.json` to `.workflow/scratch/{type}-{slug}-{date}/`
 
 2. **Codebase exploration**:
    - Cross-module imports and dependencies
@@ -228,7 +228,7 @@ Write(`${sessionFolder}/reflection-log.md`,
    - Identify test utilities, fixtures, DB seed scripts
 
 4. **Pre-generated test loading**:
-   Check `{phase_dir}/.tests/test-gen-report.json` for tests from `quality-test-gen`. Merge integration/e2e tests into plan (execute but don't re-generate).
+   Check `{artifact_dir}/.tests/test-gen-report.json` for tests from `quality-test-gen`. Merge integration/e2e tests into plan (execute but don't re-generate).
 
 5. **Layer design**:
 

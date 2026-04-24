@@ -14,10 +14,9 @@ When root causes found, auto-updates originating uat.md with diagnosis.
 ### Step 1: Check Active Sessions
 
 ```bash
-# Check both scratch (artifact registry) and legacy phases for debug sessions
+# Check scratch dirs (resolved via artifact registry) for debug sessions
 find .workflow/scratch -path "*/.debug/*" -name "understanding.md" 2>/dev/null | head -5
 find .workflow/scratch -type d -name "debug-*" 2>/dev/null | head -5
-find .workflow/phases -path "*/.debug/*" -name "understanding.md" 2>/dev/null | head -5
 ```
 
 **If active sessions exist AND no $ARGUMENTS:**
@@ -30,7 +29,7 @@ Display:
 
 | # | Location | Status | Current Hypothesis |
 |---|----------|--------|--------------------|
-| 1 | phases/03-auth/.debug/jwt-expiry/ | investigating | Token not refreshed on 401 |
+| 1 | scratch/plan-auth-2026-04-20/.debug/jwt-expiry/ | investigating | Token not refreshed on 401 |
 | 2 | scratch/debug-nav-crash-2026-03-14/ | checkpoint | Awaiting user input |
 
 Reply with a number to resume, or describe a new issue.
@@ -65,7 +64,7 @@ Pass to debug agents as prior knowledge (known issues, root causes, workarounds)
 
 Skip if --from-uat is not set. Go to Step 3 instead.
 
-Read `{phase_dir}/uat.md` Gaps section. For each gap:
+Read `{artifact_dir}/uat.md` Gaps section (artifact_dir resolved from artifact registry). For each gap:
 ```yaml
 - test: T-003
   truth: "User can reply to comments"
@@ -136,18 +135,18 @@ Create debug session directory and proceed to Step 6.
 
 | Mode | Directory |
 |------|-----------|
-| Phase-scoped (from UAT) | `{PHASE_DIR}/.debug/{gap-slug}/` (PHASE_DIR resolved via artifact registry or legacy phases/) |
+| Phase-scoped (from UAT) | `{ARTIFACT_DIR}/.debug/{gap-slug}/` (ARTIFACT_DIR resolved from artifact registry) |
 | Standalone | `.workflow/scratch/debug-{slug}-{date}/` |
 
 ```
 IF TARGET_TYPE == "phase":
   Read .workflow/state.json → state
   artifacts = state.artifacts ?? []
-  IF artifacts.length > 0:
-    art = artifacts.find(a => a.type === 'execute' && a.phase === phaseNum)
+  art = artifacts.find(a => a.type === 'execute' && a.phase === phaseNum)
+  IF art:
     DEBUG_DIR = ".workflow/" + art.path + "/.debug/{gap-slug}/"
   ELSE:
-    DEBUG_DIR = ".workflow/phases/{NN}-{slug}/.debug/{gap-slug}/"
+    ERROR "Phase {phaseNum} not found in artifact registry"
 ELSE:
   DEBUG_DIR = ".workflow/scratch/debug-{slug}-{date}/"
 

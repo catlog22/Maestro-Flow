@@ -26,11 +26,11 @@ Determine test target from $ARGUMENTS:
   ```
   Read .workflow/state.json → state
   artifacts = state.artifacts ?? []
-  IF artifacts.length > 0:
-    art = artifacts.find(a => a.type === 'execute' && a.phase === phaseNum)
+  art = artifacts.find(a => a.type === 'execute' && a.phase === phaseNum)
+  IF art:
     PHASE_DIR = ".workflow/" + art.path
   ELSE:
-    PHASE_DIR = ".workflow/phases/{NN}-{slug}/"
+    ERROR "Phase {phaseNum} not found in artifact registry"
   ```
 - Load `$PHASE_DIR/index.json` for context
 
@@ -54,9 +54,8 @@ Validate target exists and has been verified (verification.json present). (E002)
 ### Step 2: Check Active Sessions
 
 ```bash
-# Check both scratch (artifact registry) and legacy phases for active UAT sessions
+# Check scratch dirs (resolved via artifact registry) for active UAT sessions
 find .workflow/scratch -name "uat.md" -type f 2>/dev/null | head -5
-find .workflow/phases -name "uat.md" -type f 2>/dev/null | head -5
 ```
 
 Read each file's frontmatter (status, target) and Current Test section.

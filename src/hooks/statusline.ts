@@ -1,7 +1,7 @@
 /**
- * Maestro Statusline Hook — Powerline × Notion style
+ * Maestro Statusline Hook — Colored text with pipe separators
  *
- * Renders a Nerd-Font Powerline statusline with muted Notion-inspired colors.
+ * Renders a statusline with colored text segments separated by dim pipes.
  * Segments are conditionally shown — empty segments are omitted for a clean line.
  *
  * Segments (left → right):
@@ -10,7 +10,7 @@
  * Input (stdin JSON from Claude Code):
  *   { model, workspace, session_id, context_window }
  *
- * Output (stdout): formatted Powerline string
+ * Output (stdout): formatted ANSI string
  */
 
 import { readFileSync, readdirSync, statSync, existsSync, writeFileSync } from 'node:fs';
@@ -21,18 +21,11 @@ import {
   AUTO_COMPACT_BUFFER_PCT,
   BRIDGE_PREFIX,
   ANSI_RESET,
-  ANSI_BOLD,
-  PL_SEP,
   ICONS,
   GIT_ICONS,
-  SEGMENT_BG,
-  SEGMENT_FG,
   TEXT_COLORS,
-  ansiBg,
   ansiFg,
   getCtxLevel,
-  getStatuslineStyle,
-  type CtxLevel,
 } from './constants.js';
 import { readCoordBridge } from './coordinator-tracker.js';
 import { resolveSelf } from '../tools/team-members.js';
@@ -57,47 +50,19 @@ interface BridgeData {
   timestamp: number;
 }
 
-/** Segment key — maps to TEXT_COLORS for colored-text mode */
+/** Segment key — maps to TEXT_COLORS */
 type SegKey = 'model' | 'milestone' | 'phase' | 'coord' | 'task' | 'team' | 'dir' | 'ctxOk' | 'ctxWarn' | 'ctxAlert' | 'ctxCrit';
 
 interface Segment {
   text: string;
   key: SegKey;
-  bg: readonly [number, number, number];
-  fg: readonly [number, number, number];
 }
 
 // ---------------------------------------------------------------------------
-// Renderers
+// Renderer
 // ---------------------------------------------------------------------------
 
-/**
- * Powerline mode: colored background segments with arrow separators.
- * Separator uses bold ANSI to make the V-chevron more prominent.
- */
-function renderPowerline(segments: Segment[]): string {
-  if (segments.length === 0) return '';
-
-  let out = '';
-  for (let i = 0; i < segments.length; i++) {
-    const seg = segments[i];
-    out += ansiBg(seg.bg) + ansiFg(seg.fg) + ` ${seg.text} `;
-
-    if (i < segments.length - 1) {
-      // Bold separator: fg = current bg, bg = next bg → Powerline dovetail
-      out += ANSI_BOLD + ansiFg(seg.bg) + ansiBg(segments[i + 1].bg) + PL_SEP + ANSI_RESET;
-    } else {
-      // Last segment: arrow fades into terminal background
-      out += ANSI_RESET + ANSI_BOLD + ansiFg(seg.bg) + PL_SEP + ANSI_RESET;
-    }
-  }
-  return out;
-}
-
-/**
- * Colored-text mode: colored text on transparent background, pipe separators.
- * Similar style to CCometixLine reference.
- */
+/** Colored text on transparent background, pipe separators */
 function renderColoredText(segments: Segment[]): string {
   if (segments.length === 0) return '';
 
@@ -131,20 +96,6 @@ function buildContextText(usedPct: number): string {
   const filled = Math.floor(usedPct / 10);
   const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(10 - filled);
   return `${ICONS.ctx} ${bar} ${usedPct}%`;
-}
-
-/** Get context segment colors by level */
-function getCtxColors(level: CtxLevel): {
-  bg: readonly [number, number, number];
-  fg: readonly [number, number, number];
-} {
-  const map = {
-    ok:    { bg: SEGMENT_BG.ctxOk,    fg: SEGMENT_FG.ctxOk },
-    warn:  { bg: SEGMENT_BG.ctxWarn,  fg: SEGMENT_FG.ctxWarn },
-    alert: { bg: SEGMENT_BG.ctxAlert, fg: SEGMENT_FG.ctxAlert },
-    crit:  { bg: SEGMENT_BG.ctxCrit,  fg: SEGMENT_FG.ctxCrit },
-  };
-  return map[level];
 }
 
 // ---------------------------------------------------------------------------
@@ -214,7 +165,7 @@ const emptyWf: WorkflowInfo = {
   total: 0, completed: 0, inProgress: 0, planned: 0, workspaceRoot: '',
 };
 
-/** Read milestone + phase progress from .workflow/state.json */
+/** Read milestone + phase progress from .workflow/state.json (v1 + v2 compatible) */
 function readWorkflowState(dir: string): WorkflowInfo {
   const root = findWorkspaceRoot(dir);
   if (!root) return emptyWf;
@@ -225,26 +176,52 @@ function readWorkflowState(dir: string): WorkflowInfo {
     const result: WorkflowInfo = { ...emptyWf, workspaceRoot: root };
 
     if (state.current_milestone) result.milestone = state.current_milestone;
-    if (state.current_phase) result.currentPhase = state.current_phase;
-    if (state.current_step) result.currentStep = state.current_step;
     if (state.status) result.status = state.status;
 
-    if (state.phases_summary) {
+    // v2: derive phase info from artifacts + milestones
+    const artifacts: Array<{ type?: string; phase?: number; milestone?: string; status?: string }> = Array.isArray(state.artifacts) ? state.artifacts : [];
+    const milestone = Array.isArray(state.milestones)
+      ? state.milestones.find((m: { name?: string }) => m.name === state.current_milestone)
+      : null;
+    const phases: number[] = milestone?.phases ?? [];
+
+    if (phases.length > 0 && artifacts.length > 0) {
+      // Derive from artifacts
+      result.total = phases.length;
+      let completed = 0, inProgress = 0, planned = 0;
+      for (const p of phases) {
+        const phaseArts = artifacts.filter(a => a.phase === p && a.milestone === state.current_milestone);
+        if (phaseArts.some(a => a.type === 'execute' && a.status === 'completed')) { completed++; continue; }
+        if (phaseArts.some(a => a.type === 'plan' && a.status === 'completed')) { planned++; inProgress++; continue; }
+        if (phaseArts.length > 0) { inProgress++; }
+      }
+      result.completed = completed;
+      result.inProgress = inProgress;
+      result.planned = planned;
+
+      // Derive current phase: first in_progress, or first without completed execute
+      for (const p of phases) {
+        if (artifacts.some(a => a.phase === p && a.milestone === state.current_milestone && a.status === 'in_progress')) {
+          result.currentPhase = p; break;
+        }
+      }
+      if (!result.currentPhase) {
+        for (const p of phases) {
+          if (!artifacts.some(a => a.type === 'execute' && a.phase === p && a.milestone === state.current_milestone && a.status === 'completed')) {
+            result.currentPhase = p; break;
+          }
+        }
+      }
+    } else if (state.phases_summary) {
+      // v1 fallback
       const s = state.phases_summary;
       if (typeof s.total === 'number') result.total = s.total;
       if (typeof s.completed === 'number') result.completed = s.completed;
       if (typeof s.in_progress === 'number') result.inProgress = s.in_progress;
+      if (state.current_phase) result.currentPhase = state.current_phase;
     }
 
-    // Count how many phases have plan artifacts
-    if (result.total > 0) {
-      let planned = 0;
-      for (let p = 1; p <= result.total; p++) {
-        const planPath = join(root, '.workflow', 'scratch', `P${p}`, 'plan.json');
-        if (existsSync(planPath)) planned++;
-      }
-      result.planned = planned;
-    }
+    if (state.current_step) result.currentStep = state.current_step;
 
     return result;
   } catch {
@@ -443,7 +420,7 @@ export function buildCoordinatorSegment(session: string): string {
 // Main formatter
 // ---------------------------------------------------------------------------
 
-/** Main statusline handler — processes input and returns Powerline string */
+/** Main statusline handler — processes input and returns colored text string */
 export function formatStatusline(data: StatuslineInput): string {
   const model = data.model?.display_name || 'Claude';
   const dir = data.workspace?.current_dir || process.cwd();
@@ -470,8 +447,6 @@ export function formatStatusline(data: StatuslineInput): string {
   segments.push({
     key: 'model',
     text: `${ICONS.model} ${model}`,
-    bg: SEGMENT_BG.model,
-    fg: SEGMENT_FG.model,
   });
 
   // 2. Milestone (conditional — shown when workflow has milestones)
@@ -481,8 +456,6 @@ export function formatStatusline(data: StatuslineInput): string {
     segments.push({
       key: 'milestone',
       text: msText,
-      bg: SEGMENT_BG.milestone,
-      fg: SEGMENT_FG.milestone,
     });
   }
 
@@ -499,8 +472,6 @@ export function formatStatusline(data: StatuslineInput): string {
     segments.push({
       key: 'phase',
       text: phaseText,
-      bg: SEGMENT_BG.phase,
-      fg: SEGMENT_FG.phase,
     });
   }
 
@@ -509,8 +480,6 @@ export function formatStatusline(data: StatuslineInput): string {
     segments.push({
       key: 'coord',
       text: `${ICONS.coord} ${coord}`,
-      bg: SEGMENT_BG.coord,
-      fg: SEGMENT_FG.coord,
     });
   }
 
@@ -519,8 +488,6 @@ export function formatStatusline(data: StatuslineInput): string {
     segments.push({
       key: 'task',
       text: `${ICONS.task} ${task}`,
-      bg: SEGMENT_BG.task,
-      fg: SEGMENT_FG.task,
     });
   }
 
@@ -529,8 +496,6 @@ export function formatStatusline(data: StatuslineInput): string {
     segments.push({
       key: 'team',
       text: `${ICONS.team} ${team}`,
-      bg: SEGMENT_BG.team,
-      fg: SEGMENT_FG.team,
     });
   }
 
@@ -540,26 +505,20 @@ export function formatStatusline(data: StatuslineInput): string {
   segments.push({
     key: 'dir',
     text: dirText,
-    bg: SEGMENT_BG.dir,
-    fg: SEGMENT_FG.dir,
   });
 
   // 8. Context bar (conditional — only when data available)
   if (remaining != null) {
     const level = getCtxLevel(usedPct);
-    const colors = getCtxColors(level);
     const ctxKey = `ctx${level.charAt(0).toUpperCase()}${level.slice(1)}` as SegKey;
     segments.push({
       key: ctxKey,
       text: buildContextText(usedPct),
-      bg: colors.bg,
-      fg: colors.fg,
     });
   }
 
   // ---- Render ----
-  const style = getStatuslineStyle();
-  return style === 'powerline' ? renderPowerline(segments) : renderColoredText(segments);
+  return renderColoredText(segments);
 }
 
 /** Entry point — reads stdin JSON, writes formatted statusline to stdout */

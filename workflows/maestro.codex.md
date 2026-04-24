@@ -37,7 +37,14 @@ if (fileExists(stateFile)) {
   const raw = JSON.parse(Read(stateFile));
   projectState = {
     initialized: true,
-    current_phase: raw.current_phase,
+    // Derive current_phase from artifacts (first in_progress execute, or first without completed execute)
+    current_phase: (() => {
+      const arts = raw.artifacts ?? [];
+      const ip = arts.find(a => a.type === 'execute' && a.status === 'in_progress');
+      if (ip) return ip.phase;
+      const phases = [...new Set(arts.map(a => a.phase).filter(Boolean))].sort((a,b) => a - b);
+      return phases.find(p => !arts.some(a => a.phase === p && a.type === 'execute' && a.status === 'completed')) ?? raw.current_phase ?? null;
+    })(),
     phase_slug: raw.phase_slug,
     phase_status: raw.phase_status,   // pending|exploring|planning|executing|verifying|testing|completed|blocked
     phase_artifacts: raw.phase_artifacts ?? {},

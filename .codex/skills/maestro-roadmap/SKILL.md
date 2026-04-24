@@ -301,7 +301,6 @@ spawn_agents_on_csv({
    - Write `.workflow/roadmap.md` using standard roadmap template structure
    - Ensure `.workflow/scratch/` directory exists (phases are labels, not directories)
    - Update `state.json` milestones array and set `current_milestone`
-   - Update `.workflow/state.json` (if exists): set `current_phase: 1`
 
 6. Display summary:
 
@@ -372,7 +371,7 @@ echo '{"ts":"<ISO>","worker":"{id}","type":"risk_factor","data":{"name":"OAuth p
 - [ ] Wave 2 assembly agent produced roadmap.md
 - [ ] Interactive refinement offered (or skipped with -y)
 - [ ] .workflow/roadmap.md written with phases, milestones, success criteria
-- [ ] state.json updated with milestones and current_phase
+- [ ] state.json updated with milestones
 - [ ] context.md generated with analysis summary
 - [ ] Completion report displayed with next steps
 </success_criteria>

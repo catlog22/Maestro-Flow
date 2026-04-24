@@ -44,7 +44,6 @@ You audit test coverage by mapping requirements to test files, calculating cover
 - Test results: `.workflow/scratch/{slug}/.tests/test-results.json`
 - Coverage report: `.workflow/scratch/{slug}/.tests/coverage-report.json`
 - Generated test stubs: appropriate test directories within the project source tree
-- **Legacy fallback**: `.workflow/phases/{NN}-{slug}/` paths are still recognized for backward compatibility
 
 ## Output
 - `validation.json`:

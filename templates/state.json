@@ -1,39 +1,17 @@
 {
-  "version": "1.0",
+  "version": "2.0",
   "project_name": "{{PROJECT_NAME}}",
-  "current_milestone": "{{MILESTONE_NAME}}",
-  "current_phase": 1,
   "status": "idle",
-  "phases_summary": {
-    "total": 0,
-    "completed": 0,
-    "in_progress": 0,
-    "pending": 0
-  },
+  "current_milestone": null,
+  "current_task_id": null,
+  "milestones": [],
+  "artifacts": [],
   "last_updated": "{{TIMESTAMP}}",
   "accumulated_context": {
     "key_decisions": [],
     "blockers": [],
-    "deferred": [
-      {
-        "id": "{{DEFERRED_ID}}",
-        "severity": "{{critical|high|medium|low}}",
-        "fix_direction": "{{FIX_DIRECTION}}",
-        "description": "{{DESCRIPTION}}"
-      }
-    ]
+    "deferred": []
   },
   "transition_history": [],
-  "milestone_history": [
-    {
-      "name": "{{MILESTONE_NAME}}",
-      "slug": "{{MILESTONE_SLUG}}",
-      "status": "{{pending|in_progress|completed}}",
-      "completed_at": null,
-      "phases": [],
-      "audit_verdict": null,
-      "force_completed": false,
-      "archive_path": null
-    }
-  ]
+  "milestone_history": []
 }

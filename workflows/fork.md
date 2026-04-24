@@ -121,25 +121,17 @@ IF syncMode:
 ## Step 5: Validate & Confirm
 
 ```
-// Load phase status — artifact registry first, fallback to legacy phases/
+// Load phase status from artifact registry
 phaseList = []
 artifacts = projectState.artifacts ?? []
-useArtifactRegistry = artifacts.length > 0
 
-IF useArtifactRegistry:
-  // Derive phase status from artifact registry
-  for (phaseNum of milestonePhases):
-    execArtifacts = artifacts.filter(a => a.type === 'execute' && a.phase === phaseNum)
-    status = execArtifacts.some(a => a.status === 'completed') ? 'completed'
-           : execArtifacts.length > 0 ? 'in_progress'
-           : 'pending'
-    phaseList.push({ phase: phaseNum, title: "Phase " + phaseNum, status })
-ELSE:
-  // Legacy: load from phases/ directory
-  for (phaseNum of milestonePhases):
-    Glob: .workflow/phases/{NN}-*/index.json where NN matches phaseNum
-    Read index.json → phaseIndex
-    phaseList.push(phaseIndex)
+// Derive phase status from artifact registry
+for (phaseNum of milestonePhases):
+  execArtifacts = artifacts.filter(a => a.type === 'execute' && a.phase === phaseNum)
+  status = execArtifacts.some(a => a.status === 'completed') ? 'completed'
+         : execArtifacts.length > 0 ? 'in_progress'
+         : 'pending'
+  phaseList.push({ phase: phaseNum, title: "Phase " + phaseNum, status })
 
 // Validate: milestone should have at least one non-completed phase
 nonCompleted = phaseList.filter(p => p.status !== "completed")
@@ -198,63 +190,35 @@ IF directory_exists(".workflow/specs"):
 // 6e: Copy milestone artifacts to worktree
 ownedPhaseNumbers = milestonePhases.slice()  // all phases in this milestone
 
-IF useArtifactRegistry:
-  // Copy scratch dirs for this milestone's artifacts
-  milestoneArtifacts = artifacts.filter(a =>
-    a.milestone === milestoneName && a.path
-  )
-  for (art of milestoneArtifacts):
-    IF directory_exists(".workflow/" + art.path):
-      Copy .workflow/{art.path}/ → {wtPath}/.workflow/{art.path}/
-ELSE:
-  // Legacy: copy phase directories
-  Bash("mkdir -p {wtPath}/.workflow/phases")
-  for (p of phaseList):
-    NN = String(p.phase).padStart(2, '0')
-    Copy .workflow/phases/{NN}-{p.slug}/ → {wtPath}/.workflow/phases/{NN}-{p.slug}/
+// Copy scratch dirs for this milestone's artifacts
+milestoneArtifacts = artifacts.filter(a =>
+  a.milestone === milestoneName && a.path
+)
+for (art of milestoneArtifacts):
+  IF directory_exists(".workflow/" + art.path):
+    Copy .workflow/{art.path}/ → {wtPath}/.workflow/{art.path}/
 
 // 6f: Copy dependency artifacts (phases outside this milestone)
-IF useArtifactRegistry:
-  // Collect dependency phases from roadmap milestone entry
-  // (cross-milestone dependencies are defined in milestoneEntry.depends_on or roadmap)
-  depPhases = new Set()
-  IF milestoneEntry.depends_on:
-    for (dep of milestoneEntry.depends_on):
-      IF NOT ownedPhaseNumbers.includes(dep):
-        depPhases.add(dep)
-  // Copy dependency artifacts from main
-  for (dep of depPhases):
-    depArtifacts = artifacts.filter(a => a.phase === dep && a.path)
-    for (art of depArtifacts):
-      IF directory_exists(".workflow/" + art.path):
-        Copy .workflow/{art.path}/ → {wtPath}/.workflow/{art.path}/
-ELSE:
-  // Legacy: copy completed dependency phase dirs
-  allDeps = new Set()
-  for (p of phaseList):
-    IF p.depends_on:
-      for (dep of p.depends_on):
-        IF NOT ownedPhaseNumbers.includes(dep):
-          allDeps.add(dep)
-  for (dep of allDeps):
-    depNN = String(dep).padStart(2, '0')
-    Glob: .workflow/phases/{depNN}-*/index.json
-    Read → depIndex
-    Copy .workflow/phases/{depNN}-{depIndex.slug}/ → {wtPath}/.workflow/phases/{depNN}-{depIndex.slug}/
+// Collect dependency phases from roadmap milestone entry
+// (cross-milestone dependencies are defined in milestoneEntry.depends_on or roadmap)
+depPhases = new Set()
+IF milestoneEntry.depends_on:
+  for (dep of milestoneEntry.depends_on):
+    IF NOT ownedPhaseNumbers.includes(dep):
+      depPhases.add(dep)
+// Copy dependency artifacts from main
+for (dep of depPhases):
+  depArtifacts = artifacts.filter(a => a.phase === dep && a.path)
+  for (art of depArtifacts):
+    IF directory_exists(".workflow/" + art.path):
+      Copy .workflow/{art.path}/ → {wtPath}/.workflow/{art.path}/
 
 // 6g: Build phase_dependencies map for worktree-scope
 phaseDeps = {}
-IF useArtifactRegistry:
-  IF milestoneEntry.depends_on:
-    for (phaseNum of ownedPhaseNumbers):
-      phaseDeps[String(phaseNum)] = milestoneEntry.depends_on
-        .filter(d => !ownedPhaseNumbers.includes(d))
-ELSE:
-  for (p of phaseList):
-    IF p.depends_on:
-      externalDeps = p.depends_on.filter(d => !ownedPhaseNumbers.includes(d))
-      IF externalDeps.length > 0:
-        phaseDeps[String(p.phase)] = externalDeps
+IF milestoneEntry.depends_on:
+  for (phaseNum of ownedPhaseNumbers):
+    phaseDeps[String(phaseNum)] = milestoneEntry.depends_on
+      .filter(d => !ownedPhaseNumbers.includes(d))
 
 // 6h: Write worktree-scope.json
 Write {wtPath}/.workflow/worktree-scope.json:
@@ -275,12 +239,9 @@ Read .workflow/state.json → mainState
 firstPending = phaseList.find(p => p.status !== "completed")
 scopedState = {
   ...mainState,
-  current_phase: firstPending?.phase ?? phaseList[0].phase,
   current_milestone: milestoneName,
   // Carry over milestone-scoped artifacts to worktree
-  artifacts: useArtifactRegistry
-    ? artifacts.filter(a => a.milestone === milestoneName || ownedPhaseNumbers.includes(a.phase))
-    : []
+  artifacts: artifacts.filter(a => a.milestone === milestoneName || ownedPhaseNumbers.includes(a.phase))
 }
 Write {wtPath}/.workflow/state.json: scopedState
 ```
@@ -320,19 +281,9 @@ registry.fork_sessions.push({
 Write .workflow/worktrees.json: registry
 
 // Mark milestone phases as "forked"
-IF useArtifactRegistry:
-  // In artifact registry model, worktrees.json tracks forked state.
-  // No per-phase marking needed — the registry entry signals ownership.
-  // (worktrees.json already updated above with owned_phases)
-ELSE:
-  // Legacy: mark phase index.json as forked
-  for (p of phaseList):
-    IF p.status !== "completed":
-      NN = String(p.phase).padStart(2, '0')
-      Read .workflow/phases/{NN}-{p.slug}/index.json → idx
-      idx.status = "forked"
-      idx.updated_at = getUtc8ISOString()
-      Write .workflow/phases/{NN}-{p.slug}/index.json: idx
+// In artifact registry model, worktrees.json tracks forked state.
+// No per-phase marking needed — the registry entry signals ownership.
+// (worktrees.json already updated above with owned_phases)
 
 mainState.last_updated = getUtc8ISOString()
 Write .workflow/state.json: mainState

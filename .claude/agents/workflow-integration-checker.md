@@ -38,11 +38,11 @@ N/A -- reads code artifacts, not task JSON.
 
 ## Input
 - Completed phase artifacts (code, configs, tests)
-- Phase/scratch definitions (resolved via state.json artifact registry; legacy fallback: `.workflow/phases/`)
+- Phase/scratch definitions (resolved via state.json artifact registry)
 - Task summaries from `.summaries/`
 
 ## Output Location
-`.workflow/scratch/{milestone}/integration-audit.md` (legacy fallback: `.workflow/phases/{milestone}/`)
+`.workflow/scratch/{milestone}/integration-audit.md`
 
 ## Output
 Integration audit report at the output location above:
