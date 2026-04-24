@@ -68,7 +68,7 @@ When `--auto-yes`: Accept all routing recommendations without prompting. Route a
 **Storage written**:
 - `{target_dir}/retrospective.md` -- human-readable record (target_dir resolved via state.json artifact registry to `.workflow/scratch/{YYYYMMDD}-{type}-{slug}/`)
 - `{target_dir}/retrospective.json` -- structured record
-- `.workflow/specs/SPEC-retro-*.md` -- spec stubs (one per spec-routed insight)
+- `.workflow/specs/{category-file}.md` -- `<spec-entry>` entries appended to matching category files (one per spec-routed insight)
 - `.workflow/issues/issues.jsonl` -- appended issue rows (`source: "retrospective"`)
 - `.workflow/memory/TIP-*.md` -- memory tips (via `manage-memory-capture` skill)
 - `.workflow/learning/lessons.jsonl` -- append-only insight log
@@ -371,18 +371,21 @@ If `--no-route`: skip this stage.
 For each insight in `synthResult.insights`, route based on `routing` field:
 
 **Spec routing** (`routing: "spec"`):
-```javascript
-functions.apply_patch:
-*** Begin Patch
-*** Add File: .workflow/specs/SPEC-retro-<INS-id>.md
-+---
-+id: <INS-id>
-+source: retrospective
-+phase: <N>
-+category: <category>
-+---
-+
-+# <title>
+
+Map insight type to spec category: pattern/convention → `coding`, architecture → `arch`, quality → `quality`.
+Append `<spec-entry>` to matching category file:
+
+```markdown
+<spec-entry category="{category}" keywords="{auto-extracted}" date="{YYYY-MM-DD}" source="retrospective">
+
+### <title>
+
+<summary>
+
+**Evidence:** <evidence_refs>
+**Phase:** <N> | **Lens:** <lens> | **Insight:** <INS-id>
+
+</spec-entry>
 +
 +<summary>
 +
@@ -480,7 +483,7 @@ Lenses:   technical, process, quality, decision
 Insights: <total> (<N> new, <N> duplicates merged)
 
 ROUTING:
-  Spec stubs:   <N>  -> .workflow/specs/SPEC-retro-*.md
+  Spec entries:  <N>  -> .workflow/specs/{category-file}.md
   Issues:       <N>  -> .workflow/issues/issues.jsonl
   Memory tips:  <N>  -> .workflow/memory/TIP-*.md
   Lessons:      <N>  -> .workflow/learning/lessons.jsonl

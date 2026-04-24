@@ -146,6 +146,7 @@ export function InstallExecution({ config, pkgRoot, version, onComplete }: Insta
           setStatus(t.install.execInstallingStatusline);
           installStatuslineFn({
             project: config.mode === 'project',
+            theme: config.statuslineTheme,
           });
           statuslineInstalled = true;
         }

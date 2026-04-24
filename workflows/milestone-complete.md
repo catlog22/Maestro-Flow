@@ -66,23 +66,40 @@ Check existing entries to avoid duplicates when appending in Step 3.
    - Extract patterns discovered
    - Extract pitfalls encountered
 
-2. Aggregate learnings and append to `.workflow/specs/learnings.md`:
+2. Aggregate learnings and append to `.workflow/specs/learnings.md` using `<spec-entry>` closed-tag format:
    ```
    For each strategy adjustment:
-     ### [YYYY-MM-DD HH:mm] decision: {summary}
+     <spec-entry category="learning" keywords="{auto-extracted}" date="{YYYY-MM-DD}" source="milestone-complete">
+
+     ### {summary}
+
      {content}
-     Milestone: {milestone} | Source: milestone-complete
+     Milestone: {milestone}
+
+     </spec-entry>
 
    For each pattern:
-     ### [YYYY-MM-DD HH:mm] pattern: {summary}
+     <spec-entry category="learning" keywords="{auto-extracted}" date="{YYYY-MM-DD}" source="milestone-complete">
+
+     ### {summary}
+
      {content}
-     Milestone: {milestone} | Source: milestone-complete
+     Milestone: {milestone}
+
+     </spec-entry>
 
    For each pitfall:
-     ### [YYYY-MM-DD HH:mm] bug: {summary}
+     <spec-entry category="learning" keywords="{auto-extracted}" date="{YYYY-MM-DD}" source="milestone-complete">
+
+     ### {summary}
+
      {content}
-     Milestone: {milestone} | Source: milestone-complete
+     Milestone: {milestone}
+
+     </spec-entry>
    ```
+
+   **Keyword extraction**: Extract 3-5 domain-specific terms from the content (same rules as `spec-add`).
 
 ---
 

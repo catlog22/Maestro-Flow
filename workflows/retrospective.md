@@ -471,46 +471,31 @@ Accept all? [Y/n/i for individual]
 
 #### Target: spec
 
-Write a stub spec file directly. Do NOT invoke `spec-generate` (heavyweight 7-phase pipeline).
+Route spec-routed insights as `<spec-entry>` entries into the appropriate category file. Map insight type to category:
+- `pattern` / `convention` → `coding`
+- `adr-candidate` / architecture → `arch`
+- quality-related → `quality`
 
 ```
-mkdir -p ".workflow/specs"
-slug = slugify(insight.title)
-spec_file = ".workflow/specs/SPEC-retro-{phase_num}-{INS_id}-{slug}.md"
+category = map_insight_to_category(insight.type)
+target_file = category_to_file(category)  # e.g., coding → coding-conventions.md
 
-Write spec_file:
----
-status: draft
-type: pattern | convention | adr-candidate
-source: retrospective
-source_phase: {NN}
-source_insight: {INS_id}
-created_at: {now ISO}
-tags: {insight.tags}
-confidence: {insight.confidence}
----
+keywords = extract_keywords(insight.title + insight.summary)  # 3-5 domain-specific terms
 
-# {insight.title}
+Append to .workflow/specs/{target_file}:
+  <spec-entry category="{category}" keywords="{keywords}" date="{YYYY-MM-DD}" source="retrospective">
 
-## Context
+  ### {insight.title}
 
-Extracted from phase {NN} ({phase_slug}) retrospective by the {lens} lens.
-This stub captures a reusable {category} surfaced during execution; expand it
-into a full spec via `/maestro-spec-generate` if it warrants project-wide adoption.
+  {insight.summary}
 
-## Pattern / Convention
+  **Evidence:** {FOR ref in evidence_refs:} `{ref}` {END FOR}
+  **Phase:** {NN} ({phase_slug}) | **Lens:** {lens} | **Insight:** {INS_id} | **Confidence:** {insight.confidence}
 
-{insight.summary}
+  </spec-entry>
+```
 
-## Evidence
-
-{FOR ref in evidence_refs:} - `{ref}`{END FOR}
-
-## Open Questions
-
-- Is this pattern already documented elsewhere?
-- Should existing code be migrated to this pattern, or is it forward-only?
-- What is the failure mode if this pattern is violated?
+If the target file does not exist, create it with category frontmatter first (same as `spec-add` on-demand creation).
 
 ## Routing trail
 
@@ -519,7 +504,7 @@ into a full spec via `/maestro-spec-generate` if it warrants project-wide adopti
 - Insight: {INS_id}
 - Confidence: {confidence}
 
-insight.routed_id = "SPEC-retro-{phase_num}-{INS_id}-{slug}.md"
+insight.routed_id = "{category_file}#INS-{INS_id}"  # e.g., coding-conventions.md#INS-a1b2c3d4
 ```
 
 #### Target: note
@@ -684,19 +669,24 @@ Write .workflow/learning/learning-index.json
 
 ### Backward-compat append to specs/learnings.md
 
-Append learnings to `.workflow/specs/learnings.md` (shared with milestone-complete's learning extraction). Append a one-line summary per insight:
+Append learnings to `.workflow/specs/learnings.md` (shared with milestone-complete's learning extraction) using `<spec-entry>` closed-tag format:
 
 ```
 IF .workflow/specs/learnings.md exists:
   FOR each insight:
-    Append under "## Entries":
-      ### [{YYYY-MM-DD HH:mm}] {category}: {title}
+    keywords = extract_keywords(insight.title + insight.summary)  # 3-5 domain-specific terms
+    Append:
+      <spec-entry category="learning" keywords="{keywords}" date="{YYYY-MM-DD}" source="retrospective">
+
+      ### {title}
 
       {summary}
-      Phase: {NN} | Source: retrospective | Insight: {INS_id} | Lens: {lens}
+      Phase: {NN} | Lens: {lens} | Insight: {INS_id}
+
+      </spec-entry>
 ```
 
-If the file does not exist, create it with a `## Entries` header.
+If the file does not exist, create it with category frontmatter and a `## Entries` header.
 
 ---
 
@@ -711,7 +701,7 @@ Lenses run:      {lenses joined by ", "}
 Insights:        {count}
 
 Routing summary:
-  Specs drafted:   {N}  → .workflow/specs/SPEC-retro-*
+  Spec entries:    {N}  → .workflow/specs/{category-file}.md
   Notes saved:     {N}  → .workflow/memory/TIP-*
   Issues opened:   {N}  → .workflow/issues/issues.jsonl
   Lessons logged:  {N}  → .workflow/learning/lessons.jsonl
@@ -792,7 +782,7 @@ Total issues:        {sum}
       ],
       "tags": ["auth", "jwt", "security"],
       "routed_to": "spec",
-      "routed_id": "SPEC-retro-1-INS-a1b2c3d4-jwt-refresh-rotation.md"
+      "routed_id": "coding-conventions.md#INS-a1b2c3d4"
     }
   ],
   "routing_recommendations": [
@@ -807,7 +797,7 @@ Total issues:        {sum}
 One JSON object per line:
 
 ```json
-{"id":"INS-a1b2c3d4","phase":1,"phase_slug":"01-auth","lens":"technical","category":"pattern","title":"JWT refresh tokens must rotate on every use","summary":"...","confidence":"high","tags":["auth","jwt","security"],"evidence_refs":["..."],"routed_to":"spec","routed_id":"SPEC-retro-1-INS-a1b2c3d4-jwt-refresh-rotation.md","source":"retrospective","captured_at":"2026-04-11T10:00:00Z"}
+{"id":"INS-a1b2c3d4","phase":1,"phase_slug":"01-auth","lens":"technical","category":"pattern","title":"JWT refresh tokens must rotate on every use","summary":"...","confidence":"high","tags":["auth","jwt","security"],"evidence_refs":["..."],"routed_to":"spec","routed_id":"coding-conventions.md#INS-a1b2c3d4","source":"retrospective","captured_at":"2026-04-11T10:00:00Z"}
 ```
 
 ### learning-index.json
@@ -828,7 +818,7 @@ One JSON object per line:
       "phase_slug": "01-auth",
       "confidence": "high",
       "routed_to": "spec",
-      "routed_id": "SPEC-retro-1-INS-a1b2c3d4-jwt-refresh-rotation.md"
+      "routed_id": "coding-conventions.md#INS-a1b2c3d4"
     }
   ],
   "_metadata": {

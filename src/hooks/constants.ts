@@ -4,11 +4,23 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 
-/** Read nerdFont preference from config. Default: true (Nerd Font enabled) */
-function readNerdFontConfig(): boolean {
-  // Env override takes priority
-  if (process.env.MAESTRO_NERD_FONT === '0') return false;
-  if (process.env.MAESTRO_NERD_FONT === '1') return true;
+// ---------------------------------------------------------------------------
+// Statusline config reader
+// ---------------------------------------------------------------------------
+
+interface StatuslineConfig {
+  nerdFont: boolean;
+  theme: string;
+}
+
+function readStatuslineConfig(): StatuslineConfig {
+  let nerdFont = false;
+  let theme = 'notion';
+
+  // Env overrides
+  if (process.env.MAESTRO_NERD_FONT === '1') nerdFont = true;
+  else if (process.env.MAESTRO_NERD_FONT === '0') nerdFont = false;
+  if (process.env.MAESTRO_STATUSLINE_THEME) theme = process.env.MAESTRO_STATUSLINE_THEME;
 
   // Config file
   try {
@@ -18,15 +30,16 @@ function readNerdFontConfig(): boolean {
     );
     if (existsSync(configPath)) {
       const cfg = JSON.parse(readFileSync(configPath, 'utf8'));
-      if (cfg.statusline?.nerdFont === true) return true;
-      if (cfg.statusline?.nerdFont === false) return false;
+      if (cfg.statusline?.nerdFont === true) nerdFont = true;
+      if (cfg.statusline?.nerdFont === false && !process.env.MAESTRO_NERD_FONT) nerdFont = false;
+      if (cfg.statusline?.theme && !process.env.MAESTRO_STATUSLINE_THEME) theme = cfg.statusline.theme;
     }
   } catch { /* ignore */ }
 
-  return false; // default: Unicode (safe for all environments)
+  return { nerdFont, theme };
 }
 
-const _nerdFont = readNerdFontConfig();
+const _slConfig = readStatuslineConfig();
 
 /** Remaining context % at which WARNING is emitted */
 export const WARNING_THRESHOLD = 35;
@@ -82,11 +95,11 @@ const ICONS_UNICODE = {
   task:      '\u25B8',    // ▸ triangle
   team:      '\u{1F465}', // 👥 people
   dir:       '\u25A0',    // ■ square
-  git:       '\u2387',    // ⎇ branch (alternative key symbol)
+  git:       '\u2387',    // ⎇ branch
   ctx:       '\u25D4',    // ◔ circle with quarter
 } as const;
 
-export const ICONS = _nerdFont ? ICONS_NERD : ICONS_UNICODE;
+export const ICONS = _slConfig.nerdFont ? ICONS_NERD : ICONS_UNICODE;
 
 /** Git status icons */
 export const GIT_ICONS = {
@@ -129,25 +142,111 @@ export const ANSI_CYAN = '\x1b[36m';
 export const ANSI_BLINK = '\x1b[5m';
 
 // ---------------------------------------------------------------------------
-// Segment colors — colored text on transparent background
+// Color themes
 // ---------------------------------------------------------------------------
 
-/** Segment accent colors — used as foreground on transparent background */
-export const TEXT_COLORS = {
-  model:     [86, 182, 194]  as const,   // cyan
-  milestone: [224, 175, 104] as const,   // warm gold
-  phase:     [166, 209, 137] as const,   // soft green
-  coord:     [137, 180, 250] as const,   // light blue
-  task:      [205, 214, 244] as const,   // white-ish
-  team:      [203, 166, 247] as const,   // lavender
-  dir:       [249, 226, 175] as const,   // yellow
-  git:       [166, 227, 161] as const,   // green
-  ctxOk:     [166, 227, 161] as const,   // green
-  ctxWarn:   [249, 226, 175] as const,   // yellow
-  ctxAlert:  [250, 179, 135] as const,   // peach
-  ctxCrit:   [243, 139, 168] as const,   // red/pink
-  separator: [88, 91, 112]   as const,   // dim gray for |
-} as const;
+type RGB = readonly [number, number, number];
+
+interface ThemeColors {
+  model:     RGB;
+  milestone: RGB;
+  phase:     RGB;
+  coord:     RGB;
+  task:      RGB;
+  team:      RGB;
+  dir:       RGB;
+  git:       RGB;
+  ctxOk:     RGB;
+  ctxWarn:   RGB;
+  ctxAlert:  RGB;
+  ctxCrit:   RGB;
+  separator: RGB;
+}
+
+/** All available themes */
+export const THEMES: Record<string, ThemeColors> = {
+  notion: {
+    model:     [86, 182, 194],
+    milestone: [224, 175, 104],
+    phase:     [166, 209, 137],
+    coord:     [137, 180, 250],
+    task:      [205, 214, 244],
+    team:      [203, 166, 247],
+    dir:       [249, 226, 175],
+    git:       [166, 227, 161],
+    ctxOk:     [166, 227, 161],
+    ctxWarn:   [249, 226, 175],
+    ctxAlert:  [250, 179, 135],
+    ctxCrit:   [243, 139, 168],
+    separator: [88, 91, 112],
+  },
+  cyberpunk: {
+    model:     [0, 255, 204],
+    milestone: [255, 85, 85],
+    phase:     [255, 204, 0],
+    coord:     [138, 43, 226],
+    task:      [220, 220, 220],
+    team:      [255, 130, 255],
+    dir:       [0, 200, 255],
+    git:       [57, 255, 20],
+    ctxOk:     [57, 255, 20],
+    ctxWarn:   [255, 204, 0],
+    ctxAlert:  [255, 140, 0],
+    ctxCrit:   [255, 50, 50],
+    separator: [60, 60, 80],
+  },
+  pastel: {
+    model:     [150, 200, 230],
+    milestone: [240, 180, 160],
+    phase:     [180, 220, 180],
+    coord:     [190, 180, 230],
+    task:      [220, 210, 200],
+    team:      [210, 180, 210],
+    dir:       [220, 200, 170],
+    git:       [180, 220, 180],
+    ctxOk:     [160, 210, 170],
+    ctxWarn:   [240, 210, 150],
+    ctxAlert:  [240, 180, 140],
+    ctxCrit:   [230, 150, 150],
+    separator: [160, 160, 170],
+  },
+  nord: {
+    model:     [136, 192, 208],
+    milestone: [208, 135, 112],
+    phase:     [163, 190, 140],
+    coord:     [129, 161, 193],
+    task:      [216, 222, 233],
+    team:      [180, 142, 173],
+    dir:       [235, 203, 139],
+    git:       [163, 190, 140],
+    ctxOk:     [163, 190, 140],
+    ctxWarn:   [235, 203, 139],
+    ctxAlert:  [208, 135, 112],
+    ctxCrit:   [191, 97, 106],
+    separator: [76, 86, 106],
+  },
+  monokai: {
+    model:     [102, 217, 239],
+    milestone: [249, 38, 114],
+    phase:     [166, 226, 46],
+    coord:     [174, 129, 255],
+    task:      [248, 248, 242],
+    team:      [253, 151, 31],
+    dir:       [230, 219, 116],
+    git:       [166, 226, 46],
+    ctxOk:     [166, 226, 46],
+    ctxWarn:   [230, 219, 116],
+    ctxAlert:  [253, 151, 31],
+    ctxCrit:   [249, 38, 114],
+    separator: [117, 113, 94],
+  },
+};
+
+/** Available theme names for install UI */
+export const THEME_NAMES = Object.keys(THEMES) as string[];
+
+/** Active theme colors — used as foreground on transparent background */
+export const TEXT_COLORS: ThemeColors = THEMES[_slConfig.theme] ?? THEMES.notion;
 
 // Legacy face exports (kept for context-monitor compatibility)
 export const FACES = {

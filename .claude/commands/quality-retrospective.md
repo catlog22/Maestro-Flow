@@ -46,7 +46,7 @@ Arguments: $ARGUMENTS
 - Retrospective output (resolve via `state.json.artifacts[]` → `.workflow/scratch/` path):
   - retrospective.md — human-readable record
   - retrospective.json — structured record
-- `.workflow/specs/SPEC-retro-*.md` — spec stubs (one per spec-routed insight)
+- `.workflow/specs/{category-file}.md` — `<spec-entry>` entries appended to matching category files (one per spec-routed insight)
 - `.workflow/issues/issues.jsonl` — appended issue rows (`source: "retrospective"`)
 - `.workflow/learning/lessons.jsonl` — tips routed via `manage-learn tip` (formerly manage-memory-capture)
 - `.workflow/learning/lessons.jsonl` — append-only insight log
@@ -94,7 +94,7 @@ Follow `~/.maestro/workflows/retrospective.md` Stages 1–8 in order. Key invari
 - [ ] `retrospective.md` written and human-readable (tweetable, metrics table, per-lens findings, insights, routing table)
 - [ ] Each insight has a stable `INS-{8hex}` id
 - [ ] If routing enabled (default): every recommendation either created an artifact or was explicitly skipped by user
-- [ ] Spec stubs (if any) written to `.workflow/specs/SPEC-retro-*.md` with proper frontmatter
+- [ ] Spec entries (if any) appended as `<spec-entry>` to matching `.workflow/specs/{category-file}.md`
 - [ ] Issue rows (if any) match canonical issues.jsonl schema (status "open", full issue_history, all required fields)
 - [ ] Note tips (if any) created via `Skill({ skill: "manage-learn", args: "tip ..." })`
 - [ ] `lessons.jsonl` appended with one row per insight regardless of routing target

@@ -125,7 +125,6 @@ If `.workflow/specs/` does not exist:
    - Generate `specs/debug-notes.md`
    - Generate `specs/test-conventions.md`
    - Generate `specs/review-standards.md`
-   - Generate `specs/validation-rules.md`
    - Create empty `specs/learnings.md`
 
 

@@ -172,11 +172,13 @@ export function detectStatusline(opts: { project?: boolean } = {}): string | nul
 }
 
 /**
- * Install the statusline into Claude Code settings.json.
+ * Install the statusline into Claude Code settings.json
+ * and persist theme preference to maestro config.
  */
 export function installStatusline(opts: {
   project?: boolean;
   settingsPath?: string;
+  theme?: string;
 } = {}): string {
   const settingsPath = opts.settingsPath
     ?? (opts.project
@@ -186,6 +188,15 @@ export function installStatusline(opts: {
   settings.statusLine = { type: 'command', command: 'maestro-statusline' };
   paths.ensure(join(settingsPath, '..'));
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+  // Persist theme preference
+  if (opts.theme) {
+    try {
+      const config = loadConfig();
+      config.statusline = { ...config.statusline, theme: opts.theme };
+      saveConfig(config);
+    } catch { /* best-effort */ }
+  }
 
   return settingsPath;
 }

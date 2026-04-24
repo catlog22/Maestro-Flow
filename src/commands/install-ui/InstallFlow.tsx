@@ -73,8 +73,9 @@ export function InstallFlow({
   const [mcpTools, setMcpTools] = useState<string[]>([...MCP_TOOLS]);
   const [mcpProjectRoot, setMcpProjectRoot] = useState('');
 
-  // Statusline — detect existing config
+  // Statusline — detect existing config + theme
   const [installStatusline, setInstallStatusline] = useState(false);
+  const [statuslineTheme, setStatuslineTheme] = useState('notion');
   const statuslineDetected = useMemo(
     () => detectStatusline({ project: mode === 'project' }),
     [mode],
@@ -110,6 +111,7 @@ export function InstallFlow({
     installHooks: enabledSteps.hooks,
     installMcp: enabledSteps.mcp && mcpEnabled,
     installStatusline: enabledSteps.statusline && installStatusline,
+    statuslineTheme,
     hookLevel,
     componentCount: selectedComponents.length,
     fileCount,
@@ -121,7 +123,7 @@ export function InstallFlow({
     backupAll: enabledSteps.backup && backupAll,
   }), [mode, projectPath, enabledSteps, hookLevel, selectedComponents.length,
     fileCount, mcpTools, mcpEnabled, selectedComponentIds, mcpProjectRoot,
-    installStatusline, backupClaudeMd, backupAll]);
+    installStatusline, statuslineTheme, backupClaudeMd, backupAll]);
 
   // Hub items with live summary
   const hubItems = useMemo(() => buildHubItems(
@@ -314,8 +316,10 @@ export function InstallFlow({
         {step === 'statusline_config' && (
           <StatuslineConfig
             enabled={installStatusline}
+            theme={statuslineTheme}
             detected={statuslineDetected}
             onToggle={setInstallStatusline}
+            onThemeChange={setStatuslineTheme}
           />
         )}
 

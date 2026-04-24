@@ -14,6 +14,7 @@ export interface InstallFlowConfig {
   installHooks: boolean;
   installMcp: boolean;
   installStatusline: boolean;
+  statuslineTheme: string;
   hookLevel: HookLevel;
   componentCount: number;
   fileCount: number;
@@ -91,7 +92,7 @@ export function InstallConfirm({ config, onConfirm, onBack }: InstallConfirmProp
         <Row
           label={t.install.confirmLabelStatusline}
           value={config.installStatusline
-            ? t.install.statuslineEnabled
+            ? `${t.install.statuslineEnabled} (${config.statuslineTheme})`
             : t.install.confirmSkipped}
           valueColor={config.installStatusline ? 'green' : 'gray'}
         />

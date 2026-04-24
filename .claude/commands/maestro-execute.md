@@ -67,7 +67,7 @@ $ARGUMENTS — phase number, or no args for milestone-wide execution, with optio
     └── TASK-002-summary.md
 ```
 
-**Incremental learning extraction**: After each plan completes, extract strategy adjustments / patterns / pitfalls from `.summaries/` and append to `specs/learnings.md`. Mark artifact `harvested: true`.
+**Incremental learning extraction**: After each plan completes, extract strategy adjustments / patterns / pitfalls from `.summaries/` and append to `specs/learnings.md` using `<spec-entry>` closed-tag format (category=`learning`, auto-extract keywords, date=today, source=`execute`). Mark artifact `harvested: true`.
 
 **Artifact registration**: For each plan executed, register in `state.json.artifacts[]`:
 ```jsonc

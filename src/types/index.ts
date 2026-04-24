@@ -11,6 +11,8 @@ export interface SpecInjectionConfig {
 
 export interface StatuslineConfig {
   style?: string;
+  theme?: string;
+  nerdFont?: boolean;
 }
 
 export interface MaestroConfig {
