@@ -12,9 +12,9 @@ allowed-tools:
   - AskUserQuestion
 ---
 <purpose>
-Detect the current `.workflow/` schema version, show available migrations, and interactively apply them. Uses a migration registry that supports incremental version upgrades (e.g., 1.0 → 2.0 → 3.0).
+Detect the current `.workflow/` schema version, show available migrations, and interactively apply them step-by-step. Uses a migration registry that supports incremental version upgrades (e.g., 1.0 → 2.0 → 3.0).
 
-Each migration step is previewed before execution. The user confirms each step individually.
+Each migration step is previewed before execution. The user confirms each step in a loop.
 </purpose>
 
 <context>
@@ -24,10 +24,15 @@ $ARGUMENTS — optional flags.
 - `--dry-run` -- Preview migration plan without executing
 - `--force` -- Skip confirmation prompts (apply all pending migrations)
 
-**Migration registry:** `src/utils/migration-registry.ts`
-- Migrations are registered as `{ from, to, name, description, migrate }` objects
+**Migration registry:** `src/migrations/`
+- Each migration is a standalone file (e.g., `v1-to-v2.ts`) exporting a `MigrationDef`
+- All migrations are registered via `src/migrations/index.ts`
 - Registry auto-chains: detects current version → walks chain → applies in order
-- New migrations added by registering in the module or importing additional migration files
+- To add a new migration: create `src/migrations/v{N}-to-v{N+1}.ts`, register in `index.ts`
+
+**CLI runner:** `src/migrations/run.ts`
+- Executable entrypoint: `npx tsx src/migrations/run.ts [root] [--dry-run] [--force] [--json]`
+- Outputs JSON (with `--json`) or human-readable text
 
 **State version source:** `.workflow/state.json` → `version` field
 </context>
@@ -39,7 +44,7 @@ $ARGUMENTS — optional flags.
 ```
 1. Read .workflow/state.json
 2. Extract version field (default "1.0" if missing)
-3. Display current state:
+3. Display:
 
    === Maestro Workflow Update ===
    Project:  {project_name}
@@ -47,80 +52,101 @@ $ARGUMENTS — optional flags.
    Location: {.workflow/ path}
 ```
 
-### Step 2: Plan Migrations
+### Step 2: Dry-Run Preview
 
+Run the migration CLI in dry-run + JSON mode to get the full plan:
+
+```bash
+npx tsx src/migrations/run.ts "$(pwd)" --dry-run --json
 ```
-1. Load migration registry (known migrations from state-schema)
-2. Build migration chain from current version
-3. If no pending migrations:
-   Display: "✓ Already up to date (v{version})"
-   → EXIT
 
-4. Display migration plan:
-
-   Pending Migrations:
-   ┌─────┬────────┬────────────────────────────────────┐
-   │ #   │ Target │ Name                               │
-   ├─────┼────────┼────────────────────────────────────┤
-   │ 1   │ v2.0   │ state-v2-artifact-registry          │
-   └─────┴────────┴────────────────────────────────────┘
-
-   For each step, display description (indented).
+Parse the JSON output. If status is `up-to-date`:
 ```
+Already up to date (v{version})
+```
+→ EXIT
+
+Otherwise display the migration plan:
+```
+Pending Migrations ({N} step(s)):
+
+  1. [v{from} → v{to}] {name}
+     {description}
+
+  2. [v{from} → v{to}] {name}
+     {description}
+```
+
+If `--dry-run` flag was passed by user → display plan and EXIT.
 
 ### Step 3: Interactive Confirmation Loop
 
 For each migration step (unless `--force`):
 
 ```
-1. Display step details:
+LOOP for step_index = 1 to N:
 
-   --- Migration 1: state-v2-artifact-registry ---
-   From: v1.0 → v2.0
+  Display:
+    --- Step {step_index}/{N}: {name} ---
+    Version: v{from} → v{to}
 
-   Changes:
-     - Add artifacts[] registry (harvest from phases/ if present)
-     - Add milestones[].id and milestones[].status
-     - Add current_task_id
-     - Remove current_phase (derived from artifacts)
-     - Remove phases_summary (derived from artifacts)
-     - Normalize status enum
+    Changes:
+      {description, indented}
 
-2. Ask user: "Apply this migration? (yes/skip/abort)"
-   - yes   → execute migration, show result, continue to next
-   - skip  → skip this step (WARNING: may break chain), continue
-   - abort → stop all migrations, exit
+  IF NOT --force:
+    AskUserQuestion: "Apply this migration?"
+    Options: [yes / skip / abort]
 
-3. If --dry-run: show what would change but don't execute
+    - "yes"   → proceed to Step 4 (execute)
+    - "skip"  → WARN "Skipping may break the migration chain"
+                 continue to next step
+    - "abort" → display summary of what was applied so far → EXIT
+
+  IF --force:
+    → proceed to Step 4 (execute)
 ```
 
-### Step 4: Execute Migration
+### Step 4: Execute Single Migration
 
 ```
-1. Create backup: copy state.json → state.json.backup-{version}-{timestamp}
-2. Execute migration function
-3. Display result:
+1. Create backup:
+   Bash: cp .workflow/state.json .workflow/state.json.backup-v{from}-{timestamp}
 
-   ✓ Migration 1 completed: state-v2-artifact-registry
-   Summary: Migrated to v2.0 (4 artifacts registered)
+2. Run migration:
+   Bash: npx tsx src/migrations/run.ts "$(pwd)" --json
+   
+   NOTE: The runner executes ALL pending migrations. For step-by-step control,
+   read state.json, call the migration function directly, or use the runner
+   which stops on first failure.
+
+3. Parse result JSON and display:
+
+   {status_icon} Step {N} completed: {name}
+   Summary: {summary}
    Changes:
-     - Remove current_phase: 2
-     - Remove phases_summary
-     - Normalize status: "phase_2_pending" → "active"
-     - Harvested 4 artifacts from legacy phases/
-     - milestones enriched: M1(MVP), M2(Production)
-     - Version bumped: 1.0 → 2.0
+     - {change_1}
+     - {change_2}
+     - ...
 
-4. Continue to next step
+4. If failed:
+   Display: "Migration failed: {summary}"
+   Display: "Backup available at: {backup_path}"
+   Display: "Restore with: cp {backup_path} .workflow/state.json"
+   → EXIT
+
+5. Continue loop to next step
 ```
 
 ### Step 5: Summary
 
+After all steps completed (or user aborted):
+
 ```
 === Migration Complete ===
-Applied: {N} migration(s)
-Version: {old} → {new}
-Backup:  state.json.backup-{version}-{timestamp}
+Applied: {applied_count} / {total_count} migration(s)
+Skipped: {skipped_count}
+Version: v{original} → v{final}
+Backup:  .workflow/state.json.backup-v{original}-{timestamp}
 
 Next steps:
   /manage-status  -- Verify project state
@@ -135,14 +161,16 @@ Next steps:
 | E001 | error | .workflow/state.json not found | Run /maestro-init first |
 | E002 | error | state.json parse error | Check file for corruption |
 | E003 | error | Migration function failed | Restore from backup |
-| W001 | warning | Skipped migration may break version chain | Consider running skipped migration later |
+| W001 | warning | Skipped migration may break version chain | Re-run /maestro-update later |
+| W002 | warning | tsx not available | Install tsx: npm i -D tsx |
 </error_codes>
 
 <success_criteria>
 - [ ] Current version detected from state.json
-- [ ] Migration plan displayed with all pending steps
+- [ ] Dry-run preview shows full migration plan without execution
 - [ ] Each step confirmed interactively (unless --force)
 - [ ] Backup created before each migration
-- [ ] Migration executed and result displayed
-- [ ] Summary with version change and next steps
+- [ ] Migration executed and result displayed with change list
+- [ ] Abort stops cleanly with partial summary
+- [ ] Summary shows applied/skipped counts and version change
 </success_criteria>
