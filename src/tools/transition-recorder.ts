@@ -8,31 +8,12 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { evaluatePhaseGate } from './phase-gate-evaluator.js';
-import { localISO } from '../utils/state-schema.js';
+import { localISO, safeRename } from '../utils/state-schema.js';
+import type { TransitionSnapshot, TransitionEntry } from '../utils/state-schema.js';
 import type { PhaseGateInput } from './phase-gate-evaluator.js';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface TransitionSnapshot {
-  phases_completed: number;
-  phases_total: number;
-  deferred_count: number;
-  verification_status: string;
-  learnings_count: number;
-}
-
-export interface TransitionEntry {
-  type: 'phase' | 'milestone';
-  from_phase: number | null;
-  to_phase: number | null;
-  milestone: string;
-  transitioned_at: string;
-  trigger: string;
-  force: boolean;
-  snapshot: TransitionSnapshot;
-}
+// Re-export canonical types from state-schema
+export type { TransitionSnapshot, TransitionEntry } from '../utils/state-schema.js';
 
 export interface BuildTransitionOpts {
   type: 'phase' | 'milestone';
@@ -112,7 +93,10 @@ export function appendTransition(statePath: string, entry: TransitionEntry): voi
   }
   state.transition_history.push(entry);
   state.last_updated = localISO();
-  writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+  const tmpPath = statePath + '.tmp';
+  writeFileSync(tmpPath, JSON.stringify(state, null, 2), 'utf8');
+  safeRename(tmpPath, statePath);
 }
 
 // ---------------------------------------------------------------------------

@@ -1,14 +1,15 @@
 # Maestro Statusline 指南
 
-Maestro Statusline 是 Claude Code 的自定义状态栏，提供双行实时信息显示：模型、Token 用量、Git 状态、上下文消耗，以及工作流里程碑和 Session 依赖链。
+Maestro Statusline 是 Claude Code 的自定义状态栏，提供多行实时信息显示：模型、Token 用量、Git 状态、上下文消耗，以及工作流里程碑和 Session 依赖链。
 
 ## 目录
 
 - [快速开始](#快速开始)
-- [双行布局](#双行布局)
+- [多行布局](#多行布局)
 - [Line 1 — 状态栏](#line-1--状态栏)
-- [Line 2 — 工作流时间线](#line-2--工作流时间线)
+- [Line 2+ — 工作流时间线](#line-2--工作流时间线)
 - [图标系统](#图标系统)
+- [配色主题](#配色主题)
 - [配置](#配置)
 - [数据来源](#数据来源)
 - [常见问题](#常见问题)
@@ -30,7 +31,7 @@ Statusline 通过 Claude Code 的 `settings.json` 配置：
 }
 ```
 
-或通过 `maestro install` 一键安装。
+或通过 `maestro install` 一键安装（含主题选择）。
 
 ### 工作原理
 
@@ -42,16 +43,34 @@ Claude Code 在每次交互后将会话数据（JSON）通过 stdin 传给 `maes
 
 ---
 
-## 双行布局
+## 多行布局
 
-Statusline 支持双行显示，第二行仅在存在工作流里程碑时出现：
+Statusline 支持智能多行显示，根据工作流状态和 session 链数量自动决定行数：
+
+### 无工作流（单行）
 
 ```
-Line 1: ⚡ Opus 4.6 | 📁 maestro2 ⎇ master | ↑12k ↓3k Σ15k | 📈 ███░░░ 28%
-Line 2: 🏁 MVP 1/2 ◆P2 | ANL-001→PLN-001→EXC-001→VRF-001 ✓ · ANL-005 ●
+⚡ Opus 4.6 | 📁 maestro2 ⎇ master | ↑12k ↓3k Σ15k +342 -87 | 📈 ███░░░ 28%
 ```
 
-无工作流时仅显示单行。
+### 有工作流，≤2 条链（双行）
+
+```
+⚡ Opus 4.6 | 📁 maestro2 ⎇ master △↑1 | ↑12k ↓3k Σ15k +342 -87 | 📈 ███░░░ 28%
+🏁 MVP 1/2 ◆P2 | auth A→P→E→V ✓ · user-mgmt A→P ●
+```
+
+### 有工作流，3+ 条链（多行展开）
+
+```
+⚡ Opus 4.6 | 📁 maestro2 ⎇ master | ↑12k ↓3k Σ15k | 📈 ███░░░ 28%
+🏁 MVP 1/2 ◆P2
+  auth A→P→E→R→D→T→V ✓
+  user-mgmt A→P→E ●
+  settings A ○
+```
+
+无工作流时仅显示单行。3 条及以上 session 链时，自动展开为每链一行。
 
 ---
 
@@ -66,7 +85,7 @@ Line 2: 🏁 MVP 1/2 ◆P2 | ANL-001→PLN-001→EXC-001→VRF-001 ✓ · ANL-00
 | Task | 当前进行中的任务 | `▸ Fixing auth module` |
 | Team | 活跃团队成员 | `👥 alice (P3/001) \| bob +2` |
 | Dir + Git | 目录名 + Git 分支状态 | `📁 maestro2 ⎇ master △↑1` |
-| Tokens | 累计 Token 用量 | `↑12k ↓3k Σ15k` |
+| Tokens + Lines | Token 用量 + 代码变更 | `↑12k ↓3k Σ15k +342 -87` |
 | Context | 上下文消耗进度条 | `📈 ██████░░░░ 62%` |
 
 ### Git 状态标记
@@ -89,6 +108,17 @@ Line 2: 🏁 MVP 1/2 ◆P2 | ANL-001→PLN-001→EXC-001→VRF-001 ✓ · ANL-00
 
 数值自动格式化：`1234` → `1.2k`，`123456` → `123k`。
 
+### 代码变更
+
+紧跟 token 用量之后，显示当前会话的代码变更统计：
+
+| 标记 | 含义 | 颜色 |
+|------|------|------|
+| `+N` | 新增行数 | 绿色 |
+| `-N` | 删除行数 | 红色 |
+
+数据来源于 Claude Code 的 `cost.total_lines_added` / `total_lines_removed`。仅在有变更时显示。
+
 ### 上下文颜色
 
 进度条颜色随消耗比例变化：
@@ -100,54 +130,97 @@ Line 2: 🏁 MVP 1/2 ◆P2 | ANL-001→PLN-001→EXC-001→VRF-001 ✓ · ANL-00
 | 65–79% | 橙色（警告） |
 | 80%+ | 红色（紧急） |
 
+> Maestro 的上下文百分比会扣除 Claude Code 的 ~16.5% autocompact buffer，显示的是**可用上下文**的消耗比例。
+
 ---
 
-## Line 2 — 工作流时间线
+## Line 2+ — 工作流时间线
 
 仅在项目有 `.workflow/state.json` 且包含里程碑时显示。
 
 ### 结构
 
 ```
-🏁 MVP 1/2 ◆P2 | ANL-001→PLN-001→EXC-001→VRF-001 ✓ · ANL-005 ●
+🏁 MVP 1/2 ◆P2 | auth A→P→E→R→D→T→V ✓ · user-mgmt A→P ●
 ```
 
 | 部分 | 说明 |
 |------|------|
 | `🏁 MVP 1/2` | 里程碑名称 + 已完成/总 phase 数 |
-| `◆P2` | 当前 phase |
-| Session 链 | 通过 `depends_on` 构建的 artifact 依赖链 |
+| `◆P2` | 当前活跃 phase |
+| Session 链 | 按 `depends_on` 构建的 artifact 依赖链 |
 
-### Session 链
+### Session 链格式
 
-从 `state.json.artifacts[]` 读取，按 `depends_on` 链接构建依赖关系：
+Session 链使用 **可读 slug + 类型流** 格式：
 
 ```
-ANL-001 → PLN-001 → EXC-001 → VRF-001 ✓
+auth A→P→E→R→D→T→V ✓
 ```
 
-- 箭头 `→` 表示执行依赖顺序
-- 每个 artifact ID 按类型着色
-- 多条链用 ` · ` 分隔
-- 独立 artifact（无依赖链）单独显示
+- **slug**（`auth`）：从 artifact 路径自动提取的可读名称，去除日期、类型前缀、phase 编号
+- **类型字母**（`A→P→E→V`）：每个 artifact 的类型缩写，按依赖顺序排列，各字母以对应类型颜色着色
+- **箭头**（`→`）：表示执行依赖顺序，使用 separator 颜色
+- **状态后缀**：链末尾显示整条链的状态
 
-### Artifact 类型颜色
+### Slug 提取规则
 
-| 类型 | 前缀 | 颜色 | 含义 |
+从 artifact 的 `path` 字段提取可读名称：
+
+| 原始路径 | 提取结果 |
+|---------|----------|
+| `scratch/analyze-auth-2026-04-20` | `auth` |
+| `phases/01-auth-multi-tenant` | `auth-multi-tenant` |
+| `scratch/20260421-review-P1-auth` | `auth` |
+
+依次去除：数字前缀、`YYYYMMDD-` 日期前缀、类型名前缀（analyze/plan/execute 等）、尾部日期、`-P1` phase 编号。
+
+### 9 种 Artifact 类型
+
+| 类型 | 缩写 | 颜色 | 含义 |
 |------|------|------|------|
-| analyze | ANL | 青色 | 分析探索 |
-| plan | PLN | 金色 | 规划设计 |
-| execute | EXC | 绿色 | 实现执行 |
-| verify | VRF | 蓝色 | 验证确认 |
+| analyze | A | 青色（model） | 分析探索 |
+| plan | P | 金色（milestone） | 规划设计 |
+| execute | E | 绿色（phase） | 实现执行 |
+| verify | V | 蓝色（coord） | 验证确认 |
+| brainstorm | B | 紫色（team） | 头脑风暴 |
+| spec | S | 黄色（dir） | 规格定义 |
+| review | R | 橙色（ctxAlert） | 代码审查 |
+| debug | D | 红色（ctxCrit） | 调试诊断 |
+| test | T | 绿色（ctxOk） | 测试验证 |
 
 ### 链尾状态标记
 
-| 标记 | 含义 |
-|------|------|
-| `✓` | 链中所有 artifact 已完成 |
-| `●` | 最后一个 artifact 进行中 |
-| `✗` | 最后一个 artifact 失败 |
-| `○` | 最后一个 artifact 待执行 |
+| 标记 | 含义 | 颜色 |
+|------|------|------|
+| `✓` | 链中所有 artifact 已完成 | 绿色 |
+| `●` | 最后一个 artifact 进行中 | 黄色 |
+| `✗` | 最后一个 artifact 失败 | 红色 |
+| `○` | 最后一个 artifact 待执行 | 灰色 |
+
+### 独立 Artifact
+
+未加入任何链的 artifact（无 `depends_on`，也不被其他 artifact 依赖）单独显示：
+
+```
+brainstorm-ux B ✓
+```
+
+### 自动多行
+
+| 链数量 | 显示方式 |
+|--------|----------|
+| 0 | 仅 milestone + phase header |
+| 1–2 | 单行，链之间用 ` · ` 分隔 |
+| 3+ | 展开为多行，每条链缩进显示 |
+
+### Chain 构建算法
+
+1. 从 `state.json.artifacts[]` 筛选当前里程碑的 artifacts
+2. 找到根 artifact（无 `depends_on` 或 `depends_on` 不在当前集合中）
+3. 从根开始，沿 `depends_on` 正向链接构建链
+4. 每条链的状态取决于所有 artifact 是否完成
+5. 未被任何链访问到的 artifact 归类为 orphan
 
 ---
 
@@ -160,14 +233,14 @@ Statusline 支持两套图标，通过配置切换：
 | Segment | Nerd Font | Unicode（回退） |
 |---------|-----------|-----------------|
 | Model | `` (bolt) | `✎` (pencil) |
-| Milestone | `` (flag) | `⚑` (flag) |
-| Phase | `◆` (diamond) | `◆` (diamond) |
-| Coordinator | `󰑌` (check) | `⚙` (gear) |
-| Task | `` (terminal) | `▸` (triangle) |
-| Team | `󰡉` (group) | `👥` (people) |
+| Milestone | `` (flag_checkered) | `⚑` (flag) |
+| Phase | `◆` (BLACK DIAMOND) | `◆` (diamond) |
+| Coordinator | `󰑌` (check_circle) | `⚙` (gear) |
+| Task | `` (terminal_cmd) | `▸` (triangle) |
+| Team | `󰡉` (account_group) | `👥` (people) |
 | Dir | `` (folder) | `■` (square) |
-| Git | `` (branch) | `⎇` (branch) |
-| Context | `` (chart) | `◔` (circle) |
+| Git | `` (git_branch) | `⎇` (branch) |
+| Context | `` (line_chart) | `◔` (circle) |
 
 ### Nerd Font 要求
 
@@ -177,7 +250,7 @@ Nerd Font 图标需要终端安装并配置 Nerd Font 字体（如 JetBrainsMono
 
 **VS Code**：Settings → `terminal.integrated.fontFamily` → `'JetBrainsMono Nerd Font'`
 
-> Claude Code 桌面版/Web 版不支持自定义字体，自动使用 Unicode 回退图标。
+> Claude Code 桌面版/Web 版不支持自定义字体，自动使用 Unicode 回退图标。默认 `nerdFont: false`。
 
 ---
 
@@ -267,6 +340,8 @@ Claude Code 在每次更新时通过 stdin 传入以下字段：
 | `context_window.remaining_percentage` | 上下文剩余百分比 |
 | `context_window.total_input_tokens` | 累计输入 tokens |
 | `context_window.total_output_tokens` | 累计输出 tokens |
+| `cost.total_lines_added` | 累计新增行数 |
+| `cost.total_lines_removed` | 累计删除行数 |
 
 ### Maestro 内部数据
 
@@ -306,3 +381,11 @@ Maestro 的上下文百分比会扣除 Claude Code 的 ~16.5% autocompact buffer
 ### Token 用量不显示
 
 Token 数据需要 Claude Code 提供 `context_window.total_input_tokens` 和 `total_output_tokens` 字段。首次 API 调用前这些字段可能为 null。
+
+### 代码变更行数不显示
+
+需要 Claude Code 提供 `cost.total_lines_added` 和 `cost.total_lines_removed` 字段。仅在有实际代码变更时显示。
+
+### Session 链显示为空
+
+确保 `state.json` 中的 artifacts 包含 `id`、`type`、`status`、`path` 字段，且 `milestone` 与 `current_milestone` 匹配。链的构建依赖 `depends_on` 字段将 artifacts 连接起来。

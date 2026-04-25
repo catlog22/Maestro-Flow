@@ -46,7 +46,7 @@ interface WorkflowState {
     key_decisions?: string[];
     deferred?: Array<{ id?: string; severity?: string; description?: string; fix_direction?: string } | string>;
   };
-  transition_history?: Array<{ type: string; from_phase: number | null; to_phase: number | null; milestone: string; transitioned_at: string }>;
+  transition_history?: Array<{ type: string; from_phase: number | null; to_phase: number | null; milestone: string; transitioned_at: string; trigger?: string; force?: boolean; snapshot?: { phases_completed: number; phases_total: number; deferred_count: number; verification_status: string; learnings_count: number } }>;
   artifacts?: ArtifactEntry[];
   [key: string]: unknown;
 }
@@ -72,6 +72,7 @@ interface ArtifactEntry {
   status: string;
   depends_on?: string | string[] | null;
   harvested?: boolean;
+  error_context?: string | null;
   created_at?: string;
   completed_at?: string | null;
 }
@@ -188,7 +189,7 @@ function deriveCurrentPhaseLocal(state: WorkflowState): number | null {
   // v2: derive from artifacts
   const arts = state.artifacts;
   if (!arts?.length) return null;
-  const milestone = state.milestones?.find(m => m.name === state.current_milestone);
+  const milestone = state.milestones?.find(m => m.name === state.current_milestone || m.id === state.current_milestone);
   if (!milestone?.phases?.length) return null;
   for (const p of milestone.phases) {
     if (arts.some(a => a.phase === p && a.milestone === state.current_milestone && a.status === 'in_progress')) return p;
@@ -203,7 +204,7 @@ function derivePhasesSummaryLocal(state: WorkflowState): { total: number; comple
   // v1 fallback
   if (state.phases_summary) return state.phases_summary;
   // v2: derive from artifacts
-  const milestone = state.milestones?.find(m => m.name === state.current_milestone);
+  const milestone = state.milestones?.find(m => m.name === state.current_milestone || m.id === state.current_milestone);
   if (!milestone?.phases?.length) return { total: 0, completed: 0, in_progress: 0, pending: 0 };
   const total = milestone.phases.length;
   let completed = 0, in_progress = 0;

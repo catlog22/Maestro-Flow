@@ -9,7 +9,10 @@
 
 import type { Command } from 'commander';
 import { exec } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { getPackageVersion } from '../utils/get-version.js';
+import { getAllManifests } from '../core/manifest.js';
+import { loadMigrations, planMigrations, runPendingMigrations } from '../utils/migration-registry.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -66,6 +69,100 @@ function execAsync(cmd: string): Promise<{ stdout: string; stderr: string }> {
       else resolve({ stdout, stderr });
     });
   });
+}
+
+// ---------------------------------------------------------------------------
+// Post-update: reinstall workflows
+// ---------------------------------------------------------------------------
+
+/**
+ * After npm install, exec the NEW version of maestro to reinstall
+ * previously installed workflow components. This ensures new-version
+ * code and assets are used (current process still runs old code).
+ */
+async function reinstallWorkflows(version: string): Promise<void> {
+  const manifests = getAllManifests();
+  if (manifests.length === 0) return;
+
+  console.error('');
+  console.error('  Reinstalling workflow components...');
+
+  // Deduplicate: one global, multiple projects
+  const globalManifest = manifests.find(m => m.scope === 'global');
+  const projectManifests = manifests.filter(m => m.scope === 'project');
+
+  if (globalManifest) {
+    try {
+      await execAsync('maestro install --force --global');
+      console.error(`  [+] Global components reinstalled (v${version})`);
+    } catch (err) {
+      console.error(`  [x] Global reinstall failed: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  for (const m of projectManifests) {
+    if (!existsSync(m.targetPath)) {
+      console.error(`  [-] Skipped ${m.targetPath} (directory not found)`);
+      continue;
+    }
+    try {
+      await execAsync(`maestro install --force --path "${m.targetPath}"`);
+      console.error(`  [+] Project reinstalled: ${m.targetPath}`);
+    } catch (err) {
+      console.error(`  [x] Project reinstall failed (${m.targetPath}): ${err instanceof Error ? err.message : err}`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Post-update: run migrations
+// ---------------------------------------------------------------------------
+
+async function runMigrations(): Promise<void> {
+  try {
+    await loadMigrations();
+  } catch {
+    return; // migrations not available
+  }
+
+  const plan = planMigrations(process.cwd());
+  if (!plan) return;
+
+  console.error('');
+  console.error(`  Workflow migrations: v${plan.currentVersion} → v${plan.targetVersion}`);
+  for (const step of plan.steps) {
+    console.error(`    - ${step.name} (v${step.from} → v${step.to})`);
+  }
+  console.error('');
+
+  const { confirm } = await import('@inquirer/prompts');
+  const shouldMigrate = await confirm({
+    message: `Apply ${plan.steps.length} migration(s)?`,
+    default: true,
+  });
+
+  if (!shouldMigrate) {
+    console.error('  Migration skipped.');
+    return;
+  }
+
+  const { results } = runPendingMigrations(process.cwd());
+  for (const { step, result } of results) {
+    const icon = result.success ? '+' : 'x';
+    console.error(`  [${icon}] ${step.name}: ${result.summary}`);
+    if (result.changes?.length) {
+      for (const change of result.changes) {
+        console.error(`      - ${change}`);
+      }
+    }
+  }
+
+  const failed = results.some(r => !r.result.success);
+  if (failed) {
+    console.error('  Migration completed with errors. Check backups in .workflow/');
+  } else {
+    console.error('  Migration complete!');
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -146,7 +243,15 @@ export function registerUpdateCommand(program: Command): void {
         }
         console.error('');
         console.error(`  You can try manually: npm install -g ${PACKAGE_NAME}@${latest.version}`);
+        console.error('');
+        return;
       }
+
+      // --- Post-update: reinstall workflow components ---
+      await reinstallWorkflows(latest.version);
+
+      // --- Post-update: run pending migrations ---
+      await runMigrations();
 
       console.error('');
     });

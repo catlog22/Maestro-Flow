@@ -163,8 +163,8 @@ export function readWorkflowContext(): { phase_id?: number; task_id?: string } {
     out.phase_id = obj.current_phase;
   } else if (Array.isArray(obj.artifacts) && Array.isArray(obj.milestones)) {
     // v2: derive current phase from artifact registry
-    const milestone = (obj.milestones as Array<{ name?: string; phases?: number[] }>)
-      .find(m => m.name === obj.current_milestone);
+    const milestone = (obj.milestones as Array<{ name?: string; id?: string; phases?: number[] }>)
+      .find(m => m.name === obj.current_milestone || m.id === obj.current_milestone);
     if (milestone?.phases?.length) {
       const arts = obj.artifacts as Array<{ type?: string; phase?: number; milestone?: string; status?: string }>;
       for (const p of milestone.phases) {

@@ -42,6 +42,10 @@ interface StatuslineInput {
     total_input_tokens?: number;
     total_output_tokens?: number;
   };
+  cost?: {
+    total_lines_added?: number;
+    total_lines_removed?: number;
+  };
 }
 
 interface BridgeData {
@@ -268,7 +272,7 @@ function readWorkflowState(dir: string): WorkflowInfo {
 
     const rawArtifacts: Array<{ id?: string; type?: string; phase?: number; milestone?: string; status?: string; path?: string; depends_on?: string | string[] | null }> = Array.isArray(state.artifacts) ? state.artifacts : [];
     const milestone = Array.isArray(state.milestones)
-      ? state.milestones.find((m: { name?: string }) => m.name === state.current_milestone)
+      ? state.milestones.find((m: { name?: string; id?: string }) => m.name === state.current_milestone || m.id === state.current_milestone)
       : null;
     const phases: number[] = milestone?.phases ?? [];
 
@@ -491,53 +495,76 @@ export function buildCoordinatorSegment(session: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Chain renderer — session chain for line 2
+// Chain renderer — session chain for line 2+
 // ---------------------------------------------------------------------------
 
-/** Color an artifact ID by its type */
-function colorArtifactId(art: ArtifactInfo): string {
-  const typeColors: Record<string, readonly [number, number, number]> = {
-    analyze: TEXT_COLORS.model,      // cyan
-    plan:    TEXT_COLORS.milestone,   // gold
-    execute: TEXT_COLORS.phase,      // green
-    verify:  TEXT_COLORS.coord,      // blue
-  };
-  const color = typeColors[art.type] ?? TEXT_COLORS.task;
-  return ansiFg(color) + art.id + ANSI_RESET;
+/** Type abbreviation and color */
+const TYPE_META: Record<string, { abbr: string; color: readonly [number, number, number] }> = {
+  analyze:    { abbr: 'A', color: TEXT_COLORS.model },
+  plan:       { abbr: 'P', color: TEXT_COLORS.milestone },
+  execute:    { abbr: 'E', color: TEXT_COLORS.phase },
+  verify:     { abbr: 'V', color: TEXT_COLORS.coord },
+  brainstorm: { abbr: 'B', color: TEXT_COLORS.team },
+  spec:       { abbr: 'S', color: TEXT_COLORS.dir },
+  review:     { abbr: 'R', color: TEXT_COLORS.ctxAlert },
+  debug:      { abbr: 'D', color: TEXT_COLORS.ctxCrit },
+  test:       { abbr: 'T', color: TEXT_COLORS.ctxOk },
+};
+
+/** Color a type abbreviation */
+function colorType(type: string): string {
+  const meta = TYPE_META[type] ?? { abbr: type[0]?.toUpperCase() ?? '?', color: TEXT_COLORS.task };
+  return ansiFg(meta.color) + meta.abbr + ANSI_RESET;
 }
 
-/** Status suffix for last artifact in chain */
+/** Extract readable slug from artifact path */
+function extractSlug(art: ArtifactInfo): string {
+  const b = basename(art.path || '');
+  // scratch/analyze-auth-2026-04-20 → auth
+  // phases/01-auth-multi-tenant → auth-multi-tenant
+  // scratch/20260421-review-P1-auth → auth
+  return b
+    .replace(/^\d+-/, '')                    // leading number prefix
+    .replace(/^\d{8}-/, '')                  // YYYYMMDD- prefix
+    .replace(/^(analyze|plan|execute|verify|brainstorm|spec|review|debug|test)-/, '') // type prefix
+    .replace(/-\d{4}-\d{2}-\d{2}$/, '')      // trailing date
+    .replace(/-P\d+/, '')                    // -P1, -P2
+    || art.type;
+}
+
+/** Status suffix */
 function statusSuffix(status: string): string {
   const map: Record<string, { icon: string; color: readonly [number, number, number] }> = {
-    completed:   { icon: ' ✓', color: TEXT_COLORS.ctxOk },
-    in_progress: { icon: ' ●', color: TEXT_COLORS.ctxWarn },
-    failed:      { icon: ' ✗', color: TEXT_COLORS.ctxCrit },
-    pending:     { icon: ' ○', color: TEXT_COLORS.separator },
+    completed:   { icon: '✓', color: TEXT_COLORS.ctxOk },
+    in_progress: { icon: '●', color: TEXT_COLORS.ctxWarn },
+    failed:      { icon: '✗', color: TEXT_COLORS.ctxCrit },
+    pending:     { icon: '○', color: TEXT_COLORS.separator },
   };
   const s = map[status];
   return s ? ansiFg(s.color) + s.icon + ANSI_RESET : '';
 }
 
-/** Render a chain: ANL-001→PLN-001→EXC-001→VRF-001 ✓ */
+/** Render chain: auth: A→P→E→R→D→T→V ✓ */
 function renderChain(chain: ArtifactChain): string {
   const arrow = ansiFg(TEXT_COLORS.separator) + '→' + ANSI_RESET;
-  const ids = chain.artifacts.map(colorArtifactId);
+  const slug = extractSlug(chain.artifacts[0]);
+  const types = chain.artifacts.map(a => colorType(a.type));
   const lastArt = chain.artifacts[chain.artifacts.length - 1];
 
-  let result = ids.join(arrow);
+  const slugLabel = ansiFg(TEXT_COLORS.task) + slug + ANSI_RESET;
+  const flow = types.join(arrow);
+  const suffix = chain.allCompleted
+    ? ' ' + ansiFg(TEXT_COLORS.ctxOk) + '✓' + ANSI_RESET
+    : ' ' + statusSuffix(lastArt.status);
 
-  if (chain.allCompleted) {
-    result += ansiFg(TEXT_COLORS.ctxOk) + ' ✓' + ANSI_RESET;
-  } else {
-    result += statusSuffix(lastArt.status);
-  }
-
-  return result;
+  return `${slugLabel} ${flow}${suffix}`;
 }
 
-/** Render an orphan artifact: ANL-005● */
+/** Render orphan: brainstorm-ux B ✓ */
 function renderOrphan(art: ArtifactInfo): string {
-  return colorArtifactId(art) + statusSuffix(art.status);
+  const slug = extractSlug(art);
+  const slugLabel = ansiFg(TEXT_COLORS.task) + slug + ANSI_RESET;
+  return `${slugLabel} ${colorType(art.type)} ${statusSuffix(art.status)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -577,11 +604,23 @@ export function formatStatusline(data: StatuslineInput): string {
   if (git) dirText += `  ${formatGitSuffix(git)}`;
   segments.push({ key: 'dir', text: dirText });
 
-  // Token usage
+  // Token usage + lines changed
   const inputTokens = data.context_window?.total_input_tokens;
   const outputTokens = data.context_window?.total_output_tokens;
+  const linesAdded = data.cost?.total_lines_added ?? 0;
+  const linesRemoved = data.cost?.total_lines_removed ?? 0;
+
+  const statParts: string[] = [];
   if (inputTokens != null && outputTokens != null && (inputTokens > 0 || outputTokens > 0)) {
-    segments.push({ key: 'task', text: buildTokenText(inputTokens, outputTokens) });
+    statParts.push(buildTokenText(inputTokens, outputTokens));
+  }
+  if (linesAdded > 0 || linesRemoved > 0) {
+    const added = ansiFg(TEXT_COLORS.ctxOk) + `+${linesAdded}` + ANSI_RESET;
+    const removed = ansiFg(TEXT_COLORS.ctxCrit) + `-${linesRemoved}` + ANSI_RESET;
+    statParts.push(`${added} ${removed}`);
+  }
+  if (statParts.length > 0) {
+    segments.push({ key: 'task', text: statParts.join(' ') });
   }
 
   // Context bar
@@ -613,12 +652,22 @@ export function formatStatusline(data: StatuslineInput): string {
     chainParts.push(renderOrphan(orphan));
   }
 
-  let line2 = header;
-  if (chainParts.length > 0) {
-    line2 += sep + chainParts.join(dot);
+  if (chainParts.length === 0) {
+    return line1 + '\n' + header;
   }
 
-  return line1 + '\n' + line2;
+  // Auto multi-line: ≤2 chains → single line, >2 → one chain per line
+  if (chainParts.length <= 2) {
+    const line2 = header + sep + chainParts.join(dot);
+    return line1 + '\n' + line2;
+  }
+
+  // Multi-line: header on line 2, each chain on its own line
+  const lines = [line1, header];
+  for (const part of chainParts) {
+    lines.push('  ' + part);
+  }
+  return lines.join('\n');
 }
 
 /** Entry point — reads stdin JSON, writes formatted statusline to stdout */

@@ -887,7 +887,7 @@ export class GraphWalker {
         // Derive current_phase from artifacts if not set
         if (project.current_phase == null && project.artifact_registry?.length) {
           const milestone = Array.isArray(raw.milestones)
-            ? raw.milestones.find((m: { name?: string }) => m.name === raw.current_milestone)
+            ? raw.milestones.find((m: { name?: string; id?: string }) => m.name === raw.current_milestone || m.id === raw.current_milestone)
             : null;
           const phases: number[] = milestone?.phases ?? [];
           for (const p of phases) {

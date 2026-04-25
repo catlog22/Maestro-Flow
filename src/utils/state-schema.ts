@@ -5,8 +5,27 @@
  * All hooks, tools, and workflows should import from here.
  */
 
-import { readFileSync, writeFileSync, renameSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, unlinkSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+
+/**
+ * Cross-platform atomic rename with retry for Windows EPERM/EBUSY.
+ * Attempts unlinkSync on target before retry to handle Windows semantics.
+ */
+export function safeRename(src: string, dest: string): void {
+  for (let i = 0; i < 3; i++) {
+    try {
+      renameSync(src, dest);
+      return;
+    } catch (e: any) {
+      if (i < 2 && ['EPERM', 'EACCES', 'EBUSY'].includes(e.code)) {
+        try { unlinkSync(dest); } catch {}
+        continue;
+      }
+      throw e;
+    }
+  }
+}
 
 /** Local-time ISO 8601 string with timezone offset, e.g. "2026-04-24T14:30:00+08:00" */
 export function localISO(): string {
@@ -36,6 +55,7 @@ export interface ArtifactEntry {
   status: ArtifactStatus;
   depends_on: string | string[] | null;
   harvested: boolean;
+  error_context?: string | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -53,6 +73,25 @@ export interface DeferredItem {
   severity?: string;
   fix_direction?: string;
   description?: string;
+}
+
+export interface TransitionSnapshot {
+  phases_completed: number;
+  phases_total: number;
+  deferred_count: number;
+  verification_status: string;
+  learnings_count: number;
+}
+
+export interface TransitionEntry {
+  type: 'phase' | 'milestone';
+  from_phase: number | null;
+  to_phase: number | null;
+  milestone: string;
+  transitioned_at: string;
+  trigger: string;
+  force: boolean;
+  snapshot: TransitionSnapshot;
 }
 
 export interface MilestoneHistoryEntry {
@@ -81,7 +120,7 @@ export interface StateJsonV2 {
     blockers: string[];
     deferred: Array<DeferredItem | string>;
   };
-  transition_history: unknown[];
+  transition_history: TransitionEntry[];
   milestone_history: MilestoneHistoryEntry[];
   last_updated: string;
 }
@@ -372,7 +411,7 @@ export function migrateV1toV2(raw: V1State, workflowRoot?: string): StateJsonV2 
       blockers: [],
       deferred: [],
     },
-    transition_history: raw.transition_history ?? [],
+    transition_history: (raw.transition_history ?? []) as TransitionEntry[],
     milestone_history: (raw.milestone_history ?? []) as MilestoneHistoryEntry[],
     last_updated: raw.last_updated ?? localISO(),
   };
@@ -410,7 +449,7 @@ export function writeStateJson(workflowRoot: string, state: StateJsonV2): void {
   state.last_updated = localISO();
 
   writeFileSync(tmpPath, JSON.stringify(state, null, 2), 'utf8');
-  renameSync(tmpPath, statePath);
+  safeRename(tmpPath, statePath);
 }
 
 /**
