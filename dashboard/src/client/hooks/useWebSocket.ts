@@ -14,7 +14,8 @@ import type { SupervisorStatus } from '@/shared/execution-types.js';
 import type { CommanderState, Decision } from '@/shared/commander-types.js';
 import type { CoordinateStatusPayload, CoordinateStepPayload, CoordinateAnalysisPayload, CoordinateClarificationPayload } from '@/shared/coordinate-types.js';
 import type { RequirementProgressPayload, RequirementExpandedPayload, RequirementCommittedPayload, RequirementErrorPayload } from '@/shared/requirement-types.js';
-import type { TeamMailboxMessage, TeamPhaseState, TeamAgentStatus } from '@/shared/team-types.js';
+import type { TeamMailboxMessage, TeamPhaseState, TeamAgentStatus, RoomSessionSnapshot, RoomAgent, RoomAgentStatus, RoomMailboxMessage, RoomTask } from '@/shared/team-types.js';
+import { useMeetingRoomStore } from '@/client/store/meeting-room-store.js';
 
 // ---------------------------------------------------------------------------
 // useWebSocket — connect to /ws, dispatch to stores, auto-reconnect
@@ -144,6 +145,16 @@ export function useWebSocket(): void {
       handleAgentStatusUpdate,
       registerAgentProcess,
     } = useTeamStore.getState();
+    const {
+      handleSnapshot: roomHandleSnapshot,
+      handleAgentJoined: roomHandleAgentJoined,
+      handleAgentLeft: roomHandleAgentLeft,
+      handleAgentStatus: roomHandleAgentStatus,
+      handleMessage: roomHandleMessage,
+      handleTaskCreated: roomHandleTaskCreated,
+      handleTaskUpdated: roomHandleTaskUpdated,
+      handleRoomClosed: roomHandleRoomClosed,
+    } = useMeetingRoomStore.getState();
 
     function connect() {
       if (disposed) return;
@@ -446,6 +457,46 @@ export function useWebSocket(): void {
 
           case WS_EVENT_TYPES.TEAM_AGENT_STATUS:
             handleAgentStatusUpdate(msg.data as TeamAgentStatus);
+            break;
+
+          // --- Room events ---
+          case WS_EVENT_TYPES.ROOM_SNAPSHOT:
+            roomHandleSnapshot(msg.data as RoomSessionSnapshot);
+            break;
+
+          case WS_EVENT_TYPES.ROOM_AGENT_JOINED:
+            roomHandleAgentJoined(msg.data as RoomAgent);
+            break;
+
+          case WS_EVENT_TYPES.ROOM_AGENT_LEFT: {
+            const leftData = msg.data as { role: string };
+            roomHandleAgentLeft(leftData.role);
+            break;
+          }
+
+          case WS_EVENT_TYPES.ROOM_AGENT_STATUS: {
+            const roomStatusData = msg.data as { role: string; status: RoomAgentStatus };
+            roomHandleAgentStatus(roomStatusData.role, roomStatusData.status);
+            break;
+          }
+
+          case WS_EVENT_TYPES.ROOM_MESSAGE:
+          case WS_EVENT_TYPES.ROOM_BROADCAST:
+            roomHandleMessage(msg.data as RoomMailboxMessage);
+            break;
+
+          case WS_EVENT_TYPES.ROOM_TASK_CREATED:
+            roomHandleTaskCreated(msg.data as RoomTask);
+            break;
+
+          case WS_EVENT_TYPES.ROOM_TASK_UPDATED: {
+            const taskUpdateData = msg.data as RoomTask;
+            roomHandleTaskUpdated(taskUpdateData.id, taskUpdateData);
+            break;
+          }
+
+          case WS_EVENT_TYPES.ROOM_CLOSED:
+            roomHandleRoomClosed();
             break;
 
           default:

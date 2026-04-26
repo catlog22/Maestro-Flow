@@ -51,6 +51,10 @@ const CollabPage = lazy(() =>
   import('@/client/pages/CollabPage.js').then((m) => ({ default: m.CollabPage })),
 );
 
+const MeetingRoomPage = lazy(() =>
+  import('@/client/pages/MeetingRoomPage.js').then((m) => ({ default: m.MeetingRoomPage })),
+);
+
 // ---------------------------------------------------------------------------
 // App — root component with React Router v6 layout routes
 // ---------------------------------------------------------------------------
@@ -156,6 +160,14 @@ export function App() {
             element={
               <Suspense fallback={<LazyFallback />}>
                 <CollabPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="meeting-room/:sessionId"
+            element={
+              <Suspense fallback={<LazyFallback />}>
+                <MeetingRoomPage />
               </Suspense>
             }
           />
