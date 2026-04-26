@@ -57,11 +57,13 @@ export class RoomWsHandler implements WsHandler {
     _broadcast: (type: WsEventType, data: unknown) => void,
   ): Promise<void> {
     const msg = data as Record<string, unknown>;
-    const sessionId = msg.sessionId as string;
+    const sessionId = (msg.sessionId ?? msg.roomId) as string;
 
     switch (action) {
       case 'room:create': {
         const session = this.sessionManager.createSession(sessionId);
+        // Auto-subscribe the creator so they receive room:created and all subsequent events
+        this.filter.subscribe(ws, sessionId);
         const snapshot = session.getSnapshot();
         this.eventBus.emit('room:created', {
           sessionId: snapshot.sessionId,
@@ -165,7 +167,14 @@ export class RoomWsHandler implements WsHandler {
       case 'room:create_task': {
         const session = this.sessionManager.getSession(sessionId);
         if (!session) break;
-        const task = session.createTask(msg.task as RoomTaskCreate);
+        // Accept both nested msg.task and flat fields
+        const taskInput: RoomTaskCreate = (msg.task as RoomTaskCreate) ?? {
+          title: msg.title as string,
+          description: (msg.description as string) ?? '',
+          owner: (msg.assignedTo as string) ?? (msg.owner as string),
+          blockedBy: msg.blockedBy as string[] | undefined,
+        };
+        const task = session.createTask(taskInput);
         this.eventBus.emit('room:task_created', { sessionId, task });
         break;
       }

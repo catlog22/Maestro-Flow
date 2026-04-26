@@ -464,9 +464,11 @@ export function useWebSocket(): void {
             roomHandleSnapshot(msg.data as RoomSessionSnapshot);
             break;
 
-          case WS_EVENT_TYPES.ROOM_AGENT_JOINED:
-            roomHandleAgentJoined(msg.data as RoomAgent);
+          case WS_EVENT_TYPES.ROOM_AGENT_JOINED: {
+            const joinedData = msg.data as { sessionId: string; agent: RoomAgent };
+            roomHandleAgentJoined(joinedData.agent);
             break;
+          }
 
           case WS_EVENT_TYPES.ROOM_AGENT_LEFT: {
             const leftData = msg.data as { role: string };
@@ -481,17 +483,21 @@ export function useWebSocket(): void {
           }
 
           case WS_EVENT_TYPES.ROOM_MESSAGE:
-          case WS_EVENT_TYPES.ROOM_BROADCAST:
-            roomHandleMessage(msg.data as RoomMailboxMessage);
+          case WS_EVENT_TYPES.ROOM_BROADCAST: {
+            const msgData = msg.data as { sessionId: string; message: RoomMailboxMessage };
+            roomHandleMessage(msgData.message);
             break;
+          }
 
-          case WS_EVENT_TYPES.ROOM_TASK_CREATED:
-            roomHandleTaskCreated(msg.data as RoomTask);
+          case WS_EVENT_TYPES.ROOM_TASK_CREATED: {
+            const taskCreatedData = msg.data as { sessionId: string; task: RoomTask };
+            roomHandleTaskCreated(taskCreatedData.task);
             break;
+          }
 
           case WS_EVENT_TYPES.ROOM_TASK_UPDATED: {
-            const taskUpdateData = msg.data as RoomTask;
-            roomHandleTaskUpdated(taskUpdateData.id, taskUpdateData);
+            const taskUpdatedData = msg.data as { sessionId: string; task: RoomTask };
+            roomHandleTaskUpdated(taskUpdatedData.task.id, taskUpdatedData.task);
             break;
           }
 
