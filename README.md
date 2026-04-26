@@ -341,6 +341,12 @@ maestro/
 
 **[@catlog22](https://github.com/catlog22)** — Creator & Maintainer
 
+## Community
+
+Join the WeChat group for discussion and feedback:
+
+<img src="assets/wechat-group-qr.png" width="200" alt="WeChat Group: Claude Code Workflow交流群 2" />
+
 ## Links
 
 - [Linux DO：学AI，上L站！](https://linux.do/)

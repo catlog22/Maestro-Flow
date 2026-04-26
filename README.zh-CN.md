@@ -340,6 +340,12 @@ maestro/
 
 **[@catlog22](https://github.com/catlog22)** -- 创建者 & 维护者
 
+## 交流群
+
+欢迎加入微信群交流反馈:
+
+<img src="assets/wechat-group-qr.png" width="200" alt="微信群: Claude Code Workflow交流群 2" />
+
 ## 友情链接
 
 - [Linux DO：学AI，上L站！](https://linux.do/)
