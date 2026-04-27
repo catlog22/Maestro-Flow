@@ -244,18 +244,18 @@
       "allowedTools": ["Read", "Bash", "Glob", "Grep"]
     },
     {
-      "name": "manage-memory",
-      "file": ".claude/commands/manage-memory.md",
+      "name": "manage-knowhow",
+      "file": ".claude/commands/manage-knowhow.md",
       "category": "manage",
-      "description": "Manage memory entries — workflow memory (.workflow/memory/) and system memory (~/.claude/projects/*/memory/)",
+      "description": "Manage memory entries — workflow memory (.workflow/knowhow/) and system memory (~/.claude/projects/*/memory/)",
       "argumentHint": "[list|search|view|edit|delete|prune] [query|id|file] [--store workflow|system|all] [--type compact|tip]",
       "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
     },
     {
-      "name": "manage-memory-capture",
-      "file": ".claude/commands/manage-memory-capture.md",
+      "name": "manage-knowhow-capture",
+      "file": ".claude/commands/manage-knowhow-capture.md",
       "category": "manage",
-      "description": "Capture session memory (compact or tips) into .workflow/memory/ with JSON index",
+      "description": "Capture session memory (compact or tips) into .workflow/knowhow/ with JSON index",
       "argumentHint": "[compact|tip] [description] [--tag tag1,tag2]",
       "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
     },

@@ -263,21 +263,21 @@
       "next_commands": [],
       "flags": []
     },
-    "manage-memory": {
-      "name": "manage-memory",
+    "manage-knowhow": {
+      "name": "manage-knowhow",
       "name_zh": "记忆管理",
-      "description": "Manage memory entries — workflow memory (.workflow/memory/) and system memory (~/.claude/projects/*/memory/)",
-      "description_zh": "管理两类记忆存储：工作流记忆（.workflow/memory/，项目级）和系统记忆（~/.claude/projects/*/memory/，跨项目）",
+      "description": "Manage memory entries — workflow memory (.workflow/knowhow/) and system memory (~/.claude/projects/*/memory/)",
+      "description_zh": "管理两类记忆存储：工作流记忆（.workflow/knowhow/，项目级）和系统记忆（~/.claude/projects/*/memory/，跨项目）",
       "workflow": "随时使用，管理和维护项目知识库",
       "workflow_zh": "知识管理命令",
       "prev_commands": [],
       "next_commands": [],
       "flags": ["[list|search|view|edit|delete|prune] (操作)", "[query|id|file] (查询或标识)", "--store workflow|system|all (存储类型)", "--type compact|tip (记忆类型)"]
     },
-    "manage-memory-capture": {
-      "name": "manage-memory-capture",
+    "manage-knowhow-capture": {
+      "name": "manage-knowhow-capture",
       "name_zh": "捕获记忆",
-      "description": "Capture session memory (compact or tips) into .workflow/memory/ with JSON index",
+      "description": "Capture session memory (compact or tips) into .workflow/knowhow/ with JSON index",
       "description_zh": "将当前会话的经验捕获为记忆：compact（会话压缩摘要）或 tip（单个专业提示）。带 JSON 索引便于后续检索",
       "workflow": "阶段或会话结束时使用，沉淀经验",
       "workflow_zh": "在阶段完成或会话结束时使用",

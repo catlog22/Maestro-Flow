@@ -674,22 +674,22 @@ Commander Agent 作为自主 supervisor 可自动推进 Issue 闭环，无需手
 ### 主干 Phase 管线
 
 ```mermaid
-	graph LR
-	    INIT[init] --> RM["roadmap /<br>spec-generate"]
-	    RM -.-> UID["ui-design<br>(可选)"]
-	    RM --> AN[analyze]
-	    UID -.-> AN
-	    AN -->|"多次"| AN
-	    AN --> PL[plan]
-	    PL -->|"revise / 碰撞检测"| PL
-	    PL -->|"逐个执行"| EX[execute]
-	    EX --> VF[verify]
-	    VF --> QR[review]
-	    QR --> QT[test]
-	    QT --> MA[milestone-audit]
-	    VF -->|"gaps"| AN
-	    QT -->|"失败"| PL
-	```
+        graph LR
+            INIT[init] --> RM["roadmap /<br>spec-generate"]
+            RM -.-> UID["ui-design<br>(可选)"]
+            RM --> AN[analyze]
+            UID -.-> AN
+            AN -->|"多次"| AN
+            AN --> PL[plan]
+            PL -->|"revise / 碰撞检测"| PL
+            PL -->|"逐个执行"| EX[execute]
+            EX --> VF[verify]
+            VF --> QR[review]
+            QR --> QT[test]
+            QT --> MA[milestone-audit]
+            VF -->|"gaps"| AN
+            QT -->|"失败"| PL
+        ```
 
 ### Issue 闭环
 
@@ -711,17 +711,17 @@ graph LR
 ### 质量管线
 
 ```mermaid
-	graph LR
-	    EX[execute] --> VF[verify]
-	    VF --> QR[review]
-	    QR --> TG[test-gen]
-	    TG --> QT[test]
-	    QT --> MA[milestone-audit]
-	    QT -->|"失败"| QD[debug]
-	    QD --> PL["plan --gaps"]
-	    PL --> EX2[execute]
-	    EX2 --> VF2[verify]
-	```
+        graph LR
+            EX[execute] --> VF[verify]
+            VF --> QR[review]
+            QR --> TG[test-gen]
+            TG --> QT[test]
+            QT --> MA[milestone-audit]
+            QT -->|"失败"| QD[debug]
+            QD --> PL["plan --gaps"]
+            PL --> EX2[execute]
+            EX2 --> VF2[verify]
+        ```
 
 ### 快速渠道
 
