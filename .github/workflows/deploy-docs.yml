@@ -5,6 +5,7 @@ on:
     branches: [master, main]
     paths:
       - 'docs-site/**'
+      - 'guide/**'
       - '.claude/commands/**'
       - '.claude/skills/**'
       - '.workflow/.team/**/inventory.json'
