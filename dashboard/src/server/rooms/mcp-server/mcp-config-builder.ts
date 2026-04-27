@@ -27,22 +27,25 @@ const TS_PATH = join(CURRENT_DIR, 'stdio-bridge.ts');
 const IS_DEV = !existsSync(JS_PATH) && existsSync(TS_PATH);
 const STDIO_BRIDGE_PATH = IS_DEV ? TS_PATH : JS_PATH;
 
-// In dev mode, resolve tsx absolute path from project node_modules
-function resolveTsxBin(): string {
+// In dev mode, resolve tsx CLI entry point from project node_modules.
+// We use `node tsx/dist/cli.mjs` instead of the shell wrapper (.bin/tsx)
+// because Claude Code spawns MCP servers as direct child processes.
+function resolveTsxCliPath(): string {
   let dir = CURRENT_DIR;
   for (let i = 0; i < 10; i++) {
-    const bin = join(dir, 'node_modules', '.bin', 'tsx');
-    if (existsSync(bin)) return bin;
-    if (existsSync(bin + '.CMD')) return bin + '.CMD';
+    const candidate = join(dir, 'node_modules', 'tsx', 'dist', 'cli.mjs');
+    if (existsSync(candidate)) return candidate;
     const parent = resolve(dir, '..');
     if (parent === dir) break;
     dir = parent;
   }
-  return 'tsx';
+  return 'tsx'; // fallback
 }
 
-const STDIO_BRIDGE_COMMAND = IS_DEV ? resolveTsxBin() : process.execPath;
-const STDIO_BRIDGE_ARGS = IS_DEV ? [STDIO_BRIDGE_PATH] : [STDIO_BRIDGE_PATH];
+const STDIO_BRIDGE_COMMAND = process.execPath; // always use node
+const STDIO_BRIDGE_ARGS = IS_DEV
+  ? [resolveTsxCliPath(), STDIO_BRIDGE_PATH]
+  : [STDIO_BRIDGE_PATH];
 
 // ---------------------------------------------------------------------------
 // Stdio config (for Claude Code, Codex, and other CLI adapters)
@@ -82,10 +85,13 @@ export function getClaudeCodeConfig(
   agentId: string,
   serverInfo: MeetingRoomMcpServerInfo,
 ): McpStdioServerConfig {
+  // Use 'node' shorthand (not full path) — matches other working MCP configs.
+  // Forward-slash paths for cross-platform compatibility.
+  const fwdArgs = STDIO_BRIDGE_ARGS.map((a) => a.replace(/\\/g, '/'));
   return {
     type: 'stdio',
-    command: STDIO_BRIDGE_COMMAND,
-    args: [...STDIO_BRIDGE_ARGS],
+    command: 'node',
+    args: [...fwdArgs],
     env: {
       MEETING_ROOM_MCP_PORT: String(serverInfo.port),
       MEETING_ROOM_MCP_TOKEN: serverInfo.token,

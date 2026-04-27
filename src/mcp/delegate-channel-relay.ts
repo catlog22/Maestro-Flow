@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
+import { writeFileSync, unlinkSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import {
@@ -168,7 +168,14 @@ export class DelegateChannelRelay {
   constructor(options: DelegateChannelRelayOptions) {
     this.server = options.server;
     this.broker = options.broker ?? new DelegateBrokerClient();
-    this.sessionId = options.sessionId ?? `maestro-mcp-relay-${randomUUID()}`;
+
+    // Derive session ID from SSE port when available, so relay restarts within
+    // the same Claude Code session reuse the same session ID. This prevents
+    // delegate completion events from being silently dropped by session isolation
+    // when the relay restarts. Falls back to random UUID for non-CC contexts.
+    const ssePort = process.env.CLAUDE_CODE_SSE_PORT;
+    this.sessionId = options.sessionId
+      ?? (ssePort ? `maestro-mcp-relay-port-${ssePort}` : `maestro-mcp-relay-${randomUUID()}`);
     this.channelId = options.channelId ?? 'claude/channel';
     this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
     this.pollLimit = options.pollLimit ?? DEFAULT_POLL_LIMIT;
@@ -216,12 +223,43 @@ export class DelegateChannelRelay {
     } catch { /* file may not exist */ }
   }
 
+  /** Remove stale relay session files from previous relay processes sharing the
+   *  same SSE port. Without this, PID reuse on Windows can make dead relay PIDs
+   *  appear alive, causing resolveRelaySessionId() to return the wrong session. */
+  private cleanupStaleRelayFiles(): void {
+    const ssePort = process.env.CLAUDE_CODE_SSE_PORT;
+    if (!ssePort) return;
+    const dir = dirname(this.sessionFilePath);
+    try {
+      for (const f of readdirSync(dir)) {
+        if (!f.startsWith('relay-session-') || !f.endsWith('.id')) continue;
+        const filePath = join(dir, f);
+        // Skip our own session file
+        if (filePath === this.sessionFilePath) continue;
+        try {
+          const data = JSON.parse(readFileSync(filePath, 'utf-8'));
+          // Remove files that share our SSE port but belong to dead PIDs
+          if (data.ssePort === ssePort && data.pid !== process.pid) {
+            let pidAlive = true;
+            try { process.kill(data.pid, 0); } catch { pidAlive = false; }
+            if (!pidAlive) { unlinkSync(filePath); }
+          }
+        } catch { /* ignore unreadable files */ }
+      }
+    } catch { /* best-effort */ }
+  }
+
   async start(): Promise<void> {
     if (this.running) {
       return;
     }
 
     this.running = true;
+
+    // Clean up stale relay files from previous sessions with the same SSE port.
+    // Must happen before writeSessionFile to prevent resolveRelaySessionId from
+    // returning a stale session ID from a dead relay process.
+    this.cleanupStaleRelayFiles();
 
     // Purge expired events/jobs/sessions before registering, so stale history
     // from previous sessions doesn't replay into the new channel.
@@ -299,8 +337,23 @@ export class DelegateChannelRelay {
     } catch (error) {
       this.consecutiveFailures += 1;
       if (this.consecutiveFailures >= 3) {
-        console.warn(`[DelegateChannelRelay] Stopping poll after ${this.consecutiveFailures} consecutive failures`);
-        this.stop();
+        // Pause polling with backoff instead of permanent stop.
+        // After 3 consecutive failures, back off for 30s then retry.
+        if (this.pollTimer) {
+          clearInterval(this.pollTimer);
+          this.pollTimer = null;
+        }
+        const backoffMs = Math.min(30_000, 5_000 * Math.pow(2, this.consecutiveFailures - 3));
+        console.warn(`[DelegateChannelRelay] Backing off poll for ${backoffMs}ms after ${this.consecutiveFailures} consecutive failures`);
+        setTimeout(() => {
+          if (this.running) {
+            this.consecutiveFailures = 0;
+            this.pollTimer = setInterval(() => {
+              this.pollOnce().catch(() => {});
+            }, this.pollIntervalMs);
+            this.pollTimer.unref?.();
+          }
+        }, backoffMs).unref?.();
       }
       throw error;
     } finally {
@@ -309,6 +362,7 @@ export class DelegateChannelRelay {
   }
 
   private drainExistingEvents(): void {
+    let drainedCount = 0;
     for (;;) {
       const events = this.broker.pollEvents({
         sessionId: this.sessionId,
@@ -320,11 +374,16 @@ export class DelegateChannelRelay {
         break;
       }
 
+      drainedCount += events.length;
       this.broker.ack({
         sessionId: this.sessionId,
         eventIds: events.map((e) => e.eventId),
         now: this.now(),
       });
+    }
+    if (drainedCount > 0) {
+      // This is expected on a fresh relay — events from previous sessions are
+      // drained silently to prevent replay.
     }
   }
 
@@ -337,6 +396,7 @@ export class DelegateChannelRelay {
     // Jobs without sessionId in metadata are still emitted (backward compatibility).
     const originSession = event.metadata?.sessionId;
     if (typeof originSession === 'string' && originSession !== this.sessionId) {
+      console.warn(`[DelegateChannelRelay] Dropping event for job ${event.jobId}: session mismatch (origin=${originSession}, self=${this.sessionId})`);
       return true;  // Belongs to another session — ack but don't push
     }
 

@@ -162,9 +162,12 @@ export class AgentWsHandler implements WsHandler {
         const mcpAgentType = MCP_AGENT_TYPES[mergedConfig.type];
         if (mcpAgentType) {
           if (mcpAgentType === 'claude-code') {
-            const mcpConfig = session.getMcpConfig('claude-code', roomRole);
+            const mcpConfig = session.getMcpConfig('claude-code', roomRole) as Record<string, unknown>;
+            // Strip 'type' field — Claude Code CLI --mcp-config doesn't expect it
+            // (the SDK uses it for in-process vs stdio distinction, but CLI always uses stdio)
+            const { type: _type, ...cliConfig } = mcpConfig;
             const tmpPath = join(tmpdir(), `mr-mcp-${roomSessionId}-${roomRole}.json`);
-            writeFileSync(tmpPath, JSON.stringify({ mcpServers: { 'meeting-room': mcpConfig } }));
+            writeFileSync(tmpPath, JSON.stringify({ mcpServers: { 'meeting-room': cliConfig } }));
             mergedConfig.mcpConfigPath = tmpPath;
           } else if (mcpAgentType === 'agent-sdk') {
             const mcpServer = session.getMcpConfig('agent-sdk', roomRole);

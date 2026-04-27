@@ -261,18 +261,22 @@ export function readLiveRelayRecords(asyncDir: string): RelayRecord[] {
 
 /**
  * Resolve the relay session ID that matches the current Claude Code session.
- * Matches by CLAUDE_CODE_SSE_PORT when available (precise), falls back to
- * newest live session (legacy). Stale relay files are cleaned along the way.
+ *
+ * When CLAUDE_CODE_SSE_PORT is available, derives the session ID directly
+ * from the port number — this is deterministic and avoids stale relay file
+ * issues caused by PID reuse on Windows.
+ *
+ * Falls back to file-based matching for non-Claude-Code contexts.
  */
 function resolveRelaySessionId(): string | undefined {
-  const records = readLiveRelayRecords(join(paths.data, 'async'));
-  if (records.length === 0) return undefined;
-
   const currentSsePort = process.env.CLAUDE_CODE_SSE_PORT;
   if (currentSsePort) {
-    const portMatch = records.find((r) => r.ssePort === currentSsePort);
-    if (portMatch?.sessionId) return portMatch.sessionId;
+    return `maestro-mcp-relay-port-${currentSsePort}`;
   }
+
+  // Fallback: find newest live relay session from files
+  const records = readLiveRelayRecords(join(paths.data, 'async'));
+  if (records.length === 0) return undefined;
 
   let newest: RelayRecord | undefined;
   for (const record of records) {
