@@ -26,9 +26,23 @@ const TS_PATH = join(CURRENT_DIR, 'stdio-bridge.ts');
 // Use .js in production (compiled), fall back to .ts in dev (tsx)
 const IS_DEV = !existsSync(JS_PATH) && existsSync(TS_PATH);
 const STDIO_BRIDGE_PATH = IS_DEV ? TS_PATH : JS_PATH;
-// In dev mode, use tsx to run .ts files; in production, use node
-const STDIO_BRIDGE_COMMAND = IS_DEV ? 'npx' : process.execPath;
-const STDIO_BRIDGE_ARGS = IS_DEV ? ['tsx', STDIO_BRIDGE_PATH] : [STDIO_BRIDGE_PATH];
+
+// In dev mode, resolve tsx absolute path from project node_modules
+function resolveTsxBin(): string {
+  let dir = CURRENT_DIR;
+  for (let i = 0; i < 10; i++) {
+    const bin = join(dir, 'node_modules', '.bin', 'tsx');
+    if (existsSync(bin)) return bin;
+    if (existsSync(bin + '.CMD')) return bin + '.CMD';
+    const parent = resolve(dir, '..');
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return 'tsx';
+}
+
+const STDIO_BRIDGE_COMMAND = IS_DEV ? resolveTsxBin() : process.execPath;
+const STDIO_BRIDGE_ARGS = IS_DEV ? [STDIO_BRIDGE_PATH] : [STDIO_BRIDGE_PATH];
 
 // ---------------------------------------------------------------------------
 // Stdio config (for Claude Code, Codex, and other CLI adapters)

@@ -121,6 +121,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
   private readonly streamMonitors = new Map<string, StreamMonitor>();
   private readonly resultTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly stoppedEmitted = new Set<string>();
+  private readonly interactiveProcesses = new Set<string>();
 
   // --- Lifecycle hooks -----------------------------------------------------
 
@@ -272,6 +273,9 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
     // Store references for later use
     this.childProcesses.set(processId, child);
     this.readlineInterfaces.set(processId, rl);
+    if (interactive) {
+      this.interactiveProcesses.add(processId);
+    }
 
     return {
       id: processId,
@@ -453,10 +457,20 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
           );
         }
         // 'result' with usage = final message from Claude CLI.
-        // Start a completion timer: if the process doesn't exit within 10s,
-        // force-kill it. Claude CLI sometimes keeps running after completion
-        // (waiting for MCP connections, stdin, etc.) especially on Windows.
-        this.startResultTimer(processId);
+        if (this.interactiveProcesses.has(processId)) {
+          // Interactive mode: agent stays alive for follow-up messages.
+          // Emit a status change to 'paused' (which triggers turnCompleted
+          // in AgentManager) instead of killing the process.
+          this.emitEntry(
+            processId,
+            EntryNormalizer.statusChange(processId, 'paused', 'Turn completed, waiting for input'),
+          );
+        } else {
+          // One-shot mode: start a completion timer — if the process doesn't
+          // exit within 10s, force-kill it. Claude CLI sometimes keeps running
+          // after completion (waiting for MCP connections, stdin, etc.).
+          this.startResultTimer(processId);
+        }
         break;
       }
 
@@ -642,6 +656,7 @@ export class ClaudeCodeAdapter extends BaseAgentAdapter {
       this.resultTimers.delete(processId);
     }
     this.childProcesses.delete(processId);
+    this.interactiveProcesses.delete(processId);
 
     // Clean up any pending approvals for this process
     this.pendingApprovals.forEach((pending, id) => {
