@@ -558,5 +558,5 @@ export const MCP_TOOLS = [
   'read_file',
   'read_many_files',
   'team_msg',
-
+  'store_knowhow',
 ] as const;

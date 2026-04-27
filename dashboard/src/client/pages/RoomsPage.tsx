@@ -31,7 +31,7 @@ export function RoomsPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 px-5 py-3 border-b border-border-divider bg-bg-secondary shrink-0">
+      <div className="flex items-center gap-3 px-3 py-3 border-b border-border-divider bg-bg-secondary shrink-0">
         <h1 className="text-[length:var(--font-size-base)] font-semibold text-text-primary">
           Meeting Rooms
         </h1>
@@ -50,7 +50,7 @@ export function RoomsPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-5">
+      <div className="flex-1 overflow-y-auto p-3">
         {loading && visibleRooms.length === 0 && (
           <div className="flex items-center justify-center h-48 text-text-tertiary text-[length:var(--font-size-sm)]">
             Loading...

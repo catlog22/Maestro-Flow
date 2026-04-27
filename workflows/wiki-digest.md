@@ -32,7 +32,7 @@ Unlike `maestro wiki list` which shows raw entries, this workflow synthesizes an
 |------|--------|
 | `<topic>` | Search wiki for matching entries via BM25 |
 | `--recent N` | Entries updated within last N days |
-| `--type <type>` | Filter by wiki type: spec, memory, note, lesson, issue |
+| `--type <type>` | Filter by wiki type: spec, knowhow, note, lesson, issue |
 | `--format brief\|full` | `brief` = compact (default), `full` = detailed per-entry |
 | `--create-issues` | Auto-create knowledge-gap issues in `issues.jsonl` |
 

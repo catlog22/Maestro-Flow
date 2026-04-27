@@ -15,7 +15,7 @@ optionally auto-applies new `related` links to improve graph connectivity.
 $ARGUMENTS — optional flags.
 
 **Flags:**
-- `--scope <type>` — Limit to wiki type (spec, memory, note, lesson, issue). Default: all.
+- `--scope <type>` — Limit to wiki type (spec, knowhow, note, lesson, issue). Default: all.
 - `--min-similarity N` — Threshold 0.0-1.0 (default: 0.3)
 - `--fix` — Auto-apply top suggestions
 - `--max N` — Max suggestions (default: 20)

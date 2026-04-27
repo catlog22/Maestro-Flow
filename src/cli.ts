@@ -40,7 +40,8 @@ const commandLoaders: Record<string, () => Promise<(p: Command) => void>> = {
   update:     async () => (await import('./commands/update.js')).registerUpdateCommand,
   'brainstorm-visualize': async () => (await import('./commands/brainstorm-visualize.js')).registerBrainstormVisualizeCommand,
   bv:         async () => (await import('./commands/brainstorm-visualize.js')).registerBrainstormVisualizeCommand,
-
+  knowhow:    async () => (await import('./commands/knowhow.js')).registerKnowhowCommand,
+  kh:         async () => (await import('./commands/knowhow.js')).registerKnowhowCommand,
 };
 
 // Determine which command is being invoked from argv (if any)

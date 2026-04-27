@@ -1,12 +1,12 @@
 ---
 name: manage-knowhow
-description: Manage memory entries across workflow and system stores (list, search, view, edit, delete, prune)
-argument-hint: "[list|search|view|edit|delete|prune] [query|id|file] [--store workflow|system|all] [--tag tag] [--type compact|tip]"
+description: Manage knowhow entries across workflow and system stores (list, search, view, edit, delete, prune)
+argument-hint: "[list|search|view|edit|delete|prune] [query|id|file] [--store workflow|system|all] [--tag tag] [--type type]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
 ---
 
 <purpose>
-Manage memory entries across workflow and system stores. Provides list, search, view, edit, delete, and prune operations over `.workflow/knowhow/` (workflow store) and `~/.claude/projects/{project}/memory/` (system store).
+Manage knowhow entries across workflow and system stores. Provides list, search, view, edit, delete, and prune operations over `.workflow/knowhow/` (workflow store) and `~/.claude/projects/{project}/memory/` (system store).
 </purpose>
 
 <context>
@@ -27,7 +27,7 @@ $manage-knowhow "prune --before 2026-01-01 --type tip --dry-run"
 **Flags**:
 - `--store workflow|system|all` — Target store (default: all)
 - `--tag <tag>` — Filter by tag
-- `--type compact|tip` — Filter by entry type
+- `--type <session|tip|template|recipe|reference|decision>` — Filter by knowhow type
 - `--confirm` — Skip delete confirmation prompt
 - `--before <date>` / `--after <date>` — Date filters for prune
 - `--dry-run` — Preview prune without deleting
@@ -37,7 +37,7 @@ $manage-knowhow "prune --before 2026-01-01 --type tip --dry-run"
 
 ### Step 1: Resolve Store Paths
 
-- **Workflow store**: `.workflow/knowhow/` (entries: `KNW-*.md`, `TIP-*.md`, indexed in unified `.workflow/wiki-index.json`)
+- **Workflow store**: `.workflow/knowhow/` (entries: `KNW-*.md`, `TIP-*.md`, `TPL-*.md`, `RCP-*.md`, `REF-*.md`, `DCS-*.md`, indexed in `.workflow/wiki-index.json`)
 - **System store**: `~/.claude/projects/{project}/memory/` (files: `MEMORY.md` + topic `.md` files)
 
 Derive system path from project root (replace path separators with `--`, prefix drive letter).
@@ -49,12 +49,12 @@ Default to `list` if no arguments. Parse first token as subcommand.
 ### Step 3: Execute Subcommand
 
 **list**: Show entries from both stores (or filtered by `--store`, `--tag`, `--type`).
-- Workflow: use `maestro wiki list --type memory --json` or read `.workflow/wiki-index.json`, display ID, type, date, tags, title
+- Workflow: use `maestro wiki list --type knowhow --json` or read `.workflow/wiki-index.json`, display ID, type, category, date, tags, title
 - System: list `.md` files in system memory directory
 
 **search `<query>`**: Full-text grep across both stores. Rank by match count.
 
-**view `<id|file>`**: Auto-detect store from format (`KNW-*/TIP-*` = workflow, else system). Display full content.
+**view `<id|file>`**: Auto-detect store from format (`KNW-*/TIP-*/TPL-*/RCP-*/REF-*/DCS-*` = workflow, else system). Display full content.
 
 **edit `<file>`**: Edit a system memory file. Read current content, apply changes. Warn if MEMORY.md exceeds 200 lines (W003).
 
@@ -73,13 +73,13 @@ After write operations, verify:
 <error_codes>
 | Code | Severity | Description |
 |------|----------|-------------|
-| E001 | error | No memory stores found -- run `Skill({ skill: "memory-capture" })` or create MEMORY.md |
+| E001 | error | No stores found — run `Skill({ skill: "manage-knowhow-capture" })` or create MEMORY.md |
 | E002 | error | Entry ID or filename not found |
 | E003 | error | Prune requires at least one filter flag |
-| E004 | error | Cannot delete MEMORY.md -- use `edit` subcommand instead |
+| E004 | error | Cannot delete MEMORY.md — use `edit` subcommand instead |
 | W001 | warning | Index has orphaned files or dangling references |
 | W002 | warning | MEMORY.md references non-existent topic file |
-| W003 | warning | MEMORY.md exceeds 200 lines -- content truncated at load |
+| W003 | warning | MEMORY.md exceeds 200 lines — content truncated at load |
 </error_codes>
 
 <success_criteria>

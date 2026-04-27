@@ -13,7 +13,7 @@ allowed-tools:
 ---
 <purpose>
 Unified memory management across two stores:
-1. **Workflow memory** (`.workflow/knowhow/`) — Session compacts and tips with JSON index, created by `manage-knowhow-capture`
+1. **Workflow knowhow** (`.workflow/knowhow/`) — Session compacts and tips with JSON index, created by `manage-knowhow-capture`
 2. **System memory** (`~/.claude/projects/{project}/memory/`) — Claude Code auto-memory (MEMORY.md + topic files), persists across conversations
 
 Provides list/search/view/edit/delete/prune operations. Default store is `all` (show both).
@@ -26,7 +26,7 @@ Provides list/search/view/edit/delete/prune operations. Default store is `all` (
 <context>
 Arguments: $ARGUMENTS
 
-Dual store architecture (paths, formats, index) defined in workflow memory.md.
+Dual store architecture (paths, formats, index) defined in workflow knowhow.md.
 
 **Subcommands:**
 - `list` — List entries from both stores (default if no arguments)
@@ -73,5 +73,5 @@ Follow '~/.maestro/workflows/knowhow.md' Part A (KnowHow Management) completely.
 - [ ] Delete: MEMORY.md protected, confirmation required, references checked
 - [ ] Prune: workflow-only, filters validated, index updated
 - [ ] Integrity check catches orphans and broken links
-- [ ] Next step: `/manage-knowhow-capture compact` to save new memory, or `/manage-status` to continue workflow
+- [ ] Next step: `/manage-knowhow-capture compact` to save new knowhow, or `/manage-status` to continue workflow
 </success_criteria>

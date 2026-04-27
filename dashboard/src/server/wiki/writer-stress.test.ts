@@ -106,10 +106,11 @@ describe('WikiWriter security — path traversal', () => {
     const indexer = new WikiIndexer({ workflowRoot: tmpRoot });
     const writer = new WikiWriter(tmpRoot, indexer);
     const entry = await writer.create({
-      type: 'note',
+      type: 'knowhow',
       slug: 'quick-tip',
       title: 'Tip',
       body: 'tip',
+      category: 'tip',
     });
     expect(entry.source.path).toBe('knowhow/TIP-quick-tip.md');
   });

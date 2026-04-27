@@ -44,7 +44,7 @@ function makeIndex(entries: WikiEntry[]): WikiIndex {
     spec: [],
     issue: [],
     lesson: [],
-    memory: [],
+    knowhow: [],
     note: [],
   } as WikiIndex['byType'];
   const backlinks: Record<string, string[]> = {};

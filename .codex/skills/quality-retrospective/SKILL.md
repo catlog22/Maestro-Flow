@@ -1,6 +1,6 @@
 ---
 name: quality-retrospective
-description: Multi-lens 复盘 (retrospective) for completed phases. Context-Agent Fork loads phase artifacts once; four parallel lens agents (technical, process, quality, decision) analyze independently; synthesizer distills insights; outputs are routed to spec stubs, memory tips, issues, and lessons.jsonl.
+description: Multi-lens 复盘 (retrospective) for completed phases. Context-Agent Fork loads phase artifacts once; four parallel lens agents (technical, process, quality, decision) analyze independently; synthesizer distills insights; outputs are routed to spec stubs, knowhow tips, issues, and lessons.jsonl.
 argument-hint: "[phase|N..M] [--lens technical|process|quality|decision] [--all] [--no-route] [--compare N] [--auto-yes]"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
@@ -8,7 +8,7 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 <purpose>
 Multi-lens retrospective for completed phases. Context-Agent Fork loads phase artifacts once;
 four parallel lens agents (technical, process, quality, decision) analyze independently;
-synthesizer distills insights; outputs are routed to spec stubs, memory tips, issues, and lessons.jsonl.
+synthesizer distills insights; outputs are routed to spec stubs, knowhow tips, issues, and lessons.jsonl.
 
 ```
 +------------------------------------------------------------------+
@@ -70,7 +70,7 @@ When `--auto-yes`: Accept all routing recommendations without prompting. Route a
 - `{target_dir}/retrospective.json` -- structured record
 - `.workflow/specs/{category-file}.md` -- `<spec-entry>` entries appended to matching category files (one per spec-routed insight)
 - `.workflow/issues/issues.jsonl` -- appended issue rows (`source: "retrospective"`)
-- `.workflow/knowhow/TIP-*.md` -- memory tips (via `manage-knowhow-capture` skill)
+- `.workflow/knowhow/TIP-*.md` -- knowhow tips (via `manage-knowhow-capture` skill)
 - `.workflow/learning/lessons.jsonl` -- append-only insight log
 - `.workflow/learning/learning-index.json` -- updated searchable index
 
@@ -124,8 +124,8 @@ Each artifact's type determines its outputs at `.workflow/{a.path}/`:
 6. **Stable INS-ids**: `INS-{8hex}` from `hash(phase_num + lens + title)` -- re-runs do not create duplicates
 7. **Archive before overwrite**: Move existing retrospective.{md,json} to `.history/` with timestamp before writing new ones
 8. **Spec learnings.md backward-compat**: Append to it only if it already exists -- never create it
-9. **Route confirmation**: Unless `--auto-yes`, present routing table and ask per-group before writing spec/issue/memory
-10. **Lessons always written**: Append to `lessons.jsonl` regardless of `--no-route` -- routing only controls spec/issue/memory creation
+9. **Route confirmation**: Unless `--auto-yes`, present routing table and ask per-group before writing spec/issue/knowhow
+10. **Lessons always written**: Append to `lessons.jsonl` regardless of `--no-route` -- routing only controls spec/issue/knowhow creation
 </invariants>
 
 <execution>
@@ -181,7 +181,7 @@ wait_agent({ timeout_ms: 1800000 })
 All lenses use `fork_turns: "all"` and return the same JSON array schema:
 ```json
 [{ "title": "<80 chars>", "summary": "...", "category": "pattern|antipattern|decision|tool|gotcha|technique",
-   "routing": "spec|issue|memory|none", "severity": "critical|high|medium|low", "evidence": "<file:line>" }]
+   "routing": "spec|issue|knowhow|none", "severity": "critical|high|medium|low", "evidence": "<file:line>" }]
 ```
 
 | Agent | task_name | Focus |
@@ -215,11 +215,11 @@ spawn_agent({
     Input: ${JSON.stringify(lensResults.status)}
     1. Merge all insights, deduplicate (same issue across lenses → keep higher severity, combine evidence)
     2. Generate stable INS-{8hex} id: hash(phase_num + lens + title)
-    3. Classify routing: spec | issue | memory | none
+    3. Classify routing: spec | issue | knowhow | none
     4. Produce phase-level metrics summary
     EXPECTED JSON: { insights: [{id,title,summary,category,lens,routing,severity,evidence}],
       metrics: {tasks_completed,tasks_failed,test_pass_rate,review_issues_count,uat_scenarios_passed},
-      routing_summary: {spec:N, issue:N, memory:N, none:N} }`
+      routing_summary: {spec:N, issue:N, knowhow:N, none:N} }`
 })
 const synthResult = wait_agent({ timeout_ms: 1800000 })
 close_agent({ target: "synthesizer" })
@@ -258,7 +258,7 @@ Update plan: Stages 1-7 → completed; Stage 8 → in_progress.
 
 ### Stage 8: Report
 
-Display summary: phase, lenses run, insight counts (new vs merged duplicates), routing breakdown (spec/issue/memory/lesson counts with target paths), key metrics (task completion, test pass rate, review issues).
+Display summary: phase, lenses run, insight counts (new vs merged duplicates), routing breakdown (spec/issue/knowhow/lesson counts with target paths), key metrics (task completion, test pass rate, review issues).
 
 Next steps: `$manage-status`, `$manage-issue "list --source retrospective"`, `$manage-learn "list --phase <N>"`, `$manage-wiki health`, `$wiki-digest "<phase-topic>"`.
 </execution>
@@ -285,7 +285,7 @@ Next steps: `$manage-status`, `$manage-issue "list --source retrospective"`, `$m
 - [ ] All active lens agents spawned in parallel, waited as batch
 - [ ] Context agent closed last (after all lens agents)
 - [ ] Synthesizer produces deduplicated insights with stable INS-ids
-- [ ] Routing applied per insight (spec/issue/memory/none) with confirmation
+- [ ] Routing applied per insight (spec/issue/knowhow/none) with confirmation
 - [ ] retrospective.{md,json} written to phase directory
 - [ ] Lessons appended to lessons.jsonl regardless of --no-route flag
 - [ ] Existing retrospective archived before overwrite

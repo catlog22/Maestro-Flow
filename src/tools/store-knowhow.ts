@@ -1,0 +1,324 @@
+/**
+ * Store KnowHow Tool — Create and search reusable knowledge entries.
+ *
+ * Replaces the deprecated core_memory tool. Writes directly to
+ * .workflow/knowhow/ as markdown files, automatically indexed by WikiIndexer.
+ *
+ * Operations: add, search
+ * Storage: .workflow/knowhow/{PREFIX}-{timestamp}.md
+ *
+ * Content types with type-specific fields:
+ *   session (KNW-) — session state recovery
+ *   tip     (TIP-) — quick note / reminder
+ *   template (TPL-) — code/config template [+ lang]
+ *   recipe   (RCP-) — step-by-step guide
+ *   reference (REF-) — external doc summary [+ source]
+ *   decision (DCS-) — architecture decision record [+ status]
+ */
+
+import { z } from 'zod';
+import type { ToolSchema, CcwToolResult } from '../types/tool-schema.js';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'fs';
+import { join } from 'path';
+import { getProjectRoot } from '../utils/path-validator.js';
+
+// --- Types ---
+
+const CATEGORIES = ['session', 'tip', 'template', 'recipe', 'reference', 'decision'] as const;
+type KnowHowCategory = (typeof CATEGORIES)[number];
+
+const PREFIX_MAP: Record<KnowHowCategory, string> = {
+  session: 'KNW',
+  tip: 'TIP',
+  template: 'TPL',
+  recipe: 'RCP',
+  reference: 'REF',
+  decision: 'DCS',
+};
+
+const DECISION_STATUSES = ['proposed', 'accepted', 'superseded'] as const;
+
+// --- Zod Schema ---
+
+const OperationEnum = z.enum(['add', 'search']);
+
+const ParamsSchema = z.object({
+  operation: OperationEnum,
+  // add params
+  type: z.enum(CATEGORIES).optional(),
+  title: z.string().optional(),
+  body: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  // type-specific fields (persisted to frontmatter)
+  lang: z.string().optional(),       // template: programming language
+  source: z.string().optional(),     // reference: original URL
+  status: z.enum(DECISION_STATUSES).optional(), // decision: lifecycle status
+  // search params
+  query: z.string().optional(),
+  limit: z.number().optional().default(20),
+});
+
+type Params = z.infer<typeof ParamsSchema>;
+
+// --- Storage ---
+
+function getKnowhowDir(): string {
+  return join(getProjectRoot(), '.workflow', 'knowhow');
+}
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function generateId(type: KnowHowCategory): { id: string; filename: string } {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+  const prefix = PREFIX_MAP[type];
+  const filename = `${prefix}-${ts}.md`;
+  return { id: `knowhow-${slugify(ts)}`, filename };
+}
+
+function escapeYamlValue(value: string): string {
+  if (/[:\n"'#,{}[\]]/.test(value)) return JSON.stringify(value);
+  return value;
+}
+
+function parseFrontmatter(raw: string): { data: Record<string, unknown>; body: string } {
+  const match = raw.match(/^---\s*\n([\s\S]*?)\n---\s*\n?/);
+  if (!match) return { data: {}, body: raw };
+  const data: Record<string, unknown> = {};
+  for (const line of match[1].split('\n')) {
+    const kv = line.match(/^(\w[\w\s]*?):\s*(.*)$/);
+    if (kv) data[kv[1].trim()] = kv[2].trim();
+  }
+  return { data, body: raw.slice(match[0].length) };
+}
+
+// --- Operations ---
+
+function executeAdd(params: Params): CcwToolResult {
+  const { type, title, body, tags, lang, source, status } = params;
+
+  if (!type) return { success: false, error: 'Parameter "type" is required for add operation' };
+  if (!title) return { success: false, error: 'Parameter "title" is required for add operation' };
+  if (!body) return { success: false, error: 'Parameter "body" is required for add operation' };
+
+  // Validate type-specific fields
+  if (lang && type !== 'template') {
+    return { success: false, error: 'Parameter "lang" is only valid for type "template"' };
+  }
+  if (source && type !== 'reference') {
+    return { success: false, error: 'Parameter "source" is only valid for type "reference"' };
+  }
+  if (status && type !== 'decision') {
+    return { success: false, error: 'Parameter "status" is only valid for type "decision"' };
+  }
+
+  const dir = getKnowhowDir();
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+  const { id, filename } = generateId(type);
+  const filePath = join(dir, filename);
+
+  // Build YAML frontmatter with type-specific fields
+  const now = new Date().toISOString();
+  const fmLines = ['---'];
+  fmLines.push(`title: ${escapeYamlValue(title)}`);
+  fmLines.push(`type: ${type}`);
+  fmLines.push(`category: ${type}`);
+  fmLines.push(`created: ${now}`);
+  if (tags && tags.length > 0) {
+    fmLines.push(`tags:`);
+    for (const t of tags) fmLines.push(`  - ${t}`);
+  }
+  // Type-specific frontmatter fields
+  if (lang) fmLines.push(`lang: ${lang}`);
+  if (source) fmLines.push(`source: ${escapeYamlValue(source)}`);
+  if (status) fmLines.push(`status: ${status}`);
+  fmLines.push('---', '', body);
+
+  writeFileSync(filePath, fmLines.join('\n'), 'utf-8');
+
+  return {
+    success: true,
+    result: {
+      operation: 'add',
+      id,
+      filename,
+      type,
+      path: `knowhow/${filename}`,
+      message: `Created ${type} entry: ${id}`,
+    },
+  };
+}
+
+function executeSearch(params: Params): CcwToolResult {
+  const { query, limit } = params;
+
+  if (!query) return { success: false, error: 'Parameter "query" is required for search operation' };
+
+  const dir = getKnowhowDir();
+  if (!existsSync(dir)) {
+    return { success: true, result: { operation: 'search', query, matches: [], total_matches: 0 } };
+  }
+
+  const queryLower = query.toLowerCase();
+  const queryTerms = queryLower.split(/\s+/).filter(Boolean);
+
+  const results: Array<{
+    id: string; filename: string; title: string; type: string;
+    lang?: string; source?: string; status?: string;
+    score: number; excerpt: string;
+  }> = [];
+
+  for (const name of readdirSync(dir)) {
+    if (!name.endsWith('.md')) continue;
+    try {
+      const raw = readFileSync(join(dir, name), 'utf-8');
+      const { data, body: bodyText } = parseFrontmatter(raw);
+      const contentLower = raw.toLowerCase();
+      const matchCount = queryTerms.filter((t) => contentLower.includes(t)).length;
+      if (matchCount === 0) continue;
+
+      const score = matchCount / queryTerms.length;
+      const prefix = name.match(/^([A-Z]+)-\d{8}/)?.[1] ?? '';
+      const typeCat = Object.entries(PREFIX_MAP).find(([, p]) => p === prefix)?.[0] ?? '';
+
+      results.push({
+        id: (data.id as string) || name.replace('.md', ''),
+        filename: name,
+        title: (data.title as string) || 'Untitled',
+        type: typeCat,
+        lang: data.lang as string | undefined,
+        source: data.source as string | undefined,
+        status: data.status as string | undefined,
+        score: Math.round(score * 100) / 100,
+        excerpt: bodyText.substring(0, 200) + (bodyText.length > 200 ? '...' : ''),
+      });
+    } catch {
+      continue;
+    }
+  }
+
+  results.sort((a, b) => b.score - a.score);
+  const limited = results.slice(0, limit);
+
+  return {
+    success: true,
+    result: {
+      operation: 'search',
+      query,
+      matches: limited,
+      total_matches: results.length,
+    },
+  };
+}
+
+// --- Tool Schema ---
+
+export const schema: ToolSchema = {
+  name: 'store_knowhow',
+  description: `Store reusable knowledge (knowhow) entries to .workflow/knowhow/.
+
+**Operations:**
+
+*   **add** — Create a new knowhow entry.
+    Required: type, title, body
+    Type-specific fields:
+      template:  lang (programming language)
+      reference: source (URL)
+      decision:  status (proposed | accepted | superseded)
+    Optional: tags (string[])
+
+*   **search** — Full-text search knowhow entries.
+    Required: query
+    Optional: limit (default: 20)
+
+**Types & prefixes:**
+  session   → KNW-{ts}.md   session state recovery
+  tip       → TIP-{ts}.md   quick note / reminder
+  template  → TPL-{ts}.md   code/config template
+  recipe    → RCP-{ts}.md   step-by-step guide
+  reference → REF-{ts}.md   external doc summary
+  decision  → DCS-{ts}.md   architecture decision record
+
+Entries are automatically indexed by WikiIndexer (type=knowhow, category={type}).`,
+  inputSchema: {
+    type: 'object',
+    properties: {
+      operation: {
+        type: 'string',
+        enum: ['add', 'search'],
+        description: 'Operation to perform',
+      },
+      type: {
+        type: 'string',
+        enum: CATEGORIES,
+        description: 'Knowhow content type. Required for add.',
+      },
+      title: {
+        type: 'string',
+        description: 'Entry title. Required for add.',
+      },
+      body: {
+        type: 'string',
+        description: 'Entry body in markdown. Required for add.',
+      },
+      tags: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Categorization tags.',
+      },
+      // type-specific
+      lang: {
+        type: 'string',
+        description: '[template] Programming language (e.g. typescript, python, bash, yaml).',
+      },
+      source: {
+        type: 'string',
+        description: '[reference] Original URL or document identifier.',
+      },
+      status: {
+        type: 'string',
+        enum: DECISION_STATUSES,
+        description: '[decision] Lifecycle status: proposed → accepted → superseded.',
+      },
+      // search
+      query: {
+        type: 'string',
+        description: 'Search query. Required for search.',
+      },
+      limit: {
+        type: 'number',
+        description: 'Max search results (default: 20).',
+      },
+    },
+    required: ['operation'],
+  },
+};
+
+// --- Handler ---
+
+export async function handler(params: Record<string, unknown>): Promise<CcwToolResult> {
+  const parsed = ParamsSchema.safeParse(params);
+  if (!parsed.success) {
+    return { success: false, error: `Invalid params: ${parsed.error.message}` };
+  }
+
+  try {
+    switch (parsed.data.operation) {
+      case 'add':
+        return executeAdd(parsed.data);
+      case 'search':
+        return executeSearch(parsed.data);
+      default:
+        return { success: false, error: `Unknown operation: ${parsed.data.operation}` };
+    }
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}

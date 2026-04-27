@@ -336,7 +336,7 @@ Invoke manage-learn tip with:
 insight.routed_id = "TIP-{captured_id}"
 ```
 
-Fallback: if skill ID cannot be captured, write tip file directly per `workflows/memory.md` Part B Step 3 and update `wiki-index.json` per Step 4.
+Fallback: if skill ID cannot be captured, write tip file directly per `workflows/knowhow.md` Part B Step 3 and update `wiki-index.json` per Step 4.
 
 #### Target: issue
 

@@ -1,14 +1,12 @@
-# Memory Workflow
+# KnowHow Workflow
 
-Session memory capture, retrieval, and management for cross-session recovery.
+Reusable knowledge capture, retrieval, and management for cross-session recovery and knowledge reuse.
 
 ## Dual Store Architecture
 
-Two memory stores with different purposes:
-
 | Store | Path | Format | Index |
 |-------|------|--------|-------|
-| `workflow` | `.workflow/knowhow/` | `KNW-*.md`, `TIP-*.md` | `.workflow/wiki-index.json` (unified, auto-managed by WikiIndexer) |
+| `workflow` | `.workflow/knowhow/` | `{PREFIX}-*.md` (6 prefixes) | `.workflow/wiki-index.json` (unified, WikiIndexer) |
 | `system` | `~/.claude/projects/{project}/memory/` | `MEMORY.md` + topic `.md` files | None (flat files) |
 
 **System memory path detection:**
@@ -19,21 +17,35 @@ Two memory stores with different purposes:
 
 ---
 
-## Part A: Memory Management (manage-knowhow)
+## Content Type Matrix
+
+Six types of knowhow, each with dedicated structure:
+
+| Type | Prefix | Purpose | Trigger |
+|------|--------|---------|---------|
+| `session` | KNW- | Session state recovery | End of complex task, before context switch |
+| `template` | TPL- | Reusable code/config templates | Extracting a pattern, saving boilerplate |
+| `recipe` | RCP- | Step-by-step operational guide | Documenting a workflow, onboarding |
+| `reference` | REF- | External doc / API quick-reference | Importing docs, saving URL summaries |
+| `decision` | DCS- | Architecture Decision Record | Making non-trivial design choices |
+| `tip` | TIP- | Quick note, snippet, reminder | Fleeting insight, debugging trick |
+
+All types share `WikiNodeType = 'knowhow'`. The `category` field distinguishes subtypes in wiki queries.
+
+---
+
+## Part A: KnowHow Management (manage-knowhow)
 
 Operations: list, search, view, edit, delete, prune across both stores.
 
 ### Step 1: Resolve Paths
 
-Detect both memory store paths:
-- **Workflow**: `.workflow/knowhow/` (index: `.workflow/wiki-index.json`, auto-managed by WikiIndexer)
-- **System**: `~/.claude/projects/{project-path}/memory/` where project-path derives from project root (e.g., `D:\maestro2` → `D--maestro2`)
+- **Workflow**: `.workflow/knowhow/` (index: `.workflow/wiki-index.json`)
+- **System**: `~/.claude/projects/{project-path}/memory/`
 
-Verify which stores exist (workflow: directory exists; system: `MEMORY.md` exists). Neither → E001.
+Verify stores exist. Neither → E001.
 
 ### Step 2: Parse Input
-
-Parse arguments and detect subcommand:
 
 | Input | Route |
 |-------|-------|
@@ -43,188 +55,320 @@ Parse arguments and detect subcommand:
 | `edit <file>`, `编辑` | Edit mode (system store only) |
 | `delete <id\|file>`, `删除`, `rm` | Delete mode |
 | `prune`, `清理`, `cleanup` | Prune mode |
-| Ambiguous | AskUserQuestion |
 
-**Store auto-detection for view/edit/delete:**
-- Argument matches `KNW-*` or `TIP-*` pattern → workflow store
-- Argument matches `MEMORY.md` or `*.md` filename → system store
-- Explicit `--store` flag overrides
+**Store auto-detection:** Arguments matching `KNW-*`, `TIP-*`, `TPL-*`, `RCP-*`, `REF-*`, `DCS-*` → workflow store. Other filenames → system store.
 
-### Step 3: Execute List (list mode)
+### Step 3: List
 
-List entries from targeted stores.
+Workflow: `maestro wiki list --type knowhow --json`, filter by `--tag`, `--type`, `--category`.
+System: Glob `*.md` files, extract titles.
 
-**Workflow store**: `maestro wiki list --type memory --json`, apply filters (`--tag`, `--type`, `--before`, `--after`), sort by timestamp descending.
+Display: ID/File, Type, Category, Date, Tags, Summary with navigation hints.
 
-**System store**: Glob `*.md` files, extract title from first 5 lines, show size and modification date.
+### Step 4: Search
 
-Display combined table per store (ID/File, Type, Date, Tags/Lines, Summary/Description) with navigation hints for view/edit/search/capture.
+Full-text search across both stores. Rank: exact match > heading > content.
 
-### Step 4: Execute Search (search mode)
+### Step 5-9: View, Edit, Delete, Prune, Integrity Check
 
-Full-text case-insensitive search across both stores.
-
-**Workflow**: Search via `maestro wiki search` or filter `wiki-index.json` fields (`summary`, `tags`, `id`); for deeper matches, read individual `.md` files.
-
-**System**: Read each `.md` file and search content.
-
-Rank: exact match > heading match > content match. Display each result with store label (`[workflow]`/`[system]`), ID/file, and matching context snippet.
-
-### Step 5: Execute View (view mode)
-
-Display full content of a memory entry with metadata header (store, file path, modified date, line count).
-
-- **Workflow** (`KNW-*`/`TIP-*`): validate via `maestro wiki get <id>` or `wiki-index.json`, read `.md` file
-- **System** (filename): validate exists in system memory dir, read full content
-
-If not found, suggest similar entries/files.
-
-### Step 6: Execute Edit (edit mode)
-
-Edit a system memory file interactively. Only for system store files (`MEMORY.md`, topic files).
-
-Validate file exists → display current content → AskUserQuestion for edit instructions → apply via Edit tool → display diff summary.
-
-**Rules for MEMORY.md edits:**
-- Keep under 200 lines (content after line 200 is truncated at load)
-- Maintain semantic organization by topic
-- For detailed notes, create/update separate topic files and link from MEMORY.md
-- Do not duplicate information already in CLAUDE.md
-
-### Step 7: Execute Delete (delete mode)
-
-Remove a memory entry or file. Confirm via AskUserQuestion (unless `--confirm`).
-
-- **Workflow**: validate ID, show summary, remove `.md` file (WikiIndexer auto-updates index)
-- **System**: validate file exists, show preview, remove file. Warn if `MEMORY.md` references deleted file.
-
-**Safety:** `MEMORY.md` cannot be deleted, only edited.
-
-### Step 8: Execute Prune (prune mode)
-
-Bulk cleanup — workflow store only. At least one filter required (`--tag`, `--type`, `--before`, `--after`).
-
-Read `wiki-index.json` → apply filters → display candidates → `--dry-run` stops here → confirm → remove files (index auto-updates). Report removed/remaining counts.
-
-### Step 9: Integrity Check (after delete/prune only)
-
-Post-operation integrity check:
-- **Workflow**: compare `.workflow/knowhow/*.md` files against `wiki-index.json` entries (type=memory). Report orphans/dangling refs. WikiIndexer re-indexes on next write.
-- **System**: check `MEMORY.md` links to topic files, report broken links.
+Same logic as before. Workflow entries managed via WikiWriter; system entries via direct file ops.
 
 ---
 
-## Part B: Memory Capture (manage-knowhow-capture)
+## Part B: KnowHow Capture (manage-knowhow-capture)
 
-Capture session working memory into `.workflow/knowhow/` for cross-session recovery. Two modes: compact (full session compression) and tip (quick note-taking).
+Capture reusable knowledge into `.workflow/knowhow/`.
 
-### Step 1: Parse Input
+### Step 1: Detect Type
 
-Parse arguments and detect execution mode:
+| Token | Type |
+|-------|------|
+| `compact`, `session`, `压缩` | session |
+| `template`, `tpl`, `模板` | template |
+| `recipe`, `rcp`, `配方`, `步骤` | recipe |
+| `reference`, `ref`, `参考` | reference |
+| `decision`, `dcs`, `决策`, `adr` | decision |
+| `tip`, `note`, `记录` | tip |
+| No arguments | AskUserQuestion (6 options) |
 
-| Input | Route |
-|-------|-------|
-| `compact`, `session`, `压缩`, `保存会话` | Compact mode |
-| `tip`, `note`, `记录`, `快速` | Tips mode |
-| `--tag` flag present | Tips mode |
-| Short text (<100 chars) + no session keywords | Tips mode |
-| No arguments or ambiguous | AskUserQuestion |
+### Step 2: Generate Content by Type
 
-Bootstrap: `mkdir -p .workflow/memory` (wiki-index.json is auto-managed by WikiIndexer).
+#### session (KNW-{YYYYMMDD}-{HHMM}.md)
 
-When ambiguous, AskUserQuestion with two options: Compact (full session compression) or Tip (quick note).
+Extract from current conversation. Sections:
 
-### Step 2: Analyze Session (compact mode only)
-
-Extract session state from conversation history. Skip if tip mode.
-
-Extract session state into `sessionAnalysis` with fields: `projectRoot` (absolute), `objective`, `executionPlan` (source + complete content), `workingFiles` [{absolutePath, role}], `referenceFiles`, `lastAction`, `decisions` [{decision, reasoning}], `constraints`, `dependencies`, `knownIssues`, `changesMade`, `pending`, `notes`.
-
-**Plan Detection Priority:** workflow session (IMPL_PLAN.md) > TodoWrite items > user-stated > inferred.
-
-**Core Rules:** preserve plan VERBATIM, absolute paths only, last action captures final state, decisions include reasoning.
-
-### Step 3: Generate Content
-
-Generate structured markdown content.
-
-**Compact mode**: Generate `KNW-{YYYYMMDD-HHMMSS}.md` with all `sessionAnalysis` fields as markdown sections (Session ID, Project Root, Objective, Execution Plan in details block, Working/Reference Files, Last Action, Decisions, Constraints, Dependencies, Known Issues, Changes Made, Pending, Notes).
-
-**Tip mode**: Generate `TIP-{YYYYMMDD-HHMMSS}.md` with sections: Tip ID, Timestamp, Content, Tags (from `--tag`), Context (auto-detected from recent conversation files).
-
-### Step 4: Wiki Index (Auto-managed)
-
-Memory files are automatically indexed by WikiIndexer into the unified `.workflow/wiki-index.json`. No manual index update is needed — the persistent index is regenerated on next `maestro wiki` access or any write operation.
-
-For immediate visibility after capture:
-```bash
-maestro wiki get memory-{slug}         # verify entry exists in wiki
-maestro wiki list --type memory        # list all memory entries
-```
-
-### Step 5: Report
-
-Display confirmation: entry ID, file path, type. Compact adds plan source and line count preserved. Tip adds tags. Both include retrieval hints (`Read` path, `maestro wiki list --type memory`).
-
----
-
-## Index
-
-Memory entries are indexed in the unified `.workflow/wiki-index.json` by WikiIndexer. Each memory file becomes a wiki entry of type `memory` with fields derived from frontmatter (id, title, tags, summary). Use `maestro wiki list --type memory --json` to query the index programmatically.
-
-## Compact Entry Structure
-
-Full session memory for recovery. Sections:
-
-1. **Session ID** — WFS-* if workflow session active
+1. **Session ID** — WFS-* or `manual-{date}`
 2. **Project Root** — Absolute path
 3. **Objective** — High-level goal
 4. **Execution Plan** — Source type + complete verbatim content
-5. **Working Files** — Modified files with roles
-6. **Reference Files** — Read-only context files
+5. **Working Files** — 3-8 modified files with roles, absolute paths
+6. **Reference Files** — Key context files (CLAUDE.md, types, configs)
 7. **Last Action** — Final action + result
-8. **Decisions** — Choices with reasoning
+8. **Decisions** — `| Decision | Reasoning |` table
 9. **Constraints** — User-specified limitations
 10. **Dependencies** — Added/changed packages
 11. **Known Issues** — Deferred bugs
 12. **Changes Made** — Completed modifications
 13. **Pending** — Next steps
-14. **Notes** — Unstructured thoughts
+14. **Notes** — Unstructured
 
-### Plan Detection Priority
+Plan detection priority: IMPL_PLAN.md > TodoWrite > user-stated > inferred.
+Rules: VERBATIM plan, ABSOLUTE paths, decisions include reasoning.
 
-1. Workflow session (`.workflow/active/WFS-*/IMPL_PLAN.md`)
-2. TodoWrite items in conversation
-3. User-stated plan (explicit numbered steps)
-4. Inferred from actions and discussion
+#### template (TPL-{YYYYMMDD}-{HHMM}.md)
 
-### Rules
+Reusable code or configuration pattern. Sections:
 
-- Preserve complete plan VERBATIM — never summarize or abbreviate
-- All file paths must be ABSOLUTE
-- Working files: 3-8 modified files with roles
-- Reference files: key context (CLAUDE.md, types, configs)
+```markdown
+---
+title: {descriptive name}
+type: template
+category: template
+lang: {typescript|python|bash|yaml|...}
+tags: [{comma-separated}]
+created: {ISO timestamp}
+---
 
-## Tip Entry Structure
+# {title}
 
-Quick note for ideas, snippets, reminders.
+## Usage
+When and how to use this template.
 
-1. **Tip ID** — TIP-YYYYMMDD-HHMMSS
-2. **Timestamp** — ISO format
-3. **Content** — The note text
-4. **Tags** — Categorization tags
-5. **Context** — Related files/modules (auto-detected or specified)
+## Parameters
+| Placeholder | Description | Default |
+|-------------|-------------|---------|
+| `{{name}}` | ... | ... |
 
-### Suggested Tag Categories
+## Dependencies
+- package-list
 
-| Category | Tags |
-|----------|------|
-| Technical | architecture, performance, security, bug, config, api |
-| Development | testing, debugging, refactoring, documentation |
-| Domain | auth, database, frontend, backend, devops |
-| Organizational | reminder, research, idea, review |
+## Code
+```{lang}
+{copy-paste ready code}
+```
 
-## Retrieval
+## Notes
+Additional context.
+```
 
-Use `maestro wiki list --type memory` to find entries by type, tags, or date.
-Use `maestro wiki get <id>` or read individual `.md` files for full content.
+**Field guide:**
+- `lang` — Programming language or config format (required)
+- `Usage` — 1-2 sentences describing when to apply
+- `Parameters` — Placeholder table (optional)
+- `Code` — The actual template, ready to copy
+- `Dependencies` — What's needed before using
+
+#### recipe (RCP-{YYYYMMDD}-{HHMM}.md)
+
+Step-by-step operational guide. Sections:
+
+```markdown
+---
+title: {goal summary}
+type: recipe
+category: recipe
+tags: [{comma-separated}]
+created: {ISO timestamp}
+---
+
+# {title}
+
+## Goal
+What this recipe accomplishes.
+
+## Prerequisites
+- Tool/access/config requirements
+
+## Steps
+1. First step
+2. Second step
+...
+
+## Expected Outcome
+What success looks like.
+
+## Common Pitfalls
+- Gotcha 1
+- Gotcha 2
+
+## Related
+- [[recipe-xxx]] — Related recipes
+- [[template-xxx]] — Templates used
+```
+
+**Field guide:**
+- `Goal` — One sentence, actionable
+- `Prerequisites` — Everything needed before starting
+- `Steps` — Numbered, each step verifiable independently
+- `Expected Outcome` — Measurable result
+- `Common Pitfalls` — Known gotchas from experience
+
+#### reference (REF-{YYYYMMDD}-{HHMM}.md)
+
+External documentation digest. Sections:
+
+```markdown
+---
+title: {reference title}
+type: reference
+category: reference
+source: {original URL}
+tags: [{comma-separated}]
+created: {ISO timestamp}
+last_verified: {ISO date}
+---
+
+# {title}
+
+## Source
+{URL or document reference}
+
+## Key Points
+- Essential info point 1
+- Essential info point 2
+
+## Applicable Scenarios
+- When to consult this reference
+
+## Quick Examples
+```lang
+{copy-paste examples}
+```
+
+## Notes
+Additional context.
+```
+
+**Field guide:**
+- `source` — Original URL or document ID (required)
+- `Key Points` — Distilled essentials, not raw dump
+- `Applicable Scenarios` — "Use this when..."
+- `Quick Examples` — Most-used snippets first
+- `last_verified` — When the source was last checked
+
+#### decision (DCS-{YYYYMMDD}-{HHMM}.md)
+
+Architecture Decision Record. Sections:
+
+```markdown
+---
+title: {decision summary}
+type: decision
+category: decision
+status: {proposed|accepted|superseded}
+tags: [{comma-separated}]
+created: {ISO timestamp}
+---
+
+# {title}
+
+## Context
+Background and problem statement.
+
+## Decision
+What was decided.
+
+## Alternatives Considered
+| Alternative | Pros | Cons | Rejected Because |
+|-------------|------|------|------------------|
+| Option A | ... | ... | ... |
+| Option B | ... | ... | ... |
+
+## Rationale
+Why this choice over alternatives.
+
+## Consequences
+### Positive
+- Benefit 1
+
+### Negative
+- Trade-off 1
+
+## Related
+- [[spec-xxx]] — Affected spec
+- [[recipe-xxx]] — Implementation recipe
+```
+
+**Field guide:**
+- `status` — proposed → accepted → superseded lifecycle
+- `Context` — Enough background for future reader (no assumed knowledge)
+- `Alternatives` — Must list at least 2 rejected options with reasons
+- `Rationale` — The "why" matters more than the "what"
+- `Consequences` — Both positive and negative; be honest about trade-offs
+
+#### tip (TIP-{YYYYMMDD}-{HHMM}.md)
+
+Quick note. Minimal structure:
+
+```markdown
+---
+title: {tip summary}
+type: tip
+category: tip
+tags: [{comma-separated}]
+created: {ISO timestamp}
+---
+
+# {title}
+
+{content}
+
+## Context
+{Auto-detected files/modules}
+```
+
+### Step 3: Write File
+
+Write to `.workflow/knowhow/{PREFIX}-{YYYYMMDD}-{HHMM}.md`.
+
+Frontmatter keys by type:
+
+| Field | session | template | recipe | reference | decision | tip |
+|-------|:-------:|:--------:|:------:|:---------:|:--------:|:---:|
+| title | Y | Y | Y | Y | Y | Y |
+| type | Y | Y | Y | Y | Y | Y |
+| category | Y | Y | Y | Y | Y | Y |
+| tags | Y | Y | Y | Y | Y | Y |
+| created | Y | Y | Y | Y | Y | Y |
+| lang | | Y | | | | |
+| source | | | | Y | | |
+| status | | | | | Y | |
+| last_verified | | | | Y | | |
+
+### Step 4: Report
+
+Display confirmation with ID, type, file path, and type-specific summary line.
+
+---
+
+## Part C: Retrieval
+
+### CLI
+
+```bash
+maestro knowhow list                    # all entries
+maestro knowhow list --type template    # by type
+maestro knowhow search "deploy auth"    # full-text
+maestro knowhow get knowhow-{slug}      # view one
+
+maestro wiki list --type knowhow --json # programmatic
+maestro wiki list --type knowhow --category decision  # decisions only
+```
+
+### MCP
+
+```
+store_knowhow { operation: "search", query: "deploy" }
+store_knowhow { operation: "add", type: "template", title: "...", body: "..." }
+```
+
+### Type Label Reference
+
+| Wiki type | Category | Prefix | Label |
+|-----------|----------|--------|-------|
+| knowhow | session | KNW- | Session |
+| knowhow | tip | TIP- | Tip |
+| knowhow | template | TPL- | Template |
+| knowhow | recipe | RCP- | Recipe |
+| knowhow | reference | REF- | Reference |
+| knowhow | decision | DCS- | Decision |

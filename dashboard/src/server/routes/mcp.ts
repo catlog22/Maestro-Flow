@@ -639,13 +639,13 @@ export function createMcpRoutes(): Hono {
     const enabledToolsRaw = envInput.enabledTools;
     let enabledToolsEnv: string;
     if (enabledToolsRaw === undefined || enabledToolsRaw === null) {
-      enabledToolsEnv = 'write_file,edit_file,read_file,read_many_files,team_msg';
+      enabledToolsEnv = 'write_file,edit_file,read_file,read_many_files,team_msg,store_knowhow';
     } else if (Array.isArray(enabledToolsRaw)) {
       enabledToolsEnv = enabledToolsRaw.filter((t): t is string => typeof t === 'string').join(',');
     } else if (typeof enabledToolsRaw === 'string') {
       enabledToolsEnv = enabledToolsRaw;
     } else {
-      enabledToolsEnv = 'write_file,edit_file,read_file,read_many_files,team_msg';
+      enabledToolsEnv = 'write_file,edit_file,read_file,read_many_files,team_msg,store_knowhow';
     }
 
     const isWin = process.platform === 'win32';

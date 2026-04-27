@@ -28,7 +28,7 @@ Knowledge graph link discovery and health improvement. Analyzes the unified wiki
 
 | Flag | Effect |
 |------|--------|
-| `--scope <type>` | Limit to wiki type: spec, memory, note, lesson, issue. Default: all |
+| `--scope <type>` | Limit to wiki type: spec, knowhow, note, lesson, issue. Default: all |
 | `--min-similarity N` | Minimum similarity score 0.0-1.0 (default: 0.3) |
 | `--fix` | Auto-apply top suggestions via `maestro wiki update` |
 | `--max N` | Maximum suggestions to generate (default: 20) |

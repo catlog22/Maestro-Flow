@@ -30,18 +30,14 @@ export function ChatWorkspace() {
   const processes = useAgentStore((s) => s.processes);
   const activeProcessId = useAgentStore((s) => s.activeProcessId);
 
-  // Filter: only show active processes as tabs
+  // Filter: only auto-open sessions started within the last 15 minutes
   const activeProcessEntries = useMemo(() => {
-    const TWO_MIN = 2 * 60 * 1000;
+    const FIFTEEN_MIN = 15 * 60 * 1000;
     const now = Date.now();
     return Object.entries(processes).filter(([id, proc]) => {
-      if (proc.status === 'running' || proc.status === 'spawning' || proc.status === 'paused') return true;
       if (id === activeProcessId) return true;
-      if (proc.status === 'stopped' || proc.status === 'error') {
-        const age = now - new Date(proc.startedAt).getTime();
-        return age < TWO_MIN;
-      }
-      return false;
+      const age = now - new Date(proc.startedAt).getTime();
+      return age < FIFTEEN_MIN;
     });
   }, [processes, activeProcessId]);
 
