@@ -328,13 +328,13 @@ export function copyDirectory(
 
 export function createBackup(manifest: Manifest): string | null {
   const backupDir = join(MAESTRO_HOME, 'manifests', 'backups', `backup-${manifest.scope}-${Date.now()}`);
-  mkdirSync(backupDir, { recursive: true });
 
   const home = homedir();
+  const homeLower = home.toLowerCase();
   let backedUp = 0;
   for (const entry of manifest.entries) {
     if (entry.type === 'file' && existsSync(entry.path)) {
-      const rel = entry.path.startsWith(home)
+      const rel = entry.path.toLowerCase().startsWith(homeLower)
         ? relative(home, entry.path)
         : entry.path.replace(/[:\\]/g, '_');
       const backupPath = join(backupDir, rel);

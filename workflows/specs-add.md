@@ -5,45 +5,70 @@ Add a `<spec-entry>` closed-tag entry to a single target spec file by category.
 ## Arguments
 
 ```
-$ARGUMENTS: "<category> <content>"
+$ARGUMENTS: "[--scope <scope>] [--uid <uid>] <category> <content>"
 
+--scope  -- target scope: project (default) | global | team | personal
+--uid    -- user id for personal scope (auto-detected from git if omitted)
 category -- one of: coding, arch, quality, debug, test, review, learning
 content  -- free-text description of the entry
 ```
 
-## Category-to-File Mapping (1:1)
+## Scope-to-Directory Mapping
+
+| Scope | Target directory | uid needed |
+|-------|-----------------|------------|
+| `project` (default) | `.workflow/specs/` | no |
+| `global` | `~/.maestro/specs/` | no |
+| `team` | `.workflow/collab/specs/` | no |
+| `personal` | `.workflow/collab/specs/{uid}/` | yes (auto or `--uid`) |
+
+## Category-to-File Mapping (1:1, same filename in every scope)
 
 | Category | Target file |
 |----------|------------|
-| `coding` | `.workflow/specs/coding-conventions.md` |
-| `arch` | `.workflow/specs/architecture-constraints.md` |
-| `quality` | `.workflow/specs/quality-rules.md` |
-| `debug` | `.workflow/specs/debug-notes.md` |
-| `test` | `.workflow/specs/test-conventions.md` |
-| `review` | `.workflow/specs/review-standards.md` |
-| `learning` | `.workflow/specs/learnings.md` |
+| `coding` | `coding-conventions.md` |
+| `arch` | `architecture-constraints.md` |
+| `quality` | `quality-rules.md` |
+| `debug` | `debug-notes.md` |
+| `test` | `test-conventions.md` |
+| `review` | `review-standards.md` |
+| `learning` | `learnings.md` |
 
 ## Prerequisites
 
-- `.workflow/specs/` directory must exist (run `/spec-setup` first if missing)
+- Target specs directory must exist:
+  - `project`: `.workflow/specs/` (run `/spec-setup` or `maestro spec init`)
+  - `global`: `~/.maestro/specs/` (run `maestro spec init --scope global`)
+  - `team`: `.workflow/collab/specs/` (run `maestro spec init --scope team`)
+  - `personal`: `.workflow/collab/specs/{uid}/` (run `maestro spec init --scope personal`)
 
 ## Execution Steps
 
 ### Step 1: Parse Arguments
 
 ```
-Parse: category = first word, content = remaining text
-Validate: category ∈ {coding, arch, quality, debug, test, review, learning}, content non-empty
-On failure: show usage `/spec-add <category> <content>` with valid categories, exit
+Parse $ARGUMENTS:
+  1. Extract --scope <value> (default: project)
+  2. Extract --uid <value> if present
+  3. category = first remaining word
+  4. content = remaining text
+Validate:
+  - scope ∈ {project, global, team, personal}
+  - category ∈ {coding, arch, quality, debug, test, review, learning}
+  - content non-empty
+  - personal scope requires uid (resolve from `maestro collab whoami` if --uid not given)
+On failure: show usage `/spec-add [--scope <scope>] <category> <content>`, exit
 ```
 
 ### Step 2: Resolve Target File
 
-Map category to file path. If file does not exist, create it with a basic header.
+Resolve directory from scope (see table above), then append `<target_file>` from category mapping.
+
+If file does not exist, create it with a basic header.
 
 Check for near-duplicate entries:
 ```bash
-grep -i "<content_first_10_words>" .workflow/specs/<target_file> | tail -5
+grep -i "<content_first_10_words>" <resolved_dir>/<target_file> | tail -5
 ```
 
 ### Step 3: Extract Keywords
@@ -70,7 +95,10 @@ Read target file. Append the formatted `<spec-entry>` block at the end. Write fi
 
 ### Step 6: Confirm
 
-Display: category, target file, keywords, and verify command (`/spec-load --keyword <kw1>`).
+Display: category, scope, target file path, keywords, and verify command:
+```
+maestro spec load --scope <scope> --keyword <kw1>
+```
 
 ## Output
 

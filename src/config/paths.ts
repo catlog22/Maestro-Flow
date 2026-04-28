@@ -7,6 +7,7 @@ const MAESTRO_HOME = process.env.MAESTRO_HOME ?? join(homedir(), '.maestro');
 export const paths = {
   home: MAESTRO_HOME,
   config: join(MAESTRO_HOME, 'config.json'),
+  specs: join(MAESTRO_HOME, 'specs'),
   extensions: join(MAESTRO_HOME, 'extensions'),
   data: join(MAESTRO_HOME, 'data'),
   logs: join(MAESTRO_HOME, 'logs'),

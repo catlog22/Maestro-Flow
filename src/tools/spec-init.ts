@@ -7,6 +7,7 @@
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { type SpecScope, resolveSpecDir } from './spec-loader.js';
 
 // ============================================================================
 // Types
@@ -193,11 +194,14 @@ function formatFrontmatter(fm: SeedDoc['frontmatter']): string {
 /**
  * Initialize the spec system directory structure and seed documents.
  * Idempotent: creates directories if missing, writes seed files only when absent.
+ *
+ * @param scope  Target scope: 'project' (default), 'global', 'team', or 'personal'.
+ * @param uid    Required when scope is 'personal'.
  */
-export function initSpecSystem(projectPath: string): InitResult {
+export function initSpecSystem(projectPath: string, scope: SpecScope = 'project', uid?: string): InitResult {
   const result: InitResult = { created: [], skipped: [], directories: [] };
 
-  const specsDir = join(projectPath, '.workflow', 'specs');
+  const specsDir = resolveSpecDir(projectPath, scope, uid);
 
   // Create directory
   if (!existsSync(specsDir)) {
