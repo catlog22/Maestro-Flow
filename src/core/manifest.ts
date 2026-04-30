@@ -16,6 +16,7 @@ import {
   statSync,
 } from 'node:fs';
 import { paths } from '../config/paths.js';
+import { hasAnyMarkers, removeAllSections } from './tag-injector.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -152,61 +153,47 @@ export function deleteManifest(manifest: Manifest): void {
 /** Files to preserve even during cleanup. */
 const PRESERVE = new Set(['settings.json', 'settings.local.json']);
 
-/** Files that should have maestro content removed instead of being deleted entirely. */
-const CONTENT_MANAGED = new Set(['CLAUDE.md']);
-
-/** Maestro-specific line patterns in CLAUDE.md */
-const MAESTRO_LINE_PATTERNS = [
-  /^#\s*Maestro\s*$/i,
-  /maestro/i,
-  /~\/\.maestro\//,
-  /mcp__ide__getDiagnostics/,
-  /cli-tools\.json/,
-];
+/** Files that should have maestro content removed via tag injection instead of being deleted entirely. */
+const CONTENT_MANAGED = new Set(['CLAUDE.md', 'AGENTS.md']);
 
 /**
- * Remove maestro-added content from CLAUDE.md instead of deleting the file.
+ * Remove maestro-injected content from a doc file using `<!-- maestro:start/end -->` markers.
  *
- * Strategy:
- * - Read source CLAUDE.md content that was installed by maestro
- * - Compare with existing file to determine if it's maestro-only or mixed
- * - If file matches maestro source content → safe to delete
- * - If file has user additions → remove only maestro-originated lines
+ * - If the file has markers, removes only the marked section.
+ * - If nothing remains after removal, deletes the file entirely.
+ * - Returns true if any content was removed.
  */
-function cleanClaudeMd(filePath: string): boolean {
+function cleanInjectedDoc(filePath: string): boolean {
   if (!existsSync(filePath)) return false;
 
   const content = readFileSync(filePath, 'utf-8');
-  const lines = content.split('\n');
-
-  // Filter out lines that are maestro-specific
-  const filteredLines = lines.filter(line => {
-    const trimmed = line.trim();
-    if (trimmed.length === 0) return true; // keep blank lines
-    return !MAESTRO_LINE_PATTERNS.some(p => p.test(trimmed));
-  });
-
-  // Check if remaining content is empty (only whitespace/blank lines)
-  const meaningful = filteredLines.filter(l => l.trim().length > 0);
-  if (meaningful.length === 0) {
-    // File only had maestro content — safe to delete
+  if (!hasAnyMarkers(content)) {
+    // No markers — this is a legacy install or user-only file, delete entirely
     unlinkSync(filePath);
     return true;
   }
 
-  // If nothing was actually removed, leave as-is
-  if (filteredLines.length === lines.length) return false;
+  const cleaned = removeAllSections(content);
+  if (!cleaned || cleaned.trim() === '') {
+    // Nothing left after removing all maestro sections — delete the file
+    unlinkSync(filePath);
+    return true;
+  }
 
-  // Has user content — write back without maestro lines
-  const cleaned = filteredLines
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trimEnd() + '\n';
+  // User content remains — write back without maestro sections
   writeFileSync(filePath, cleaned, 'utf-8');
   return true;
 }
 
-export function cleanManifestFiles(manifest: Manifest): { removed: number; skipped: number } {
+/**
+ * @param skipContentManaged If true, skip CONTENT_MANAGED files (CLAUDE.md, AGENTS.md).
+ *   Use during re-install — tag injection updates in-place, so no cleanup needed.
+ *   Default false (full cleanup, used by uninstall).
+ */
+export function cleanManifestFiles(
+  manifest: Manifest,
+  opts?: { skipContentManaged?: boolean },
+): { removed: number; skipped: number } {
   let removed = 0;
   let skipped = 0;
 
@@ -219,10 +206,11 @@ export function cleanManifestFiles(manifest: Manifest): { removed: number; skipp
     const name = entry.path.split(/[\\/]/).pop() ?? '';
     if (PRESERVE.has(name)) { skipped++; continue; }
 
-    // Content-managed files: remove added content instead of deleting
+    // Content-managed files: skip during re-install, clean during uninstall
     if (CONTENT_MANAGED.has(name)) {
+      if (opts?.skipContentManaged) { skipped++; continue; }
       try {
-        if (cleanClaudeMd(entry.path)) removed++;
+        if (cleanInjectedDoc(entry.path)) removed++;
       } catch { /* skip */ }
       continue;
     }

@@ -13,11 +13,12 @@ import {
   readFileSync,
   writeFileSync,
   renameSync,
+  statSync,
 } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { homedir } from 'node:os';
 
-// Re-export manifest CRUD from shared core (single source of truth)
+// Re-export from shared core (single source of truth)
 import {
   createManifest,
   saveManifest,
@@ -26,10 +27,12 @@ import {
   addFile,
   addDir,
   paths,
+  injectDocFile,
+  COMPONENT_DEFS,
 } from 'maestro-flow';
-import type { Manifest, ManifestEntry } from 'maestro-flow';
+import type { Manifest, ManifestEntry, ComponentDef } from 'maestro-flow';
 
-export { createManifest, saveManifest, findManifest, getAllManifests };
+export { createManifest, saveManifest, findManifest, getAllManifests, injectDocFile };
 export type { Manifest, ManifestEntry };
 
 // ---------------------------------------------------------------------------
@@ -67,6 +70,7 @@ export interface InstallResult {
   mcpRegistered: boolean;
   components: string[];
   error?: string;
+  migrationWarnings?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -78,73 +82,7 @@ const MAESTRO_HOME = paths.home;
 /** Files to preserve during overwrite (same as src/commands/install.ts) */
 const PRESERVE_FILES = new Set(['settings.json', 'settings.local.json']);
 
-interface ComponentDef {
-  id: string;
-  label: string;
-  sourcePath: string;
-  globalTarget: string;
-  projectTarget: (projectPath: string) => string;
-  alwaysGlobal: boolean;
-}
-
-const COMPONENT_DEFS: ComponentDef[] = [
-  {
-    id: 'commands',
-    label: 'Commands',
-    sourcePath: '.claude/commands',
-    globalTarget: join(homedir(), '.claude', 'commands'),
-    projectTarget: (p) => join(p, '.claude', 'commands'),
-    alwaysGlobal: false,
-  },
-  {
-    id: 'agents',
-    label: 'Agents',
-    sourcePath: '.claude/agents',
-    globalTarget: join(homedir(), '.claude', 'agents'),
-    projectTarget: (p) => join(p, '.claude', 'agents'),
-    alwaysGlobal: false,
-  },
-  {
-    id: 'skills',
-    label: 'Skills',
-    sourcePath: '.claude/skills',
-    globalTarget: join(homedir(), '.claude', 'skills'),
-    projectTarget: (p) => join(p, '.claude', 'skills'),
-    alwaysGlobal: false,
-  },
-  {
-    id: 'workflows',
-    label: 'Workflows',
-    sourcePath: 'workflows',
-    globalTarget: join(MAESTRO_HOME, 'workflows'),
-    projectTarget: () => join(MAESTRO_HOME, 'workflows'),
-    alwaysGlobal: true,
-  },
-  {
-    id: 'templates',
-    label: 'Templates',
-    sourcePath: 'templates',
-    globalTarget: join(MAESTRO_HOME, 'templates'),
-    projectTarget: () => join(MAESTRO_HOME, 'templates'),
-    alwaysGlobal: true,
-  },
-  {
-    id: 'claude-md',
-    label: 'CLAUDE.md',
-    sourcePath: '.claude/CLAUDE.md',
-    globalTarget: join(homedir(), '.claude', 'CLAUDE.md'),
-    projectTarget: (p) => join(p, '.claude', 'CLAUDE.md'),
-    alwaysGlobal: false,
-  },
-  {
-    id: 'codex-skills',
-    label: 'Codex Skills',
-    sourcePath: '.codex/skills',
-    globalTarget: join(homedir(), '.codex', 'skills'),
-    projectTarget: (p) => join(p, '.codex', 'skills'),
-    alwaysGlobal: false,
-  },
-];
+// ComponentDef and COMPONENT_DEFS imported from maestro-flow (single source of truth)
 
 // ---------------------------------------------------------------------------
 // Source resolution
@@ -178,6 +116,8 @@ export function resolveSourceDir(startDir: string): string | null {
 
 function countFiles(dir: string): number {
   if (!existsSync(dir)) return 0;
+  const st = statSync(dir);
+  if (st.isFile()) return 1;
   let count = 0;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.isFile()) count++;
@@ -194,10 +134,7 @@ export function scanAvailableSources(
   return COMPONENT_DEFS.map((def) => {
     const fullSource = join(sourceDir, def.sourcePath);
     const fileCount = countFiles(fullSource);
-    const targetDir =
-      mode === 'global' || def.alwaysGlobal
-        ? def.globalTarget
-        : def.projectTarget(projectPath ?? '');
+    const targetDir = def.target(mode, projectPath ?? '');
     return {
       id: def.id,
       label: def.label,
@@ -322,6 +259,8 @@ export function copyDirectory(
   return { files, dirs };
 }
 
+// injectDocFile imported from maestro-flow (single source of truth)
+
 // ---------------------------------------------------------------------------
 // Backup
 // ---------------------------------------------------------------------------
@@ -374,3 +313,4 @@ export function writeVersionFile(targetDir: string, version: string): void {
 }
 
 export { COMPONENT_DEFS, MAESTRO_HOME };
+export type { ComponentDef };

@@ -23,4 +23,3 @@ Available CLI endpoints are dynamically defined by the config file
 - **Capture signal** → when execution surfaces non-obvious knowledge (plan deviation, retry pattern, root cause, constraint violation), ask user once whether to persist it. Match category to content: decisions→`arch`, pitfalls→`debug`/`learning`, patterns→`coding`, rules→`quality`.
 - **Promotion** → at milestone close, scan learnings for repeated keywords (≥2 entries) and offer to graduate them into formal conventions.
 - **Traceability** → every entry needs a source anchor: `file:line`, `INS-{id}`, commit, or phase path.
-

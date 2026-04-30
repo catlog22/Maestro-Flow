@@ -89,6 +89,18 @@ export function StepProgress() {
         <ResultRow label="Manifest" value={result.manifestPath.replace(/\\/g, '/').split('/').slice(-1)[0]} last />
       </div>
 
+      {/* Migration warnings */}
+      {result.migrationWarnings && result.migrationWarnings.length > 0 && (
+        <div className="w-full rounded-[var(--radius-md)] border border-[rgba(184,149,64,0.3)] bg-[rgba(184,149,64,0.04)] px-4 py-3">
+          <p className="text-[11px] font-semibold text-[var(--color-status-executing,#B89540)] mb-2">
+            Migration Warnings
+          </p>
+          {result.migrationWarnings.map((w, i) => (
+            <p key={i} className="text-[10px] text-text-secondary mb-1 break-all">{w}</p>
+          ))}
+        </div>
+      )}
+
       <button
         type="button"
         onClick={() => setOpen(false)}

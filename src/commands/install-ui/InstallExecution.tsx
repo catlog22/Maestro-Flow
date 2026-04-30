@@ -12,6 +12,7 @@ import {
   applyOverlaysPostInstall,
   addMcpServer,
   copyRecursive,
+  injectDocFile,
   createTargetBackup,
   type CopyStats,
 } from '../install-backend.js';
@@ -39,6 +40,7 @@ export interface InstallFlowResult {
   manifestPath: string;
   statuslineInstalled: boolean;
   backupPath: string | null;
+  migrationWarnings: string[];
 }
 
 interface InstallExecutionProps {
@@ -74,6 +76,7 @@ export function InstallExecution({ config, pkgRoot, version, onComplete }: Insta
         let mcpRegistered = false;
         let statuslineInstalled = false;
         let backupPath: string | null = null;
+        const warnings: string[] = [];
 
         // Components
         if (config.installComponents) {
@@ -96,7 +99,7 @@ export function InstallExecution({ config, pkgRoot, version, onComplete }: Insta
           if (cancelled) return;
           setStatus(t.install.execCleaning);
           const existing = findManifest(config.mode, targetPath);
-          if (existing) cleanManifestFiles(existing);
+          if (existing) cleanManifestFiles(existing, { skipContentManaged: true });
 
           paths.ensure(paths.home);
           const manifest = createManifest(config.mode, targetPath, {
@@ -111,7 +114,12 @@ export function InstallExecution({ config, pkgRoot, version, onComplete }: Insta
           for (const comp of components) {
             if (cancelled) return;
             setStatus(t.install.execInstalling.replace('{name}', comp.def.label));
-            copyRecursive(comp.sourceFull, comp.targetDir, stats, manifest);
+            if (comp.def.inject) {
+              const result = injectDocFile(comp.sourceFull, comp.targetDir, stats, manifest, comp.def.section);
+              if (result.warning) warnings.push(result.warning);
+            } else {
+              copyRecursive(comp.sourceFull, comp.targetDir, stats, manifest);
+            }
           }
 
           // Version marker
@@ -163,7 +171,7 @@ export function InstallExecution({ config, pkgRoot, version, onComplete }: Insta
 
         setDone(true);
         setStatus(t.install.execComplete);
-        onComplete({ filesInstalled, dirsCreated, filesSkipped, hooksInstalled, mcpRegistered, manifestPath, statuslineInstalled, backupPath });
+        onComplete({ filesInstalled, dirsCreated, filesSkipped, hooksInstalled, mcpRegistered, manifestPath, statuslineInstalled, backupPath, migrationWarnings: warnings });
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       }

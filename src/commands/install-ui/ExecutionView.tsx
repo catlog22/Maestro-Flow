@@ -88,7 +88,7 @@ export function ExecutionView({
         if (existingManifest) {
           if (cancelled) return;
           setStatus('Cleaning previous installation...');
-          cleanManifestFiles(existingManifest);
+          cleanManifestFiles(existingManifest, { skipContentManaged: true });
         }
 
         // 4. Ensure home directory exists

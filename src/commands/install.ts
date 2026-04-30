@@ -36,6 +36,7 @@ import {
   restoreDisabledState,
   applyOverlaysPostInstall,
   copyRecursive,
+  injectDocFile,
   createTargetBackup,
   MCP_TOOLS,
   type CopyStats,
@@ -217,7 +218,7 @@ function forceInstall(
   // Clean previous
   const existingManifest = findManifest(mode, targetPath);
   if (existingManifest) {
-    const { removed, skipped } = cleanManifestFiles(existingManifest);
+    const { removed, skipped } = cleanManifestFiles(existingManifest, { skipContentManaged: true });
     if (removed > 0) {
       let msg = t.install.forceCleaned.replace('{count}', String(removed));
       if (skipped > 0) msg += t.install.forceCleanedPreserved.replace('{count}', String(skipped));
@@ -234,10 +235,21 @@ function forceInstall(
     selectedComponentIds: toInstall.map(c => c.def.id),
   });
   const totalStats: CopyStats = { files: 0, dirs: 0, skipped: 0 };
+  const migrationWarnings: string[] = [];
 
   for (const comp of toInstall) {
     console.error(`  ${comp.def.label} → ${comp.targetDir}`);
-    copyRecursive(comp.sourceFull, comp.targetDir, totalStats, manifest);
+    if (comp.def.inject) {
+      const result = injectDocFile(comp.sourceFull, comp.targetDir, totalStats, manifest, comp.def.section);
+      if (result.action === 'migrated') {
+        console.error(`    ✓ migrated legacy ${comp.def.label} to tag-based injection`);
+      }
+      if (result.warning) {
+        migrationWarnings.push(result.warning);
+      }
+    } else {
+      copyRecursive(comp.sourceFull, comp.targetDir, totalStats, manifest);
+    }
   }
 
   // Version marker
@@ -274,6 +286,16 @@ function forceInstall(
   if (disabledRestored > 0) parts.push(`${disabledRestored} disabled restored`);
   if (overlaysAppliedCount > 0) parts.push(`${overlaysAppliedCount} overlays applied`);
   console.error(t.install.forceResult.replace('{summary}', parts.join(', ')));
+
+  // Migration warnings
+  if (migrationWarnings.length > 0) {
+    console.error('');
+    console.error('  ⚠ Migration warnings:');
+    for (const w of migrationWarnings) {
+      console.error(`    ${w}`);
+    }
+  }
+
   console.error('');
   console.error(t.install.forceDone);
 }

@@ -68,6 +68,15 @@ export function InstallResult({ result }: InstallResultProps) {
         )}
       </Box>
 
+      {result.migrationWarnings.length > 0 && (
+        <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} marginTop={1}>
+          <Text bold color="yellow">⚠ Migration Warnings</Text>
+          {result.migrationWarnings.map((w, i) => (
+            <Text key={i} color="yellow" wrap="wrap">{w}</Text>
+          ))}
+        </Box>
+      )}
+
       <Box marginTop={1}>
         <Text dimColor>{t.install.resultExit}</Text>
       </Box>

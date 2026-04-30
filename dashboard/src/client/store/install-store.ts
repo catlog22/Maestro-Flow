@@ -44,6 +44,7 @@ export interface InstallResult {
   mcpRegistered: boolean;
   components: string[];
   error?: string;
+  migrationWarnings?: string[];
 }
 
 export type WizardStep = 'mode' | 'configure' | 'review' | 'progress';

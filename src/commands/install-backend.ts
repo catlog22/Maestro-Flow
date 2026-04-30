@@ -23,6 +23,8 @@ import {
   type Manifest,
 } from '../core/manifest.js';
 import { applyOverlays, ensureOverlayDir } from '../core/overlay/applier.js';
+import { injectDocFile, type MigrateResult } from '../core/tag-injector.js';
+import { COMPONENT_DEFS, type ComponentDef } from '../core/component-defs.js';
 import {
   HOOK_LEVELS,
   HOOK_LEVEL_DESCRIPTIONS,
@@ -43,132 +45,8 @@ const __dirname = dirname(__filename);
 /** Files to preserve during overwrite */
 export const PRESERVE_FILES = new Set(['settings.json', 'settings.local.json']);
 
-// ---------------------------------------------------------------------------
-// Component definitions — single source of truth
-// ---------------------------------------------------------------------------
-
-export interface ComponentDef {
-  id: string;
-  label: string;
-  description: string;
-  sourcePath: string;
-  /** Resolve target directory based on mode and project path */
-  target: (mode: 'global' | 'project', projectPath: string) => string;
-  /** Always installs to global location regardless of mode */
-  alwaysGlobal: boolean;
-}
-
-export const COMPONENT_DEFS: ComponentDef[] = [
-  {
-    id: 'workflows',
-    label: 'Workflows',
-    description: 'Workflow definitions (~/.maestro/workflows/)',
-    sourcePath: 'workflows',
-    target: () => join(paths.home, 'workflows'),
-    alwaysGlobal: true,
-  },
-  {
-    id: 'templates',
-    label: 'Templates',
-    description: 'Prompt & task templates (~/.maestro/templates/)',
-    sourcePath: 'templates',
-    target: () => join(paths.home, 'templates'),
-    alwaysGlobal: true,
-  },
-  {
-    id: 'chains',
-    label: 'Chains',
-    description: 'Coordinate chain graphs (~/.maestro/chains/)',
-    sourcePath: 'chains',
-    target: () => join(paths.home, 'chains'),
-    alwaysGlobal: true,
-  },
-  {
-    id: 'overlays',
-    label: 'Overlays',
-    description: 'Command overlay packs (~/.maestro/overlays/_shipped/)',
-    sourcePath: join('overlays', '_shipped'),
-    target: () => join(paths.home, 'overlays', '_shipped'),
-    alwaysGlobal: true,
-  },
-  {
-    id: 'commands',
-    label: 'Commands',
-    description: 'Claude Code slash commands',
-    sourcePath: join('.claude', 'commands'),
-    target: (mode, projectPath) =>
-      mode === 'global'
-        ? join(homedir(), '.claude', 'commands')
-        : join(projectPath, '.claude', 'commands'),
-    alwaysGlobal: false,
-  },
-  {
-    id: 'agents',
-    label: 'Agents',
-    description: 'Agent definitions',
-    sourcePath: join('.claude', 'agents'),
-    target: (mode, projectPath) =>
-      mode === 'global'
-        ? join(homedir(), '.claude', 'agents')
-        : join(projectPath, '.claude', 'agents'),
-    alwaysGlobal: false,
-  },
-  {
-    id: 'skills',
-    label: 'Skills',
-    description: 'Claude Code skills',
-    sourcePath: join('.claude', 'skills'),
-    target: (mode, projectPath) =>
-      mode === 'global'
-        ? join(homedir(), '.claude', 'skills')
-        : join(projectPath, '.claude', 'skills'),
-    alwaysGlobal: false,
-  },
-  {
-    id: 'claude-md',
-    label: 'CLAUDE.md',
-    description: 'Project instructions file',
-    sourcePath: join('.claude', 'CLAUDE.md'),
-    target: (mode, projectPath) =>
-      mode === 'global'
-        ? join(homedir(), '.claude', 'CLAUDE.md')
-        : join(projectPath, '.claude', 'CLAUDE.md'),
-    alwaysGlobal: false,
-  },
-  {
-    id: 'codex-agents-md',
-    label: 'Codex AGENTS.md',
-    description: 'Codex project instructions file',
-    sourcePath: join('.codex', 'AGENTS.md'),
-    target: (mode, projectPath) =>
-      mode === 'global'
-        ? join(homedir(), '.codex', 'AGENTS.md')
-        : join(projectPath, '.codex', 'AGENTS.md'),
-    alwaysGlobal: false,
-  },
-  {
-    id: 'codex-agents',
-    label: 'Codex Agents',
-    description: 'Codex agent definitions',
-    sourcePath: join('.codex', 'agents'),
-    target: (mode, projectPath) =>
-      mode === 'global'
-        ? join(homedir(), '.codex', 'agents')
-        : join(projectPath, '.codex', 'agents'),
-    alwaysGlobal: false,
-  },
-  {
-    id: 'codex-skills',
-    label: 'Codex Skills',
-    description: 'Codex skill definitions',
-    sourcePath: join('.codex', 'skills'),
-    target: (mode, projectPath) =>
-      mode === 'global'
-        ? join(homedir(), '.codex', 'skills')
-        : join(projectPath, '.codex', 'skills'),
-    alwaysGlobal: false,
-  },
-];
+// Re-export component definitions from shared module
+export { COMPONENT_DEFS, type ComponentDef } from '../core/component-defs.js';
 
 // ---------------------------------------------------------------------------
 // Disabled items — preserve disabled state across reinstalls
@@ -375,15 +253,13 @@ export function scanComponents(
   });
 }
 
+// Re-export CopyStats from shared core
+export type { CopyStats } from '../core/tag-injector.js';
+import type { CopyStats } from '../core/tag-injector.js';
+
 // ---------------------------------------------------------------------------
 // Recursive copy with manifest tracking
 // ---------------------------------------------------------------------------
-
-export interface CopyStats {
-  files: number;
-  dirs: number;
-  skipped: number;
-}
 
 export function copyRecursive(
   src: string,
@@ -438,6 +314,9 @@ export function copyRecursive(
     }
   }
 }
+
+// Re-export injectDocFile from shared core
+export { injectDocFile, type MigrateResult } from '../core/tag-injector.js';
 
 // ---------------------------------------------------------------------------
 // Backup

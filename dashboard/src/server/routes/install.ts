@@ -15,6 +15,7 @@ import {
   scanDisabledItems,
   restoreDisabledState,
   copyDirectory,
+  injectDocFile,
   createManifest,
   saveManifest,
   findManifest,
@@ -158,26 +159,28 @@ export function createInstallRoutes(): Hono {
       // Create manifest (same format as CLI `maestro install`)
       const manifest = createManifest(mode, targetPath);
 
-      let totalFiles = 0;
-      let totalDirs = 0;
+      const stats = { files: 0, dirs: 0, skipped: 0 };
+      const migrationWarnings: string[] = [];
 
       for (const compId of components) {
         if (compId === 'mcp') continue;
 
-        const def = COMPONENT_DEFS.find((d) => d.id === compId);
+        const def = COMPONENT_DEFS.find((d: { id: string }) => d.id === compId);
         if (!def) continue;
 
         const src = join(sourceDir, def.sourcePath);
-        const dest =
-          mode === 'global' || def.alwaysGlobal
-            ? def.globalTarget
-            : def.projectTarget(projectPath ?? '');
+        const dest = def.target(mode, projectPath ?? '');
 
         if (!existsSync(src)) continue;
 
-        const { files, dirs } = copyDirectory(src, dest, manifest);
-        totalFiles += files;
-        totalDirs += dirs;
+        if (def.inject) {
+          const r = injectDocFile(src, dest, stats, manifest, def.section);
+          if (r.warning) migrationWarnings.push(r.warning);
+        } else {
+          const { files, dirs } = copyDirectory(src, dest, manifest);
+          stats.files += files;
+          stats.dirs += dirs;
+        }
       }
 
       // Restore disabled state
@@ -215,12 +218,13 @@ export function createInstallRoutes(): Hono {
 
       const result: InstallResult = {
         success: true,
-        filesInstalled: totalFiles,
-        dirsCreated: totalDirs,
+        filesInstalled: stats.files,
+        dirsCreated: stats.dirs,
         manifestPath,
         disabledItemsRestored: disabledRestored,
         mcpRegistered,
         components,
+        migrationWarnings: migrationWarnings.length > 0 ? migrationWarnings : undefined,
       };
 
       return c.json(result);
