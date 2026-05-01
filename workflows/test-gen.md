@@ -58,6 +58,34 @@ Apply --layer filter if set.
 
 ---
 
+### Step 3.5: CLI Supplementary Test Analysis (optional)
+
+**Purpose:** Use external CLI tool to analyze source code and suggest edge cases and boundary conditions that manual classification may miss.
+
+**Skip if** no enabled CLI tools or classified files are all "skip".
+
+```
+IF no CLI tools enabled OR all files classified as "skip": skip to Step 4
+
+# Build file list for analysis
+target_files = unit + integration + e2e files, map to paths
+
+Bash({
+  command: 'maestro delegate "PURPOSE: Analyze source files to identify test-worthy edge cases and boundary conditions
+TASK: For each file, identify: error handling paths | boundary conditions | state transitions | external dependency interactions
+MODE: analysis
+CONTEXT: @${target_files as glob}
+EXPECTED: JSON array of { file, edge_cases: [{ description, type: boundary|error|state|integration, priority: high|medium }] }
+CONSTRAINTS: Only report non-obvious cases | Max 5 edge cases per file | Focus on untested paths
+" --role analyze --mode analysis',
+  run_in_background: true
+})
+```
+
+**On callback:** Parse result, merge edge_cases into Step 4 test_cases for matching files. Mark CLI-suggested cases with `source: "cli-analysis"`.
+
+---
+
 ### Step 4: Generate Test Plan
 
 For each gap + classified file, create a test entry:

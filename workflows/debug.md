@@ -144,6 +144,41 @@ All agents run concurrently. Collect all results.
 
 ---
 
+### Step 5.5: CLI Supplementary Evidence Gathering (optional)
+
+**Purpose:** Use external CLI tool for broad codebase evidence collection before spawning debug agents. Provides agents with richer context without consuming their token budget on exploration.
+
+**Skip if** no enabled CLI tools or standalone mode with minimal context.
+
+```
+IF no CLI tools enabled: skip to Step 6
+
+# Build evidence request from symptoms
+symptom_summary = symptoms or gap descriptions, concatenated
+
+Bash({
+  command: 'maestro delegate "PURPOSE: Gather codebase evidence related to a bug investigation
+TASK: Trace call chains for affected functions | Find recent changes to related files | Identify error handling gaps | Check for similar patterns elsewhere
+MODE: analysis
+CONTEXT: @${affected_files or scoped_path}/**/*
+EXPECTED: JSON { call_chains: [{ entry, chain: [file:line...] }], recent_changes: [{ file, commits: [...] }], error_gaps: [{ file, line, description }], similar_patterns: [{ file, line, description }] }
+CONSTRAINTS: Focus on code paths related to the symptoms | Max 20 entries per category
+
+Symptoms: ${symptom_summary}
+" --role explore --mode analysis',
+  run_in_background: true
+})
+```
+
+**On callback:**
+```
+cli_evidence = maestro delegate output <id>
+Parse and append to evidence.ndjson with type: "cli-exploration"
+Pass cli_evidence as supplementary_context to debug agent prompts in Step 5/6
+```
+
+---
+
 ### Step 6: Spawn Single Debug Agent (sequential mode)
 
 Spawn general-purpose agent (`run_in_background: false`) with:

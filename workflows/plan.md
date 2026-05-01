@@ -100,6 +100,23 @@ default             → Create Mode: P1 → P2 → P3 → P4 → P4.5 → P5
    - Spawn 1-4 `cli-explore-agent` in parallel, each with phase goal + success_criteria + one angle
    - Output: `.process/exploration-{angle}.json`, `.process/explorations-manifest.json`, `.process/context-package.json`
 
+5b. **CLI supplementary context** (runs in parallel with step 5, skip if `--gaps` or no CLI tools enabled)
+   ```
+   IF no CLI tools enabled: skip
+
+   Bash({
+     command: 'maestro delegate "PURPOSE: Gather implementation context for planning phase
+   TASK: Identify existing patterns for similar features | Map dependency graph of target modules | Find potential conflict points with other recent changes
+   MODE: analysis
+   CONTEXT: @**/*
+   EXPECTED: JSON { patterns: [{ name, files, description }], dependencies: [{ module, depends_on[] }], conflict_risks: [{ file, reason }] }
+   CONSTRAINTS: Focus on ${phase_goal} scope | Max 10 entries per category
+   " --role explore --mode analysis',
+     run_in_background: true
+   })
+   ```
+   **On callback:** Parse result, merge into explorationContext as `cli_context` field. Planner uses patterns for task `read_first[]`, dependencies for wave ordering, conflict_risks for collision detection.
+
 6. **Gap-mode context** (if `--gaps`)
 
    Gap sources (in priority order, first non-empty wins, then additionals merged):

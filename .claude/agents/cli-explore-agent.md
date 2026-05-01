@@ -92,10 +92,10 @@ TASK: {from prompt}
 MODE: analysis
 CONTEXT: @**/*
 EXPECTED: {from prompt}
-" --tool gemini --mode analysis --cd {dir}
+" --role explore --mode analysis --cd {dir}
 ```
 
-**Fallback Chain**: gemini → qwen → codex → Bash-only
+**Fallback Chain**: config-driven via `cli-tools.json` role mappings → Bash-only
 
 ### Dual-Source Synthesis
 

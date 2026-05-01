@@ -336,6 +336,29 @@ If constraints exist:
   Scan each for disallowed import patterns → critical "tech_stack_violation" per match
 ```
 
+### Check 4: CLI Supplementary Validation (optional)
+
+**Purpose:** Use external CLI tool for semantic validation that structural checks miss — dead code, unused exports, circular dependencies introduced by execution.
+
+```
+IF no CLI tools enabled OR completed_tasks.length == 0: skip
+
+modified_files = collect all files modified by completed tasks
+
+Bash({
+  command: 'maestro delegate "PURPOSE: Validate execution output for semantic issues
+TASK: Check for circular dependency introduction | Detect dead code / unused exports | Verify public API consistency (no breaking changes to existing exports)
+MODE: analysis
+CONTEXT: @${modified_files as glob}
+EXPECTED: JSON { circular_deps: [{ cycle: [file...] }], dead_code: [{ file, line, symbol }], breaking_changes: [{ file, export_name, change_type }] }
+CONSTRAINTS: Only check modified files and their direct importers | severity = critical for breaking_changes, warning for others
+" --role analyze --mode analysis',
+  run_in_background: true
+})
+```
+
+**On callback:** Parse result. Append critical-severity items to violations list. Log warnings separately.
+
 ### Gate Logic
 
 ```

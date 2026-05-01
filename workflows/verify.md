@@ -102,6 +102,44 @@ The `constraint_violations[]` array is included in the final `verification.json`
 
 ---
 
+## V0.8: CLI Supplementary Verification (optional)
+
+**Purpose:** Use external CLI tool for broad anti-pattern and completeness scan as a supplementary signal before structural verification. Results feed into V1 as pre-collected evidence.
+
+**Skip if** no enabled CLI tools.
+
+```
+IF no CLI tools enabled: skip to V1
+
+# Collect modified files list from task summaries
+modified_files_list = modified_files.join(", ")
+
+Bash({
+  command: 'maestro delegate "PURPOSE: Pre-verify code completeness and anti-patterns in modified files
+TASK: Check for TODO/FIXME/HACK markers | Detect stub implementations (empty functions, placeholder returns) | Verify imports are used | Check for console.log/print debug statements left behind
+MODE: analysis
+CONTEXT: @${modified_files as glob pattern}
+EXPECTED: JSON { anti_patterns: [{ type, file, line, description, severity }], completeness_flags: [{ file, issue, severity }] }
+CONSTRAINTS: Only scan the listed modified files | severity = blocker|warning|info
+" --role analyze --mode analysis',
+  run_in_background: true
+})
+```
+
+**On callback:**
+```
+cli_verify = maestro delegate output <id>
+Parse JSON result
+
+# Merge into constraint_violations for V3 aggregation
+For each anti_pattern with severity == "blocker":
+  Append to constraint_violations as { id: "CLI-AP-{NNN}", type: "cli_anti_pattern", ... }
+
+Pass cli_verify.completeness_flags as supplementary context to V1 verification
+```
+
+---
+
 ## V1: Goal-Backward Verification
 
 **Purpose:** Verify execution results match phase goals through 3-layer structural checking.

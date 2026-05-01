@@ -96,6 +96,32 @@ From evidence and patterns, generate ranked hypotheses:
 3. **[LOW]** {hypothesis 3} — Evidence: {refs}
 ```
 
+### Stage 4.5: CLI Supplementary Exploration (optional)
+
+**Skip if** no enabled CLI tools or hypotheses are trivially testable.
+
+```
+IF no CLI tools enabled: skip to Stage 5
+
+hypothesis_summary = hypotheses.map(h => "${h.rank}: ${h.claim}").join("\n")
+
+Bash({
+  command: 'maestro delegate "PURPOSE: Gather evidence for investigation hypotheses
+TASK: For each hypothesis, trace relevant call chains and data flows | Find corroborating or contradicting code patterns
+MODE: analysis
+CONTEXT: @${scope_path}/**/*
+EXPECTED: JSON array of { hypothesis_rank, evidence: [{ file, line, supports: bool, explanation }] }
+CONSTRAINTS: Focus on code-level evidence only | Max 5 evidence items per hypothesis
+
+Hypotheses:
+${hypothesis_summary}
+" --role explore --mode analysis',
+  run_in_background: true
+})
+```
+
+**On callback:** Parse result, append each evidence item to `evidence.ndjson` with `type: "cli-exploration"`. Pass as supplementary context to Stage 5 testing.
+
 ### Stage 5: Hypothesis Testing
 For each hypothesis (in rank order):
 

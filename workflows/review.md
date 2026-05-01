@@ -219,6 +219,52 @@ verdict:
 
 ---
 
+## Step 6.5: CLI Supplementary Analysis (standard + deep only)
+
+**Skip for quick level or if no enabled CLI tools.**
+
+**Purpose:** Use external CLI tool as a second opinion on critical findings before deep-dive. The CLI analysis supplements (not replaces) the agent review — its results are merged into findings.
+
+```
+IF level == "quick" OR no CLI tools enabled: skip to Step 7
+
+# Gather critical/high findings for CLI cross-check
+cli_targets = all_findings.filter(f => f.severity in ["critical", "high"])
+IF cli_targets.length == 0: skip to Step 7
+
+# Build concise review prompt from findings
+finding_summary = cli_targets.map(f => "${f.id}: [${f.severity}] ${f.file}:${f.line} — ${f.title}").join("\n")
+
+Bash({
+  command: 'maestro delegate "PURPOSE: Cross-verify code review findings and identify missed issues
+TASK: For each finding, verify severity is accurate | Check for false positives | Identify any critical issues missed by initial review in the same files
+MODE: analysis
+CONTEXT: @${review_files as glob pattern}
+EXPECTED: JSON array of { finding_id, verified: bool, adjusted_severity?, missed_issues?: [{ severity, file, line, title, description }] }
+CONSTRAINTS: Only report missed issues of severity high or above | Do not duplicate existing findings
+
+Existing findings to verify:
+${finding_summary}
+" --role review --mode analysis',
+  run_in_background: true
+})
+```
+
+**On callback:**
+```
+cli_result = maestro delegate output <id>
+Parse JSON from cli_result
+
+For each verified finding:
+  If adjusted_severity differs: update finding.severity, add finding.cli_note = "severity adjusted by CLI review"
+For each missed_issue:
+  Append to all_findings with id: "CLI-{NNN}", source: "cli-supplementary"
+
+Recalculate severity_dist after merge
+```
+
+---
+
 ## Step 7: Deep-Dive (Conditional)
 
 **Skip entirely for quick level.**
