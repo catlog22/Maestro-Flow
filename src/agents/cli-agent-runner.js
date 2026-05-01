@@ -7,7 +7,7 @@ import { resolve, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { readFileSync, appendFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, homedir } from 'node:os';
 import { DashboardBridge } from './dashboard-bridge.js';
 import { CliHistoryStore } from './cli-history-store.js';
 import { loadTemplate, loadProtocol } from '../config/template-discovery.js';
@@ -235,19 +235,9 @@ function summarizeEntry(entry) {
             return `Event: ${entry.type}`;
     }
 }
-function shouldPublishSnapshot(entry) {
-    switch (entry.type) {
-        case 'assistant_message':
-            return entry.partial !== true;
-        case 'tool_use':
-            return entry.status === 'completed' || entry.status === 'failed';
-        case 'file_change':
-        case 'command_exec':
-        case 'error':
-            return true;
-        default:
-            return false;
-    }
+/** Snapshots are disabled during execution — only start and end events are published. */
+function shouldPublishSnapshot(_entry) {
+    return false;
 }
 function createNoopBridge() {
     return {
@@ -312,16 +302,11 @@ export class CliAgentRunner {
             if (!server)
                 return;
             const label = status === 'completed'
-                ? 'DELEGATE COMPLETED'
+                ? 'DONE'
                 : status === 'cancelled'
-                    ? 'DELEGATE CANCELLED'
-                    : 'DELEGATE FAILED';
-            const result = status === 'completed'
-                ? 'done'
-                : status === 'cancelled'
-                    ? 'cancelled'
-                    : `exit:${exitCode}`;
-            const content = `[${label}] ${execId} (${tool}/${mode}) ${result}\nUse \`maestro delegate output ${execId}\` for full result.`;
+                    ? 'CANCELLED'
+                    : 'FAILED';
+            const content = `[DELEGATE ${label}] ${execId} ${tool}/${mode} ${status === 'failed' ? `exit:${exitCode}` : status}`;
             // Fire-and-forget notification via MCP protocol
             server.notification({
                 method: 'notifications/claude/channel',
@@ -339,7 +324,8 @@ export class CliAgentRunner {
      * Run a CLI agent to completion and return its exit code (0 = success).
      */
     async run(options) {
-        const agentType = TOOL_TO_AGENT_TYPE[options.tool];
+        const agentType = TOOL_TO_AGENT_TYPE[options.tool]
+            ?? (options.baseTool ? TOOL_TO_AGENT_TYPE[options.baseTool] : undefined);
         if (!agentType) {
             console.error(`Unknown tool: ${options.tool}`);
             return 1;
@@ -349,9 +335,10 @@ export class CliAgentRunner {
         process.stderr.write(`[MAESTRO_EXEC_ID=${execId}]\n`);
         // History store for persistence and resume
         const store = new CliHistoryStore();
-        const broker = this.dependencies.brokerClient ?? new DelegateBrokerClient();
+        const syncMode = options.sync === true;
+        const broker = syncMode ? undefined : (this.dependencies.brokerClient ?? new DelegateBrokerClient());
         const now = this.dependencies.now ?? (() => new Date().toISOString());
-        const jobMetadata = buildJobMetadata(options);
+        const jobMetadata = syncMode ? {} : buildJobMetadata(options);
         // Handle --resume: prepend previous session context to user prompt
         let userPrompt = options.prompt;
         if (options.resume) {
@@ -389,6 +376,7 @@ export class CliAgentRunner {
             model: options.model,
             approvalMode: options.mode === 'write' ? 'auto' : 'suggest',
             interactive: adapter.supportsInteractive?.() === true,
+            settingsFile: options.settingsFile?.replace(/^~(?=[\\/])/, homedir()),
         };
         const agentProcess = await adapter.spawn(config);
         bridge.forwardSpawn(agentProcess);
@@ -405,7 +393,21 @@ export class CliAgentRunner {
             workDir: options.workDir,
             startedAt: agentProcess.startedAt,
         });
+        /** Write a snapshot-style progress line to stderr (sync mode). */
+        const writeStreamLog = (label, summary) => {
+            process.stderr.write(`[DELEGATE ${label}] ${execId} ${summary}\n`);
+        };
         const publishEvent = (type, status, summary, extraPayload = {}, extraJobMetadata) => {
+            if (syncMode) {
+                // In sync mode, write progress to stderr instead of broker
+                const label = status === 'running' ? 'RUNNING'
+                    : status === 'completed' ? 'DONE'
+                        : status === 'failed' ? 'FAILED'
+                            : status === 'cancelled' ? 'CANCELLED'
+                                : status.toUpperCase();
+                writeStreamLog(label, summary);
+                return;
+            }
             try {
                 const snapshot = store.buildSnapshot(execId);
                 broker.publishEvent({
@@ -425,12 +427,12 @@ export class CliAgentRunner {
                 // Broker publication is best-effort and must not break CLI execution
             }
         };
-        publishEvent('status_update', 'running', `Delegate started for ${options.tool}/${options.mode}`);
+        publishEvent('status_update', 'running', `${options.tool}/${options.mode} started`);
         // Safety net: if the process exits without a stopped event (e.g. Windows
         // shell process tree doesn't fire exit/close reliably), write meta.json
         // from the synchronous process.on('exit') handler as a last resort.
         let metaWritten = false;
-        let cancellationRequested = Boolean(broker.getJob(execId)?.metadata?.cancelRequestedAt);
+        let cancellationRequested = !syncMode && Boolean(broker.getJob(execId)?.metadata?.cancelRequestedAt);
         let cancellationInitiated = false;
         let cancellationPoller = null;
         const clearCancellationPoller = () => {
@@ -456,45 +458,54 @@ export class CliAgentRunner {
                 exitCode,
                 ...(status === 'cancelled' ? { cancelledAt: completedAt } : {}),
             });
-            publishEvent(status, status, status === 'completed'
-                ? `Delegate completed: ${execId}`
-                : status === 'cancelled'
-                    ? `Delegate cancelled: ${execId}`
-                    : `Delegate failed: ${execId}`, {
+            publishEvent(status, status, `${options.tool}/${options.mode} ${status}`, {
                 exitCode,
                 completedAt,
                 status,
             });
-            // Write delegate completion notification (for hook fallback)
-            const sessionId = options.sessionId;
-            if (sessionId) {
-                // JSONL file write (for hook fallback)
-                try {
-                    const notifyPath = join(tmpdir(), `${NOTIFY_PREFIX}${sessionId}.jsonl`);
-                    const entry = JSON.stringify({
-                        execId,
-                        tool: options.tool,
-                        mode: options.mode,
-                        prompt: options.prompt.substring(0, 200),
-                        exitCode,
-                        completedAt,
-                        status,
-                    });
-                    appendFileSync(notifyPath, entry + '\n', 'utf-8');
-                }
-                catch (err) {
-                    console.error(`[${execId}] Failed to write JSONL notification: ${err instanceof Error ? err.message : err}`);
-                }
-                // MCP channel notification (primary path)
-                try {
-                    CliAgentRunner.sendChannelNotification(sessionId, execId, options.tool, options.mode, status, exitCode);
-                }
-                catch (err) {
-                    console.error(`[${execId}] Failed to send channel notification: ${err instanceof Error ? err.message : err}`);
+            // Write delegate completion notification (for hook fallback) — skip in sync mode
+            if (!syncMode) {
+                const sessionId = options.sessionId;
+                if (sessionId) {
+                    // JSONL file write (for hook fallback)
+                    try {
+                        const notifyPath = join(tmpdir(), `${NOTIFY_PREFIX}${sessionId}.jsonl`);
+                        const entry = JSON.stringify({
+                            execId,
+                            tool: options.tool,
+                            mode: options.mode,
+                            prompt: options.prompt.substring(0, 200),
+                            exitCode,
+                            completedAt,
+                            status,
+                        });
+                        appendFileSync(notifyPath, entry + '\n', 'utf-8');
+                    }
+                    catch (err) {
+                        console.error(`[${execId}] Failed to write JSONL notification: ${err instanceof Error ? err.message : err}`);
+                    }
+                    // MCP channel notification (primary path)
+                    try {
+                        CliAgentRunner.sendChannelNotification(sessionId, execId, options.tool, options.mode, status, exitCode);
+                    }
+                    catch (err) {
+                        console.error(`[${execId}] Failed to send channel notification: ${err instanceof Error ? err.message : err}`);
+                    }
                 }
             }
         };
         const processExitHandler = () => {
+            // Also write the stopped JSONL entry so the history is complete
+            // even if the adapter's stopped event was lost (Windows edge case).
+            try {
+                store.appendEntry(execId, {
+                    type: 'status_change',
+                    status: 'stopped',
+                    reason: 'Process exit (safety net)',
+                    timestamp: now(),
+                });
+            }
+            catch { /* best-effort — process is exiting */ }
             saveMeta(cancellationRequested ? 'cancelled' : 'completed', cancellationRequested ? 130 : 0);
         };
         process.on('exit', processExitHandler);
@@ -515,6 +526,8 @@ export class CliAgentRunner {
             }
         };
         const dispatchQueuedFollowup = (finalStatus) => {
+            if (!broker)
+                return;
             let queuedMessage;
             try {
                 queuedMessage = broker.listMessages(execId).find((message) => (message.status === 'queued'
@@ -563,7 +576,7 @@ export class CliAgentRunner {
             });
         };
         const inFlightMessageIds = new Set();
-        if (!isTerminalStatus(broker.getJob(execId)?.status)) {
+        if (!syncMode && !isTerminalStatus(broker.getJob(execId)?.status)) {
             cancellationPoller = setInterval(() => {
                 try {
                     const job = broker.getJob(execId);
@@ -627,7 +640,22 @@ export class CliAgentRunner {
                 store.appendEntry(execId, entry);
                 (this.dependencies.renderEntry ?? renderEntry)(entry);
                 bridge.forwardEntry(entry);
-                if (shouldPublishSnapshot(entry)) {
+                if (syncMode) {
+                    // In sync mode, stream key events to stderr as progress logs
+                    if (entry.type === 'tool_use' && (entry.status === 'completed' || entry.status === 'failed')) {
+                        writeStreamLog('RUNNING', `Tool ${entry.name} ${entry.status}`);
+                    }
+                    else if (entry.type === 'file_change') {
+                        writeStreamLog('RUNNING', `File ${entry.action}: ${entry.path}`);
+                    }
+                    else if (entry.type === 'command_exec') {
+                        writeStreamLog('RUNNING', `Command: ${entry.command}`);
+                    }
+                    else if (entry.type === 'error') {
+                        writeStreamLog('RUNNING', `Error: ${entry.message}`);
+                    }
+                }
+                else if (shouldPublishSnapshot(entry)) {
                     publishEvent('snapshot', 'running', summarizeEntry(entry), {
                         entryType: entry.type,
                     });
@@ -665,7 +693,8 @@ export class CliAgentRunner {
                     clearCancellationPoller();
                     const finalStatus = cancellationRequested ? 'cancelled' : 'completed';
                     saveMeta(finalStatus, cancellationRequested ? 130 : 0);
-                    dispatchQueuedFollowup(finalStatus);
+                    if (!syncMode)
+                        dispatchQueuedFollowup(finalStatus);
                     process.removeListener('exit', processExitHandler);
                     bridge.forwardStopped(agentProcess.id);
                     bridge.close();
@@ -677,7 +706,8 @@ export class CliAgentRunner {
                     clearCancellationPoller();
                     const finalStatus = cancellationRequested ? 'cancelled' : 'failed';
                     saveMeta(finalStatus, cancellationRequested ? 130 : 1);
-                    dispatchQueuedFollowup(finalStatus);
+                    if (!syncMode)
+                        dispatchQueuedFollowup(finalStatus);
                     process.removeListener('exit', processExitHandler);
                     bridge.forwardStopped(agentProcess.id);
                     bridge.close();

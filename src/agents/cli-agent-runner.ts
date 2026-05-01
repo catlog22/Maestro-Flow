@@ -633,6 +633,16 @@ export class CliAgentRunner {
     };
 
     const processExitHandler = () => {
+      // Also write the stopped JSONL entry so the history is complete
+      // even if the adapter's stopped event was lost (Windows edge case).
+      try {
+        store.appendEntry(execId, {
+          type: 'status_change',
+          status: 'stopped',
+          reason: 'Process exit (safety net)',
+          timestamp: now(),
+        });
+      } catch { /* best-effort — process is exiting */ }
       saveMeta(cancellationRequested ? 'cancelled' : 'completed', cancellationRequested ? 130 : 0);
     };
     process.on('exit', processExitHandler);

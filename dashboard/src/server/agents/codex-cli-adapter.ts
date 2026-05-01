@@ -76,6 +76,7 @@ export class CodexCliAdapter extends BaseAgentAdapter {
   private readonly childProcesses = new Map<string, ChildProcess>();
   private readonly readlineInterfaces = new Map<string, ReadlineInterface>();
   private readonly streamMonitors = new Map<string, StreamMonitor>();
+  private readonly stoppedEmitted = new Set<string>();
 
   // --- Lifecycle hooks -----------------------------------------------------
 
@@ -131,6 +132,15 @@ export class CodexCliAdapter extends BaseAgentAdapter {
     rl.on('line', (line: string) => {
       monitor.heartbeat();
       this.parseCodexMessage(line, processId);
+    });
+
+    // Last-resort fallback: if stdout closes but neither 'exit' nor 'close'
+    // fire on the child (Windows shell: true + process tree edge case),
+    // emit stopped after a short delay to let the primary handlers run first.
+    rl.on('close', () => {
+      setTimeout(() => {
+        this.emitStopped(processId, 'stdout closed (readline fallback)');
+      }, 500);
     });
 
     // Stderr handling: Codex sends warnings, reasoning, and progress to stderr.
@@ -357,24 +367,39 @@ export class CodexCliAdapter extends BaseAgentAdapter {
 
   // --- Process lifecycle helpers -------------------------------------------
 
+  private emitStopped(processId: string, reason: string): void {
+    if (this.stoppedEmitted.has(processId)) return;
+    this.stoppedEmitted.add(processId);
+
+    this.emitEntry(
+      processId,
+      EntryNormalizer.statusChange(processId, 'stopped', reason),
+    );
+
+    const proc = this.getProcess(processId);
+    if (proc) {
+      proc.status = 'stopped';
+    }
+
+    this.cleanup(processId);
+    this.removeProcess(processId);
+  }
+
   private setupProcessListeners(child: ChildProcess, processId: string): void {
     child.on('exit', (code: number | null, signal: string | null) => {
       const reason = signal
         ? `Terminated by signal: ${signal}`
         : `Exited with code: ${code ?? 'unknown'}`;
+      this.emitStopped(processId, reason);
+    });
 
-      this.emitEntry(
-        processId,
-        EntryNormalizer.statusChange(processId, 'stopped', reason),
-      );
-
-      const proc = this.getProcess(processId);
-      if (proc) {
-        proc.status = 'stopped';
-      }
-
-      this.cleanup(processId);
-      this.removeProcess(processId);
+    // Fallback: 'close' fires after exit + stdio close — covers edge cases
+    // where 'exit' is missed on Windows process trees (shell: true).
+    child.on('close', (code: number | null, signal: string | null) => {
+      const reason = signal
+        ? `Terminated by signal: ${signal}`
+        : `Exited with code: ${code ?? 'unknown'}`;
+      this.emitStopped(processId, reason);
     });
 
     child.on('error', (err: Error) => {
@@ -402,5 +427,7 @@ export class CodexCliAdapter extends BaseAgentAdapter {
       this.streamMonitors.delete(processId);
     }
     this.childProcesses.delete(processId);
+    // Note: stoppedEmitted is intentionally NOT cleared here — it must persist
+    // to guard against the readline close fallback timer firing after cleanup.
   }
 }
