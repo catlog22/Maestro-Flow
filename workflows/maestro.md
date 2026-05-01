@@ -7,7 +7,7 @@ Default `auto` mode selects engine based on chain complexity.
 **Prerequisites:**
 - None for initial invocation (can bootstrap)
 - `continue`/`next`: `.workflow/state.json` must exist
-- `-c` (resume): `.workflow/.maestro/*/status.json` must exist
+- `-c` (resume): handled by command file before this workflow loads — not applicable here
 
 ## Step 1: Parse & Initialize
 
@@ -15,8 +15,8 @@ Default `auto` mode selects engine based on chain complexity.
 
 ```
 Parse $ARGUMENTS → extract flags, remainder is intent text.
-  Flags: autoYes (-y/--yes), resumeMode (-c/--continue), dryRun (--dry-run)
-  Valued: forcedChain (--chain X), execMode (--exec auto|cli|skill, default 'auto'), cliTool (--tool X, default 'claude')
+  Flags: autoYes (-y/--yes), dryRun (--dry-run)
+  Valued: execMode (--exec auto|cli|internal, default 'auto'), cliTool (--tool X, default 'claude')
   intent = arguments with all flags/valued options stripped, trimmed
 ```
 
@@ -51,9 +51,9 @@ Check `.workflow/state.json` existence.
 ============================================================
   MAESTRO COORDINATOR
 ============================================================
-  Mode:  {intent-based | state-based | resume}
+  Mode:  {intent-based | state-based}
   Auto:  {yes | no}
-  Exec:  {auto | cli | skill}
+  Exec:  {auto | cli | internal}
   Input: {intent or "continue"}
 ```
 
@@ -61,16 +61,13 @@ Check `.workflow/state.json` existence.
 
 ### 2a: Fast path — forced chain or exact match
 
-**Forced chain (`--chain`):**
-- Validate against known chains (see [Chain Reference](#chain-reference))
-- If valid: skip intent analysis, jump to **Step 3**
-- If invalid: display valid chains, ask user to choose
-
 **Exact-match keywords:**
 ```
 Keyword → taskType (skip to Step 3):
   continue/next/go/继续/下一步 → 'state_continue'
-  status/状态/dashboard → 'status'
+
+Short-circuit (execute immediately, no chain):
+  status/状态/dashboard → Skill({ skill: "manage-status" }). **End.**
 ```
 
 ### 2b: Structured intent extraction (LLM-native)
@@ -160,7 +157,7 @@ Route priority:
   test:       feature/code→test; default→test
   debug:      default→debug
   refactor:   default→refactor
-  manage:     issue→issue, milestone→milestone_audit, phase→milestone_close, memory→memory, doc→sync, codebase→codebase_refresh, config→spec_setup, team→team_coordinate; default→status
+  manage:     issue→issue, milestone→milestone_audit, phase→milestone_close, memory→knowhow, doc→sync, codebase→codebase_refresh, config→spec_setup, team→team_coordinate; default→status
   transition: phase→milestone_close, milestone→milestone_complete; default→milestone_close
   continue:   default→state_continue
   sync:       doc→sync, codebase→codebase_refresh; default→sync
@@ -187,10 +184,9 @@ Display intent analysis: action, object, scope, issue_id, phase_ref, task_type, 
 ### 3a: Map task_type → chain
 
 **Resolution order:**
-1. `forcedChain` → `chainMap[forcedChain]`
-2. `state_continue` → `detectNextAction(projectState)` → `{ chain, argsOverride? }`. Apply argsOverride before template substitution.
-3. Task-type aliases → named chain: `spec_generate`→`spec-driven`, `brainstorm`→`brainstorm-driven`, `issue_execute`→`issue-full`
-4. `chainMap[taskType]` → direct lookup
+1. `state_continue` → `detectNextAction(projectState)` → `{ chain, argsOverride? }`. Apply argsOverride before template substitution.
+2. Task-type aliases → named chain: `spec_generate`→`spec-driven`, `brainstorm`→`brainstorm-driven`, `issue_execute`→`issue-full`
+3. `chainMap[taskType]` → direct lookup
 
 Full `chainMap` and `detectNextAction` are in the [Reference Data](#reference-data) section.
 
@@ -228,21 +224,31 @@ When executing issue chains, replace `{issue_id}` in step args with resolved ID.
 
 **If `dryRun`:** Display chain visualization and exit.
 **If not `autoYes`:** Confirm with user — show numbered steps, offer: Execute / Execute from step N / Cancel.
+If user chooses "Execute from step N": set `$START_STEP = N` (used in 3f to set `current_step`).
 
 ### 3e: Step-level engine selection
 
-Engine is selected **per step**, not per chain.
+Engine is selected **per step**, not per chain. Pre-compute and write to each step's `engine` field in status.json (execution workflow reads this, does not re-compute).
 
 ```
-If execMode is 'cli' or 'skill' → force that engine for all steps.
+If execMode is 'cli' or 'internal' → force that engine for all steps.
 In 'auto' mode, select per step:
   CLI steps (heavy, context-isolated): maestro-plan, maestro-execute, maestro-analyze, maestro-brainstorm, maestro-roadmap, maestro-ui-design, quality-refactor
-  Skill steps (everything else): observable, interactive, lightweight (verify, review, test, debug, milestone-*, manage-*, spec-*, quick, etc.)
+  Internal steps (everything else): current-session Skill() call — verify, review, test, debug, milestone-*, manage-*, spec-*, quick, etc.
 ```
 
-**Trade-off:** CLI = context isolation + template prompts + gemini analysis. Skill = direct visibility + synchronous + user can intervene.
+**Trade-off:** CLI = context isolation + template prompts + gemini analysis. Internal = current-session Skill() call, direct visibility + synchronous + user can intervene.
 
-### 3f: Setup session
+### 3f: Low-complexity fast path (before session creation)
+
+If ALL conditions met:
+- clarity >= 2
+- task_type == `'quick'` or (action == `'create'` && object == `'feature'`)
+- NOT `state_continue`
+
+Then: `Skill({ skill: "maestro-quick", args: '"{description}"' })`. **End.** (no session created, no status.json)
+
+### 3g: Setup session
 
 Create session directory `.workflow/.maestro/maestro-{YYYYMMDD-HHMMSS}/` and write `status.json`:
 ```json
@@ -262,32 +268,22 @@ Create session directory `.workflow/.maestro/maestro-{YYYYMMDD-HHMMSS}/` and wri
     "current_phase": "{resolved_phase}",
     "user_intent": "{original_intent}",
     "issue_id": "{resolved_issue_id or null}",
+    "milestone_num": "{current_milestone_num or null}",
     "spec_session_id": null,
     "scratch_dir": null
   },
-  "steps": [{ "index": 0, "skill": "{cmd}", "args": "{args}", "engine": null, "status": "pending", "started_at": null, "completed_at": null }],
-  "current_step": 0,
+  "steps": [{ "index": 0, "skill": "{skill_name}", "args": "{args}", "engine": "{cli|internal from 3e}", "status": "pending", "started_at": null, "completed_at": null }],
+  "current_step": "{$START_STEP or 0}",
   "status": "running"
 }
 ```
 
-## Step 4: Dispatch
+## Step 4: Dispatch to execution workflow
 
-### 4a: Low-complexity fast path
+status.json already created in Step 3g with `steps[]` and `context`.
 
-If ALL conditions met:
-- clarity >= 2
-- task_type == `'quick'` or (action == `'create'` && object == `'feature'`)
-- NOT `forcedChain`, NOT `state_continue`
-
-Then: `Skill({ skill: "maestro-quick", args: '"{description}"' })`. **End.**
-
-### 4b: Standard execution — read and follow execution workflow
-
-For ALL chains (regardless of step count):
-1. status.json already created in Step 3f with `steps[]` and `context`
-2. Read `~/.maestro/workflows/maestro-chain-execute.md`
-3. Follow it with `$SESSION_PATH` = session directory from Step 3f
+1. Read `~/.maestro/workflows/maestro-chain-execute.md`
+2. Follow it with `$SESSION_PATH` = session directory from Step 3g
 
 ---
 
@@ -476,8 +472,8 @@ detectNextAction(state):
 1. **Semantic Routing** — LLM-native `action × object` extraction; disambiguates "问题" by context
 2. **State-Aware** — Reads `.workflow/state.json` before routing
 3. **Quality Gates** — Issue chains auto-include review; `issue-full` is default for issue execution
-4. **Per-Step Engine** — Each step independently selects Skill or CLI. Heavy steps (plan, execute, analyze, brainstorm) → CLI for context isolation. Observable steps (verify, review, test, debug, manage-*) → Skill for direct visibility. `--exec cli|skill` forces all steps.
-5. **CLI Analysis Chain** — Gemini evaluates each CLI step's output, generates `next_step_hints` via `{{ANALYSIS_HINTS}}`. Skill steps skip analysis (output already visible). Sessions chained via `--resume`
+4. **Per-Step Engine** — Each step independently selects internal or CLI. Heavy steps (plan, execute, analyze, brainstorm) → CLI for context isolation. Observable steps (verify, review, test, debug, manage-*) → internal (current-session Skill()) for direct visibility. `--exec cli|internal` forces all steps.
+5. **CLI Analysis Chain** — Gemini evaluates each CLI step's output, generates `next_step_hints` via `{{ANALYSIS_HINTS}}`. Internal steps skip analysis (output already visible). Sessions chained via `--resume`
 6. **Phase Propagation** — Auto-detects and passes phase numbers to downstream commands
 7. **Auto Mode** — `-y` propagates through chain, skipping all confirmations
 8. **Resumable** — Session state in `.workflow/.maestro/` enables `-c` resume

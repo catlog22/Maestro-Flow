@@ -41,9 +41,9 @@ context = {
   current_phase,    // from status.json.context or top-level phase
   user_intent,      // from status.json.context or top-level intent
   issue_id,
+  milestone_num,
   spec_session_id,
-  scratch_dir,
-  auto_mode         // from status.json.auto_mode
+  scratch_dir
 }
 ```
 
@@ -52,10 +52,11 @@ context = {
 ```
 1. Substitute placeholders in step.args:
    {phase} → context.current_phase
-   {description} → context.user_intent
+   {description} → context.user_intent (chainMap uses {description} as alias for user intent)
    {issue_id} → context.issue_id
    {spec_session_id} → context.spec_session_id
    {scratch_dir} → context.scratch_dir
+   {milestone_num} → context.milestone_num
 
 2. In auto_mode, append per-command flag if not already present:
    maestro-analyze / maestro-brainstorm / maestro-roadmap / maestro-ui-design → -y
@@ -72,22 +73,16 @@ For each step starting at `$STEP_INDEX`:
 
 ### 3a. Select engine & display banner
 
-Per-step engine selection:
+Read `step.engine` from status.json (pre-computed by selection workflow Step 3e).
 
+If `step.engine` is missing or null, fallback to auto selection:
 ```
-If exec_mode is 'cli' or 'skill' → force that engine for all steps.
-
-In 'auto' mode, select per step:
-  CLI steps (heavy, context-isolated):
-    maestro-plan, maestro-execute, maestro-analyze, maestro-brainstorm,
-    maestro-roadmap, maestro-ui-design, quality-refactor
-
-  Skill steps (observable, interactive, lightweight):
-    everything else — verify, review, test, debug, milestone-*,
-    manage-*, spec-*, quick, etc.
+  CLI: maestro-plan, maestro-execute, maestro-analyze, maestro-brainstorm,
+       maestro-roadmap, maestro-ui-design, quality-refactor
+  Internal: everything else (current-session Skill() call)
 ```
 
-Display: `[Step {N}/{total}] /{cmd} [{engine}] — {args}`
+Display: `[Step {N}/{total}] /{step.skill} [{engine}] — {args}`
 
 Update status.json: step `status = "running"`, `engine`, `started_at`.
 
@@ -97,10 +92,10 @@ Context window hint:
 
 ### 3b. Execute (engine-dependent)
 
-**Skill engine** — invoke directly (synchronous, visible):
+**Internal engine** — current-session Skill() call (synchronous, visible):
 
 ```
-Skill({ skill: step.cmd, args: assembledArgs })
+Skill({ skill: step.skill, args: assembledArgs })
 ```
 
 **CLI engine** — template-driven, async, context-isolated:
@@ -144,7 +139,7 @@ CLI: save output to `step-{N}-output.txt` in session directory.
 
 ### 3e. Post-step analysis (CLI steps only)
 
-Skip if: step failed/skipped, or `engine == 'skill'`.
+Skip if: step failed/skipped, or `engine == 'internal'`.
 
 Delegate to gemini (analysis mode, `--resume` if `gemini_session_id` exists) with prompt containing:
 - Step command, args, chain name, intent
@@ -194,8 +189,8 @@ Update status.json: `status = "completed"`.
 
   Results:
     [✓] 1. maestro-plan — completed [cli] (quality: 85/100)
-    [✓] 2. maestro-verify — completed [skill]
-    [—] 3. quality-review — skipped [skill]
+    [✓] 2. maestro-verify — completed [internal]
+    [—] 3. quality-review — skipped [internal]
 
   CLI Avg Quality: {avgScore}/100 (based on {cliStepCount} cli steps)
 

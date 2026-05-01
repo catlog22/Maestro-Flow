@@ -11,6 +11,7 @@ allowed-tools:
   - Grep
   - Agent
   - AskUserQuestion
+  - TodoWrite
 ---
 <purpose>
 Orchestrate all maestro commands automatically based on user intent and current project state.
@@ -28,7 +29,7 @@ Executes commands sequentially with artifact propagation between steps.
 
 <deferred_reading>
 - [maestro.md](~/.maestro/workflows/maestro.md) — read at execution start (Steps 1-3: intent analysis, chain selection, session setup)
-- [maestro-chain-execute.md](~/.maestro/workflows/maestro-chain-execute.md) — read when dispatching chain execution (Step 4b) or resume mode (Step 1b)
+- [maestro-chain-execute.md](~/.maestro/workflows/maestro-chain-execute.md) — read when dispatching chain execution (Step 4) or resume mode
 - [maestro-super.md](~/.maestro/workflows/maestro-super.md) — read when `--super` flag is active
 </deferred_reading>
 
@@ -83,11 +84,9 @@ When `-y` is active, maestro propagates auto flags to downstream commands. Only 
 Commands not listed (manage-*, spec-*, milestone-*) have no auto flags and execute as-is.
 
 In auto mode, maestro also:
-- Skips its own clarification (Step 4)
-- Skips chain confirmation (Step 5d)
+- Skips intent clarification (workflow Step 2d)
+- Skips chain confirmation (workflow Step 3d)
 - Auto-skips on step errors (retry once, then skip and continue)
-
-Context cleanup hints, context window reminders, and completion report format are defined in workflow maestro.md (Steps 7a-1, 7f).
 
 **Super mode (`--super`):** Read `maestro-super.md` from deferred_reading, then follow it completely.
 </execution>
