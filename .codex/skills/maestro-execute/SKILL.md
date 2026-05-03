@@ -249,7 +249,11 @@ Blocked/failed tasks cascade: mark all downstream dependents as `skipped` with e
 
 4. **Register EXC artifact in state.json**: Find matching plan artifact, create `{ id: "EXC-{next_id}", type: "execute", milestone, phase, scope, path, status: "completed", depends_on: plan_artifact.id, harvested: false, created_at, completed_at }`
 
-5. **Extract incremental learnings**: Read `.summaries/`, dedup against existing specs, append to `.workflow/specs/learnings.md` as `<spec-entry>` (category=learning), mark artifact `harvested: true`
+5. **Extract incremental specs**: Read `.summaries/`, use `maestro spec add` CLI:
+   - Learnings/pitfalls → `maestro spec add learning "<title>" "<content>" --keywords ... --source execute:{PLAN_DIR}`
+   - Design rationale → `maestro spec add coding "<title>" "<content>" --keywords ...`
+   - Root cause/workaround → `maestro spec add debug "<title>" "<content>" --keywords ...`
+   Mark artifact `harvested: true`
 
 6. **Post-task Knowledge Inquiry**: Prompt user to capture knowledge when:
    - Execution deviation detected (plan change) -> `/spec-add arch`

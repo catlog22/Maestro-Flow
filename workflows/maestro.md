@@ -1,8 +1,8 @@
 # Workflow: maestro
 
 Intelligent coordinator that routes user intent to optimal command chain based on project state.
-Dual execution engines: **Skill()** (in-process, synchronous) and **CLI delegate** (via `maestro delegate`, async with role-based tool selection).
-Default `auto` mode selects engine based on chain complexity.
+Two step types: **Skill** (in-process, synchronous) and **CLI** (via `maestro delegate`, async with role-based tool selection).
+Default `auto` mode selects type based on step complexity. All execution dispatched to unified executor (`maestro-ralph-execute`).
 
 **Prerequisites:**
 - None for initial invocation (can bootstrap)
@@ -226,18 +226,18 @@ When executing issue chains, replace `{issue_id}` in step args with resolved ID.
 **If not `autoYes`:** Confirm with user — show numbered steps, offer: Execute / Execute from step N / Cancel.
 If user chooses "Execute from step N": set `$START_STEP = N` (used in 3f to set `current_step`).
 
-### 3e: Step-level engine selection
+### 3e: Step-level type selection
 
-Engine is selected **per step**, not per chain. Pre-compute and write to each step's `engine` field in status.json (execution workflow reads this, does not re-compute).
+Step type is selected **per step**, not per chain. Pre-compute and write to each step's `type` field in status.json (executor reads this, does not re-compute).
 
 ```
-If execMode is 'cli' or 'internal' → force that engine for all steps.
+If execMode is 'cli' or 'internal' → force that type for all steps ("cli" or "skill").
 In 'auto' mode, select per step:
-  CLI steps (heavy, context-isolated): maestro-plan, maestro-execute, maestro-analyze, maestro-brainstorm, maestro-roadmap, maestro-ui-design, quality-refactor
-  Internal steps (everything else): current-session Skill() call — verify, review, test, debug, milestone-*, manage-*, spec-*, quick, etc.
+  CLI steps (heavy, context-isolated): maestro-plan, maestro-execute, maestro-analyze, maestro-brainstorm, maestro-roadmap, maestro-ui-design, quality-refactor → type: "cli"
+  Skill steps (everything else): current-session Skill() call — verify, review, test, debug, milestone-*, manage-*, spec-*, quick, etc. → type: "skill"
 ```
 
-**Trade-off:** CLI = context isolation + template prompts + gemini analysis. Internal = current-session Skill() call, direct visibility + synchronous + user can intervene.
+**Trade-off:** CLI = context isolation + template prompts. Skill = current-session Skill() call, direct visibility + synchronous + user can intervene.
 
 ### 3f: Low-complexity fast path (before session creation)
 
@@ -262,17 +262,22 @@ Create session directory `.workflow/.maestro/maestro-{YYYYMMDD-HHMMSS}/` and wri
   "auto_mode": "{autoYes}",
   "exec_mode": "{execMode}",
   "cli_tool": "{cliTool}",
-  "gemini_session_id": null,
-  "step_analyses": [],
   "context": {
-    "current_phase": "{resolved_phase}",
-    "user_intent": "{original_intent}",
     "issue_id": "{resolved_issue_id or null}",
     "milestone_num": "{current_milestone_num or null}",
     "spec_session_id": null,
-    "scratch_dir": null
+    "scratch_dir": null,
+    "plan_dir": null,
+    "analysis_dir": null,
+    "brainstorm_dir": null
   },
-  "steps": [{ "index": 0, "skill": "{chainMap[].cmd}", "args": "{chainMap[].args}", "engine": "{cli|internal from 3e}", "status": "pending", "started_at": null, "completed_at": null }],
+  "source": "maestro",
+  "updated_at": "{ISO timestamp}",
+  "milestone": null,
+  "lifecycle_position": null,
+  "target": null,
+  "waves": [],
+  "steps": [{ "index": 0, "skill": "{chainMap[].cmd}", "args": "{chainMap[].args}", "type": "{cli|skill from 3e}", "status": "pending", "started_at": null, "completed_at": null, "error": null }],
   "current_step": "{$START_STEP or 0}",
   "status": "running"
 }
@@ -290,12 +295,15 @@ const todos = steps.map((step, i) => ({
 TodoWrite({ todos });
 ```
 
-## Step 4: Dispatch to execution workflow
+## Step 4: Dispatch to unified executor
 
 status.json already created in Step 3g, TodoWrite initialized in Step 3h.
 
-1. Read `~/.maestro/workflows/maestro-chain-execute.md`
-2. Follow it with `$SESSION_PATH` = session directory from Step 3g
+```
+Skill({ skill: "maestro-ralph-execute" })
+```
+
+The unified executor discovers the latest running session from `.workflow/.maestro/*/status.json` and executes steps sequentially. For maestro sessions (source: "maestro"), there are no decision nodes — execution is purely sequential.
 
 ---
 
@@ -484,8 +492,8 @@ detectNextAction(state):
 1. **Semantic Routing** — LLM-native `action × object` extraction; disambiguates "问题" by context
 2. **State-Aware** — Reads `.workflow/state.json` before routing
 3. **Quality Gates** — Issue chains auto-include review; `issue-full` is default for issue execution
-4. **Per-Step Engine** — Each step independently selects internal or CLI. Heavy steps (plan, execute, analyze, brainstorm) → CLI for context isolation. Observable steps (verify, review, test, debug, manage-*) → internal (current-session Skill()) for direct visibility. `--exec cli|internal` forces all steps.
-5. **CLI Analysis Chain** — Gemini evaluates each CLI step's output, generates `next_step_hints` via `{{ANALYSIS_HINTS}}`. Internal steps skip analysis (output already visible). Sessions chained via `--resume`
+4. **Per-Step Type** — Each step independently typed as `"skill"` or `"cli"`. Heavy steps (plan, execute, analyze, brainstorm) → CLI for context isolation. Observable steps (verify, review, test, debug, manage-*) → Skill (current-session) for direct visibility. `--exec cli|internal` forces all steps.
+5. **Unified Executor** — All execution dispatched to `maestro-ralph-execute`, which handles both maestro (static chain) and ralph (adaptive chain with decision nodes) sessions.
 6. **Phase Propagation** — Auto-detects and passes phase numbers to downstream commands
 7. **Auto Mode** — `-y` propagates through chain, skipping all confirmations
 8. **Resumable** — Session state in `.workflow/.maestro/` enables `-c` resume

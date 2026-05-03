@@ -409,6 +409,10 @@ Write wave CSV with `prev_context`, execute `spawn_agents_on_csv` for synthesis 
 
 6. **Auto-create issues from Deferred items**: Filter decisions with `classification == "Deferred"`, append each as issue to `.workflow/issues/issues.jsonl`.
 
+7b. **Spec Enrichment**: For each Locked decision in context.md, persist via CLI:
+   - `maestro spec add arch "<decision.title>" "<decision.rationale>" --keywords ... --source analyze:{sessionId}`
+   - For non-trivial code patterns discovered during exploration → `maestro spec add coding ...`
+
 7. **Register artifact in state.json**: Append `{ id: "ANL-{next_id}", type: "analyze", milestone, phase, scope, path: scratchDir, status: "completed", depends_on: null, harvested: false, created_at, completed_at }`.
 8. Copy final outputs (context.md, analysis.md, conclusions.json) from CSV session folder to `scratchDir`
 9. Display summary

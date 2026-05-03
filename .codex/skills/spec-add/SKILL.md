@@ -16,6 +16,8 @@ $spec-add "quality All API endpoints must return structured error objects"
 ```
 
 **Valid categories**: coding, arch, quality, debug, test, review, learning, bug, pattern, decision, rule, validation.
+
+**CLI alternative**: `maestro spec add <category> "<title>" "<content>" --keywords kw1,kw2 --source <src>`. Used by workflow agents (analyze, plan, execute) for programmatic spec enrichment.
 </purpose>
 
 <context>

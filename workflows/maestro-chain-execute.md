@@ -1,6 +1,10 @@
-# Workflow: maestro-chain-execute
+# Workflow: maestro-chain-execute [DEPRECATED]
 
-Upgraded version of maestro's original direct execution strategy.
+> **DEPRECATED**: This workflow has been replaced by the unified executor `maestro-ralph-execute`.
+> Both maestro and ralph sessions now use `maestro-ralph-execute` for step execution.
+> This file is kept for reference only and will be removed in a future version.
+
+Original description: Upgraded version of maestro's original direct execution strategy.
 Reads session status.json, loops through steps with per-step engine selection,
 context propagation, post-step Gemini analysis, and error handling.
 Dual-track progress: status.json (persistence + resume) and TodoWrite (UI visibility).

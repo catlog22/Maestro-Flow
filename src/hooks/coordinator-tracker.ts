@@ -66,10 +66,13 @@ interface MaestroStatusJson {
   chain_name?: string;
   phase?: number;
   auto_mode?: boolean;
+  source?: 'maestro' | 'ralph';
+  lifecycle_position?: string;
   steps?: Array<{
     index?: number;
     skill?: string;
     args?: string;
+    type?: 'skill' | 'cli' | 'decision';
     status?: string;
   }>;
   current_step?: number;

@@ -20,6 +20,7 @@ export default defineConfig({
       'src/tools/__tests__/team-agents.test.ts',
       'src/tools/__tests__/team-e2e.test.ts',
       'src/tools/__tests__/team-integration.test.ts',
+      'src/tools/__tests__/spec-writer.test.ts',
       'src/team/__tests__/team-phase-integration.test.ts',
     ],
     environment: 'node',

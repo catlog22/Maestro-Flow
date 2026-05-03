@@ -224,6 +224,118 @@ export function registerSpecCommand(program: Command): void {
         console.log(`    ${file}  (${size} chars)`);
       }
     });
+
+  // ── add ──────────────────────────────────────────────────────────────
+  spec
+    .command('add')
+    .description('Add a spec entry to the appropriate file')
+    .argument('<category>', 'Entry category: coding|arch|quality|debug|test|review|learning')
+    .argument('<title>', 'Entry title')
+    .argument('[content]', 'Entry content (if omitted, reads from remaining args)')
+    .option('--keywords <words>', 'Comma-separated keywords')
+    .option('--source <source>', 'Source reference (e.g., analyze:ANL-xxx)')
+    .option('--scope <scope>', 'Spec scope: project|global|team|personal (default: project)')
+    .option('--uid <uid>', 'User id for personal scope')
+    .option('--stdin', 'Read JSON array from stdin: [{category,title,content,keywords}]')
+    .option('--json', 'Output result as JSON')
+    .action(async (category: string, title: string, content: string | undefined, opts: Record<string, unknown>) => {
+      const { appendSpecEntry } = await import('../tools/spec-writer.js');
+      const { VALID_CATEGORIES } = await import('../tools/spec-entry-parser.js');
+
+      // ── stdin batch mode ───────────────────────────────────────────
+      if (opts.stdin) {
+        const raw = await readStdin();
+        if (!raw) {
+          console.error('Error: --stdin specified but no input received.');
+          process.exit(1);
+        }
+
+        let items: Array<{ category: string; title: string; content: string; keywords?: string[] | string; source?: string }>;
+        try {
+          items = JSON.parse(raw);
+        } catch {
+          console.error('Error: invalid JSON on stdin.');
+          process.exit(1);
+        }
+
+        if (!Array.isArray(items)) {
+          console.error('Error: stdin must be a JSON array.');
+          process.exit(1);
+        }
+
+        const scope = validateScope(opts.scope as string | undefined);
+        const uid = await resolveUid(opts as { uid?: string });
+
+        if (scope === 'personal' && !uid) {
+          console.error('Error: personal scope requires --uid or team membership.');
+          process.exit(1);
+        }
+
+        const results = items.map(item => {
+          const kw = Array.isArray(item.keywords)
+            ? item.keywords
+            : typeof item.keywords === 'string'
+              ? item.keywords.split(',').map((k: string) => k.trim()).filter(Boolean)
+              : [];
+          return appendSpecEntry(process.cwd(), item.category as import('../tools/spec-loader.js').SpecCategory, item.title, item.content || '', kw, item.source, scope, uid);
+        });
+
+        if (opts.json) {
+          console.log(JSON.stringify(results, null, 2));
+        } else {
+          for (const r of results) {
+            if (r.duplicate) {
+              console.log(`\u26A0 Skipped duplicate: "${r.title}" already exists in ${r.file}`);
+            } else if (r.ok) {
+              console.log(`\u2713 Added to ${r.file} [${r.category}] "${r.title}"`);
+            } else {
+              console.error(`Error: failed to add "${r.title}"`);
+            }
+          }
+        }
+        return;
+      }
+
+      // ── single entry mode ─────────────────────────────────────────
+      if (!VALID_CATEGORIES.includes(category as typeof VALID_CATEGORIES[number])) {
+        console.error(`Error: category must be one of ${VALID_CATEGORIES.join(', ')} (got "${category}")`);
+        process.exit(1);
+      }
+
+      const scope = validateScope(opts.scope as string | undefined);
+      const uid = await resolveUid(opts as { uid?: string });
+
+      if (scope === 'personal' && !uid) {
+        console.error('Error: personal scope requires --uid or team membership.');
+        process.exit(1);
+      }
+
+      const keywords = typeof opts.keywords === 'string'
+        ? opts.keywords.split(',').map((k: string) => k.trim()).filter(Boolean)
+        : [];
+
+      const result = appendSpecEntry(
+        process.cwd(),
+        category as import('../tools/spec-loader.js').SpecCategory,
+        title,
+        content || '',
+        keywords,
+        opts.source as string | undefined,
+        scope,
+        uid,
+      );
+
+      if (opts.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else if (result.duplicate) {
+        console.log(`\u26A0 Skipped duplicate: "${result.title}" already exists in ${result.file}`);
+      } else if (result.ok) {
+        console.log(`\u2713 Added to ${result.file} [${result.category}] "${result.title}"`);
+      } else {
+        console.error(`Error: failed to add "${result.title}"`);
+        process.exit(1);
+      }
+    });
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────

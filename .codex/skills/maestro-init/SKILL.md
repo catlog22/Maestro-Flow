@@ -98,7 +98,13 @@ Configuration questions (or defaults for -y): granularity (fine/medium/coarse), 
 
 ### Step 9: Initialize specs/
 
-Create in `.workflow/specs/`: `conventions.md` (detected coding conventions), `learnings.md` (empty placeholder).
+Run `Bash("maestro spec init")` to create empty seed files in `.workflow/specs/`.
+
+If project state is **code** (existing source files detected):
+- Auto-trigger `Skill({ skill: "spec-setup" })` to scan codebase and populate specs with detected conventions.
+
+If project state is **empty** (greenfield):
+- Skip spec-setup. Specs are populated progressively by analyze, plan, and execute stages via `maestro spec add`.
 
 ### Step 10: Completion Report
 

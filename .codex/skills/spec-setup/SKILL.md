@@ -9,6 +9,8 @@ allowed-tools: Read, Write, Bash, Glob, Grep
 Initialize project specs by scanning the codebase and generating spec files in `.workflow/specs/`.
 Core files (coding, arch, learning) always created. Optional files created only when relevant signals detected.
 
+Triggered automatically by `maestro-init` for **existing projects** (source files detected). Greenfield projects skip this — specs are populated progressively by analyze, plan, and execute stages.
+
 ```bash
 $spec-setup
 ```

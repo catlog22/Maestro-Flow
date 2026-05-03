@@ -1,6 +1,6 @@
 ---
 name: maestro
-description: Intelligent coordinator - analyze intent + read project state → select optimal command chain → execute via internal or CLI delegate
+description: Intelligent coordinator - analyze intent + read project state → select optimal command chain → dispatch to unified executor
 argument-hint: "\"intent text\" [-y] [-c] [--dry-run] [--exec auto|cli|internal] [--tool <name>] [--super]"
 allowed-tools:
   - Read
@@ -19,17 +19,16 @@ Two routing modes:
 1. **Intent-based**: User describes a goal → classify task type → select/compose command chain → confirm → execute
 2. **State-based**: Read .workflow/state.json → determine next logical step → suggest/execute (triggered by `continue`/`next`)
 
-Per-step execution engine (default: auto):
-- **internal**: Execute via Skill() in current session — output visible in conversation, synchronous, user can intervene
-- **CLI delegate**: Heavy execution steps — context isolation, template-driven prompts, gemini quality analysis
+Per-step type selection (default: auto):
+- **skill**: Execute via Skill() in current session — output visible in conversation, synchronous, user can intervene
+- **cli**: Heavy execution steps via CLI delegate — context isolation, template-driven prompts
 
 Produces session directory at `.workflow/.maestro/{session_id}/` with status.json tracking chain progress.
-Executes commands sequentially with artifact propagation between steps.
+Dispatches to unified executor (`maestro-ralph-execute`) for sequential step execution with artifact propagation.
 </purpose>
 
 <deferred_reading>
-- [maestro.md](~/.maestro/workflows/maestro.md) — read at execution start (Steps 1-3: intent analysis, chain selection, session setup)
-- [maestro-chain-execute.md](~/.maestro/workflows/maestro-chain-execute.md) — read when dispatching chain execution (Step 4) or resume mode
+- [maestro.md](~/.maestro/workflows/maestro.md) — read at execution start (Steps 1-3: intent analysis, chain selection, session setup; Step 4 dispatches to unified executor)
 - [maestro-super.md](~/.maestro/workflows/maestro-super.md) — read when `--super` flag is active
 </deferred_reading>
 
@@ -55,7 +54,7 @@ $ARGUMENTS — user intent text, or special keywords.
 </context>
 
 <execution>
-**Resume mode (`-c`):** Skip selection workflow entirely — scan `.workflow/.maestro/` for latest session, then read `~/.maestro/workflows/maestro-chain-execute.md` and follow it with `$SESSION_PATH` = discovered session path. **End.**
+**Resume mode (`-c`):** Skip selection workflow entirely — scan `.workflow/.maestro/` for latest session, then `Skill({ skill: "maestro-ralph-execute" })`. The unified executor discovers the running session and resumes from the next pending step. **End.**
 
 **Normal mode:** Read `~/.maestro/workflows/maestro.md` from deferred_reading, then follow it completely.
 
@@ -109,12 +108,12 @@ In auto mode, maestro also:
 - [ ] Intent classified with task_type, complexity, clarity_score
 - [ ] Project state read and incorporated into routing
 - [ ] Command chain selected and confirmed (or auto-confirmed with -y)
-- [ ] Per-step engine selected (auto routes heavy steps to CLI, observable steps to internal)
+- [ ] Per-step type selected (auto routes heavy steps to "cli", observable steps to "skill")
 - [ ] Auto flags correctly propagated to supporting commands only
 - [ ] Session directory created at .workflow/.maestro/{session_id}/
-- [ ] status.json created with steps[], context, and tracking fields
+- [ ] status.json created with unified schema (source: "maestro", steps[] with type field)
 - [ ] Low-complexity intents routed to maestro-quick
-- [ ] All chains dispatched via execution workflow (maestro-chain-execute.md) with status.json tracking
+- [ ] All chains dispatched via unified executor (maestro-ralph-execute) with status.json tracking
 - [ ] Phase numbers auto-detected and passed to downstream commands
 - [ ] (super mode) Requirements expanded and validated via Gemini before roadmap creation
 - [ ] (super mode) Each milestone scored ≥ 80% before advancing

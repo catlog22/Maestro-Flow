@@ -110,20 +110,30 @@ After each barrier skill completes, read its artifacts and update `state.context
 ```json
 {
   "session_id": "maestro-{YYYYMMDD-HHMMSS}",
+  "source": "maestro",
   "created_at": "ISO",
+  "updated_at": "ISO",
   "intent": "...",
   "task_type": "...",
   "chain_name": "...",
   "phase": null,
+  "milestone": null,
   "auto_mode": false,
   "exec_mode": "auto",
   "cli_tool": "codex",
-  "gemini_session_id": null,
-  "step_analyses": [],
-  "context": { "plan_dir": null, "analysis_dir": null,
-               "brainstorm_dir": null, "spec_session_id": null, "gaps": null },
+  "lifecycle_position": null,
+  "target": null,
+  "context": {
+    "issue_id": null,
+    "milestone_num": null,
+    "spec_session_id": null,
+    "scratch_dir": null,
+    "plan_dir": null,
+    "analysis_dir": null,
+    "brainstorm_dir": null
+  },
   "waves": [],
-  "steps": [{ "index": 0, "skill": "...", "args": "", "engine": null, "status": "pending", "started_at": null, "completed_at": null, "wave_n": null }],
+  "steps": [{ "index": 0, "skill": "...", "args": "", "type": "skill", "status": "pending", "started_at": null, "completed_at": null, "error": null, "wave_n": null }],
   "current_step": 0,
   "status": "running"
 }

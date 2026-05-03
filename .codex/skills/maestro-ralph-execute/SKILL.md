@@ -24,16 +24,18 @@ Decision nodes never arrive here — ralph processes them directly.
 
 **The skill_call format:** `$<skill-name> <args>`
 
-**Ralph session status.json** — located at `.workflow/.ralph/ralph-*/status.json` (latest running session).
+**Ralph session status.json** — located at `.workflow/.maestro/ralph-*/status.json` (latest running session).
 Read-only for this agent. Provides:
 
 ```json
 {
-  "id": "ralph-{YYYYMMDD-HHmmss}",
+  "session_id": "ralph-{YYYYMMDD-HHmmss}",
+  "source": "ralph",
   "intent": "用户原始输入",
   "status": "running",
   "phase": 1,
   "milestone": "MVP",
+  "auto_mode": false,
   "lifecycle_position": "plan",
   "context": {
     "plan_dir": ".workflow/scratch/...",
@@ -75,12 +77,12 @@ If skill_call is empty or malformed:
   → End.
 ```
 
-Also read `session.auto` from ralph status.json — if `true`, treat as `-y` even if flag not passed.
+Also read `session.auto_mode` from ralph status.json — if `true`, treat as `-y` even if flag not passed.
 
 ## Step 2: Load ralph session context
 
 ```
-Glob .workflow/.ralph/ralph-*/status.json
+Glob .workflow/.maestro/ralph-*/status.json
   Filter: status == "running"
   Sort by created_at DESC, take first
   → ralph_session

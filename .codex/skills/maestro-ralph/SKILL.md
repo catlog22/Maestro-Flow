@@ -23,7 +23,7 @@ Three node types in the chain:
 - **skill**: Executed via `spawn_agents_on_csv`. Barrier skills (analyze, plan, execute, brainstorm) run solo. Non-barriers can parallel.
 - **cli**: Executed via `maestro delegate` (轻量替代，如 quick 模式的 review)。单步执行，不进 CSV wave。
 
-Session at `.workflow/.ralph/ralph-{YYYYMMDD-HHmmss}/status.json`.
+Session at `.workflow/.maestro/ralph-{YYYYMMDD-HHmmss}/status.json`.
 </purpose>
 
 <context>
@@ -37,11 +37,11 @@ otherwise             → handleNew(). Start from Phase 1.
 ```
 
 **Flags:**
-- `-y` / `--yes` — Auto mode: skip confirmation, decision nodes auto-evaluate并继续（不 STOP），错误自动重试一次后跳过。`-y` 存入 `session.auto`，传播到 ralph-execute 及下游 skill。
+- `-y` / `--yes` — Auto mode: skip confirmation, decision nodes auto-evaluate并继续（不 STOP），错误自动重试一次后跳过。`-y` 存入 `session.auto_mode`，传播到 ralph-execute 及下游 skill。
 
 **`-y` 传播链：**
 ```
-ralph -y → session.auto = true
+ralph -y → session.auto_mode = true
          → wave CSV skill_call 附加 -y: $maestro-ralph-execute -y "$skill_call"
            → ralph-execute 解析 -y，附加到目标 skill: $maestro-plan -y 1
 ```
@@ -248,21 +248,33 @@ Conditional steps use:
 
 ### 1d: Create session
 
-Write `.workflow/.ralph/ralph-{YYYYMMDD-HHmmss}/status.json`:
+Write `.workflow/.maestro/ralph-{YYYYMMDD-HHmmss}/status.json`:
 ```json
 {
-  "id": "ralph-{YYYYMMDD-HHmmss}",
+  "session_id": "ralph-{YYYYMMDD-HHmmss}",
+  "source": "ralph",
   "created_at": "ISO",
   "intent": "{user_intent}",
   "status": "running",
+  "chain_name": "ralph-lifecycle",
+  "task_type": "lifecycle",
   "lifecycle_position": "{position}",
   "target": "milestone-complete",
   "phase": null,
   "milestone": null,
-  "auto": false,
+  "auto_mode": false,
+  "cli_tool": "gemini",
   "quality_mode": "standard",
   "passed_gates": [],
-  "context": { "plan_dir": null, "analysis_dir": null, "brainstorm_dir": null },
+  "context": {
+    "issue_id": null,
+    "milestone_num": null,
+    "spec_session_id": null,
+    "scratch_dir": null,
+    "plan_dir": null,
+    "analysis_dir": null,
+    "brainstorm_dir": null
+  },
   "steps": [...],
   "waves": [],
   "current_step": 0,
@@ -473,8 +485,8 @@ After evaluation:
 4. Display: `◆ Decision: {type} → {outcome}`
 5. **STOP 判定：**
    - `post-debug-escalate` → 始终 STOP（无论 `-y` 与否）
-   - `auto == true` (`-y`) → 不 STOP，直接 fall through to Phase 2c
-   - `auto == false` → STOP。Display: `⏸ 到达决策节点。使用 $maestro-ralph execute 继续。`
+   - `auto_mode == true` (`-y`) → 不 STOP，直接 fall through to Phase 2c
+   - `auto_mode == false` → STOP。Display: `⏸ 到达决策节点。使用 $maestro-ralph execute 继续。`
 
 ### 2c: Build and Execute Next Wave
 
@@ -503,7 +515,7 @@ After evaluation:
    id,skill_call,topic
    "3","$maestro-ralph-execute \"$maestro-verify 1\"","Ralph step 3/14: verify phase 1"
    ```
-   当 `session.auto == true` 时，skill_call 附加 `-y`：
+   当 `session.auto_mode == true` 时，skill_call 附加 `-y`：
    ```csv
    "3","$maestro-ralph-execute -y \"$maestro-verify 1\"","Ralph step 3/14: verify phase 1"
    ```
@@ -549,8 +561,8 @@ After evaluation:
 8. **Failure check**: Any step failed → mark remaining skipped, pause session, STOP
 
 9. **Decision check**: If next pending step is a decision node:
-   - `auto == true` → 不 STOP，直接进入 Phase 2b 评估该决策节点，然后继续循环
-   - `auto == false` → STOP。Display: `⏸ 到达决策节点: {decision_type}。使用 $maestro-ralph execute 继续。`
+   - `auto_mode == true` → 不 STOP，直接进入 Phase 2b 评估该决策节点，然后继续循环
+   - `auto_mode == false` → STOP。Display: `⏸ 到达决策节点: {decision_type}。使用 $maestro-ralph execute 继续。`
 
 10. **Continue**: If next pending is not decision, loop back to step 1
 
@@ -563,7 +575,7 @@ skill_call 列包含 $maestro-ralph-execute 调用，它会解析内部的目标
 直接运行 skill_call 中的命令即可。
 
 限制：
-- 不要修改 .workflow/.ralph/ 下的文件
+- 不要修改 .workflow/.maestro/ 下的文件
 - ralph-execute 内部处理 skill 路由和执行
 
 完成后调用 report_agent_job_result，返回：
@@ -586,7 +598,7 @@ Write status.json
 ============================================================
   RALPH COMPLETE
 ============================================================
-  Session:  {id}
+  Session:  {session_id}
   Quality:  {quality_mode}
   Phase:    {phase} → {milestone}
   Waves:    {wave_count} executed
@@ -617,7 +629,7 @@ id,skill_call,topic
 "4","$maestro-ralph-execute \"$quality-business-test 1\"","Ralph step 4/14: business test phase 1"
 ```
 
-- `skill_call` column: `$maestro-ralph-execute [-y] "<inner_skill_call>"`（`session.auto` 时附加 `-y`）
+- `skill_call` column: `$maestro-ralph-execute [-y] "<inner_skill_call>"`（`session.auto_mode` 时附加 `-y`）
 - `topic` column: human-readable step description
 - Non-barrier + non-decision steps can be grouped in one wave CSV with multiple rows
 - Barrier steps always solo (one row per CSV)

@@ -312,6 +312,11 @@ spawn_agents_on_csv({
 
 2. **Revision loop** (max 3 rounds): If critical issues found, regenerate affected tasks.
 
+2b. **Spec Enrichment**: Persist cross-task reusable design decisions:
+   - `maestro spec add coding|arch "<decision.title>" "<rationale>" --keywords ... --source plan:{sessionId}`
+   - Test strategy decisions → `maestro spec add test ...`
+   - Typical: 0-3 entries per plan session
+
 3. **Export results**:
    - Export `results.csv` from master `tasks.csv`
    - Generate `context.md`: summary (phase, task count, wave count, complexity, exploration count), exploration findings per angle, plan overview (approach, task IDs, waves), next steps

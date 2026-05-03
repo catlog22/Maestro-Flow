@@ -1,6 +1,6 @@
 ---
 name: maestro-ralph-execute
-description: Single-step executor — find next pending command in ralph session, execute by type (decision/skill/cli), hand off to next iteration
+description: Single-step executor — find next pending step in session, execute by type (decision/skill/cli), hand off to next iteration
 argument-hint: "[-y] [session-id]"
 allowed-tools:
   - Read
@@ -12,34 +12,42 @@ allowed-tools:
   - Skill
 ---
 <purpose>
-Single-step executor for ralph command chains. Each invocation:
-1. Finds the next pending command in the ralph session JSON
+Unified single-step executor for both maestro and ralph sessions.
+All sessions stored at `.workflow/.maestro/*/status.json` with unified JSON schema.
+
+Each invocation:
+1. Finds the next pending step in the session
 2. Executes it based on node type (decision → ralph, skill → Skill(), cli → delegate)
 3. Updates status.json
 4. Hands off to next iteration via self-invocation or ralph callback
 
+Two session sources:
+- **source: "maestro"** — Static chain, no decision nodes. Steps are `type: "skill"|"cli"` only.
+- **source: "ralph"** — Adaptive chain with decision nodes. Steps include `type: "decision"`.
+
 Three node types drive different execution + handoff patterns:
-- **decision**: `Skill("maestro-ralph")` — ralph re-evaluates state, may expand chain
+- **decision**: `Skill("maestro-ralph")` — ralph re-evaluates state, may expand chain (ralph-only)
 - **skill**: `Skill({ skill, args })` — synchronous in-session → `Skill("maestro-ralph-execute")`
 - **cli**: `maestro delegate` background → STOP → callback → `Skill("maestro-ralph-execute")`
 
-Mutual invocation with `/maestro-ralph` forms a persistent self-perpetuating work loop.
+Mutual invocation with `/maestro-ralph` forms a persistent self-perpetuating work loop (ralph sessions).
+For maestro sessions, execution is purely sequential with no decision callbacks.
 </purpose>
 
 <context>
-$ARGUMENTS — optional `-y` flag + optional session ID. If session ID omitted, finds latest running ralph session.
+$ARGUMENTS — optional `-y` flag + optional session ID. If session ID omitted, finds latest running session.
 
 **Flag parsing:**
 ```
 Parse $ARGUMENTS:
   Contains "-y" or "--yes" → auto = true, remove flag from remaining args
-  Remaining → session_id (if matches ralph-* pattern)
+  Remaining → session_id (if matches maestro-* or ralph-* pattern)
 ```
 
 **Session discovery:**
-Scan `.workflow/.ralph/ralph-*/status.json` for `status == "running"`, sorted by `created_at` descending.
+Scan `.workflow/.maestro/*/status.json` for `status == "running"`, sorted by `updated_at` or dir mtime descending.
 If remaining args match a session ID pattern, use that specific session.
-Also read `session.auto` from status.json — if `true`, treat as `-y` even if flag not passed（ralph 已写入）。
+Also read `session.auto_mode` from status.json — if `true`, treat as `-y` even if flag not passed.
 </context>
 
 <execution>
@@ -47,27 +55,27 @@ Also read `session.auto` from status.json — if `true`, treat as `-y` even if f
 ## Step 1: Locate Session
 
 ```
-If $ARGUMENTS matches ralph-* pattern:
-  session_path = .workflow/.ralph/{$ARGUMENTS}/status.json
+If $ARGUMENTS matches maestro-* or ralph-* pattern:
+  session_path = .workflow/.maestro/{$ARGUMENTS}/status.json
 Else:
-  Scan .workflow/.ralph/ralph-*/status.json
+  Scan .workflow/.maestro/*/status.json
   Filter: status == "running"
-  Sort: created_at DESC
+  Sort: mtime DESC (or updated_at DESC)
   Take first
 
 If no session found:
-  Output: "无运行中的 ralph 会话。使用 /maestro-ralph 创建新会话。"
+  Output: "无运行中的会话。使用 /maestro 或 /maestro-ralph 创建新会话。"
   End.
 ```
 
-Read status.json → extract: `id`, `steps[]`, `current_step`, `status`, `phase`.
+Read status.json → extract: `session_id`, `source`, `steps[]`, `current_step`, `status`, `phase`, `auto_mode`.
 
-## Step 2: Find Next Pending Command
+## Step 2: Find Next Pending Step
 
 ```
 next = steps.find(step => step.status == "pending")
 
-If no pending command:
+If no pending step:
   → Step 5 (Complete)
 ```
 
@@ -79,21 +87,27 @@ Before execution, enrich `next.args` with context from session and prior outputs
 1. `status.json.intent` — user's original input text
 2. `status.json.phase` — current phase number
 3. `status.json.milestone` — current milestone name
-4. `.workflow/state.json.artifacts[]` — latest artifacts for path resolution
-5. Previous completed command outputs — scratch dirs, session IDs
+4. `status.json.context` — nested context object (plan_dir, analysis_dir, scratch_dir, etc.)
+5. `.workflow/state.json.artifacts[]` — latest artifacts for path resolution
+6. Previous completed step outputs — scratch dirs, session IDs
 
 **Placeholder substitution in args:**
 ```
-{phase}       → status.phase
-{milestone}   → status.milestone
-{intent}      → status.intent
-{scratch_dir} → latest artifact path for current phase from state.json
+{phase}        → status.phase
+{milestone}    → status.milestone
+{intent}       → status.intent
+{description}  → status.intent (alias)
+{scratch_dir}  → status.context.scratch_dir or latest artifact path
+{plan_dir}     → status.context.plan_dir
+{analysis_dir} → status.context.analysis_dir
+{issue_id}     → status.context.issue_id
+{milestone_num}→ status.context.milestone_num
 ```
 
-**Per-command enrichment** (when args is empty or only has phase number):
+**Per-skill enrichment** (when args is empty or only has phase number):
 
-| Command | Required context | Source |
-|---------|-----------------|--------|
+| Skill | Required context | Source |
+|-------|-----------------|--------|
 | maestro-brainstorm | topic description | `status.intent` — pass as `"{intent}"` |
 | maestro-roadmap | description + context | `status.intent` — pass as `"{intent}"` |
 | maestro-analyze | phase or topic | `{phase}` or `"{intent}"` if no phase |
@@ -122,7 +136,7 @@ Write status.json
 ```
 next.status = "running"
 next.started_at = new Date().toISOString()
-status.current = next.index
+status.current_step = next.index
 status.updated_at = new Date().toISOString()
 
 Write status.json
@@ -133,6 +147,7 @@ Display step banner:
 ------------------------------------------------------------
   [{next.index}/{steps.length - 1}] {next.skill} [{next.type}]
 ------------------------------------------------------------
+  Session: {session_id} [{source}]
   Args: {next.args}
   {next.type == "decision" ? "Retry: " + JSON.parse(next.args).retry_count + "/" + JSON.parse(next.args).max_retries : ""}
 ```
@@ -145,7 +160,7 @@ If completed_count >= 4 && !auto:
 
 ## Step 4: Execute by Type
 
-### 4a. decision node
+### 4a. decision node (ralph-only)
 
 Decision nodes hand control back to ralph for re-evaluation.
 
@@ -173,10 +188,12 @@ auto_flag_map = {
   "maestro-analyze": "-y",
   "maestro-brainstorm": "-y",
   "maestro-roadmap": "-y",
+  "maestro-ui-design": "-y",
   "maestro-plan": "-y",
   "maestro-execute": "-y",
   "quality-business-test": "-y",
   "quality-test": "-y --auto-fix",
+  "quality-retrospective": "-y",
   "maestro-milestone-complete": "-y"
 }
 flag = auto_flag_map[next.skill] || ""
@@ -191,6 +208,12 @@ On success:
 ```
 next.status = "completed"
 next.completed_at = new Date().toISOString()
+
+Scan output for context propagation signals:
+  PHASE: N         → status.phase
+  scratch_dir: path → context.scratch_dir
+  SPEC-xxx         → context.spec_session_id
+
 Write status.json
 
 Display: [N/total] ✓ {next.skill} completed
@@ -229,7 +252,7 @@ Background delegate execution with stop-and-wait pattern.
 
 Resolve CLI tool from session or default config:
 ```
-cli_tool = session.cli_tool || "gemini"   // from ralph status.json or fallback
+cli_tool = session.cli_tool || "gemini"
 ```
 
 ```
@@ -254,6 +277,9 @@ Retrieve output: maestro delegate output <exec_id>
 
 next.status = "completed"
 next.completed_at = new Date().toISOString()
+
+Scan output for context propagation (same as 4b).
+
 Write status.json
 
 Display: [N/total] ✓ {next.skill} completed [cli]
@@ -286,19 +312,20 @@ Write status.json
 Display completion report:
 ```
 ============================================================
-  RALPH COMPLETE
+  SESSION COMPLETE
 ============================================================
-  Session:  {id}
+  Session:  {session_id} [{source}]
+  Chain:    {chain_name}
   Phase:    {phase}
   Steps:    {completed}/{total}
 
-  {steps.map(cmd => {
-    icon = cmd.status == "completed" ? "✓" :
-           cmd.status == "skipped"   ? "—" :
-           cmd.status == "failed"    ? "✗" : " "
-    type_badge = cmd.type == "decision" ? "◆" :
-                 cmd.type == "cli"      ? "⚡" : " "
-    return `  [${icon}] ${cmd.index}. ${type_badge} ${cmd.skill} ${cmd.args} [${cmd.type}]`
+  {steps.map(step => {
+    icon = step.status == "completed" ? "✓" :
+           step.status == "skipped"   ? "—" :
+           step.status == "failed"    ? "✗" : " "
+    type_badge = step.type == "decision" ? "◆" :
+                 step.type == "cli"      ? "⚡" : " "
+    return `  [${icon}] ${step.index}. ${type_badge} ${step.skill} ${step.args} [${step.type}]`
   })}
 ============================================================
 ```
@@ -310,23 +337,25 @@ Display completion report:
 <error_codes>
 | Code | Severity | Description | Recovery |
 |------|----------|-------------|----------|
-| E001 | error | No running ralph session found | Suggest /maestro-ralph to create |
+| E001 | error | No running session found | Suggest /maestro or /maestro-ralph to create |
 | E002 | error | Session status.json corrupt or unreadable | Show path, suggest manual check |
-| E003 | error | CLI delegate failed + user chose abort | Mark paused, suggest /maestro-ralph continue |
+| E003 | error | CLI delegate failed + user chose abort | Mark paused, suggest resume |
 | W001 | warning | Step completed with warnings | Log and continue |
-| W002 | warning | Context getting heavy (step >= 4) | Hint: /maestro-ralph continue for fresh context |
+| W002 | warning | Context getting heavy (step >= 4) | Hint: fresh context resume |
 </error_codes>
 
 <success_criteria>
-- [ ] Session discovery finds latest running ralph session
-- [ ] `-y` flag parsed from args OR inherited from session.auto
+- [ ] Session discovery scans .workflow/.maestro/ (covers both maestro-* and ralph-* sessions)
+- [ ] Reads unified JSON: steps[], current_step, session_id, auto_mode, source
+- [ ] `-y` flag parsed from args OR inherited from session.auto_mode
 - [ ] Pending step correctly identified from steps[]
-- [ ] decision nodes hand off to maestro-ralph via Skill()
+- [ ] decision nodes hand off to maestro-ralph via Skill() (ralph sessions only)
 - [ ] skill nodes execute synchronously via Skill() and self-invoke next
-- [ ] `-y` auto flag 按传播表附加到目标 skill args
 - [ ] cli nodes use maestro delegate with run_in_background + stop pattern
+- [ ] `-y` auto flag 按传播表附加到目标 skill args
+- [ ] Context propagation: output signals update status.json.context
 - [ ] status.json updated after every status change (resume-safe)
 - [ ] auto 模式：失败重试一次后 auto-skip；非 auto：AskUserQuestion retry/skip/abort
-- [ ] Completion report shows all steps with status icons
+- [ ] Completion report shows all steps with status icons and type badges
 - [ ] Self-invocation chain continues until all steps complete
 </success_criteria>

@@ -178,7 +178,6 @@ Each wave generates `wave-{N}.csv` with extra `prev_context` column.
 |   +-- EPIC-NNN-{slug}.md
 +-- readiness-report.md
 +-- spec-summary.md
-+-- roadmap.md
 ```
 
 ### Session Initialization

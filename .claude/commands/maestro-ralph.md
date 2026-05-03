@@ -26,7 +26,7 @@ Key difference from maestro coordinator:
 - maestro: static chainMap → one-time selection → chain-execute runs all steps
 - ralph: living chain → decision nodes re-evaluate after each critical step → chain grows/shrinks dynamically
 
-Produces session at `.workflow/.ralph/ralph-{YYYYMMDD-HHmmss}/status.json`.
+Produces session at `.workflow/.maestro/ralph-{YYYYMMDD-HHmmss}/status.json` using unified JSON schema (source: "ralph").
 Mutual invocation with `/maestro-ralph-execute` forms a persistent self-perpetuating work loop.
 </purpose>
 
@@ -38,13 +38,13 @@ $ARGUMENTS — user intent text, or keywords.
 - `continue` — Find latest running session → `Skill({ skill: "maestro-ralph-execute" })`. **End.**
 
 **Decision-node trigger detection:**
-If a running ralph session exists AND `commands[current].type == "decision"` AND `commands[current].status == "running"`:
+If a running ralph session exists AND `steps[current_step].type == "decision"` AND `steps[current_step].status == "running"`:
 → Enter **Decision Evaluation Mode** (Step 2b) instead of New Session Mode.
 
 **State files read:**
 - `.workflow/state.json` — artifact registry, milestone, phase status
 - `.workflow/roadmap.md` — milestone/phase structure
-- `.workflow/.ralph/ralph-*/status.json` — ralph session state
+- `.workflow/.maestro/ralph-*/status.json` — ralph session state
 </context>
 
 <execution>
@@ -57,8 +57,8 @@ Parse $ARGUMENTS:
   "continue" → handleContinue(). End.
   
 Check running ralph session:
-  Scan .workflow/.ralph/ralph-*/status.json for status == "running"
-  If found AND commands[current].type == "decision" AND commands[current].status == "running":
+  Scan .workflow/.maestro/ralph-*/status.json for status == "running"
+  If found AND steps[current_step].type == "decision" AND steps[current_step].status == "running":
     → Step 2b (Decision Evaluation Mode)
   Else if $ARGUMENTS is non-empty:
     → Step 2a (New Session Mode)
@@ -68,13 +68,13 @@ Check running ralph session:
 
 ### handleStatus()
 ```
-Scan .workflow/.ralph/ralph-*/status.json (latest by created_at)
+Scan .workflow/.maestro/ralph-*/status.json (latest by created_at)
 Display:
   Session:  {id}
   Status:   {status}
   Position: {lifecycle_position}
   Progress: {completed}/{total} commands
-  Current:  [{current}] {commands[current].skill} [{commands[current].type}]
+  Current:  [{current}] {steps[current_step].skill} [{steps[current_step].type}]
   
   Commands:
     [✓] 0. maestro-analyze 1         [skill]
@@ -264,21 +264,38 @@ milestone-complete maestro-milestone-complete    skill   decision:post-milestone
 
 ```
 session_id = "ralph-{YYYYMMDD-HHmmss}"
-session_dir = ".workflow/.ralph/{session_id}/"
+session_dir = ".workflow/.maestro/{session_id}/"
 
 Write status.json:
 {
-  "id": "{session_id}",
+  "session_id": "{session_id}",
+  "source": "ralph",
   "created_at": "{ISO}",
+  "updated_at": "{ISO}",
   "intent": "{user_intent}",
   "status": "running",
+  "chain_name": "ralph-lifecycle",
+  "task_type": "lifecycle",
   "lifecycle_position": "{position}",
   "target": "milestone-complete",
   "phase": {N},
   "milestone": "{M}",
-  "commands": [...],
-  "current": 0,
-  "updated_at": "{ISO}"
+  "auto_mode": false,
+  "cli_tool": "gemini",
+  "quality_mode": "standard",
+  "passed_gates": [],
+  "context": {
+    "issue_id": null,
+    "milestone_num": null,
+    "spec_session_id": null,
+    "scratch_dir": null,
+    "plan_dir": null,
+    "analysis_dir": null,
+    "brainstorm_dir": null
+  },
+  "steps": [...],
+  "waves": [],
+  "current_step": 0
 }
 ```
 
@@ -324,7 +341,7 @@ Triggered when ralph-execute encounters a decision node and hands back to ralph.
 
 ### 2b.1: Load session + locate results
 
-Read ralph session status.json. Identify the decision node at `commands[current]`.
+Read ralph session status.json. Identify the decision node at `steps[current_step]`.
 
 **Locate result files** — find the artifact dir for current phase:
 ```
@@ -478,7 +495,7 @@ When inserting new commands after current position:
 
 ```
 new_commands = buildInsertionCommands(...)  // each with appropriate type/skill/args
-splice commands[] at position (current + 1), insert new_commands
+splice steps[] at position (current_step + 1), insert new_commands
 Reindex: commands.forEach((cmd, i) => cmd.index = i)
 ```
 
@@ -486,7 +503,7 @@ Reindex: commands.forEach((cmd, i) => cmd.index = i)
 
 ```
 Mark current decision node status = "completed", completed_at = now
-Update status.json: commands[], current, updated_at
+Update status.json: steps[], current_step, updated_at
 
 If commands were inserted:
   Display: ◆ Decision: {type} → {outcome}, +{N} commands inserted
