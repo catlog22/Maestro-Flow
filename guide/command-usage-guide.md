@@ -40,11 +40,9 @@ graph TB
 
     subgraph quality["质量管线"]
         QR["/quality-review"]
-        QBT["/quality-business-test"]
-        QTG["/quality-test-gen"]
+        QAT["/quality-auto-test"]
         QT["/quality-test"]
         QD["/quality-debug"]
-        QIT["/quality-integration-test"]
         QRF["/quality-refactor"]
         QS["/quality-sync"]
     end
@@ -163,7 +161,7 @@ graph TB
 
 > **核心关系说明**：Phase 管线和 Issue 闭环是两条并行的工作流，通过以下机制互联：
 >
-> 1. **Phase → Issue（问题产出）**：`quality-review` 审查代码时自动为 critical/high 级别发现创建 Issue；`quality-business-test` 业务测试失败时产生 Issue（带 REQ 追溯）；`quality-test` 失败时产生 Issue；`maestro-verify` 发现 gap 时可关联 Issue
+> 1. **Phase → Issue（问题产出）**：`quality-review` 审查代码时自动为 critical/high 级别发现创建 Issue；`quality-auto-test` 业务测试失败时产生 Issue（带 REQ 追溯）；`quality-test` 失败时产生 Issue；`maestro-verify` 发现 gap 时可关联 Issue
 > 2. **Issue → Phase（修复回注）**：Issue 通过 `phase_id` 字段关联到具体 Phase，`path=workflow` 标识该 Issue 属于 Phase 管线上下文；Issue 的 execute 修改的代码服务于所属 Phase
 > 3. **Commander 双向驱动**：Commander Agent 同时管理 Phase 任务调度（通过 ExecutionScheduler）和 Issue 闭环推进（通过 AgentManager），形成统一的自动化调度层
 > 4. **共享存储**：两条工作流共用 `issues.jsonl` 存储和 WebSocket 实时通信
@@ -175,7 +173,7 @@ Issue 的 `path` 字段区分两种处理路径：
 | path | 含义 | 来源 | 生命周期 |
 |------|------|------|----------|
 | `standalone` | 独立 Issue，不绑定 Phase | 手动创建、`/manage-issue-discover`、外部导入 | 独立闭环，不影响 Phase 推进 |
-| `workflow` | Phase 关联 Issue | `quality-review` auto-create、`quality-business-test` 失败产生、Phase 验证产生 | 可能阻塞 milestone 完成 |
+| `workflow` | Phase 关联 Issue | `quality-review` auto-create、`quality-auto-test` 失败产生、Phase 验证产生 | 可能阻塞 milestone 完成 |
 
 - `standalone` Issue 在看板上独立显示，通过 Issue 闭环（analyze --gaps→plan --gaps→execute）自行解决
 - `workflow` Issue 带有 `phase_id`，在看板中与对应 Phase 同列展示，其解决状态可能影响 milestone 是否可以 complete
@@ -365,7 +363,7 @@ execute --dir scratch/plan-xxx   ← 直接执行
 
 ```
 /maestro-verify (发现 gaps) → /maestro-plan --gaps → /maestro-execute → /maestro-verify (重新检查)
-/quality-business-test (业务规则失败) → /quality-debug --from-business-test → /maestro-plan --gaps → 重新执行
+/quality-auto-test (测试失败) → /quality-debug --from-auto-test → /maestro-plan --gaps → 重新执行
 /quality-test --auto-fix (失败) → /quality-debug → /maestro-plan --gaps → 重新执行
 ```
 
@@ -474,7 +472,7 @@ maestro scratch gc --dry-run      # 预览将清理的目录
 Issue 系统与 Phase 管线并行运行，既可独立闭环，也可与 Phase 深度联动。
 
 **与主干的关系**（详见命令全景图中的"主干与 Issue 的交互关系"）：
-- **Phase 产出 Issue**：`quality-review` 在审查时自动为 critical/high 发现创建 Issue（auto-issue creation）；`quality-business-test` 业务规则失败时创建 Issue（带 REQ 追溯）；`quality-test` 失败时创建 Issue；`maestro-verify` 的 gap 也可转化为 Issue
+- **Phase 产出 Issue**：`quality-review` 在审查时自动为 critical/high 发现创建 Issue（auto-issue creation）；`quality-auto-test` 业务规则失败时创建 Issue（带 REQ 追溯）；`quality-test` 失败时创建 Issue；`maestro-verify` 的 gap 也可转化为 Issue
 - **Issue 修复回注 Phase**：带 `phase_id` 的 Issue（`path=workflow`）执行修复后，代码变更服务于该 Phase，需重新 verify 和 test 才能通过 milestone-audit
 - **独立 Issue 不阻塞 Phase**：`path=standalone` 的 Issue 通过 Issue 闭环自行解决，不影响 Phase 推进
 - **Commander 统一调度**：Commander Agent 同时驱动 Phase 任务和 Issue 闭环，按 `execute > analyze > plan` 优先级自动调度
@@ -595,37 +593,35 @@ Commander Agent 作为自主 supervisor 可自动推进 Issue 闭环，无需手
 ### 4.1 标准质量流程
 
 ```
-/maestro-execute → /maestro-verify → /quality-business-test → /quality-review → /quality-test-gen → /quality-test → /maestro-milestone-audit
+/maestro-execute → /maestro-verify → /quality-auto-test → /quality-review → /quality-test → /maestro-milestone-audit
 ```
 
 ### 4.2 各命令说明
 
 | 命令 | 用途 | 参数 | 典型场景 |
 |------|------|------|----------|
-| `/quality-business-test {N}` | PRD 正向业务测试 | `--spec` `--layer L1\|L2\|L3` `--gen-code` `--dry-run` `--re-run` `--auto` | 从 REQ 验收标准提取场景，L1接口→L2业务规则→L3场景渐进执行 |
+| `/quality-auto-test {N}` | 统一自动测试 | `--max-iter N` `--layer L0-L3` `--strategy` `--dry-run` `--re-run` | 智能路由（spec/gap/code），CSV 并行写测试 + 诊断迭代 |
 | `/quality-review {N}` | 分层代码审查 | `--level quick\|standard\|deep` | 执行后审查代码质量 |
-| `/quality-test-gen {N}` | 测试生成 | `--layer unit\|e2e\|all` | Nyquist 覆盖率分析 + RED-GREEN |
-| `/quality-test {N}` | 会话式 UAT | `--smoke` `--auto-fix` | 验收测试 + 自动修复循环 |
-| `/quality-debug` | 假设驱动调试 | `--from-uat {N}` `--from-business-test {N}` `--parallel` | 测试失败后根因分析 |
-| `/quality-integration-test {N}` | 集成测试 | `--max-iter N` `--layer L0-L3` | L0-L3 渐进式集成测试 |
+| `/quality-test {N}` | 会话式 UAT | `--smoke` `--auto-fix` | 验收测试 + CSV 并行诊断 + 自动修复循环 |
+| `/quality-debug` | 假设驱动调试 | `--from-uat {N}` `--from-auto-test {N}` `--parallel` | 测试失败后根因分析 |
 | `/quality-refactor` | 技术债务治理 | `[scope]` | 反思驱动的重构迭代 |
 | `/quality-sync` | 文档同步 | `--since HEAD~N` | 代码变更后同步文档 |
 
 ### 4.3 测试三轨并行
 
-三个测试命令从不同角度验证，互补而不替代：
+`quality-auto-test` 统一了三种测试视角，通过智能路由自动选择：
 
-| 命令 | 输入源 | 验证视角 |
+| 路由 | 输入源 | 验证视角 |
 |------|--------|----------|
-| `/quality-business-test` | REQ-*.md 验收标准 | **PRD 正向** — 业务规则满足吗 |
-| `/quality-test` | verification.json must_haves | **代码反向** — 代码能跑吗 |
-| `/quality-test-gen` | validation.json gaps | **覆盖率反向** — 覆盖率够吗 |
+| spec | REQ-*.md 验收标准 | **PRD 正向** — 业务规则满足吗 |
+| gap | verification.json/coverage gaps | **覆盖率反向** — 覆盖率够吗 |
+| code | 代码探索（默认） | **代码反向** — 集成点正确吗 |
 
 ### 4.4 调试闭环
 
 ```
-/quality-business-test (业务规则失败) → /quality-debug --from-business-test {N} → 修复 → /quality-business-test --re-run (重新验证)
-/quality-test (发现失败) → /quality-debug --from-uat {N} → 修复 → /quality-test (重新验证)
+/quality-auto-test (测试失败) → /quality-debug --from-auto-test {N} → 修复 → /quality-auto-test --re-run (重新验证)
+/quality-test (UAT 失败) → /quality-debug --from-uat {N} → 修复 → /quality-test (重新验证)
 ```
 
 `quality-debug` 支持并行假设验证（`--parallel`），使用科学方法（假设→实验→验证）进行根因分析。
@@ -790,13 +786,13 @@ graph LR
 ### 阶段执行后发现测试失败
 
 ```bash
-/quality-business-test 3             # PRD 正向业务测试（L1→L2→L3）
+/quality-auto-test 3                 # 统一自动测试（智能路由 spec/gap/code）
 /quality-test 3                     # 会话式 UAT
 # 如果发现失败：
-/quality-debug --from-business-test 3  # 从业务测试失败诊断根因
+/quality-debug --from-auto-test 3    # 从自动测试失败诊断根因
 /maestro-plan 3 --gaps              # 生成修复计划
 /maestro-execute 3                  # 执行修复
-/quality-business-test 3 --re-run   # 只重跑失败场景
+/quality-auto-test 3 --re-run       # 只重跑失败场景
 /maestro-milestone-audit            # 审计里程碑
 ```
 

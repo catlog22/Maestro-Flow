@@ -191,10 +191,10 @@
       "name_zh": "代码审查",
       "description": "Tiered code review (quick/standard/deep) with parallel agents, severity classification, and auto-issue creation",
       "description_zh": "分层代码审查：quick（5 分钟）/ standard（全面）/ deep（深度，含安全审计）。并行代理审查，自动创建 BLOCK/WARN/INFO 分级问题",
-      "workflow": "verify → **quality-review** → [phase-transition | quality-test-gen]",
-      "workflow_zh": "验证通过后执行，发现问题可继续 quality-test-gen 或直接 phase-transition",
+      "workflow": "verify → **quality-review** → [phase-transition | quality-auto-test]",
+      "workflow_zh": "验证通过后执行，发现问题可继续 quality-auto-test 或直接 phase-transition",
       "prev_commands": ["maestro-verify"],
-      "next_commands": ["maestro-milestone-audit", "quality-test-gen"],
+      "next_commands": ["maestro-milestone-audit", "quality-auto-test"],
       "flags": ["<phase> (必填)", "--level quick|standard|deep (审查级别)", "--dimensions security,architecture,... (审查维度)", "--skip-specs (跳过规格检查)"]
     },
     "quality-test": {
@@ -202,22 +202,22 @@
       "name_zh": "UAT 测试",
       "description": "Conversational UAT with session persistence, auto-diagnosis, and gap-plan closure loop",
       "description_zh": "对话式用户验收测试：会话持久化 → 自动诊断失败 → 差距修复计划 → 闭环执行。支持烟雾测试和自动修复模式",
-      "workflow": "quality-test-gen → **quality-test** → [quality-debug (if failures)]",
-      "workflow_zh": "测试生成之后运行，发现失败可触发 quality-debug",
-      "prev_commands": ["quality-test-gen", "maestro-execute"],
+      "workflow": "quality-auto-test → **quality-test** → [quality-debug (if failures)]",
+      "workflow_zh": "自动测试之后运行 UAT，发现失败可触发 quality-debug",
+      "prev_commands": ["quality-auto-test", "maestro-execute"],
       "next_commands": ["quality-debug"],
       "flags": ["[phase] (阶段)", "--smoke (仅冒烟测试)", "--auto-fix (自动修复失败)"]
     },
-    "quality-test-gen": {
-      "name": "quality-test-gen",
-      "name_zh": "测试生成",
-      "description": "Generate missing tests with TDD/E2E classification and RED-GREEN methodology",
-      "description_zh": "生成缺失测试：分析代码库识别测试缺口 → TDD（单元/集成）或 E2E 分类 → RED-GREEN-REFACTOR 方法论",
-      "workflow": "quality-review → **quality-test-gen** → quality-test",
-      "workflow_zh": "代码审查发现测试缺口后生成测试，然后运行 quality-test 验证",
-      "prev_commands": ["quality-review", "maestro-execute"],
-      "next_commands": ["quality-test"],
-      "flags": ["<phase> (必填)", "--layer <unit|e2e|all> (测试层级)"]
+    "quality-auto-test": {
+      "name": "quality-auto-test",
+      "name_zh": "统一自动测试",
+      "description": "Unified automated testing via CSV layer pipeline — generates, executes, and iterates tests from PRD specs, coverage gaps, or code exploration",
+      "description_zh": "统一自动测试 via CSV 层级管线：智能路由（spec/gap/code）→ 按层并行写测试 → 并行诊断失败 → 迭代收敛。替代原 quality-test-gen + quality-business-test + quality-integration-test",
+      "workflow": "quality-review → **quality-auto-test** → quality-test",
+      "workflow_zh": "验证后执行自动测试（智能路由选择 spec/gap/code 来源），然后 UAT",
+      "prev_commands": ["quality-review", "maestro-verify", "maestro-execute"],
+      "next_commands": ["quality-test", "quality-debug"],
+      "flags": ["<phase> (必填)", "--max-iter <N> (最大迭代，1=单次生成)", "--layer <L0-L3> (限制层级)", "--strategy (覆盖策略)", "--dry-run (仅生成计划)", "--re-run (重跑失败)", "-c N (并发数)"]
     },
     "quality-debug": {
       "name": "quality-debug",
@@ -232,14 +232,15 @@
     },
     "quality-integration-test": {
       "name": "quality-integration-test",
-      "name_zh": "集成测试",
-      "description": "Self-iterating integration test cycle with reflection-driven strategy and L0-L3 progressive layers",
-      "description_zh": "自迭代集成测试循环：反思驱动的自适应策略引擎 + L0（冒烟）→ L1（API）→ L2（工作流）→ L3（完整系统）渐进式测试层",
-      "workflow": "quality-test → **quality-integration-test** (跨组件集成验证)",
-      "workflow_zh": "在单元测试通过后进行集成验证",
-      "prev_commands": ["quality-test", "maestro-execute"],
-      "next_commands": ["maestro-milestone-audit"],
-      "flags": ["<phase> (必填)", "--max-iter <N> (最大迭代次数)", "--layer <L0|L1|L2|L3> (测试层级)"]
+      "name_zh": "集成测试 [已废弃]",
+      "description": "[DEPRECATED] Merged into quality-auto-test. Use /quality-auto-test <phase> instead.",
+      "description_zh": "[已废弃] 已合并入 quality-auto-test。使用 /quality-auto-test <phase> 替代。",
+      "workflow": "→ quality-auto-test",
+      "workflow_zh": "已合并，请使用 quality-auto-test",
+      "prev_commands": [],
+      "next_commands": ["quality-auto-test"],
+      "flags": [],
+      "deprecated": true
     },
     "quality-refactor": {
       "name": "quality-refactor",
@@ -551,14 +552,15 @@
     },
     "quality-business-test": {
       "name": "quality-business-test",
-      "name_zh": "业务测试",
-      "description": "PRD-forward business testing with requirement traceability, fixture generation, and multi-layer execution",
-      "description_zh": "从 PRD 验收标准出发的业务测试：REQ-*.md 解析 → RFC 2119 优先级映射 → 三级夹具生成 → L1-L3 渐进层 → Generator-Critic 循环",
-      "workflow": "quality-test-gen → **business-test** (PRD 验证) → quality-debug",
-      "workflow_zh": "不同于 quality-test（代码缺口驱动）和 quality-test-gen（覆盖率驱动），此命令从需求文档正向验证",
-      "prev_commands": ["maestro-execute", "maestro-spec-generate"],
-      "next_commands": ["quality-debug"],
-      "flags": ["<phase> (阶段)", "--spec SPEC-xxx (指定规格)", "--layer L1|L2|L3 (测试层级)", "--gen-code (生成测试代码)", "--dry-run (演练)", "--re-run (重新运行)", "--auto (自动模式)"]
+      "name_zh": "业务测试 [已废弃]",
+      "description": "[DEPRECATED] Merged into quality-auto-test (spec route). Use /quality-auto-test <phase> instead.",
+      "description_zh": "[已废弃] 已合并入 quality-auto-test（spec 路由模式）。当检测到 REQ-*.md 时自动进入 spec 路由。",
+      "workflow": "→ quality-auto-test",
+      "workflow_zh": "已合并，请使用 quality-auto-test",
+      "prev_commands": [],
+      "next_commands": ["quality-auto-test"],
+      "flags": [],
+      "deprecated": true
     },
     "quality-retrospective": {
       "name": "quality-retrospective",
@@ -630,7 +632,7 @@
       "name_zh": "团队测试",
       "description": "Multi-agent testing team — strategist → generator → executor → analyst with progressive L1/L2/L3 coverage and Generator-Critic loops",
       "description_zh": "多智能体测试团队：策略师 → 生成器 → 执行器 → 分析师。Generator-Critic 循环确保覆盖率收敛，L1/L2/L3 渐进式测试层",
-      "workflow": "替代 quality-test-gen + quality-test 组合，适合复杂测试场景",
+      "workflow": "替代 quality-auto-test + quality-test 组合，适合复杂测试场景",
       "workflow_zh": "专用测试团队，比单命令测试更全面",
       "roles": ["coordinator (协调器)", "strategist (测试策略师)", "generator (测试生成器)", "executor (测试执行器)", "analyst (结果分析师)"],
       "phases_zh": ["策略制定", "测试生成", "执行测试", "结果分析"]
@@ -650,7 +652,7 @@
       "name_zh": "质量保证团队",
       "description": "Full closed-loop QA team — scout → strategist → generator → executor → analyst with discovery, testing, and full modes",
       "description_zh": "完整闭环 QA 团队：侦察者（问题发现）→ 策略师 → 生成器 → 执行器 → 分析师。支持 discovery/testing/full 三种模式",
-      "workflow": "替代 manage-issue-discover + quality-test-gen + quality-test 组合",
+      "workflow": "替代 manage-issue-discover + quality-auto-test + quality-test 组合",
       "workflow_zh": "最完整的 QA 解决方案，覆盖问题发现到测试验证的全流程",
       "roles": ["coordinator (协调器)", "scout (问题侦察者)", "strategist (QA 策略师)", "generator (测试生成器)", "executor (执行器)", "analyst (分析师)"],
       "phases_zh": ["问题发现", "QA 策略", "测试生成", "执行测试", "结果分析"]

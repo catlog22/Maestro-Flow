@@ -204,12 +204,12 @@
       "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
     },
     {
-      "name": "quality-test-gen",
-      "file": ".claude/commands/quality-test-gen.md",
+      "name": "quality-auto-test",
+      "file": ".claude/commands/quality-auto-test.md",
       "category": "quality",
-      "description": "Generate missing tests with TDD/E2E classification and RED-GREEN methodology",
-      "argumentHint": "<phase> [--layer <unit|e2e|all>]",
-      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+      "description": "Unified automated testing via CSV layer pipeline — generates, executes, and iterates tests from PRD specs, coverage gaps, or code exploration",
+      "argumentHint": "<phase> [-y] [-c N] [--max-iter <N>] [--layer <L0-L3>] [--strategy <name>] [--dry-run] [--re-run]",
+      "allowedTools": ["spawn_agents_on_csv", "Read", "Write", "Edit", "Bash", "Glob", "Grep", "AskUserQuestion"]
     },
     {
       "name": "quality-debug",
@@ -221,11 +221,12 @@
     },
     {
       "name": "quality-integration-test",
-      "file": ".claude/commands/quality-integration-test.md",
+      "file": ".claude/commands/quality-auto-test.md",
       "category": "quality",
-      "description": "Self-iterating integration test cycle with reflection-driven strategy and L0-L3 progressive layers",
-      "argumentHint": "<phase> [--max-iter <N>] [--layer <L0|L1|L2|L3>]",
-      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+      "description": "[DEPRECATED] Merged into quality-auto-test. Use /quality-auto-test <phase> instead.",
+      "argumentHint": "<phase> [--max-iter <N>] [--layer <L0-L3>]",
+      "allowedTools": ["spawn_agents_on_csv", "Read", "Write", "Edit", "Bash", "Glob", "Grep", "AskUserQuestion"],
+      "deprecated": true
     },
     {
       "name": "quality-refactor",
@@ -453,11 +454,12 @@
     },
     {
       "name": "quality-business-test",
-      "file": ".claude/commands/quality-business-test.md",
+      "file": ".claude/commands/quality-auto-test.md",
       "category": "quality",
-      "description": "PRD-forward business testing with requirement traceability, fixture generation, and multi-layer execution",
-      "argumentHint": "<phase> [--spec SPEC-xxx] [--layer L1|L2|L3] [--gen-code] [--dry-run] [--re-run] [--auto]",
-      "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent", "AskUserQuestion"]
+      "description": "[DEPRECATED] Merged into quality-auto-test (spec route). Use /quality-auto-test <phase> instead.",
+      "argumentHint": "<phase>",
+      "allowedTools": ["spawn_agents_on_csv", "Read", "Write", "Edit", "Bash", "Glob", "Grep", "AskUserQuestion"],
+      "deprecated": true
     },
     {
       "name": "quality-retrospective",

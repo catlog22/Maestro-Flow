@@ -89,14 +89,11 @@ maestro hooks install --level standard
 执行后运行质量验证，三轨测试互补：
 
 ```bash
-# PRD-Forward：业务规则是否满足
-/quality-business-test 1
+# 统一自动测试（智能路由：spec/gap/code）
+/quality-auto-test 1
 
-# Code-Backward：代码是否工作
+# 会话式 UAT
 /quality-test 1
-
-# Coverage-Backward：覆盖率是否足够
-/quality-test-gen 1
 
 # 代码审查
 /quality-review 1 --level standard
@@ -105,10 +102,10 @@ maestro hooks install --level standard
 ### 测试失败修复循环
 
 ```bash
-/quality-debug --from-business-test 1   # 诊断失败
+/quality-debug --from-auto-test 1       # 诊断失败
 /maestro-plan 1 --gaps                  # 生成修复计划
 /maestro-execute 1                      # 执行修复
-/quality-business-test 1 --re-run       # 重跑失败场景
+/quality-auto-test 1 --re-run           # 重跑失败场景
 ```
 
 ---

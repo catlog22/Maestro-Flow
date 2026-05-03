@@ -311,33 +311,23 @@ CLI 协调器：分析用户意图 → 选择命令链 → 通过 maestro delega
 
 ---
 
-### `quality-test-gen` — 测试生成
+### `quality-auto-test` — 统一自动测试
 
-**Usage:** `/quality-test-gen <phase> [--layer <unit|e2e|all>]`
+**Usage:** `/quality-auto-test <phase> [-y] [-c N] [--max-iter <N>] [--layer <L0-L3>] [--strategy <name>] [--dry-run] [--re-run]`
 
-生成缺失测试：分析代码库识别测试缺口 → TDD（单元/集成）或 E2E 分类 → RED-GREEN-REFACTOR 方法论
+统一自动测试 via CSV 层级管线：智能路由（spec/gap/code）→ 发现基础设施 → 构建 scenarios.csv → 按层并行写测试（spawn_agents_on_csv）→ 执行 → 并行诊断失败 → 迭代收敛
 
-**Flags:** <phase> (必填) · --layer <unit|e2e|all> (测试层级)
+**Flags:** <phase> (必填) · --max-iter <N> (最大迭代次数，1=单次生成) · --layer <L0-L3> (限制层级) · --strategy conservative|aggressive|surgical|reflective (覆盖策略) · --dry-run (仅生成计划) · --re-run (仅重跑失败场景) · -c N (并发数)
 
 ---
 
 ### `quality-debug` — 调试
 
-**Usage:** `/quality-debug [issue description] [--from-uat <phase>] [--parallel]`
+**Usage:** `/quality-debug [issue description] [--from-uat <phase>] [--from-auto-test <phase>] [--parallel]`
 
-并行假设驱动调试：多个并行代理同时验证不同假设，结构化根因收集，可从 UAT 失败直接触发
+并行假设驱动调试 via CSV wave：Wave 1 并行假设验证，Wave 2 并行修复确认假设，可从 UAT 或自动测试失败直接触发
 
-**Flags:** [issue description] (问题描述) · --from-uat <phase> (从 UAT 失败触发) · --parallel (并行调试模式)
-
----
-
-### `quality-integration-test` — 集成测试
-
-**Usage:** `/quality-integration-test <phase> [--max-iter <N>] [--layer <L0|L1|L2|L3>]`
-
-自迭代集成测试循环：反思驱动的自适应策略引擎 + L0（冒烟）→ L1（API）→ L2（工作流）→ L3（完整系统）渐进式测试层
-
-**Flags:** <phase> (必填) · --max-iter <N> (最大迭代次数) · --layer <L0|L1|L2|L3> (测试层级)
+**Flags:** [issue description] (问题描述) · --from-uat <phase> (从 UAT 触发) · --from-auto-test <phase> (从自动测试触发) · --parallel (并行调试模式)
 
 ---
 
@@ -361,13 +351,9 @@ CLI 协调器：分析用户意图 → 选择命令链 → 通过 maestro delega
 
 ---
 
-### `quality-business-test` — 业务测试
+### ~~`quality-business-test`~~ — 已合并
 
-**Usage:** `/quality-business-test <phase> [--spec SPEC-xxx] [--layer L1|L2|L3] [--gen-code] [--dry-run] [--re-run] [--auto]`
-
-从 PRD 验收标准出发的业务测试：REQ-*.md 解析 → RFC 2119 优先级映射 → 三级夹具生成 → L1-L3 渐进层 → Generator-Critic 循环
-
-**Flags:** <phase> (阶段) · --spec SPEC-xxx (指定规格) · --layer L1|L2|L3 (测试层级) · --gen-code (生成测试代码) · --dry-run (演练) · --re-run (重新运行) · --auto (自动模式)
+> **已废弃**：功能已合并入 `quality-auto-test`（spec 路由模式）。使用 `/quality-auto-test <phase>` 替代，当检测到 REQ-*.md 时自动进入 spec 路由。
 
 ---
 
