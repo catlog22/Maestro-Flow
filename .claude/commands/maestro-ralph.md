@@ -1,7 +1,7 @@
 ---
 name: maestro-ralph
 description: Closed-loop lifecycle decision engine — read project state, infer position, build adaptive command chain with decision/skill/cli nodes
-argument-hint: "\"intent\" | status | continue"
+argument-hint: "[-y] \"intent\" | status | continue"
 allowed-tools:
   - Read
   - Write
@@ -14,35 +14,27 @@ allowed-tools:
 ---
 <purpose>
 Closed-loop decision engine for the maestro workflow lifecycle.
-Reads project state → infers lifecycle position → builds command chain with three node types:
-- **decision**: Hand back to ralph for re-evaluation (adaptive branching)
-- **skill**: In-session Skill() call (synchronous, lightweight)
-- **cli**: CLI delegate call via `maestro delegate` (context-isolated, heavy)
 
-Decision nodes at key checkpoints enable dynamic chain expansion —
-ralph re-reads actual execution result files, then decides whether to append debug+fix loops or proceed.
+Reads project state → infers lifecycle position → builds adaptive command chain → delegates execution.
+
+Three node types:
+- **skill**: In-session `Skill()` call (synchronous, lightweight)
+- **cli**: `maestro delegate` (context-isolated, heavy computation)
+- **decision**: Hand back to ralph for re-evaluation (adaptive branching)
 
 Key difference from maestro coordinator:
-- maestro: static chainMap → one-time selection → chain-execute runs all steps
-- ralph: living chain → decision nodes re-evaluate after each critical step → chain grows/shrinks dynamically
+- maestro: static chain → one-time selection → runs all steps sequentially
+- ralph: living chain → decision nodes re-evaluate after critical steps → chain grows/shrinks dynamically
 
-Produces session at `.workflow/.maestro/ralph-{YYYYMMDD-HHmmss}/status.json` using unified JSON schema (source: "ralph").
-Mutual invocation with `/maestro-ralph-execute` forms a persistent self-perpetuating work loop.
+Session path: `.workflow/.maestro/ralph-{YYYYMMDD-HHmmss}/status.json`
+Mutual invocation with `/maestro-ralph-execute` forms a self-perpetuating work loop.
 </purpose>
 
 <context>
-$ARGUMENTS — user intent text, or keywords.
+$ARGUMENTS — user intent text, flags, or keywords.
 
-**Keywords:**
-- `status` — Display current ralph session progress. **End.**
-- `continue` — Find latest running session → `Skill({ skill: "maestro-ralph-execute" })`. **End.**
-
-**Decision-node trigger detection:**
-If a running ralph session exists AND `steps[current_step].type == "decision"` AND `steps[current_step].status == "running"`:
-→ Enter **Decision Evaluation Mode** (Step 2b) instead of New Session Mode.
-
-**State files read:**
-- `.workflow/state.json` — artifact registry, milestone, phase status
+**State files:**
+- `.workflow/state.json` — artifact registry, milestones, phases
 - `.workflow/roadmap.md` — milestone/phase structure
 - `.workflow/.maestro/ralph-*/status.json` — ralph session state
 </context>
@@ -53,194 +45,154 @@ If a running ralph session exists AND `steps[current_step].type == "decision"` A
 
 ```
 Parse $ARGUMENTS:
-  "status"   → handleStatus(). End.
-  "continue" → handleContinue(). End.
+  -y flag       → auto_confirm = true (skip confirmation, NOT ambiguity resolution)
+  .md/.txt path → input_doc (supplementary context for downstream commands)
+  Remaining     → intent
+
+Route:
+  intent == "status"   → handleStatus()
+  intent == "continue" → handleContinue()
   
-Check running ralph session:
-  Scan .workflow/.maestro/ralph-*/status.json for status == "running"
-  If found AND steps[current_step].type == "decision" AND steps[current_step].status == "running":
-    → Step 2b (Decision Evaluation Mode)
-  Else if $ARGUMENTS is non-empty:
-    → Step 2a (New Session Mode)
-  Else:
-    → AskUserQuestion: "请描述目标，或输入 status/continue"
+  Check running ralph session (.workflow/.maestro/ralph-*/status.json, session status=="running"):
+    If found AND steps[current_step].type == "decision" AND steps[current_step].status == "running":
+      → Step 3: Decision Evaluation Mode
+    Else if intent is non-empty:
+      → Step 2: New Session Mode
+    Else:
+      → AskUserQuestion: "请描述目标，或输入 status/continue"
 ```
 
 ### handleStatus()
 ```
-Scan .workflow/.maestro/ralph-*/status.json (latest by created_at)
+Find latest ralph session (by created_at).
 Display:
   Session:  {id}
   Status:   {status}
   Position: {lifecycle_position}
   Progress: {completed}/{total} commands
-  Current:  [{current}] {steps[current_step].skill} [{steps[current_step].type}]
+  Current:  [{current_step}] {steps[current_step].skill} [{type}]
   
   Commands:
     [✓] 0. maestro-analyze 1         [skill]
     [▸] 1. maestro-plan 1            [skill]
     [ ] 2. maestro-execute 1         [cli]
     ...
+End.
 ```
 
 ### handleContinue()
 ```
-Find latest running ralph session
-If not found → "无运行中的 ralph 会话"
-Skill({ skill: "maestro-ralph-execute" })
+Find latest running ralph session.
+If not found → "无运行中的 ralph 会话". End.
+Skill({ skill: "maestro-ralph-execute" }). End.
 ```
 
 ---
 
-## Step 2a: New Session Mode
+## Step 2: New Session Mode
 
-### 2a.1: Read project state
+### 2.1: Read project state
 
-Read `.workflow/state.json`. Extract:
-
-```
-state.json actual schema:
+Read `.workflow/state.json` schema:
+```json
 {
   "current_milestone": "MVP",
   "milestones": [{ "id": "M1", "name": "MVP", "status": "active", "phases": [1, 2] }],
-  "artifacts": [
-    {
-      "id": "ANL-001",
-      "type": "analyze",       // analyze | plan | execute | verify
-      "milestone": "MVP",
-      "phase": 1,
-      "scope": "phase",        // phase | milestone | adhoc | standalone
-      "path": "phases/01-auth-multi-tenant",   // relative to .workflow/scratch/
-      "status": "completed",
-      "depends_on": "PLN-001",
-      "harvested": true
-    }
-  ],
-  "accumulated_context": {
-    "key_decisions": [...],
-    "deferred": [...]
-  }
+  "artifacts": [{
+    "id": "ANL-001", "type": "analyze|plan|execute|verify",
+    "milestone": "MVP", "phase": 1, "scope": "phase|milestone|adhoc|standalone",
+    "path": "phases/01-auth-multi-tenant",  // relative to .workflow/scratch/
+    "status": "completed", "depends_on": "PLN-001", "harvested": true
+  }],
+  "accumulated_context": { "key_decisions": [], "deferred": [] }
 }
 ```
 
-Also check:
-- `.workflow/roadmap.md` existence
-- `.workflow/scratch/` for recent result files
+Also check: `.workflow/roadmap.md` existence, `.workflow/scratch/` for result files.
 
-### 2a.2: Infer lifecycle position
+### 2.2: Infer lifecycle position
 
-**First: determine project bootstrap state:**
+**Phase 1 — Bootstrap detection:**
 
-```
-Check .workflow/ existence:
+| Condition | Position | Chain starts at |
+|-----------|----------|-----------------|
+| No `.workflow/` + no source files (empty project) | `brainstorm` | brainstorm → init → roadmap → ... |
+| No `.workflow/` + has source files (existing code) | `init` | init → roadmap → ... |
+| Has `.workflow/` but no `state.json` | `init` | init → roadmap → ... |
+| Has `state.json` | → Phase 2 below | — |
 
-Case A — No .workflow/ at all (0→1 or existing code without workflow):
-  Check project root for source files (src/, package.json, go.mod, etc.)
-  
-  A1: No source files (empty project, 0→1)
-    → position = "brainstorm"
-    → chain starts: brainstorm → init → roadmap → analyze → ...
-    → brainstorm args = "{intent}" (user describes what to build)
+HARD RULE: `input_doc` is supplementary context only. It NEVER substitutes for lifecycle stages.
 
-  A2: Has source files (existing code, first time using maestro)
-    → position = "init"
-    → chain starts: init → roadmap → analyze → ...
-    → init auto-detects existing code and bootstraps state.json
+**Phase 2 — Artifact-based inference (when state.json exists):**
 
-Case B — Has .workflow/ but no state.json:
-  → position = "init" (corrupted or partial setup)
-  → chain starts: init → roadmap → analyze → ...
+Filter artifacts by `milestone == current_milestone`, group by target phase. Find latest completed artifact type:
 
-Case C — Has state.json:
-  → proceed to artifact-based position inference below
-```
+| State | Position |
+|-------|----------|
+| No milestones[] or no roadmap.md | `roadmap` |
+| No artifacts for target phase | `analyze` |
+| Latest type == "analyze" | `plan` |
+| Latest type == "plan" | `execute` |
+| Latest type == "execute" | `verify` |
+| Latest type == "verify" | → Refine by result files below |
 
-**Artifact-based position inference (Case C):**
+**Refine from verify results** (read `{artifact_dir}/` files):
 
-Filter artifacts by `milestone == current_milestone`. Group by phase. For the target phase, find the **latest completed artifact type**:
+| Condition | Position |
+|-----------|----------|
+| verification.json: `passed==false` or `gaps[]` non-empty | `verify-failed` |
+| verification.json: `passed==true`, no review.json | `business-test` |
+| review.json: `verdict=="BLOCK"` | `review-failed` |
+| review.json: `verdict!="BLOCK"` | `test` |
+| uat.md: all passed | `milestone-audit` |
+| uat.md: has failures | `test-failed` |
 
-```
-  state.json exists, no milestones[]           → "roadmap" (init done, needs roadmap)
-  Has milestones, no roadmap.md                → "roadmap"
-  Has roadmap, no artifacts for target phase   → "analyze"
-  Latest artifact type == "analyze"            → "plan"
-  Latest artifact type == "plan"               → "execute"
-  Latest artifact type == "execute"            → "verify"
-  Latest artifact type == "verify"             → check result files (see below)
+### 2.3: Resolve phase number
 
-When latest is "verify", read result files to refine position:
-  resolve_artifact_dir(latest_verify_artifact)
-  Read verification.json from that dir:
-    gaps[] non-empty or passed == false         → "verify-failed" (needs fix loop)
-    passed == true, no review.json              → "business-test"
-    has review.json with verdict == "BLOCK"     → "review-failed"
-    has review.json with verdict != "BLOCK"     → "test"
-    has uat.md with status == "complete", all passed → "milestone-audit"
-    has uat.md with failures                    → "test-failed"
-```
-
-**resolve_artifact_dir(artifact):**
-```
-artifact.path is relative path (e.g. "phases/01-auth-multi-tenant")
-Full path = .workflow/scratch/{artifact.path}/
-If path starts with "phases/": also try .workflow/scratch/{YYYYMMDD}-*-P{phase}-*/
-Fallback: glob .workflow/scratch/*-P{phase}-*/ sorted by date DESC, take first
-```
-
-### 2a.3: Resolve phase number
-
-Priority:
-1. User intent text (regex `phase\s*(\d+)` or bare number)
+Priority order:
+1. Regex from intent: `phase\s*(\d+)` or bare number
 2. Latest in-progress artifact's phase field
-3. First phase in current milestone's `phases[]` that lacks complete artifact chain
-4. AskUserQuestion if ambiguous
+3. First incomplete phase in current milestone's `phases[]`
+4. `null` if position is brainstorm/init/roadmap (deferred to post-roadmap)
+5. AskUserQuestion if ambiguous (auto_confirm does NOT skip this)
 
-### 2a.4: Build command sequence
+### 2.4: Build command sequence
 
-Generate commands from `lifecycle_position` to target (default: `milestone-complete`).
+Generate steps from `lifecycle_position` to target (default: `milestone-complete`).
 
-**Lifecycle stages** (full pipeline with decision nodes):
+**Lifecycle stages reference:**
 
-```
-Stage              Command                       Type    Decision After
-─────────────────────────────────────────────────────────────────────────
-brainstorm         maestro-brainstorm "{intent}" cli     — (0→1 only)
-init               maestro-init                  skill   —
-roadmap            maestro-roadmap "{intent}"    skill   —
-analyze            maestro-analyze {phase}       cli     —
-plan               maestro-plan {phase}          skill   —
-execute            maestro-execute {phase}       cli     —
-verify             maestro-verify {phase}        skill   decision:post-verify
-business-test      quality-auto-test {phase}      skill   decision:post-business-test
-review             quality-review {phase}        skill   decision:post-review
-test-gen           quality-auto-test {phase}     skill   —
-test               quality-test {phase}          skill   decision:post-test
-milestone-audit    maestro-milestone-audit       skill   —
-milestone-complete maestro-milestone-complete    skill   decision:post-milestone
-```
+| Stage | Skill command | Type | Decision after |
+|-------|--------------|------|----------------|
+| brainstorm | `maestro-brainstorm "{intent}"` | cli | — (0→1 only) |
+| init | `maestro-init` | skill | — |
+| roadmap | `maestro-roadmap "{intent}"` | skill | — |
+| analyze | `maestro-analyze {phase}` | cli | — |
+| plan | `maestro-plan {phase}` | skill | — |
+| execute | `maestro-execute {phase}` | cli | — |
+| verify | `maestro-verify {phase}` | skill | `post-verify` |
+| business-test | `quality-auto-test {phase}` | skill | `post-business-test` |
+| review | `quality-review {phase}` | skill | `post-review` |
+| test-gen | `quality-auto-test {phase}` | skill | — |
+| test | `quality-test {phase}` | skill | `post-test` |
+| milestone-audit | `maestro-milestone-audit` | skill | — |
+| milestone-complete | `maestro-milestone-complete` | skill | `post-milestone` |
 
-**Command type (cli vs skill):**
-| Command | Type | Why |
-|---------|------|-----|
-| maestro-analyze | `cli` | Heavy multi-source exploration |
-| maestro-execute | `cli` | Heavy code generation |
-| maestro-brainstorm | `cli` | Heavy multi-role generation |
-| maestro-plan | `skill` | Needs user interaction for clarification |
-| All quality-* | `skill` | In-session, user-visible results |
-| All milestone-* | `skill` | Lightweight lifecycle ops |
+**Type rationale:**
+- `cli` = heavy computation needing isolated context (analyze, execute, brainstorm)
+- `skill` = needs user interaction or is lightweight (plan, verify, quality-*, milestone-*)
 
 **Build rules:**
-1. Start from current lifecycle_position (skip completed stages)
-2. After each decision-triggering stage, insert a decision node
-3. Each decision node carries: `{ decision, retry_count: 0, max_retries: 2 }` in args
-4. Args use placeholders — resolved at execution time by ralph-execute (Step 2.5):
+1. Start from inferred position, skip completed stages
+2. After each decision-triggering stage, insert a decision node with `{ decision, retry_count: 0, max_retries: 2 }`
+3. Args use placeholders resolved at execution time by ralph-execute:
    - `{phase}` → session.phase
-   - `{intent}` → session.intent (user's original text)
-   - `{scratch_dir}` → resolved from latest artifact path at execution time
-5. Commands that need user intent text (brainstorm, roadmap, init) use `"{intent}"` as args
-6. Commands that need prior output (plan→execute, analyze→plan) have args resolved via artifact lookup at execution time
+   - `{intent}` → session.intent
+   - `{scratch_dir}` → latest artifact path
+4. Phase-independent commands (brainstorm, roadmap, init) use `"{intent}"` as args
+5. Commands needing prior output (analyze→plan, plan→execute) have args resolved via artifact lookup at execution time by ralph-execute
 
-**Example — from "plan" position (M1 with phases [1,2]):**
+**Example — from "plan" position:**
 ```json
 [
   { "index": 0, "type": "skill", "skill": "maestro-plan", "args": "{phase}" },
@@ -260,38 +212,28 @@ milestone-complete maestro-milestone-complete    skill   decision:post-milestone
 ]
 ```
 
-### 2a.5: Create session
+### 2.5: Create session
 
-```
-session_id = "ralph-{YYYYMMDD-HHmmss}"
-session_dir = ".workflow/.maestro/{session_id}/"
-
-Write status.json:
+```json
 {
-  "session_id": "{session_id}",
+  "session_id": "ralph-{YYYYMMDD-HHmmss}",
   "source": "ralph",
-  "created_at": "{ISO}",
-  "updated_at": "{ISO}",
+  "created_at": "{ISO}", "updated_at": "{ISO}",
   "intent": "{user_intent}",
   "status": "running",
   "chain_name": "ralph-lifecycle",
   "task_type": "lifecycle",
   "lifecycle_position": "{position}",
   "target": "milestone-complete",
-  "phase": {N},
+  "phase": null | N,
   "milestone": "{M}",
   "auto_mode": false,
   "cli_tool": "gemini",
   "quality_mode": "standard",
   "passed_gates": [],
   "context": {
-    "issue_id": null,
-    "milestone_num": null,
-    "spec_session_id": null,
-    "scratch_dir": null,
-    "plan_dir": null,
-    "analysis_dir": null,
-    "brainstorm_dir": null
+    "issue_id": null, "milestone_num": null, "spec_session_id": null,
+    "scratch_dir": null, "plan_dir": null, "analysis_dir": null, "brainstorm_dir": null
   },
   "steps": [...],
   "waves": [],
@@ -299,7 +241,9 @@ Write status.json:
 }
 ```
 
-### 2a.6: Display plan + confirm
+Write to `.workflow/.maestro/{session_id}/status.json`.
+
+### 2.6: Display plan + confirm
 
 ```
 ============================================================
@@ -313,206 +257,137 @@ Write status.json:
   [ ] 1. maestro-execute 1               [cli]
   [ ] 2. maestro-verify 1                [skill]
   [ ] 3. ◆ post-verify                   [decision]
-  [ ] 4. quality-auto-test 1              [skill]
-  [ ] 5. ◆ post-business-test            [decision]
-  [ ] 6. quality-review 1                [skill]
-  [ ] 7. ◆ post-review                   [decision]
-  [ ] 8. quality-auto-test 1              [skill]
-  [ ] 9. quality-test 1                  [skill]
-  [ ] 10. ◆ post-test                    [decision]
-  [ ] 11. maestro-milestone-audit        [skill]
-  [ ] 12. maestro-milestone-complete     [skill]
+  ...
 ============================================================
 ```
 
-AskUserQuestion: Proceed / Edit / Cancel
+- If auto_confirm (`-y`): proceed directly
+- Else: AskUserQuestion → Proceed / Edit / Cancel
 
-### 2a.7: Launch execution
+### 2.7: Launch execution
+
+HARD RULE: Ralph's job ends at session creation. Do NOT execute steps, read project files for execution, or update step statuses directly.
 
 ```
 Skill({ skill: "maestro-ralph-execute" })
+End.
 ```
 
 ---
 
-## Step 2b: Decision Evaluation Mode
+## Step 3: Decision Evaluation Mode
 
 Triggered when ralph-execute encounters a decision node and hands back to ralph.
 
-### 2b.1: Load session + locate results
+### 3.1: Load session + resolve artifact dir
 
-Read ralph session status.json. Identify the decision node at `steps[current_step]`.
+Read session status.json. Identify decision node at `steps[current_step]`.
 
-**Locate result files** — find the artifact dir for current phase:
+**Artifact dir resolution:**
 ```
 Read .workflow/state.json
-Filter artifacts: milestone == session.milestone, phase == session.phase
-Sort by created_at DESC
-
-For the decision type, find the relevant artifact:
-  post-verify        → latest type=="verify" artifact → {.workflow/scratch/{artifact.path}/}
-  post-business-test → same dir as verify (business-test writes to same artifact dir)
-  post-review        → latest artifact dir → review.json
-  post-test          → latest artifact dir → uat.md + .tests/test-results.json
+Filter: milestone == session.milestone, phase == session.phase
+Sort: created_at DESC
 
 artifact_dir = .workflow/scratch/{artifact.path}/
+
+Fallback if path not found:
+  glob .workflow/scratch/*-P{phase}-*/ sorted by date DESC, take first
 ```
 
-### 2b.2: Parse decision metadata
+### 3.2: Parse decision metadata
 
 ```
 meta = JSON.parse(decision_node.args)
 // { decision: "post-verify", retry_count: 0, max_retries: 2 }
-// or { decision: "post-milestone" }
-decision_type = meta.decision
 ```
 
-### 2b.3: Evaluate by decision type (meta.decision)
+### 3.3: Evaluate by decision type
 
-**post-verify:**
-```
-Read {artifact_dir}/verification.json
-Check: gaps[] array and passed field
+Each decision reads specific result files and decides: proceed or insert fix loop.
 
-If gaps found (passed == false or gaps[].length > 0):
-  If meta.retry_count >= meta.max_retries:
-    → Insert: [quality-debug "{gap_summary}", decision:post-debug-escalate]
-    → Display: ◆ post-verify: max retries ({max_retries}) reached, escalating to debug
-  Else:
-    → Insert: [quality-debug "{gap_summary}", maestro-plan --gaps {phase},
-               maestro-execute {phase} [cli], maestro-verify {phase},
-               decision:post-verify {retry_count+1}]
-    → Display: ◆ post-verify: gaps detected, inserting debug+fix loop (retry {N}/{max})
+**Common pattern for failures with retries:**
+- If `retry_count >= max_retries` → escalate: insert `[quality-debug, decision:post-debug-escalate]`
+- Else → insert fix loop with `retry_count + 1`
 
-If no gaps (passed == true):
-  → No insertion, proceed
-```
+---
 
-**post-business-test:**
-```
-Read {artifact_dir}/business-test-results.json or scan for business test output
-Check: failures[] or passed field
+#### post-verify
 
-If failures found:
-  If meta.retry_count >= meta.max_retries:
-    → Insert: [quality-debug --from-business-test {phase}, decision:post-debug-escalate]
-  Else:
-    → Insert: [quality-debug --from-business-test {phase},
-               maestro-plan --gaps {phase}, maestro-execute {phase} [cli],
-               maestro-verify {phase}, decision:post-verify {retry:0},
-               quality-auto-test {phase}, decision:post-business-test {retry+1}]
+Read: `{artifact_dir}/verification.json` — check `passed` and `gaps[]`
 
-If all pass:
-  → No insertion, proceed
-```
+| Condition | Action |
+|-----------|--------|
+| `passed==true`, no gaps | Proceed |
+| Gaps found, retries remaining | Insert: `quality-debug "{gaps}" → maestro-plan --gaps → maestro-execute [cli] → maestro-verify → decision:post-verify {retry+1}` |
+| Gaps found, max retries reached | Escalate to `post-debug-escalate` |
 
-**post-review:**
-```
-Read {artifact_dir}/review.json
-Check: verdict field and issues[].severity
+#### post-business-test
 
-If verdict == "BLOCK" or any issue.severity == "critical":
-  If meta.retry_count >= meta.max_retries:
-    → Insert: [quality-debug "{block_summary}", decision:post-debug-escalate]
-  Else:
-    → Insert: [quality-debug "{block_issues}",
-               maestro-plan --gaps {phase}, maestro-execute {phase} [cli],
-               quality-review {phase}, decision:post-review {retry+1}]
+Read: `{artifact_dir}/business-test-results.json` — check `failures[]` or `passed`
 
-If verdict == "PASS" or "WARN":
-  → No insertion, proceed
-```
+| Condition | Action |
+|-----------|--------|
+| All pass | Proceed |
+| Failures, retries remaining | Insert: `quality-debug --from-business-test → maestro-plan --gaps → maestro-execute [cli] → maestro-verify → decision:post-verify {0} → quality-auto-test → decision:post-business-test {retry+1}` |
+| Failures, max retries reached | Escalate to `post-debug-escalate` |
 
-**post-test:**
-```
-Read {artifact_dir}/uat.md (parse frontmatter + gap sections)
-Read {artifact_dir}/.tests/test-results.json if exists
+#### post-review
 
-If failures found (any test result != pass, or gaps with severity >= high):
-  If meta.retry_count >= meta.max_retries:
-    → Insert: [quality-debug --from-uat {phase}, decision:post-debug-escalate]
-  Else:
-    → Insert: [quality-debug --from-uat {phase},
-               maestro-plan --gaps {phase}, maestro-execute {phase} [cli],
-               maestro-verify {phase}, decision:post-verify {retry:0},
-               quality-auto-test {phase}, decision:post-business-test {retry:0},
-               quality-review {phase}, decision:post-review {retry:0},
-               quality-auto-test {phase}, quality-test {phase},
-               decision:post-test {retry+1}]
+Read: `{artifact_dir}/review.json` — check `verdict` and `issues[].severity`
 
-If all pass:
-  → No insertion, proceed
-```
+| Condition | Action |
+|-----------|--------|
+| verdict == "PASS" or "WARN" | Proceed |
+| verdict == "BLOCK" or critical issues, retries remaining | Insert: `quality-debug "{issues}" → maestro-plan --gaps → maestro-execute [cli] → quality-review → decision:post-review {retry+1}` |
+| BLOCK, max retries reached | Escalate to `post-debug-escalate` |
 
-**post-milestone:**
-```
-Re-read .workflow/state.json (milestone-complete will have updated it).
-Check: state.milestones[] for next milestone with status == "pending" or "active"
+#### post-test
 
-If next milestone found:
-  next_m = next milestone
-  next_phases = next_m.phases[]
-  first_phase = next_phases[0]
+Read: `{artifact_dir}/uat.md` + `{artifact_dir}/.tests/test-results.json`
 
-  Update ralph session: milestone = next_m.name, phase = first_phase
+| Condition | Action |
+|-----------|--------|
+| All pass | Proceed |
+| Failures, retries remaining | Insert full re-run loop: `quality-debug --from-uat → maestro-plan --gaps → maestro-execute [cli] → maestro-verify → decision:post-verify {0} → quality-auto-test → decision:post-business-test {0} → quality-review → decision:post-review {0} → quality-auto-test → quality-test → decision:post-test {retry+1}` |
+| Failures, max retries reached | Escalate to `post-debug-escalate` |
 
-  → Insert full lifecycle for next milestone:
-    [maestro-analyze {first_phase} [cli],
-     maestro-plan {first_phase} [skill],
-     maestro-execute {first_phase} [cli],
-     maestro-verify {first_phase} [skill],
-     decision:post-verify {retry:0},
-     quality-auto-test {first_phase} [skill],
-     decision:post-business-test {retry:0},
-     quality-review {first_phase} [skill],
-     decision:post-review {retry:0},
-     quality-auto-test {first_phase} [skill],
-     quality-test {first_phase} [skill],
-     decision:post-test {retry:0},
-     maestro-milestone-audit [skill],
-     maestro-milestone-complete [skill],
-     decision:post-milestone {}]
+#### post-milestone
 
-  → Display: ◆ post-milestone: {completed_m.name} done → advancing to {next_m.name} Phase {first_phase} (+14 commands)
+Read: `.workflow/state.json` — check for next milestone with status "pending" or "active"
 
-If no next milestone:
-  → No insertion — session will complete naturally
-  → Display: ◆ post-milestone: all milestones complete! 🎉
-```
+| Condition | Action |
+|-----------|--------|
+| Next milestone found | Update session (milestone, phase = first phase). Insert full lifecycle for next milestone (analyze through milestone-complete + decision nodes) |
+| No next milestone | Proceed — session completes naturally |
 
-**post-debug-escalate:**
-```
-This is a terminal escalation — debug was run but we exceeded max retries.
-→ Set session status = "paused"
-→ Display: ◆ 已达最大重试次数，debug 已执行。请人工介入检查结果。
-→ Display: 使用 /maestro-ralph continue 在处理后恢复
-→ End.
-```
+#### post-debug-escalate
 
-### 2b.4: Insert commands + reindex
-
-When inserting new commands after current position:
+Terminal escalation — max retries exceeded after debug.
 
 ```
-new_commands = buildInsertionCommands(...)  // each with appropriate type/skill/args
-splice steps[] at position (current_step + 1), insert new_commands
-Reindex: commands.forEach((cmd, i) => cmd.index = i)
+Set session status = "paused"
+Display: ◆ 已达最大重试次数，debug 已执行。请人工介入检查结果。
+Display: 使用 /maestro-ralph continue 在处理后恢复
+End.
 ```
 
-### 2b.5: Update session
+### 3.4: Insert commands + update session
 
 ```
-Mark current decision node status = "completed", completed_at = now
-Update status.json: steps[], current_step, updated_at
+Insert new_commands at position (current_step + 1)
+Reindex all steps: step.index = array position
+Mark current decision node: status = "completed", completed_at = now
+Write status.json
 
-If commands were inserted:
-  Display: ◆ Decision: {type} → {outcome}, +{N} commands inserted
+Display: ◆ Decision: {type} → {outcome}, +{N} commands inserted
 ```
 
-### 2b.6: Resume execution
+### 3.5: Resume execution
 
 ```
 Skill({ skill: "maestro-ralph-execute" })
+End.
 ```
 
 </execution>
@@ -523,21 +398,21 @@ Skill({ skill: "maestro-ralph-execute" })
 | E001 | error | No intent and no running session | Prompt for intent |
 | E002 | error | Cannot infer lifecycle position | Show raw state, ask user |
 | E003 | error | Artifact dir not found for decision evaluation | Show glob results, ask user |
-| E004 | error | Result file (verification.json etc) missing in artifact dir | Warn, treat as failure |
+| E004 | error | Result file missing in artifact dir | Warn, treat as failure |
 | W001 | warning | Decision node expanded chain | Auto-handled, log expansion |
-| W002 | warning | Max retries reached, escalating to debug | Auto-handled |
+| W002 | warning | Max retries reached, escalating | Auto-handled |
 | W003 | warning | Multiple running sessions found | Use latest, warn user |
 </error_codes>
 
 <success_criteria>
-- [ ] state.json artifacts correctly read with actual schema (type, path, scope, milestone)
-- [ ] Lifecycle position inferred from artifacts + result files (verification.json, review.json, uat.md)
-- [ ] Artifact dir resolved via artifact.path → .workflow/scratch/{path}/
-- [ ] Full quality pipeline: verify → business-test → review → test-gen → test
-- [ ] Decision nodes at: post-verify, post-business-test, post-review, post-test
-- [ ] Every decision failure path starts with quality-debug before plan --gaps
-- [ ] retry_count tracked per decision node, max_retries enforced
-- [ ] Max retries → post-debug-escalate → session paused for human intervention
-- [ ] Command insertion + reindex works correctly
-- [ ] Handoff to maestro-ralph-execute via Skill()
+- [ ] state.json parsed with correct schema (type, path, scope, milestone, artifacts[])
+- [ ] Lifecycle position inferred from bootstrap state + artifact chain + result files
+- [ ] Artifact dir resolved: `.workflow/scratch/{artifact.path}/` with fallback glob
+- [ ] Full quality pipeline generated: verify → business-test → review → test-gen → test
+- [ ] Decision nodes inserted after: post-verify, post-business-test, post-review, post-test, post-milestone
+- [ ] Every failure path starts with quality-debug before plan --gaps
+- [ ] retry_count tracked per decision, max_retries enforced, escalation to post-debug-escalate
+- [ ] Command insertion + reindex preserves step integrity
+- [ ] Ralph never executes steps — only creates sessions and evaluates decisions
+- [ ] Handoff to maestro-ralph-execute via Skill() at session creation and after decision evaluation
 </success_criteria>

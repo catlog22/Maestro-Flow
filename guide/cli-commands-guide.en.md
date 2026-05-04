@@ -2,6 +2,8 @@
 
 Maestro provides 21 terminal commands invoked via `maestro <command>`. Covers installation, delegation, coordination, wiki, hooks, collaboration, and more.
 
+> **Primary workflow entry point**: `/maestro-ralph` (slash command) is the recommended way to drive the full lifecycle. It builds adaptive command chains and internally dispatches via `maestro delegate` (CLI nodes) and `maestro coordinate` (skill nodes). See [Maestro Ralph Guide](./maestro-ralph-guide.md) for details.
+>
 > **Aliases**: Some commands have short aliases: `coord` → `coordinate`, `msg` → `agent-msg`, `kh` → `knowhow`, `bv` → `brainstorm-visualize`, `team` → `collab`.
 
 ---
@@ -154,6 +156,8 @@ maestro stop --port 8080       # Custom port
 
 Delegate tasks to AI agent tools (gemini/qwen/codex/claude/opencode). Supports sync, async, and session resume.
 
+Used internally by `maestro-ralph` for CLI-type chain nodes (heavy exploration, code generation). Ralph sets `--mode`, `--rule`, and `--cd` automatically based on session context.
+
 ```bash
 maestro delegate "analyze auth module" --to gemini
 maestro delegate "fix bug" --to gemini --async
@@ -192,7 +196,7 @@ maestro delegate "continue" --to gemini --resume
 
 ### maestro coordinate
 
-Graph workflow coordinator with step mode and auto mode.
+Graph workflow coordinator with step mode and auto mode. Ralph sessions use this internally via the unified executor (`maestro-ralph-execute`) for skill-type chain nodes.
 
 ```bash
 maestro coordinate list                                    # List chain graphs
@@ -241,7 +245,7 @@ maestro cli watch <id>
 
 ### maestro run
 
-Execute a named workflow.
+Execute a named workflow. Can trigger ralph lifecycle sessions or individual workflow skills.
 
 ```bash
 maestro run <workflow>           # Execute workflow

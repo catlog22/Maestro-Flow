@@ -14,7 +14,7 @@ export interface ToolsOverviewProps {
   onReload: () => void;
 }
 
-type Mode = 'list' | 'edit-tags';
+type Mode = 'list' | 'edit-tags' | 'edit-settings';
 
 export function ToolsOverview({ config, workDir, onBack, onReload }: ToolsOverviewProps) {
   const entries = Object.entries(config.tools);
@@ -23,6 +23,7 @@ export function ToolsOverview({ config, workDir, onBack, onReload }: ToolsOvervi
   const [tagCursor, setTagCursor] = useState(0);
   const [editTags, setEditTags] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
 
   useInput((input, key) => {
     if (saving) return;
@@ -36,6 +37,11 @@ export function ToolsOverview({ config, workDir, onBack, onReload }: ToolsOvervi
         setEditTags([...(entries[cursor][1].tags ?? [])]);
         setTagCursor(0);
         setMode('edit-tags');
+      }
+      if (input === 's' && entries.length > 0) {
+        // Enter settingsFile editing for current tool
+        setSettingsError('');
+        setMode('edit-settings');
       }
       if (input === ' ' && entries.length > 0) {
         // Toggle enabled
@@ -64,7 +70,23 @@ export function ToolsOverview({ config, workDir, onBack, onReload }: ToolsOvervi
           .then(() => { onReload(); setSaving(false); setMode('list'); });
       }
     }
+
+    if (mode === 'edit-settings') {
+      if (key.escape) { setSettingsError(''); setMode('list'); return; }
+    }
   });
+
+  const handleSettingsSubmit = (value: string) => {
+    const [name, entry] = entries[cursor];
+    const newPath = value.trim() || undefined;
+    setSaving(true);
+    saveCliToolsConfig({ tools: { [name]: { ...entry, settingsFile: newPath } } }, 'global', workDir)
+      .then(() => { onReload(); setSaving(false); setMode('list'); })
+      .catch((err: unknown) => {
+        setSettingsError(err instanceof Error ? err.message : String(err));
+        setSaving(false);
+      });
+  };
 
   if (entries.length === 0) {
     return (
@@ -96,6 +118,27 @@ export function ToolsOverview({ config, workDir, onBack, onReload }: ToolsOvervi
         })}
         <Text> </Text>
         <Text dimColor>[↑↓] Navigate  [Space] Toggle  [s] Save  [Esc] Cancel</Text>
+      </Box>
+    );
+  }
+
+  if (mode === 'edit-settings') {
+    const [name, entry] = entries[cursor];
+    return (
+      <Box flexDirection="column" paddingX={1}>
+        <Text bold color="cyan">Edit Settings: <Text color="green">{name}</Text></Text>
+        <Text> </Text>
+        <Box gap={1}>
+          <Text>Settings file:</Text>
+          <TextInput
+            defaultValue={entry.settingsFile ?? ''}
+            placeholder="~/.maestro/profiles/settings.json (empty to clear)"
+            onSubmit={handleSettingsSubmit}
+          />
+        </Box>
+        {settingsError && <Text color="red">  {settingsError}</Text>}
+        <Text> </Text>
+        <Text dimColor>[Enter] Save  [Esc] Cancel</Text>
       </Box>
     );
   }
@@ -133,7 +176,7 @@ export function ToolsOverview({ config, workDir, onBack, onReload }: ToolsOvervi
       })}
 
       <Text> </Text>
-      <Text dimColor>[↑↓] Navigate  [Space] Toggle enabled  [t] Edit tags  [Esc] Back</Text>
+      <Text dimColor>[↑↓] Navigate  [Space] Toggle enabled  [t] Edit tags  [s] Edit settings  [Esc] Back</Text>
       {saving && <Text dimColor>Saving...</Text>}
     </Box>
   );

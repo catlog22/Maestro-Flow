@@ -304,6 +304,29 @@ function isCliAvailable(cmd: string): boolean {
 }
 
 /**
+ * Reset ~/.maestro/cli-tools.json to defaults.
+ * Re-detects CLI availability and overwrites the existing file.
+ * Returns the new config.
+ */
+export async function resetCliToolsConfig(): Promise<CliToolsConfig> {
+  const tools: Record<string, ToolEntry> = {};
+  for (const def of TOOL_DEFS) {
+    tools[def.name] = {
+      enabled: isCliAvailable(def.cmd),
+      primaryModel: def.primaryModel,
+      tags: def.tags,
+      type: def.type,
+    };
+  }
+
+  const config: CliToolsConfig = { version: '1.1.0', tools };
+  const configPath = join(homedir(), '.maestro', 'cli-tools.json');
+  await mkdir(dirname(configPath), { recursive: true });
+  await writeFile(configPath, JSON.stringify(config, null, 2) + '\n');
+  return config;
+}
+
+/**
  * Initialize ~/.maestro/cli-tools.json with auto-detected tool availability.
  * No-op if the file already exists.
  * Returns true if created, false if skipped.

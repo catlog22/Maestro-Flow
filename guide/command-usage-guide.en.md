@@ -6,7 +6,7 @@ The Maestro-Flow command system includes 49 slash commands, organized into 6 maj
 
 | Category | Count | Prefix | Responsibility |
 |----------|-------|--------|----------------|
-| **Core Workflow** | 16 | `maestro-*` | Project initialization, planning, execution, verification, coordination, milestones, overlays |
+| **Core Workflow** | 18 | `maestro-*` | Lifecycle engine (ralph), initialization, planning, execution, verification, coordination, milestones, overlays |
 | **Management** | 12 | `manage-*` | Issue lifecycle, codebase documentation, knowledge capture, memory, harvest, status |
 | **Quality** | 9 | `quality-*` | Code review, business testing, UAT, debugging, refactoring, retrospective, sync |
 | **Specification** | 3 | `spec-*` | Project spec initialization, loading, entry |
@@ -245,6 +245,35 @@ stateDiagram-v2
 ```
 
 **Core design**: Phase = label, not directory. All artifacts live in `.workflow/scratch/`, tracked by `state.json.artifacts[]`. Each step produces an artifact entry (ANL/PLN/EXC/VRF) forming a dependency chain. Supports multiple analyze → multiple plan (with collision detection) → execute one-by-one (serial between plans, wave parallel within plan).
+
+---
+
+## Full Pipeline Usage
+
+`/maestro-ralph` drives the complete lifecycle from init to milestone-complete in one command:
+
+```bash
+/maestro-ralph "implement OAuth2 authentication with refresh tokens"
+```
+
+Ralph auto-detects project state and builds the full pipeline:
+
+```
+brainstorm (0→1) → init → roadmap → analyze → plan → execute → verify
+                                                          ◆ post-verify
+                                                          business-test
+                                                          ◆ post-business-test
+                                                          review
+                                                          ◆ post-review
+                                                          test-gen → test
+                                                          ◆ post-test
+                                                          milestone-audit → milestone-complete
+                                                          ◆ post-milestone → next milestone
+```
+
+Each `◆` is a decision node — Ralph reads actual results and decides: pass through, or insert debug → fix → retry loops. Use `-y` for full auto mode without pauses. See [Maestro Ralph Guide](./maestro-ralph-guide.md).
+
+Other entry points: `/maestro "..."` for AI-routed chains, `/maestro-quick` for small fixes, and individual `/maestro-*` commands for step-by-step control.
 
 ---
 

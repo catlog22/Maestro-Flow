@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import {
   loadCliToolsConfig,
+  resetCliToolsConfig,
   getDefaultRoleMappings,
   selectToolByRole,
   type CliToolsConfig,
@@ -12,7 +13,7 @@ import { RegisterSettings } from './RegisterSettings.js';
 import { CommandReference } from './CommandReference.js';
 import { ConfigSources } from './ConfigSources.js';
 
-type View = 'dashboard' | 'tools' | 'roles' | 'register' | 'reference' | 'sources';
+type View = 'dashboard' | 'tools' | 'roles' | 'register' | 'reference' | 'sources' | 'reset-confirm';
 
 export interface ToolsDashboardProps {
   workDir: string;
@@ -32,12 +33,21 @@ export function ToolsDashboard({ workDir, initialView }: ToolsDashboardProps) {
   useEffect(() => { reload(); }, []);
 
   useInput((input, key) => {
+    if (view === 'reset-confirm') {
+      if (key.escape || input === 'n') { setView('dashboard'); return; }
+      if (key.return || input === 'y') {
+        resetCliToolsConfig().then(cfg => { setConfig(cfg); setView('dashboard'); });
+      }
+      return;
+    }
+
     if (view !== 'dashboard') return;
     if (input === '1') setView('tools');
     if (input === '2') setView('roles');
     if (input === '3') setView('register');
     if (input === '4') setView('reference');
     if (input === '5') setView('sources');
+    if (input === '6') setView('reset-confirm');
     if (input === 'q' || key.escape) exit();
   });
 
@@ -65,6 +75,22 @@ export function ToolsDashboard({ workDir, initialView }: ToolsDashboardProps) {
   }
   if (view === 'sources') {
     return <ConfigSources workDir={workDir} onBack={() => setView('dashboard')} />;
+  }
+
+  if (view === 'reset-confirm') {
+    return (
+      <Box flexDirection="column" paddingX={1}>
+        <Box borderStyle="round" borderColor="yellow" flexDirection="column" paddingX={2} paddingY={1}>
+          <Text bold color="yellow">Reset CLI tools to defaults?</Text>
+          <Text> </Text>
+          <Text>This will overwrite ~/.maestro/cli-tools.json with default</Text>
+          <Text>tool definitions and re-detect CLI availability.</Text>
+          <Text>Custom roles and aliases will be lost.</Text>
+          <Text> </Text>
+          <Text dimColor>[y] Confirm  [n/Esc] Cancel</Text>
+        </Box>
+      </Box>
+    );
   }
 
   // Dashboard view
@@ -100,6 +126,7 @@ export function ToolsDashboard({ workDir, initialView }: ToolsDashboardProps) {
           <Text color="cyan">[3]</Text><Text>Register</Text>
           <Text color="cyan">[4]</Text><Text>Ref</Text>
           <Text color="cyan">[5]</Text><Text>Config</Text>
+          <Text color="cyan">[6]</Text><Text>Reset</Text>
         </Box>
         <Text dimColor>  [q] Quit</Text>
       </Box>
