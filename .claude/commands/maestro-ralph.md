@@ -302,64 +302,146 @@ meta = JSON.parse(decision_node.args)
 // { decision: "post-verify", retry_count: 0, max_retries: 2 }
 ```
 
-### 3.3: Evaluate by decision type
+### 3.3: Delegate evaluation
 
-Each decision reads specific result files and decides: proceed or insert fix loop.
+For quality-gate decisions (post-verify, post-business-test, post-review, post-test), delegate analysis to external CLI. For structural decisions (post-milestone, post-debug-escalate), evaluate directly.
 
-**Common pattern for failures with retries:**
-- If `retry_count >= max_retries` → escalate: insert `[quality-debug, decision:post-debug-escalate]`
-- Else → insert fix loop with `retry_count + 1`
+**Structural decisions → Step 3.5 (direct evaluation)**
+**Quality-gate decisions → delegate below:**
 
----
+**Result file mapping** (for delegate CONTEXT):
 
-#### post-verify
+| Decision type | Files to include |
+|---------------|-----------------|
+| post-verify | `{artifact_dir}/verification.json` |
+| post-business-test | `{artifact_dir}/business-test-results.json` |
+| post-review | `{artifact_dir}/review.json` |
+| post-test | `{artifact_dir}/uat.md`, `{artifact_dir}/.tests/test-results.json` |
 
-Read: `{artifact_dir}/verification.json` — check `passed` and `gaps[]`
+```
+Bash({
+  command: `maestro delegate "PURPOSE: 评估 ${meta.decision} 质量门结果，判断是否通过
+TASK: 读取结果文件 | 分析通过/失败状态 | 评估问题严重性 | 给出下一步建议
+MODE: analysis
+CONTEXT: @${result_files}
+EXPECTED: 严格按以下格式输出:
+---VERDICT---
+STATUS: proceed | fix | escalate
+REASON: 一句话解释
+GAP_SUMMARY: 具体问题描述（仅 fix/escalate 时填写，用于传递给 quality-debug）
+CONFIDENCE: high | medium | low
+---END---
+CONSTRAINTS: 只评估不修改 | STATUS 三选一 | 如果 retry ${meta.retry_count}/${meta.max_retries} 已达上限且仍有问题则必须 escalate" --role analyze --mode analysis`,
+  run_in_background: true
+})
+STOP — wait for callback.
+```
 
-| Condition | Action |
-|-----------|--------|
-| `passed==true`, no gaps | Proceed |
-| Gaps found, retries remaining | Insert: `quality-debug "{gaps}" → maestro-plan --gaps → maestro-execute [cli] → maestro-verify → decision:post-verify {retry+1}` |
-| Gaps found, max retries reached | Escalate to `post-debug-escalate` |
+### 3.4: Parse verdict + apply
 
-#### post-business-test
+**On callback:** retrieve output via `maestro delegate output <exec_id>`.
 
-Read: `{artifact_dir}/business-test-results.json` — check `failures[]` or `passed`
+Parse structured response:
+```
+Extract between ---VERDICT--- and ---END---:
+  verdict.status   = "proceed" | "fix" | "escalate"
+  verdict.reason   = string
+  verdict.gap_summary = string (context for quality-debug)
+  verdict.confidence = "high" | "medium" | "low"
 
-| Condition | Action |
-|-----------|--------|
-| All pass | Proceed |
-| Failures, retries remaining | Insert: `quality-debug --from-business-test → maestro-plan --gaps → maestro-execute [cli] → maestro-verify → decision:post-verify {0} → quality-auto-test → decision:post-business-test {retry+1}` |
-| Failures, max retries reached | Escalate to `post-debug-escalate` |
+If parse fails → fallback: treat as "fix" with generic gap_summary
+```
 
-#### post-review
+**Apply verdict:**
 
-Read: `{artifact_dir}/review.json` — check `verdict` and `issues[].severity`
+| Mode | Behavior |
+|------|----------|
+| `-y` (auto_confirm) | Follow verdict directly — no user confirmation |
+| Interactive + confidence == "high" | Display recommendation, AskUserQuestion: "按建议执行 / 覆盖 / 取消" |
+| Interactive + confidence != "high" | Display recommendation with warning, AskUserQuestion: "按建议执行 / 覆盖 / 取消" |
 
-| Condition | Action |
-|-----------|--------|
-| verdict == "PASS" or "WARN" | Proceed |
-| verdict == "BLOCK" or critical issues, retries remaining | Insert: `quality-debug "{issues}" → maestro-plan --gaps → maestro-execute [cli] → quality-review → decision:post-review {retry+1}` |
-| BLOCK, max retries reached | Escalate to `post-debug-escalate` |
+User override options (interactive only):
+- **按建议执行** → apply verdict as-is
+- **覆盖 proceed** → force proceed regardless of verdict
+- **覆盖 fix** → force fix loop
+- **取消** → pause session, End.
 
-#### post-test
+**Verdict → action mapping:**
 
-Read: `{artifact_dir}/uat.md` + `{artifact_dir}/.tests/test-results.json`
+| Verdict | Action |
+|---------|--------|
+| `proceed` | No insertion, continue to next step |
+| `fix` | Insert fix-loop commands (see 3.4a) |
+| `escalate` | Insert `[quality-debug "{gap_summary}", decision:post-debug-escalate]` |
 
-| Condition | Action |
-|-----------|--------|
-| All pass | Proceed |
-| Failures, retries remaining | Insert full re-run loop: `quality-debug --from-uat → maestro-plan --gaps → maestro-execute [cli] → maestro-verify → decision:post-verify {0} → quality-auto-test → decision:post-business-test {0} → quality-review → decision:post-review {0} → quality-auto-test → quality-test → decision:post-test {retry+1}` |
-| Failures, max retries reached | Escalate to `post-debug-escalate` |
+### 3.4a: Fix-loop templates (by decision type)
+
+When verdict == "fix", insert pre-defined fix-loop based on decision type.
+The delegate's `gap_summary` is passed as context to `quality-debug`.
+
+#### post-verify fix-loop
+```
+quality-debug "{gap_summary}"
+maestro-plan --gaps {phase}
+maestro-execute {phase}                    [cli]
+maestro-verify {phase}
+decision:post-verify {retry_count + 1}
+```
+
+#### post-business-test fix-loop
+```
+quality-debug --from-business-test "{gap_summary}"
+maestro-plan --gaps {phase}
+maestro-execute {phase}                    [cli]
+maestro-verify {phase}
+decision:post-verify {retry: 0}
+quality-auto-test {phase}
+decision:post-business-test {retry_count + 1}
+```
+
+#### post-review fix-loop
+```
+quality-debug "{gap_summary}"
+maestro-plan --gaps {phase}
+maestro-execute {phase}                    [cli]
+quality-review {phase}
+decision:post-review {retry_count + 1}
+```
+
+#### post-test fix-loop
+```
+quality-debug --from-uat "{gap_summary}"
+maestro-plan --gaps {phase}
+maestro-execute {phase}                    [cli]
+maestro-verify {phase}
+decision:post-verify {retry: 0}
+quality-auto-test {phase}
+decision:post-business-test {retry: 0}
+quality-review {phase}
+decision:post-review {retry: 0}
+quality-auto-test {phase}
+quality-test {phase}
+decision:post-test {retry_count + 1}
+```
+
+### 3.5: Structural decisions (direct evaluation)
+
+These don't need delegate analysis — evaluated directly by ralph.
 
 #### post-milestone
 
-Read: `.workflow/state.json` — check for next milestone with status "pending" or "active"
+```
+Read .workflow/state.json — check for next milestone (status "pending" or "active")
 
-| Condition | Action |
-|-----------|--------|
-| Next milestone found | Update session (milestone, phase = first phase). Insert full lifecycle for next milestone (analyze through milestone-complete + decision nodes) |
-| No next milestone | Proceed — session completes naturally |
+If next milestone found:
+  Update session: milestone = next_m.name, phase = first_phase
+  Insert full lifecycle for next milestone (analyze through milestone-complete + decision nodes)
+  Display: ◆ post-milestone: {completed} done → advancing to {next_m.name} Phase {first_phase}
+
+If no next milestone:
+  Proceed — session completes naturally
+  Display: ◆ post-milestone: all milestones complete!
+```
 
 #### post-debug-escalate
 
@@ -372,7 +454,7 @@ Display: 使用 /maestro-ralph continue 在处理后恢复
 End.
 ```
 
-### 3.4: Insert commands + update session
+### 3.6: Insert commands + update session
 
 ```
 Insert new_commands at position (current_step + 1)
@@ -380,10 +462,10 @@ Reindex all steps: step.index = array position
 Mark current decision node: status = "completed", completed_at = now
 Write status.json
 
-Display: ◆ Decision: {type} → {outcome}, +{N} commands inserted
+Display: ◆ Decision: {type} → {verdict.status} ({verdict.reason}), +{N} commands inserted
 ```
 
-### 3.5: Resume execution
+### 3.7: Resume execution
 
 ```
 Skill({ skill: "maestro-ralph-execute" })
@@ -398,10 +480,12 @@ End.
 | E001 | error | No intent and no running session | Prompt for intent |
 | E002 | error | Cannot infer lifecycle position | Show raw state, ask user |
 | E003 | error | Artifact dir not found for decision evaluation | Show glob results, ask user |
-| E004 | error | Result file missing in artifact dir | Warn, treat as failure |
+| E004 | error | Delegate verdict parse failed | Fallback: treat as "fix" |
+| E005 | error | Delegate execution failed | Fallback: treat as "fix" with generic summary |
 | W001 | warning | Decision node expanded chain | Auto-handled, log expansion |
 | W002 | warning | Max retries reached, escalating | Auto-handled |
 | W003 | warning | Multiple running sessions found | Use latest, warn user |
+| W004 | warning | Delegate confidence == "low" | Show warning in interactive mode |
 </error_codes>
 
 <success_criteria>
@@ -410,8 +494,15 @@ End.
 - [ ] Artifact dir resolved: `.workflow/scratch/{artifact.path}/` with fallback glob
 - [ ] Full quality pipeline generated: verify → business-test → review → test-gen → test
 - [ ] Decision nodes inserted after: post-verify, post-business-test, post-review, post-test, post-milestone
-- [ ] Every failure path starts with quality-debug before plan --gaps
+- [ ] Quality-gate decisions delegated via `maestro delegate --role analyze --mode analysis`
+- [ ] Delegate verdict parsed: STATUS / REASON / GAP_SUMMARY / CONFIDENCE
+- [ ] `-y` mode: auto-follow delegate verdict without user confirmation
+- [ ] Interactive mode: display recommendation + AskUserQuestion with override options
+- [ ] Delegate failure fallback: treat as "fix" verdict
+- [ ] gap_summary from delegate passed to quality-debug as context
+- [ ] Fix-loop templates applied per decision type with retry_count increment
 - [ ] retry_count tracked per decision, max_retries enforced, escalation to post-debug-escalate
+- [ ] Structural decisions (post-milestone, post-debug-escalate) evaluated directly without delegate
 - [ ] Command insertion + reindex preserves step integrity
 - [ ] Ralph never executes steps — only creates sessions and evaluates decisions
 - [ ] Handoff to maestro-ralph-execute via Skill() at session creation and after decision evaluation
