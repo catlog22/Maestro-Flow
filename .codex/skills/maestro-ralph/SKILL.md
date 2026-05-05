@@ -16,7 +16,7 @@ Entry points:
 - **`$maestro-ralph status`** — Display session progress
 
 Two node types:
-- **skill**: Executed via `spawn_agents_on_csv`. Barrier skills solo; non-barriers parallel.
+- **external**: Executed via `spawn_agents_on_csv`. Barrier steps solo; non-barriers parallel.
 - **decision**: Delegate evaluation via `maestro delegate --role analyze`, then expand/proceed/escalate.
 
 Key difference from maestro coordinator:
@@ -60,12 +60,12 @@ otherwise             → Phase 1 (New Session).
 </context>
 
 <invariants>
-1. **ALL skills via spawn_agents_on_csv** — coordinator NEVER executes skill logic directly
+1. **ALL external steps via spawn_agents_on_csv** — coordinator NEVER executes skill logic directly
 2. **Coordinator = prompt assembler** — classify → enrich args → build CSV → spawn → read results → assemble next
 3. **Decision nodes delegate-evaluate** — use `maestro delegate --role analyze` for quality-gate assessment; structural decisions (post-milestone, post-debug-escalate) evaluated directly
 4. **Decision STOP behavior** — default: STOP after evaluation; `-y` mode: auto-continue (except post-debug-escalate always STOPs)
 5. **Barrier = solo wave** — analyze, plan, execute, brainstorm, roadmap always run alone
-6. **Non-barriers can parallel** — consecutive non-barrier, non-decision steps grouped into one wave
+6. **Non-barriers can parallel** — consecutive non-barrier, non-decision external steps grouped into one wave
 7. **Wave-by-wave** — never start wave N+1 before wave N results are read
 8. **Coordinator owns context** — sub-agents never read prior results; coordinator assembles full skill_call
 9. **Abort on failure** — `-y`: retry once then skip; non-`-y`: mark remaining skipped → pause
@@ -223,7 +223,7 @@ Display:
 
   [ ] 0. maestro-plan {phase}              [barrier]
   [ ] 1. maestro-execute {phase}           [barrier]
-  [ ] 2. maestro-verify {phase}            [skill]
+  [ ] 2. maestro-verify {phase}            [external]
   [ ] 3. ◆ post-verify                     [decision]
   ...
 ============================================================
@@ -244,7 +244,7 @@ Read status.json. Rebuild `update_plan` from step statuses.
 Find first pending step.
 
 - If decision node → Step 2.2 (Delegate Evaluation)
-- If skill node → Step 2.3 (Wave Execution)
+- If external node → Step 2.3 (Wave Execution)
 - If no pending → Phase 3 (Completion)
 
 ### 2.2: Delegate Evaluation (decision nodes)
@@ -459,7 +459,7 @@ spawn_agents_on_csv({
 **10. Next step check:**
 - Decision node + auto_mode → loop to 2.2
 - Decision node + non-auto → STOP
-- Skill node → loop to step 1
+- External node → loop to step 1
 
 ---
 
@@ -513,8 +513,8 @@ id,skill_call,topic
 Rules:
 - `skill_call`: complete `$<skill> <args> [auto-flag]` from `buildSkillCall()`
 - `topic`: human-readable step description
-- Non-barrier + non-decision → multi-row (parallel)
-- Barrier → single-row (solo)
+- Non-barrier external + non-decision → multi-row (parallel)
+- Barrier external → single-row (solo)
 - Decision nodes NEVER appear in CSV — processed by coordinator directly
 
 ### Sub-Agent Instruction
@@ -570,8 +570,8 @@ Rules:
 - [ ] passed_gates cleared when code changes (fix-loop inserts execute step)
 - [ ] Fix-loop templates correctly use gap_summary from delegate
 - [ ] retry_count tracked per decision, max_retries enforced → escalation
-- [ ] ALL skills via spawn_agents_on_csv — coordinator never executes directly
-- [ ] Barrier skills solo wave, non-barriers parallel
+- [ ] ALL external steps via spawn_agents_on_csv — coordinator never executes directly
+- [ ] Barrier steps solo wave, non-barriers parallel
 - [ ] functions.update_plan() initialized in 1.6, synced per wave, finalized in Phase 3
 - [ ] status.json persisted after every wave and decision
 - [ ] Command insertion + reindex preserves step integrity

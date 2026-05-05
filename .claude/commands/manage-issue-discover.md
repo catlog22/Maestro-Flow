@@ -16,7 +16,7 @@ Automated issue discovery via multi-perspective codebase analysis (8 perspective
 
 - **Default (no args)**: Interactive mode selection — choose multi-perspective or prompt-driven.
 - **`multi-perspective`**: 8-perspective parallel agent scan — security, performance, reliability, maintainability, scalability, UX, accessibility, compliance.
-- **`by-prompt "..."`**: Prompt-driven — Gemini plans exploration strategy, agents explore iteratively with cross-dimension analysis.
+- **`by-prompt "..."`**: Prompt-driven — CLI delegate plans exploration strategy, agents explore iteratively with cross-dimension analysis.
 
 For CRUD operations (create, list, update, close, link), use `/manage-issue`.
 
@@ -38,7 +38,7 @@ $ARGUMENTS -- optional. Parse first token to determine mode.
 **Modes:**
 - _(empty)_ -- interactive mode selection (AskUserQuestion)
 - `multi-perspective` -- 8-perspective parallel agent scan
-- `by-prompt "..."` -- prompt-driven iterative agent exploration (Gemini-planned)
+- `by-prompt "..."` -- prompt-driven iterative agent exploration (CLI-planned)
 
 **Flags:**
 - `-y` / `--yes` -- auto mode, skip confirmations

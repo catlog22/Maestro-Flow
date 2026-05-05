@@ -257,7 +257,7 @@ For parallel groups show fan-out/fan-in:
 ```
  N-003a [skill]  quality-review  ─┐
                                    ├─ N-004 [skill] quality-test
- N-003b [cli]    gemini analysis  ─┘
+ N-003b [cli]    cli analysis     ─┘
 ```
 
 **Step 4.2** — AskUserQuestion:

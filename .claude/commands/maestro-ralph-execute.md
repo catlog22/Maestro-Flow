@@ -1,6 +1,6 @@
 ---
 name: maestro-ralph-execute
-description: Single-step executor — find next pending step in session, execute by type (decision/skill/cli), hand off to next iteration
+description: Single-step executor — find next pending step in session, execute by type (decision/internal/external), hand off to next iteration
 argument-hint: "[-y] [session-id]"
 allowed-tools:
   - Read
@@ -19,12 +19,12 @@ Each invocation: find next pending step → execute → update status → hand o
 
 Three node types:
 - **decision** (ralph-only): `Skill("maestro-ralph")` — ralph re-evaluates, may expand chain
-- **skill**: `Skill({ skill, args })` — synchronous in-session → self-invoke next
-- **cli**: `maestro delegate` background → STOP → callback → self-invoke next
+- **internal**: `Skill({ skill, args })` — synchronous in-session → self-invoke next
+- **external**: `maestro delegate --to claude` → new Claude Code session executing `/{skill} {args}` → STOP → callback → self-invoke next
 
 Session sources:
 - **source: "ralph"** — Adaptive chain with decision nodes. Primary use case.
-- **source: "maestro"** — Static chain, skill/cli only. No decision callbacks.
+- **source: "maestro"** — Static chain, internal/external only. No decision callbacks.
 
 Mutual invocation with `/maestro-ralph` forms a self-perpetuating work loop.
 </purpose>
@@ -149,9 +149,9 @@ Ralph will: detect running decision → evaluate results → optionally expand s
 
 **After Skill("maestro-ralph") returns, this execution ends.** Ralph handles the handoff.
 
-### 5b. skill node
+### 5b. internal node
 
-HARD RULE: Every skill step MUST be executed via `Skill({ skill, args })`.
+HARD RULE: Every internal step MUST be executed via `Skill({ skill, args })`.
 Never "simulate" or "inline" a skill's work. If Skill() is not called, the step has NOT been executed.
 
 **Auto flag propagation** (when `auto == true`):
@@ -180,20 +180,22 @@ Skill({ skill: next.skill, args: effective_args })
 **On success** → Step 5d (Mark Complete).
 **On failure** → Step 5e (Handle Failure).
 
-### 5c. cli node
+### 5c. external node
 
-Background delegate execution with stop-and-wait pattern.
+Context-isolated skill execution via new Claude Code session.
+
+HARD RULE: external nodes ALWAYS delegate to `claude` — only Claude Code can execute slash-command skills.
+`session.cli_tool` is for analysis-mode delegates (e.g., decision evaluation in ralph), NOT for external node execution.
 
 ```
-cli_tool = session.cli_tool
-
 Bash({
-  command: `maestro delegate "PURPOSE: 执行 /${next.skill} ${next.args}
-TASK: 运行 /${next.skill} ${next.args}
-MODE: write
-CONTEXT: @**/*
-EXPECTED: 产出写入 .workflow/scratch/，artifact 注册到 state.json
-CONSTRAINTS: 严格按照 /${next.skill} 的正常流程执行" --to ${cli_tool} --mode write`,
+  command: `maestro delegate "Execute: /${next.skill} ${next.args}
+
+You are a delegate session within a ralph/maestro pipeline.
+Your task: invoke the slash command /${next.skill} with args: ${next.args}
+Use Skill({ skill: \"${next.skill}\", args: \"${next.args}\" }) to execute it.
+Do NOT reimplement the skill logic manually — invoke the actual command.
+All artifact outputs follow the skill's own conventions." --to claude --mode write`,
   run_in_background: true,
   timeout: 600000
 })
@@ -218,7 +220,7 @@ Scan output for context propagation signals:
   SPEC-xxx         → context.spec_session_id
 
 Write status.json
-Display: [{next.index}/{total}] ✓ {next.skill} completed {next.type == "cli" ? "[cli]" : ""}
+Display: [{next.index}/{total}] ✓ {next.skill} completed {next.type == "external" ? "[external]" : ""}
 ```
 
 Then hand off:
@@ -277,17 +279,17 @@ Display completion report:
   Phase:    {phase}
   Steps:    {completed}/{total}
 
-  [✓] 0.   maestro-plan 1            [skill]
-  [✓] 1. ⚡ maestro-execute 1         [cli]
-  [✓] 2.   maestro-verify 1          [skill]
+  [✓] 0.   maestro-plan 1            [internal]
+  [✓] 1. ⚡ maestro-execute 1         [external]
+  [✓] 2.   maestro-verify 1          [internal]
   [✓] 3. ◆ post-verify               [decision]
-  [—] 4.   quality-auto-test 1       [skill]  (skipped)
+  [—] 4.   quality-auto-test 1       [internal]  (skipped)
   ...
 ============================================================
 ```
 
 Status icons: `✓` completed, `—` skipped, `✗` failed, ` ` pending.
-Type badges: `◆` decision, `⚡` cli, (none) skill.
+Type badges: `◆` decision, `⚡` external, (none) internal.
 
 **End.**
 
@@ -310,8 +312,8 @@ Type badges: `◆` decision, `⚡` cli, (none) skill.
 - [ ] Per-skill enrichment provides correct args when empty/minimal
 - [ ] Artifact dir resolution finds latest artifact for --dir args
 - [ ] decision nodes hand off to maestro-ralph via Skill() (ralph sessions only)
-- [ ] skill nodes execute via Skill() with auto flag propagation
-- [ ] cli nodes use maestro delegate with run_in_background + STOP pattern
+- [ ] internal nodes execute via Skill() with auto flag propagation
+- [ ] external nodes use maestro delegate --to claude with run_in_background + STOP pattern
 - [ ] Context propagation: output signals update status.json.context
 - [ ] status.json updated after every status change (resume-safe)
 - [ ] Auto mode: retry once then skip; interactive: AskUserQuestion retry/skip/abort

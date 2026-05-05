@@ -1,6 +1,6 @@
 ---
 name: maestro-ralph
-description: Closed-loop lifecycle decision engine — read project state, infer position, build adaptive command chain with decision/skill/cli nodes
+description: Closed-loop lifecycle decision engine — read project state, infer position, build adaptive command chain with decision/internal/external nodes
 argument-hint: "[-y] \"intent\" | status | continue"
 allowed-tools:
   - Read
@@ -18,8 +18,8 @@ Closed-loop decision engine for the maestro workflow lifecycle.
 Reads project state → infers lifecycle position → builds adaptive command chain → delegates execution.
 
 Three node types:
-- **skill**: In-session `Skill()` call (synchronous, lightweight)
-- **cli**: `maestro delegate` (context-isolated, heavy computation)
+- **internal**: In-session `Skill()` call (synchronous, lightweight)
+- **external**: New Claude Code session via `maestro delegate --to claude` executing `/{skill} {args}` (context-isolated, heavy computation)
 - **decision**: Hand back to ralph for re-evaluation (adaptive branching)
 
 Key difference from maestro coordinator:
@@ -73,9 +73,9 @@ Display:
   Current:  [{current_step}] {steps[current_step].skill} [{type}]
   
   Commands:
-    [✓] 0. maestro-analyze 1         [skill]
-    [▸] 1. maestro-plan 1            [skill]
-    [ ] 2. maestro-execute 1         [cli]
+    [✓] 0. maestro-analyze 1         [external]
+    [▸] 1. maestro-plan 1            [internal]
+    [ ] 2. maestro-execute 1         [external]
     ...
 End.
 ```
@@ -164,23 +164,25 @@ Generate steps from `lifecycle_position` to target (default: `milestone-complete
 
 | Stage | Skill command | Type | Decision after |
 |-------|--------------|------|----------------|
-| brainstorm | `maestro-brainstorm "{intent}"` | cli | — (0→1 only) |
-| init | `maestro-init` | skill | — |
-| roadmap | `maestro-roadmap "{intent}"` | skill | — |
-| analyze | `maestro-analyze {phase}` | cli | — |
-| plan | `maestro-plan {phase}` | skill | — |
-| execute | `maestro-execute {phase}` | cli | — |
-| verify | `maestro-verify {phase}` | skill | `post-verify` |
-| business-test | `quality-auto-test {phase}` | skill | `post-business-test` |
-| review | `quality-review {phase}` | skill | `post-review` |
-| test-gen | `quality-auto-test {phase}` | skill | — |
-| test | `quality-test {phase}` | skill | `post-test` |
-| milestone-audit | `maestro-milestone-audit` | skill | — |
-| milestone-complete | `maestro-milestone-complete` | skill | `post-milestone` |
+| brainstorm | `maestro-brainstorm "{intent}"` | external | — (0→1 only) |
+| init | `maestro-init` | internal | — |
+| roadmap | `maestro-roadmap "{intent}"` | internal | — |
+| analyze | `maestro-analyze {phase}` | external | — |
+| plan | `maestro-plan {phase}` | internal | — |
+| execute | `maestro-execute {phase}` | external | — |
+| verify | `maestro-verify {phase}` | internal | `post-verify` |
+| business-test | `quality-auto-test {phase}` | internal | `post-business-test` |
+| review | `quality-review {phase}` | internal | `post-review` |
+| test-gen | `quality-auto-test {phase}` | internal | — |
+| test | `quality-test {phase}` | internal | `post-test` |
+| milestone-audit | `maestro-milestone-audit` | internal | — |
+| milestone-complete | `maestro-milestone-complete` | internal | `post-milestone` |
 
 **Type rationale:**
-- `cli` = heavy computation needing isolated context (analyze, execute, brainstorm)
-- `skill` = needs user interaction or is lightweight (plan, verify, quality-*, milestone-*)
+- `internal` = in-session `Skill()` call, needs user interaction or is lightweight (plan, verify, quality-*, milestone-*)
+- `external` = new Claude Code session via `maestro delegate --to claude` executing `/{skill} {args}`, context-isolated heavy computation (analyze, execute, brainstorm)
+
+IMPORTANT: `external` ≠ single CLI tool call. It spawns a full Claude Code session that executes the skill command — the delegate session has complete skill access.
 
 **Build rules:**
 1. Start from inferred position, skip completed stages
@@ -195,19 +197,19 @@ Generate steps from `lifecycle_position` to target (default: `milestone-complete
 **Example — from "plan" position:**
 ```json
 [
-  { "index": 0, "type": "skill", "skill": "maestro-plan", "args": "{phase}" },
-  { "index": 1, "type": "cli",  "skill": "maestro-execute", "args": "{phase}" },
-  { "index": 2, "type": "skill", "skill": "maestro-verify", "args": "{phase}" },
+  { "index": 0, "type": "internal", "skill": "maestro-plan", "args": "{phase}" },
+  { "index": 1, "type": "external", "skill": "maestro-execute", "args": "{phase}" },
+  { "index": 2, "type": "internal", "skill": "maestro-verify", "args": "{phase}" },
   { "index": 3, "type": "decision", "skill": "maestro-ralph", "args": "{\"decision\":\"post-verify\",\"retry_count\":0,\"max_retries\":2}" },
-  { "index": 4, "type": "skill", "skill": "quality-auto-test", "args": "{phase}" },
+  { "index": 4, "type": "internal", "skill": "quality-auto-test", "args": "{phase}" },
   { "index": 5, "type": "decision", "skill": "maestro-ralph", "args": "{\"decision\":\"post-business-test\",\"retry_count\":0,\"max_retries\":2}" },
-  { "index": 6, "type": "skill", "skill": "quality-review", "args": "{phase}" },
+  { "index": 6, "type": "internal", "skill": "quality-review", "args": "{phase}" },
   { "index": 7, "type": "decision", "skill": "maestro-ralph", "args": "{\"decision\":\"post-review\",\"retry_count\":0,\"max_retries\":2}" },
-  { "index": 8, "type": "skill", "skill": "quality-auto-test", "args": "{phase}" },
-  { "index": 9, "type": "skill", "skill": "quality-test", "args": "{phase}" },
+  { "index": 8, "type": "internal", "skill": "quality-auto-test", "args": "{phase}" },
+  { "index": 9, "type": "internal", "skill": "quality-test", "args": "{phase}" },
   { "index": 10, "type": "decision", "skill": "maestro-ralph", "args": "{\"decision\":\"post-test\",\"retry_count\":0,\"max_retries\":2}" },
-  { "index": 11, "type": "skill", "skill": "maestro-milestone-audit", "args": "" },
-  { "index": 12, "type": "skill", "skill": "maestro-milestone-complete", "args": "" },
+  { "index": 11, "type": "internal", "skill": "maestro-milestone-audit", "args": "" },
+  { "index": 12, "type": "internal", "skill": "maestro-milestone-complete", "args": "" },
   { "index": 13, "type": "decision", "skill": "maestro-ralph", "args": "{\"decision\":\"post-milestone\"}" }
 ]
 ```
@@ -253,9 +255,9 @@ Write to `.workflow/.maestro/{session_id}/status.json`.
   Target:    {target}
   Commands:  {total} steps ({decision_count} decision points)
 
-  [ ] 0. maestro-plan 1                  [skill]
-  [ ] 1. maestro-execute 1               [cli]
-  [ ] 2. maestro-verify 1                [skill]
+  [ ] 0. maestro-plan 1                  [internal]
+  [ ] 1. maestro-execute 1               [external]
+  [ ] 2. maestro-verify 1                [internal]
   [ ] 3. ◆ post-verify                   [decision]
   ...
 ============================================================
@@ -383,7 +385,7 @@ The delegate's `gap_summary` is passed as context to `quality-debug`.
 ```
 quality-debug "{gap_summary}"
 maestro-plan --gaps {phase}
-maestro-execute {phase}                    [cli]
+maestro-execute {phase}                    [external]
 maestro-verify {phase}
 decision:post-verify {retry_count + 1}
 ```
@@ -392,7 +394,7 @@ decision:post-verify {retry_count + 1}
 ```
 quality-debug --from-business-test "{gap_summary}"
 maestro-plan --gaps {phase}
-maestro-execute {phase}                    [cli]
+maestro-execute {phase}                    [external]
 maestro-verify {phase}
 decision:post-verify {retry: 0}
 quality-auto-test {phase}
@@ -403,7 +405,7 @@ decision:post-business-test {retry_count + 1}
 ```
 quality-debug "{gap_summary}"
 maestro-plan --gaps {phase}
-maestro-execute {phase}                    [cli]
+maestro-execute {phase}                    [external]
 quality-review {phase}
 decision:post-review {retry_count + 1}
 ```
@@ -412,7 +414,7 @@ decision:post-review {retry_count + 1}
 ```
 quality-debug --from-uat "{gap_summary}"
 maestro-plan --gaps {phase}
-maestro-execute {phase}                    [cli]
+maestro-execute {phase}                    [external]
 maestro-verify {phase}
 decision:post-verify {retry: 0}
 quality-auto-test {phase}

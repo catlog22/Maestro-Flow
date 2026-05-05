@@ -114,7 +114,7 @@ In auto mode, maestro also:
 - [ ] Low-complexity intents routed to maestro-quick
 - [ ] All chains dispatched via unified executor (maestro-ralph-execute) with status.json tracking
 - [ ] Phase numbers auto-detected and passed to downstream commands
-- [ ] (super mode) Requirements expanded and validated via Gemini before roadmap creation
+- [ ] (super mode) Requirements expanded and validated via CLI delegate before roadmap creation
 - [ ] (super mode) Each milestone scored ≥ 80% before advancing
 - [ ] (super mode) All milestones completed with no user intervention
 - [ ] (super mode) Final system builds, starts, and passes all tests
