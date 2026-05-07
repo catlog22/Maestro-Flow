@@ -32,6 +32,7 @@ Skill(skill="team-lifecycle-v4", args="task description")
                               |
                          collect results
 ```
+
 </purpose>
 
 <context>

@@ -52,6 +52,7 @@ Wave-based parallel task execution using `spawn_agents_on_csv`. Reads plan.json 
 |                                                                           |
 +---------------------------------------------------------------------------+
 ```
+
 </purpose>
 
 <context>
@@ -218,7 +219,7 @@ For each wave N in ascending order:
 spawn_agents_on_csv({
   csv_path: `${sessionFolder}/wave-${N}.csv`,
   id_column: "id",
-  instruction: buildExecutorInstruction(sessionFolder, phaseDir, autoCommit, specsContent),
+  instruction: buildExecutorInstruction(sessionFolder, phaseDir, autoCommit, specsContent),  // agent: ~/.codex/agents/workflow-executor.toml
   max_concurrency: maxConcurrency, max_runtime_seconds: 3600,
   output_csv_path: `${sessionFolder}/wave-${N}-results.csv`,
   output_schema: { id, status: [completed|failed|blocked], findings, files_modified, tests_passed, error }

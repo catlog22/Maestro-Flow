@@ -54,6 +54,7 @@ Wave-based multi-dimensional analysis using `spawn_agents_on_csv`. Diamond topol
 |                                                                           |
 +---------------------------------------------------------------------------+
 ```
+
 </purpose>
 
 <context>
@@ -250,7 +251,7 @@ Filter `wave == 1 && status == pending` from master CSV. No prev_context (no pre
 spawn_agents_on_csv({
   csv_path: `${sessionFolder}/wave-1.csv`,
   id_column: "id",
-  instruction: buildExplorationInstruction(sessionFolder),
+  instruction: buildExplorationInstruction(sessionFolder),  // agent: ~/.codex/agents/cli-explore-agent.toml
   max_concurrency: maxConcurrency,
   max_runtime_seconds: 3600,
   output_csv_path: `${sessionFolder}/wave-1-results.csv`,
@@ -275,7 +276,7 @@ Filter `wave == 2 && status == pending` from master CSV. Build `prev_context` fr
 spawn_agents_on_csv({
   csv_path: `${sessionFolder}/wave-2.csv`,
   id_column: "id",
-  instruction: buildScoringInstruction(sessionFolder),
+  instruction: buildScoringInstruction(sessionFolder),  // agent: ~/.codex/agents/workflow-analyzer.toml
   max_concurrency: maxConcurrency,
   max_runtime_seconds: 3600,
   output_csv_path: `${sessionFolder}/wave-2-results.csv`,

@@ -56,6 +56,7 @@ Wave-based 3-layer Goal-Backward verification using `spawn_agents_on_csv`. Decom
 |                                                                         |
 +-------------------------------------------------------------------------+
 ```
+
 </purpose>
 
 <context>
@@ -233,7 +234,7 @@ Filter `wave == 1 && status == pending` from master CSV. No prev_context (no pre
 spawn_agents_on_csv({
   csv_path: `${sessionFolder}/wave-1.csv`,
   id_column: "id",
-  instruction: buildVerifyInstruction(sessionFolder, "wave1"),
+  instruction: buildVerifyInstruction(sessionFolder, "wave1"),  // agent: ~/.codex/agents/workflow-verifier.toml
   max_concurrency: maxConcurrency,
   max_runtime_seconds: 3600,
   output_csv_path: `${sessionFolder}/wave-1-results.csv`,

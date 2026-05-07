@@ -130,11 +130,6 @@ Display step banner:
 
 If decision node: also show `Retry: {retry_count}/{max_retries}` from parsed args.
 
-Context weight hint (non-auto only, after 4+ completed steps):
-```
-⚡ 已执行 {completed_count} 步，上下文较重。可 /maestro-ralph continue 在新上下文恢复。
-```
-
 ## Step 5: Execute by Type
 
 ### 5a. decision node (ralph-only)
@@ -240,10 +235,10 @@ If not next.retried:
   next.retried = true, next.status = "pending", next.error = null
   Write status.json → Skill("maestro-ralph-execute")  // retry once
 Else:
-  next.status = "skipped"
+  status.status = "paused"
   Write status.json
-  Display: [{next.index}/{total}] ⏭ {next.skill} auto-skipped after retry
-  → Skill("maestro-ralph-execute")  // continue
+  Display: [{next.index}/{total}] ✗ {next.skill} 重试后仍失败，会话已暂停。请检查后 /maestro-ralph continue 恢复。
+  End.
 ```
 
 **Interactive mode (non-auto):**
@@ -297,7 +292,6 @@ Type badges: `◆` decision, `⚡` external, (none) internal.
 | E002 | error | Session status.json corrupt | Show path, suggest manual check |
 | E003 | error | CLI delegate failed + user abort | Mark paused, suggest resume |
 | W001 | warning | Step completed with warnings | Log and continue |
-| W002 | warning | Context heavy (step >= 4) | Hint: /maestro-ralph continue |
 </error_codes>
 
 <success_criteria>
@@ -311,7 +305,7 @@ Type badges: `◆` decision, `⚡` external, (none) internal.
 - [ ] external nodes use maestro delegate --to claude with run_in_background + STOP pattern
 - [ ] Context propagation: output signals update status.json.context
 - [ ] status.json updated after every status change (resume-safe)
-- [ ] Auto mode: retry once then skip; interactive: AskUserQuestion retry/skip/abort
+- [ ] Auto mode: retry once then pause; interactive: AskUserQuestion retry/skip/abort
 - [ ] Completion report shows all steps with status icons and type badges
 - [ ] Self-invocation chain continues until all steps complete or session paused
 </success_criteria>

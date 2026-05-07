@@ -26,6 +26,7 @@ Skill(skill="team-quality-assurance", args="task description")
                  [scout] [strat] [gen] [exec] [analyst]
                  team-worker agents, each loads roles/<role>/role.md
 ```
+
 </purpose>
 
 <context>

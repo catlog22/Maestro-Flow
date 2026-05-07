@@ -46,6 +46,7 @@ Wave-based planning using `spawn_agents_on_csv`. Wave 1 explores codebase contex
 |                                                                           |
 +---------------------------------------------------------------------------+
 ```
+
 </purpose>
 
 <context>
@@ -259,7 +260,7 @@ ELSE:
 spawn_agents_on_csv({
   csv_path: `${sessionFolder}/wave-1.csv`,
   id_column: "id",
-  instruction: buildExplorationInstruction(sessionFolder, phaseDir),
+  instruction: buildExplorationInstruction(sessionFolder, phaseDir),  // agent: ~/.codex/agents/cli-explore-agent.toml
   max_concurrency: maxConcurrency,
   max_runtime_seconds: 3600,
   output_csv_path: `${sessionFolder}/wave-1-results.csv`,
@@ -298,7 +299,7 @@ Include this ceiling in `buildPlanningInstruction`. If the planning agent output
 spawn_agents_on_csv({
   csv_path: `${sessionFolder}/wave-2.csv`,
   id_column: "id",
-  instruction: buildPlanningInstruction(sessionFolder, phaseDir, {
+  instruction: buildPlanningInstruction(sessionFolder, phaseDir, {  // agent: ~/.codex/agents/workflow-planner.toml
     contextMd, indexJson, specRef, docIndex, designRef, gapsContext
   }),
   max_concurrency: 1,  // Single planning agent

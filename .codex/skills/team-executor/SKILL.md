@@ -20,6 +20,7 @@ Skill(skill="team-executor")
               v       v       v       v
            [team-worker agents loaded from session role-specs]
 ```
+
 </purpose>
 
 <context>

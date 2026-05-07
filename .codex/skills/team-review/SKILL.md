@@ -26,6 +26,7 @@ Skill(skill="team-review", args="task description")
                 [scan]  [review]  [fix]
                 team-worker agents, each loads roles/<role>/role.md
 ```
+
 </purpose>
 
 <context>

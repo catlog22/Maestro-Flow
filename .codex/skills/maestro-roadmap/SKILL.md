@@ -45,6 +45,7 @@ Unified 2-wave roadmap generation using `spawn_agents_on_csv` with dual executio
 |                                                                           |
 +---------------------------------------------------------------------------+
 ```
+
 </purpose>
 
 <context>
@@ -253,7 +254,7 @@ spawn_agents_on_csv({
   id_column: "id",
   instruction: mode === 'light'
     ? buildAnalysisInstruction(sessionFolder, requirementArg, strategy)
-    : buildResearchInstruction(sessionFolder, requirementArg),
+    : buildResearchInstruction(sessionFolder, requirementArg),  // agent: ~/.codex/agents/workflow-project-researcher.toml
   max_concurrency: 3,
   max_runtime_seconds: 3600,
   output_csv_path: `${sessionFolder}/wave-1-results.csv`,

@@ -26,6 +26,7 @@ Skill(skill="team-testing", args="task description")
                 [strat] [gen]  [exec]  [analyst]
                 team-worker agents, each loads roles/<role>/role.md
 ```
+
 </purpose>
 
 <context>

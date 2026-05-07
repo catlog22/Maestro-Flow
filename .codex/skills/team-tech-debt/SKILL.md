@@ -26,6 +26,7 @@ Skill(skill="team-tech-debt", args="task description")
            [team-worker agents, each loads roles/<role>/role.md]
           scanner  assessor  planner  executor  validator
 ```
+
 </purpose>
 
 <context>

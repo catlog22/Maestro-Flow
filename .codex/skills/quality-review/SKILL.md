@@ -45,6 +45,7 @@ Wave-based multi-dimensional code review using `spawn_agents_on_csv`. Decomposes
 |                                                                           |
 +---------------------------------------------------------------------------+
 ```
+
 </purpose>
 
 <context>
@@ -202,7 +203,7 @@ Filter master `tasks.csv` for `wave == 1 AND status == pending` → write `wave-
 spawn_agents_on_csv({
   csv_path: `${sessionFolder}/wave-1.csv`,
   id_column: "id",
-  instruction: buildReviewInstruction(sessionFolder),
+  instruction: buildReviewInstruction(sessionFolder),  // agent: ~/.codex/agents/workflow-reviewer.toml
   max_concurrency: maxConcurrency,
   max_runtime_seconds: 3600,
   output_csv_path: `${sessionFolder}/wave-1-results.csv`,

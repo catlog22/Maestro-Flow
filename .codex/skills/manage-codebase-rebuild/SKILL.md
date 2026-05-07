@@ -44,6 +44,7 @@ Single-wave parallel execution -- 5 independent doc generator agents each analyz
 |                                                                           |
 +---------------------------------------------------------------------------+
 ```
+
 </purpose>
 
 <context>
@@ -198,7 +199,7 @@ Filter master `tasks.csv` for `wave == 1 AND status == pending` → write `wave-
 spawn_agents_on_csv({
   csv_path: `${sessionFolder}/wave-1.csv`,
   id_column: "id",
-  instruction: buildRebuildInstruction(sessionFolder, sourceDirs),
+  instruction: buildRebuildInstruction(sessionFolder, sourceDirs),  // agent: ~/.codex/agents/workflow-codebase-mapper.toml
   max_concurrency: maxConcurrency,
   max_runtime_seconds: 3600,
   output_csv_path: `${sessionFolder}/wave-1-results.csv`,

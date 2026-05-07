@@ -27,6 +27,7 @@ Universal team coordination skill: analyze task -> generate role-specs -> dispat
     maestro delegate --mode analysis  - analysis and exploration
     maestro delegate --mode write     - code generation and modification
 ```
+
 </purpose>
 
 <context>

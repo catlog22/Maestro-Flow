@@ -40,7 +40,7 @@ otherwise             → Phase 1 (New Session).
 - `-y` / `--yes` → `session.auto_mode = true`
   - Skip confirmation prompts
   - Decision nodes: auto-follow delegate verdict (no STOP), except post-debug-escalate
-  - Failures: retry once then skip
+  - Failures: retry once then pause
 
 **`-y` downstream propagation** (appended to skill_call in CSV):
 
@@ -68,7 +68,7 @@ otherwise             → Phase 1 (New Session).
 6. **Non-barriers can parallel** — consecutive non-barrier, non-decision external steps grouped into one wave
 7. **Wave-by-wave** — never start wave N+1 before wave N results are read
 8. **Coordinator owns context** — sub-agents never read prior results; coordinator assembles full skill_call
-9. **Abort on failure** — `-y`: retry once then skip; non-`-y`: mark remaining skipped → pause
+9. **Abort on failure** — `-y`: retry once then pause; non-`-y`: mark remaining skipped → pause
 10. **Quality mode governs steps** — full/standard/quick determines which quality stages are included
 11. **passed_gates skip** — already-passed gates not re-run in retry loops (unless code changed)
 </invariants>
@@ -453,7 +453,7 @@ spawn_agents_on_csv({
 **8. Persist** — write status.json + sync update_plan
 
 **9. Failure check:**
-- `-y`: retry once, then skip and continue
+- `-y`: retry once, then pause (await manual intervention)
 - Non-`-y`: mark remaining skipped → pause → STOP
 
 **10. Next step check:**

@@ -215,7 +215,7 @@ mkdir -p {sessionFolder}
 spawn_agents_on_csv({
   csv_path: `${sessionFolder}/wave-1.csv`,
   id_column: "id",
-  instruction: buildInvestigationInstruction(sessionFolder),
+  instruction: buildInvestigationInstruction(sessionFolder),  // agent: ~/.codex/agents/workflow-debugger.toml
   max_concurrency: maxConcurrency, max_runtime_seconds: 3600,
   output_csv_path: `${sessionFolder}/wave-1-results.csv`,
   output_schema: { id, status: [confirmed|refuted|inconclusive|failed], findings, evidence_for, evidence_against, error }
@@ -235,7 +235,7 @@ spawn_agents_on_csv({
 spawn_agents_on_csv({
   csv_path: `${sessionFolder}/wave-2.csv`,
   id_column: "id",
-  instruction: buildFixInstruction(sessionFolder),
+  instruction: buildFixInstruction(sessionFolder),  // agent: ~/.codex/agents/workflow-debugger.toml
   max_concurrency: maxConcurrency, max_runtime_seconds: 3600,
   output_csv_path: `${sessionFolder}/wave-2-results.csv`,
   output_schema: { id, status: [fixed|fix_failed|failed], findings, fix_applied, verified, error }
