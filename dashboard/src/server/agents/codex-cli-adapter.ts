@@ -4,6 +4,9 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createInterface, type Interface as ReadlineInterface } from 'node:readline';
+import { existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { createRequire } from 'node:module';
 import type {
   AgentConfig,
   AgentProcess,
@@ -54,17 +57,115 @@ interface CodexItem {
   diff?: string;
 }
 
+interface CodexError {
+  type: 'error';
+  message?: string;
+}
+
+interface CodexTurnFailed {
+  type: 'turn.failed';
+  error?: { message?: string };
+}
+
 type CodexMessage =
   | CodexThreadStarted
   | CodexTurnStarted
   | CodexItemCompleted
-  | CodexTurnCompleted;
+  | CodexTurnCompleted
+  | CodexError
+  | CodexTurnFailed;
 
 // ---------------------------------------------------------------------------
 // Stderr error pattern
 // ---------------------------------------------------------------------------
 
 const STDERR_ERROR_RE = /\b(error|fatal)\b/i;
+
+// ---------------------------------------------------------------------------
+// Native binary resolution — bypass shell/shim layers on Windows
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve the native codex binary path by replicating the logic from
+ * `@openai/codex/bin/codex.js`. On Windows, `shell: true` creates a
+ * fragile process chain (cmd.exe → codex.cmd → node codex.js → codex.exe)
+ * where intermediate processes can exit before the native binary finishes,
+ * breaking the stdout pipe. Resolving the native binary directly and spawning
+ * without `shell: true` eliminates this race condition.
+ *
+ * Returns the absolute path to the native binary, or null if not found
+ * (in which case the adapter falls back to shell-based spawn).
+ */
+function resolveCodexNativeBinary(): string | null {
+  const isWin = process.platform === 'win32';
+  const binaryName = isWin ? 'codex.exe' : 'codex';
+
+  const targetTriples: Record<string, Record<string, string>> = {
+    win32:  { x64: 'x86_64-pc-windows-msvc', arm64: 'aarch64-pc-windows-msvc' },
+    linux:  { x64: 'x86_64-unknown-linux-musl', arm64: 'aarch64-unknown-linux-musl' },
+    darwin: { x64: 'x86_64-apple-darwin', arm64: 'aarch64-apple-darwin' },
+  };
+
+  const triple = targetTriples[process.platform]?.[process.arch];
+  if (!triple) return null;
+
+  const platformPackages: Record<string, string> = {
+    'x86_64-pc-windows-msvc':     '@openai/codex-win32-x64',
+    'aarch64-pc-windows-msvc':    '@openai/codex-win32-arm64',
+    'x86_64-unknown-linux-musl':  '@openai/codex-linux-x64',
+    'aarch64-unknown-linux-musl': '@openai/codex-linux-arm64',
+    'x86_64-apple-darwin':        '@openai/codex-darwin-x64',
+    'aarch64-apple-darwin':       '@openai/codex-darwin-arm64',
+  };
+
+  const platformPkg = platformPackages[triple];
+  if (!platformPkg) return null;
+
+  // Strategy 1: resolve via npm global install (most common)
+  try {
+    const npmGlobal = isWin
+      ? join(process.env.APPDATA ?? '', 'npm', 'node_modules', '@openai', 'codex')
+      : '';
+
+    // Use createRequire from the codex package location
+    const codexPkgPaths = [
+      npmGlobal ? join(npmGlobal, 'package.json') : '',
+      // Also try resolving from cwd
+    ].filter(Boolean);
+
+    for (const basePath of codexPkgPaths) {
+      try {
+        const req = createRequire(basePath);
+        const pkgJsonPath = req.resolve(`${platformPkg}/package.json`);
+        const vendorRoot = join(dirname(pkgJsonPath), 'vendor');
+        const candidate = join(vendorRoot, triple, 'codex', binaryName);
+        if (existsSync(candidate)) return candidate;
+      } catch { /* continue */ }
+    }
+  } catch { /* continue */ }
+
+  // Strategy 2: look for local vendor directory relative to codex shim
+  try {
+    const shimPath = isWin
+      ? join(process.env.APPDATA ?? '', 'npm', 'node_modules', '@openai', 'codex', 'vendor')
+      : '';
+    if (shimPath) {
+      const candidate = join(shimPath, triple, 'codex', binaryName);
+      if (existsSync(candidate)) return candidate;
+    }
+  } catch { /* continue */ }
+
+  return null;
+}
+
+// Cache the resolved binary path (or null) to avoid repeated filesystem lookups
+let _cachedCodexBinary: string | null | undefined;
+function getCodexBinary(): string | null {
+  if (_cachedCodexBinary === undefined) {
+    _cachedCodexBinary = resolveCodexNativeBinary();
+  }
+  return _cachedCodexBinary;
+}
 
 // ---------------------------------------------------------------------------
 // Adapter implementation
@@ -102,13 +203,24 @@ export class CodexCliAdapter extends BaseAgentAdapter {
     if (config.apiKey) envOverrides.OPENAI_API_KEY = config.apiKey;
     const childEnv = cleanSpawnEnv(envOverrides);
 
-    const child = spawn('codex', args, {
-      cwd: config.workDir,
-      env: childEnv,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      shell: true,
-      windowsHide: true,
-    });
+    // Prefer the resolved native binary to avoid the fragile shell process
+    // chain on Windows (cmd.exe → codex.cmd → node codex.js → codex.exe).
+    // When the native binary is found, spawn directly without shell: true.
+    const nativeBinary = getCodexBinary();
+    const child = nativeBinary
+      ? spawn(nativeBinary, args, {
+          cwd: config.workDir,
+          env: childEnv,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          windowsHide: true,
+        })
+      : spawn('codex', args, {
+          cwd: config.workDir,
+          env: childEnv,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          shell: true,
+          windowsHide: true,
+        });
 
     if (!child.stdout || !child.stdin || !child.stderr) {
       throw new Error('Failed to spawn Codex CLI: stdio streams not available');
@@ -280,6 +392,24 @@ export class CodexCliAdapter extends BaseAgentAdapter {
             ),
           );
         }
+        break;
+      }
+
+      case 'error': {
+        const errorMsg = (msg as CodexError).message ?? 'Unknown codex error';
+        this.emitEntry(
+          processId,
+          EntryNormalizer.error(processId, errorMsg, 'codex_error'),
+        );
+        break;
+      }
+
+      case 'turn.failed': {
+        const failedMsg = (msg as CodexTurnFailed).error?.message ?? 'Turn failed';
+        this.emitEntry(
+          processId,
+          EntryNormalizer.error(processId, failedMsg, 'turn_failed'),
+        );
         break;
       }
 

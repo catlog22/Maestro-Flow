@@ -210,14 +210,14 @@ Create both directories.
 
 3. **Quick mode routing**: If QUICK_MODE, generate only wave 3 (synthesis/decide) task in CSV. Skip exploration and scoring.
 
-3b. **Gaps mode routing** (if GAPS_MODE):
+3b. **Gaps mode routing** (if GAPS_MODE) — follow `~/.maestro/workflows/issue-gaps-analyze.codex.md` for full CSV wave pipeline:
    - Load issues from `.workflow/issues/issues.jsonl`
    - If `gapsIssueId`: load single issue, validate existence
    - If no ISS-ID: filter `status == "open" || status == "registered"`
-   - For each issue, generate an exploration task (wave 1) focused on issue context
-   - Generate a synthesis task (wave 2) that writes analysis records back to issues.jsonl
-   - Skip standard dimension scoring (wave 2 in normal mode)
-   - Pipeline: Load Issues → CLI Exploration per issue → Root Cause Synthesis → Write issue.analysis → Output context.md
+   - Classify & group issues by location/component overlap
+   - Generate tasks.csv: wave 1 = one exploration row per issue, wave 2 = one synthesis row per group
+   - Execute via spawn_agents_on_csv (wave 1 parallel per issue, wave 2 parallel per group)
+   - Pipeline: Load Issues → Classify & Group → CSV Generation → Wave 1: Explore → Wave 2: Synthesize → Write issue.analysis → Output context.md
    - On completion: append history entry `{ action: "analyzed", at: <ISO>, by: "maestro-analyze --gaps" }` per issue
 
 4. **Dimension and perspective selection** (full mode):

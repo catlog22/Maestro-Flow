@@ -1,8 +1,7 @@
 # Workflow: Issue Analysis
 
-> **DEPRECATED**: This workflow was used by the deleted `manage-issue-analyze` command.
-> Use `maestro-analyze --gaps [ISS-ID]` instead, which integrates issue root cause analysis
-> into the unified analyze pipeline. See `~/.maestro/workflows/issue-gaps-analyze.md`.
+> **DEPRECATED**: Superseded by `issue-gaps-analyze.md` which adds batch support and context.md output.
+> Use `maestro-analyze --gaps [ISS-ID]` instead.
 
 Root cause analysis for a specific issue using CLI exploration and codebase context gathering.
 
