@@ -189,13 +189,8 @@ HARD RULE: external nodes ALWAYS delegate to `claude` — only Claude Code can e
 
 ```
 Bash({
-  command: `maestro delegate "Execute: /${next.skill} ${next.args}
-
-You are a delegate session within a ralph/maestro pipeline.
-Your task: invoke the slash command /${next.skill} with args: ${next.args}
-Use Skill({ skill: \"${next.skill}\", args: \"${next.args}\" }) to execute it.
-Do NOT reimplement the skill logic manually — invoke the actual command.
-All artifact outputs follow the skill's own conventions." --to claude --mode write`,
+  command: `maestro delegate "Execute: Skill({ skill: \"${next.skill}\", args: \"${next.args}\" })
+Do NOT reimplement — invoke the skill command directly." --to claude --mode write`,
   run_in_background: true,
   timeout: 600000
 })
