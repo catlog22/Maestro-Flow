@@ -199,6 +199,12 @@ maestro/
 
 <img src="assets/wechat-group-qr.png" width="200" alt="微信群: Claude Code Workflow交流群 2" />
 
+## 打赏
+
+如果这个项目对你有帮助，欢迎请作者喝杯咖啡：
+
+<img src="assets/wechat-reward-qr.png" width="200" alt="微信赞赏码" />
+
 ## 友情链接
 
 - [Linux DO：学AI，上L站！](https://linux.do/)

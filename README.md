@@ -209,6 +209,12 @@ Join the WeChat group for discussion and feedback:
 
 <img src="assets/wechat-group-qr.png" width="200" alt="WeChat Group: Claude Code Workflow交流群 2" />
 
+## Buy Me a Coffee
+
+If this project helps you, consider buying me a coffee:
+
+<img src="assets/wechat-reward-qr.png" width="200" alt="WeChat Reward QR" />
+
 ## Links
 
 - [Linux DO：学AI，上L站！](https://linux.do/)
